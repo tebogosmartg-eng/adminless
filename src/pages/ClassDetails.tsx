@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Download, Save } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
+import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -15,6 +16,7 @@ const ClassDetails = () => {
   const classInfo = classes.find((c) => c.id === classId);
 
   const [learners, setLearners] = useState<Learner[]>([]);
+  const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);
 
   useEffect(() => {
     if (classInfo) {
@@ -32,6 +34,13 @@ const ClassDetails = () => {
     if (classId) {
       updateClass(classId, learners);
       showSuccess("Marks have been saved successfully!");
+    }
+  };
+
+  const handleVoiceEntryComplete = (updatedLearners: Learner[]) => {
+    setLearners(updatedLearners);
+    if (classId) {
+      updateClass(classId, updatedLearners);
     }
   };
 
@@ -89,7 +98,10 @@ const ClassDetails = () => {
           <h1 className="text-3xl font-bold">{classInfo.subject} - {classInfo.className}</h1>
           <p className="text-muted-foreground">{classInfo.grade}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+           <Button variant="outline" onClick={() => setIsVoiceEntryOpen(true)}>
+            <Mic className="mr-2 h-4 w-4" /> Voice Entry
+          </Button>
           <Button variant="outline" onClick={handleSaveChanges}>
             <Save className="mr-2 h-4 w-4" /> Save Marks
           </Button>
@@ -135,6 +147,13 @@ const ClassDetails = () => {
           </Table>
         </CardContent>
       </Card>
+      
+      <VoiceEntryDialog 
+        isOpen={isVoiceEntryOpen}
+        onOpenChange={setIsVoiceEntryOpen}
+        learners={learners}
+        onComplete={handleVoiceEntryComplete}
+      />
     </>
   );
 };

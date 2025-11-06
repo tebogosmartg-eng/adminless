@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera, Mic } from "lucide-react";
+import { Camera } from "lucide-react";
 import { useClasses } from "../context/ClassesContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import DashboardStats from "@/components/DashboardStats";
@@ -26,9 +26,6 @@ const Dashboard = () => {
         <div className="flex gap-2">
           <Button>
             <Camera className="mr-2 h-4 w-4" /> Scan Scripts
-          </Button>
-          <Button variant="outline">
-            <Mic className="mr-2 h-4 w-4" /> Voice Entry
           </Button>
         </div>
       </div>
