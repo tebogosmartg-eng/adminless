@@ -12,7 +12,7 @@ import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
-  const { classes, updateClass } = useClasses();
+  const { classes, updateLearners } = useClasses();
   const classInfo = classes.find((c) => c.id === classId);
 
   const [learners, setLearners] = useState<Learner[]>([]);
@@ -32,7 +32,7 @@ const ClassDetails = () => {
 
   const handleSaveChanges = () => {
     if (classId) {
-      updateClass(classId, learners);
+      updateLearners(classId, learners);
       showSuccess("Marks have been saved successfully!");
     }
   };
@@ -40,7 +40,7 @@ const ClassDetails = () => {
   const handleVoiceEntryComplete = (updatedLearners: Learner[]) => {
     setLearners(updatedLearners);
     if (classId) {
-      updateClass(classId, updatedLearners);
+      updateLearners(classId, updatedLearners);
     }
   };
 

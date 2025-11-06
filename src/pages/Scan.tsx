@@ -16,7 +16,7 @@ const mockScanResults: Learner[] = [
 ];
 
 const Scan = () => {
-  const { classes, updateClass } = useClasses();
+  const { classes, updateLearners } = useClasses();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [scannedLearners, setScannedLearners] = useState<Learner[]>([]);
@@ -63,7 +63,7 @@ const Scan = () => {
       return scannedMatch ? { ...learner, mark: scannedMatch.mark } : learner;
     });
 
-    updateClass(selectedClassId, updatedLearners);
+    updateLearners(selectedClassId, updatedLearners);
     showSuccess(`Marks have been saved to ${targetClass.className}.`);
   };
 

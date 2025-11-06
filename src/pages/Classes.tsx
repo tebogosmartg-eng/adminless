@@ -1,11 +1,30 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CreateClassDialog } from "@/components/CreateClassDialog";
-import { Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { CreateClassDialog, ClassInfo } from "@/components/CreateClassDialog";
+import { EditClassDialog } from "@/components/EditClassDialog";
+import { DeleteClassDialog } from "@/components/DeleteClassDialog";
+import { Users, MoreVertical } from "lucide-react";
 import { useClasses } from "../context/ClassesContext";
 
 const Classes = () => {
   const { classes, addClass } = useClasses();
+  const navigate = useNavigate();
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
+
+  const handleEdit = (classItem: ClassInfo) => {
+    setSelectedClass(classItem);
+    setIsEditOpen(true);
+  };
+
+  const handleDelete = (classItem: ClassInfo) => {
+    setSelectedClass(classItem);
+    setIsDeleteOpen(true);
+  };
 
   return (
     <>
@@ -30,23 +49,43 @@ const Classes = () => {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {classes.map((classItem) => (
-            <Link to={`/classes/${classItem.id}`} key={classItem.id} className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-lg">
-              <Card className="h-full transition-all hover:border-primary">
-                <CardHeader>
+            <Card key={classItem.id} className="flex flex-col">
+              <CardHeader className="flex-row items-start justify-between">
+                <div>
                   <CardTitle>{classItem.subject}</CardTitle>
                   <CardDescription>{classItem.grade} - {classItem.className}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Users className="mr-2 h-4 w-4" />
-                    <span>{classItem.learners.length} learners</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => navigate(`/classes/${classItem.id}`)}>
+                      View
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleEdit(classItem)}>
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDelete(classItem)} className="text-destructive">
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </CardHeader>
+              <CardContent className="flex-grow cursor-pointer" onClick={() => navigate(`/classes/${classItem.id}`)}>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Users className="mr-2 h-4 w-4" />
+                  <span>{classItem.learners.length} learners</span>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
+      <EditClassDialog isOpen={isEditOpen} onOpenChange={setIsEditOpen} classInfo={selectedClass} />
+      <DeleteClassDialog isOpen={isDeleteOpen} onOpenChange={setIsDeleteOpen} classInfo={selectedClass} />
     </>
   );
 };
