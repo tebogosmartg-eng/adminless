@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal, Search } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
@@ -34,6 +34,7 @@ const ClassDetails = () => {
   const [isEditLearnersOpen, setIsEditLearnersOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (classInfo) {
@@ -49,14 +50,13 @@ const ClassDetails = () => {
     }
   }, [learners, classInfo]);
 
-  const sortedLearners = useMemo(() => {
-    const itemsWithIndex = learners.map((learner, index) => ({
-      ...learner,
-      originalIndex: index,
-    }));
+  const sortedAndFilteredLearners = useMemo(() => {
+    const filtered = learners
+      .map((learner, index) => ({ ...learner, originalIndex: index }))
+      .filter(learner => learner.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
     if (sortConfig.key) {
-      itemsWithIndex.sort((a, b) => {
+      filtered.sort((a, b) => {
         const aVal = a[sortConfig.key!];
         const bVal = b[sortConfig.key!];
         let comparison = 0;
@@ -78,8 +78,8 @@ const ClassDetails = () => {
         return sortConfig.direction === 'descending' ? comparison * -1 : comparison;
       });
     }
-    return itemsWithIndex;
-  }, [learners, sortConfig]);
+    return filtered;
+  }, [learners, sortConfig, searchQuery]);
 
   const requestSort = (key: SortKey) => {
     let direction: SortDirection = 'ascending';
@@ -201,11 +201,23 @@ const ClassDetails = () => {
 
       <Card>
         <CardHeader>
-          <div>
-            <CardTitle>Learner List</CardTitle>
-            <CardDescription>
-              Enter marks below or click headers to sort.
-            </CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <CardTitle>Learner List</CardTitle>
+              <CardDescription>
+                Enter marks below, search for a learner, or click headers to sort.
+              </CardDescription>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search learners..."
+                className="pl-8 sm:w-[300px]"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -228,21 +240,29 @@ const ClassDetails = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedLearners.map((learner, index) => (
-                <TableRow key={learner.originalIndex}>
-                  <TableCell className="font-medium">{index + 1}</TableCell>
-                  <TableCell>{learner.name}</TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      placeholder="Enter mark"
-                      value={learner.mark}
-                      onChange={(e) => handleMarkChange(learner.originalIndex, e.target.value)}
-                      className="text-right"
-                    />
+              {sortedAndFilteredLearners.length > 0 ? (
+                sortedAndFilteredLearners.map((learner, index) => (
+                  <TableRow key={learner.originalIndex}>
+                    <TableCell className="font-medium">{index + 1}</TableCell>
+                    <TableCell>{learner.name}</TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        placeholder="Enter mark"
+                        value={learner.mark}
+                        onChange={(e) => handleMarkChange(learner.originalIndex, e.target.value)}
+                        className="text-right"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="h-24 text-center">
+                    No learners found.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>
