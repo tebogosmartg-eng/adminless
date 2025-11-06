@@ -2,36 +2,64 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, FileText, Save } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Upload, FileText, Save, AlertCircle } from 'lucide-react';
 import { useClasses } from '../context/ClassesContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Learner } from '@/components/CreateClassDialog';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { showSuccess, showError } from '@/utils/toast';
 
-const mockScanResultsSets = [
-  [
-    { name: "Alice Johnson", mark: "88" },
-    { name: "Bob Williams", mark: "72" },
-    { name: "Charlie Brown", mark: "95" },
-  ],
-  [
-    { name: "David Smith", mark: "65" },
-    { name: "Emily Jones", mark: "91" },
-    { name: "Frank Miller", mark: "78" },
-  ],
-  [
-    { name: "Grace Davis", mark: "82" },
-    { name: "Henry Wilson", mark: "99" },
-    { name: "Ivy Moore", mark: "76" },
-  ],
+interface ScannedLearner {
+  name: string;
+  mark: string; // e.g., "42/50"
+}
+
+interface ScannedDetails {
+  subject: string;
+  testNumber: string;
+  grade: string;
+  date: string;
+}
+
+interface MockScanResult {
+  details: ScannedDetails;
+  learners: ScannedLearner[];
+}
+
+const mockScanResultsSets: MockScanResult[] = [
+  {
+    details: { subject: "Mathematics", testNumber: "Test 1", grade: "Grade 10", date: "2024-07-21" },
+    learners: [
+      { name: "Alice Johnson", mark: "88/100" },
+      { name: "Bob Williams", mark: "72/100" },
+      { name: "Charlie Brown", mark: "95/100" },
+    ],
+  },
+  {
+    details: { subject: "Physical Science", testNumber: "Experiment 3", grade: "Grade 11", date: "2024-07-20" },
+    learners: [
+      { name: "David Smith", mark: "35/50" },
+      { name: "Emily Jones", mark: "48/50" },
+      { name: "Frank Miller", mark: "29/50" },
+    ],
+  },
+  {
+    details: { subject: "History", testNumber: "Essay 2", grade: "Grade 9", date: "2024-07-19" },
+    learners: [
+      { name: "Grace Davis", mark: "65/75" },
+      { name: "Henry Wilson", mark: "71/75" },
+      { name: "Ivy Moore", mark: "55/75" },
+    ],
+  },
 ];
 
 const Scan = () => {
   const { classes, updateLearners } = useClasses();
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [scannedLearners, setScannedLearners] = useState<Learner[]>([]);
+  const [scannedDetails, setScannedDetails] = useState<ScannedDetails | null>(null);
+  const [scannedLearners, setScannedLearners] = useState<ScannedLearner[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +77,7 @@ const Scan = () => {
       Promise.all(newPreviews).then((previews) => {
         setImagePreviews(previews);
         setScannedLearners([]);
+        setScannedDetails(null);
       });
     }
   };
@@ -60,18 +89,10 @@ const Scan = () => {
     }
     setIsProcessing(true);
     setTimeout(() => {
-      const allScannedLearners: Learner[] = [];
-      imagePreviews.forEach((_, index) => {
-        const resultSet = mockScanResultsSets[index % mockScanResultsSets.length];
-        allScannedLearners.push(...resultSet);
-      });
-      
-      const uniqueLearners = Object.values(allScannedLearners.reduce((acc, current) => {
-        acc[current.name] = current;
-        return acc;
-      }, {} as Record<string, Learner>));
-
-      setScannedLearners(uniqueLearners);
+      // Cycle through mock data based on number of images to simulate different results
+      const resultSet = mockScanResultsSets[imagePreviews.length % mockScanResultsSets.length];
+      setScannedDetails(resultSet.details);
+      setScannedLearners(resultSet.learners);
       setIsProcessing(false);
       showSuccess(`Processed ${imagePreviews.length} image(s) successfully!`);
     }, 1500);
@@ -98,8 +119,23 @@ const Scan = () => {
     const updatedLearners = targetClass.learners.map(learner => {
       const scannedMatch = scannedLearners.find(sl => sl.name.toLowerCase() === learner.name.toLowerCase());
       if (scannedMatch) {
-        matchedCount++;
-        return { ...learner, mark: scannedMatch.mark };
+        try {
+          const parts = scannedMatch.mark.split('/');
+          if (parts.length !== 2) throw new Error("Invalid format");
+          
+          const obtained = parseFloat(parts[0]);
+          const total = parseFloat(parts[1]);
+
+          if (isNaN(obtained) || isNaN(total) || total === 0) throw new Error("Invalid numbers");
+
+          const percentage = ((obtained / total) * 100).toFixed(1);
+          matchedCount++;
+          return { ...learner, mark: percentage };
+
+        } catch (e) {
+          console.error(`Could not parse mark "${scannedMatch.mark}" for ${learner.name}. Skipping.`);
+          return learner; // Return original learner if parsing fails
+        }
       }
       return learner;
     });
@@ -107,8 +143,10 @@ const Scan = () => {
     updateLearners(selectedClassId, updatedLearners);
     showSuccess(`Marks saved to ${targetClass.className}. ${matchedCount} learner(s) updated.`);
     
+    // Reset state
     setImagePreviews([]);
     setScannedLearners([]);
+    setScannedDetails(null);
     setSelectedClassId(undefined);
   };
 
@@ -146,15 +184,22 @@ const Scan = () => {
         <Card>
           <CardHeader>
             <CardTitle>2. Review & Save</CardTitle>
-            <CardDescription>Verify the scanned marks and save them to a class.</CardDescription>
+            <CardDescription>Verify the scanned data and save marks to a class.</CardDescription>
           </CardHeader>
           <CardContent>
-            {scannedLearners.length > 0 ? (
-              <>
-                <div className="mb-4">
+            {scannedDetails && scannedLearners.length > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
+                  <div><Label>Subject</Label><Input value={scannedDetails.subject} readOnly /></div>
+                  <div><Label>Grade</Label><Input value={scannedDetails.grade} readOnly /></div>
+                  <div><Label>Test</Label><Input value={scannedDetails.testNumber} readOnly /></div>
+                  <div><Label>Date</Label><Input value={scannedDetails.date} readOnly /></div>
+                </div>
+                <div>
+                  <Label>Save to Class</Label>
                   <Select onValueChange={setSelectedClassId} value={selectedClassId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a class to save marks" />
+                      <SelectValue placeholder="Select a class..." />
                     </SelectTrigger>
                     <SelectContent>
                       {classes.map(c => (
@@ -168,7 +213,7 @@ const Scan = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Learner Name</TableHead>
-                        <TableHead className="text-right">Mark (%)</TableHead>
+                        <TableHead className="text-right">Mark (Obtained/Total)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -177,10 +222,11 @@ const Scan = () => {
                           <TableCell>{learner.name}</TableCell>
                           <TableCell className="text-right">
                              <Input
-                              type="number"
+                              type="text"
                               value={learner.mark}
                               onChange={(e) => handleScannedMarkChange(index, e.target.value)}
-                              className="w-24 text-right ml-auto"
+                              className="w-28 text-right ml-auto"
+                              placeholder="e.g. 42/50"
                             />
                           </TableCell>
                         </TableRow>
@@ -188,10 +234,10 @@ const Scan = () => {
                     </TableBody>
                   </Table>
                 </div>
-                <Button onClick={handleSaveChanges} disabled={!selectedClassId} className="w-full mt-4">
+                <Button onClick={handleSaveChanges} disabled={!selectedClassId} className="w-full">
                   <Save className="mr-2 h-4 w-4" /> Save to Class
                 </Button>
-              </>
+              </div>
             ) : (
               <div className="flex items-center justify-center h-full text-center text-muted-foreground">
                 <p>Processing results will appear here.</p>
