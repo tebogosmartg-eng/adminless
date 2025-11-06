@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Download, Save, Mic } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
+import { ImportMarksDialog } from '@/components/ImportMarksDialog';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -17,6 +18,7 @@ const ClassDetails = () => {
 
   const [learners, setLearners] = useState<Learner[]>([]);
   const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   useEffect(() => {
     if (classInfo) {
@@ -37,7 +39,7 @@ const ClassDetails = () => {
     }
   };
 
-  const handleVoiceEntryComplete = (updatedLearners: Learner[]) => {
+  const handleUpdateAndSaveLearners = (updatedLearners: Learner[]) => {
     setLearners(updatedLearners);
     if (classId) {
       updateLearners(classId, updatedLearners);
@@ -105,6 +107,9 @@ const ClassDetails = () => {
           <Button variant="outline" onClick={handleSaveChanges}>
             <Save className="mr-2 h-4 w-4" /> Save Marks
           </Button>
+          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" /> Import Marks
+          </Button>
           <Button onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" /> Export Marks
           </Button>
@@ -152,7 +157,13 @@ const ClassDetails = () => {
         isOpen={isVoiceEntryOpen}
         onOpenChange={setIsVoiceEntryOpen}
         learners={learners}
-        onComplete={handleVoiceEntryComplete}
+        onComplete={handleUpdateAndSaveLearners}
+      />
+      <ImportMarksDialog
+        isOpen={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        classInfo={classInfo}
+        onImportComplete={handleUpdateAndSaveLearners}
       />
     </>
   );
