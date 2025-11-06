@@ -1,25 +1,13 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera } from "lucide-react";
+import { Camera, Users, Percent } from "lucide-react";
 import { useClasses } from "../context/ClassesContext";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import DashboardStats from "@/components/DashboardStats";
 import GlobalStats from "@/components/GlobalStats";
 import { Link } from "react-router-dom";
 import RecentActivity from "@/components/RecentActivity";
 
 const Dashboard = () => {
   const { classes } = useClasses();
-  const [selectedClassId, setSelectedClassId] = useState<string | undefined>(classes[0]?.id);
-
-  useEffect(() => {
-    if (!selectedClassId && classes.length > 0) {
-      setSelectedClassId(classes[0].id);
-    }
-  }, [classes, selectedClassId]);
-
-  const selectedClass = classes.find(c => c.id === selectedClassId);
 
   return (
     <>
@@ -38,31 +26,44 @@ const Dashboard = () => {
         <>
           <GlobalStats classes={classes} />
           
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-4">Class-Specific Statistics</h2>
-            <Select onValueChange={setSelectedClassId} value={selectedClassId}>
-              <SelectTrigger className="w-full md:w-[280px]">
-                <SelectValue placeholder="Select a class to view stats" />
-              </SelectTrigger>
-              <SelectContent>
-                {classes.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.subject} - {c.className}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4">Class Overview</h2>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {classes.map((classItem) => {
+                const markedLearners = classItem.learners.filter(l => l.mark && !isNaN(parseFloat(l.mark)));
+                const marks = markedLearners.map(l => parseFloat(l.mark));
+                let average = "N/A";
+                if (marks.length > 0) {
+                  const sum = marks.reduce((acc, mark) => acc + mark, 0);
+                  average = (sum / marks.length).toFixed(1) + '%';
+                }
 
-          {selectedClass ? (
-            <DashboardStats learners={selectedClass.learners} />
-          ) : (
-             <Card>
-                <CardContent className="p-6 text-center">
-                  <p className="text-muted-foreground">Please select a class to see its statistics.</p>
-                </CardContent>
-              </Card>
-          )}
+                return (
+                  <Card key={classItem.id} className="flex flex-col">
+                    <CardHeader>
+                      <CardTitle>{classItem.subject}</CardTitle>
+                      <CardDescription>{classItem.grade} - {classItem.className}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow space-y-2">
+                       <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground flex items-center"><Users className="mr-2 h-4 w-4" /> Learners</span>
+                          <span className="font-semibold">{classItem.learners.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground flex items-center"><Percent className="mr-2 h-4 w-4" /> Class Average</span>
+                          <span className="font-semibold">{average}</span>
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                      <Button asChild className="w-full">
+                        <Link to={`/classes/${classItem.id}`}>View Class</Link>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
         </>
       ) : (
         <Card>
