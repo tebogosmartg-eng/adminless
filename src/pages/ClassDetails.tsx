@@ -50,8 +50,13 @@ const ClassDetails = () => {
         let comparison = 0;
 
         if (sortConfig.key === 'mark') {
-          const numA = aVal ? parseFloat(aVal) : -Infinity;
-          const numB = bVal ? parseFloat(bVal) : -Infinity;
+          const parseMark = (mark: string) => {
+            if (!mark || mark.trim() === '') return -Infinity;
+            const num = parseFloat(mark);
+            return isNaN(num) ? -Infinity : num;
+          };
+          const numA = parseMark(aVal);
+          const numB = parseMark(bVal);
           if (numA > numB) comparison = 1;
           else if (numA < numB) comparison = -1;
         } else { // name
