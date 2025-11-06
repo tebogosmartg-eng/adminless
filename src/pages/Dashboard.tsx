@@ -1,8 +1,24 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Camera, Mic } from "lucide-react";
+import { useClasses } from "../context/ClassesContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import DashboardStats from "@/components/DashboardStats";
+import { Link } from "react-router-dom";
 
 const Dashboard = () => {
+  const { classes } = useClasses();
+  const [selectedClassId, setSelectedClassId] = useState<string | undefined>(classes[0]?.id);
+
+  useEffect(() => {
+    if (!selectedClassId && classes.length > 0) {
+      setSelectedClassId(classes[0].id);
+    }
+  }, [classes, selectedClassId]);
+
+  const selectedClass = classes.find(c => c.id === selectedClassId);
+
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -17,54 +33,44 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {classes.length > 0 ? (
+        <>
+          <div className="mb-6">
+            <Select onValueChange={setSelectedClassId} value={selectedClassId}>
+              <SelectTrigger className="w-full md:w-[280px]">
+                <SelectValue placeholder="Select a class to view stats" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map(c => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.subject} - {c.className}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedClass ? (
+            <DashboardStats learners={selectedClass.learners} />
+          ) : (
+             <Card>
+                <CardContent className="p-6 text-center">
+                  <p className="text-muted-foreground">Please select a class to see its statistics.</p>
+                </CardContent>
+              </Card>
+          )}
+        </>
+      ) : (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Class Average
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">75.6%</div>
-            <p className="text-xs text-muted-foreground">
-              +2.1% from last test
-            </p>
+          <CardContent className="p-6 text-center">
+            <h3 className="text-lg font-semibold">Welcome to SmaReg!</h3>
+            <p className="text-muted-foreground mt-2 mb-4">Create a class to start tracking marks and viewing statistics.</p>
+            <Button asChild>
+              <Link to="/classes">Create Your First Class</Link>
+            </Button>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pass Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">88%</div>
-            <p className="text-xs text-muted-foreground">
-              22 out of 25 learners passed
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Highest Mark</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">98%</div>
-            <p className="text-xs text-muted-foreground">
-              Achieved by Ayanda Nkosi
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lowest Mark</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">42%</div>
-            <p className="text-xs text-muted-foreground">
-              Needs improvement
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      )}
       
       <div className="mt-8">
         <Card>
