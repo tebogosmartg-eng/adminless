@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { ClassInfo, Learner } from '../components/CreateClassDialog';
 
 interface ClassesContextType {
@@ -10,7 +10,19 @@ interface ClassesContextType {
 const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
 
 export const ClassesProvider = ({ children }: { children: ReactNode }) => {
-  const [classes, setClasses] = useState<ClassInfo[]>([]);
+  const [classes, setClasses] = useState<ClassInfo[]>(() => {
+    try {
+      const savedClasses = localStorage.getItem('classes');
+      return savedClasses ? JSON.parse(savedClasses) : [];
+    } catch (error) {
+      console.error("Failed to parse classes from localStorage", error);
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('classes', JSON.stringify(classes));
+  }, [classes]);
 
   const addClass = (newClass: ClassInfo) => {
     setClasses((prevClasses) => [...prevClasses, newClass]);
