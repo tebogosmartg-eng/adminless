@@ -7,6 +7,8 @@ import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Classes from "./pages/Classes";
+import ClassDetails from "./pages/ClassDetails";
+import { ClassesProvider } from "./context/ClassesContext";
 
 const queryClient = new QueryClient();
 
@@ -15,16 +17,19 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/classes" element={<Classes />} />
-          </Route>
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <ClassesProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/classes" element={<Classes />} />
+              <Route path="/classes/:classId" element={<ClassDetails />} />
+            </Route>
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </ClassesProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
