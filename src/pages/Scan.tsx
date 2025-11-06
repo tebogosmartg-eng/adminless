@@ -41,10 +41,17 @@ const Scan = () => {
     }
     setIsProcessing(true);
     setTimeout(() => {
+      // In a real app, you'd get these results from an OCR API
       setScannedLearners(mockScanResults);
       setIsProcessing(false);
       showSuccess("Image processed successfully!");
-    }, 2000); // Simulate processing time
+    }, 1500);
+  };
+
+  const handleScannedMarkChange = (index: number, newMark: string) => {
+    const updatedScannedLearners = [...scannedLearners];
+    updatedScannedLearners[index].mark = newMark;
+    setScannedLearners(updatedScannedLearners);
   };
 
   const handleSaveChanges = () => {
@@ -58,13 +65,23 @@ const Scan = () => {
       return;
     }
 
+    let matchedCount = 0;
     const updatedLearners = targetClass.learners.map(learner => {
       const scannedMatch = scannedLearners.find(sl => sl.name.toLowerCase() === learner.name.toLowerCase());
-      return scannedMatch ? { ...learner, mark: scannedMatch.mark } : learner;
+      if (scannedMatch) {
+        matchedCount++;
+        return { ...learner, mark: scannedMatch.mark };
+      }
+      return learner;
     });
 
     updateLearners(selectedClassId, updatedLearners);
-    showSuccess(`Marks have been saved to ${targetClass.className}.`);
+    showSuccess(`Marks saved to ${targetClass.className}. ${matchedCount} learner(s) updated.`);
+    
+    // Reset state for next scan
+    setImagePreview(null);
+    setScannedLearners([]);
+    setSelectedClassId(undefined);
   };
 
   return (
@@ -119,14 +136,21 @@ const Scan = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Learner Name</TableHead>
-                        <TableHead className="text-right">Mark</TableHead>
+                        <TableHead className="text-right">Mark (%)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {scannedLearners.map((learner, index) => (
                         <TableRow key={index}>
                           <TableCell>{learner.name}</TableCell>
-                          <TableCell className="text-right font-bold">{learner.mark}%</TableCell>
+                          <TableCell className="text-right">
+                             <Input
+                              type="number"
+                              value={learner.mark}
+                              onChange={(e) => handleScannedMarkChange(index, e.target.value)}
+                              className="w-24 text-right ml-auto"
+                            />
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
