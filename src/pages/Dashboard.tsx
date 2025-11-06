@@ -5,6 +5,7 @@ import { Camera } from "lucide-react";
 import { useClasses } from "../context/ClassesContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import DashboardStats from "@/components/DashboardStats";
+import GlobalStats from "@/components/GlobalStats";
 import { Link } from "react-router-dom";
 
 const Dashboard = () => {
@@ -34,7 +35,10 @@ const Dashboard = () => {
 
       {classes.length > 0 ? (
         <>
+          <GlobalStats classes={classes} />
+          
           <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-4">Class-Specific Statistics</h2>
             <Select onValueChange={setSelectedClassId} value={selectedClassId}>
               <SelectTrigger className="w-full md:w-[280px]">
                 <SelectValue placeholder="Select a class to view stats" />
