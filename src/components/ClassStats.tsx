@@ -1,85 +1,40 @@
-import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Learner } from "@/components/CreateClassDialog";
-import { Percent, TrendingUp, TrendingDown, CheckCircle } from "lucide-react";
+import { Learner } from "./CreateClassDialog";
+import { calculateClassStats } from "@/utils/stats";
 
-interface ClassStatsProps {
-  learners: Learner[];
-}
-
-const ClassStats = ({ learners }: ClassStatsProps) => {
-  const stats = useMemo(() => {
-    const marks = learners
-      .map(l => l.mark)
-      .filter(mark => mark && !isNaN(parseFloat(mark)))
-      .map(mark => parseFloat(mark));
-
-    if (marks.length === 0) {
-      return {
-        average: "N/A",
-        highest: "N/A",
-        lowest: "N/A",
-        markedCount: 0,
-        totalCount: learners.length,
-      };
-    }
-
-    const average = (marks.reduce((acc, mark) => acc + mark, 0) / marks.length).toFixed(1) + '%';
-    const highest = Math.max(...marks).toFixed(1) + '%';
-    const lowest = Math.min(...marks).toFixed(1) + '%';
-
-    return {
-      average,
-      highest,
-      lowest,
-      markedCount: marks.length,
-      totalCount: learners.length,
-    };
-  }, [learners]);
+const ClassStats = ({ learners }: { learners: Learner[] }) => {
+  const stats = calculateClassStats(learners);
 
   return (
-    <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Class Average</CardTitle>
-          <Percent className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.average}</div>
-          <p className="text-xs text-muted-foreground">Based on entered marks</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Highest Mark</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.highest}</div>
-          <p className="text-xs text-muted-foreground">Top score in the class</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Lowest Mark</CardTitle>
-          <TrendingDown className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.lowest}</div>
-          <p className="text-xs text-muted-foreground">Lowest score in the class</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Marking Progress</CardTitle>
-          <CheckCircle className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.markedCount} / {stats.totalCount}</div>
-          <p className="text-xs text-muted-foreground">Learners with marks entered</p>
-        </CardContent>
-      </Card>
-    </div>
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle>Class Statistics</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-center">
+          <div>
+            <p className="text-2xl font-bold">{stats.average}%</p>
+            <p className="text-sm text-muted-foreground">Class Average</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{stats.passRate}%</p>
+            <p className="text-sm text-muted-foreground">Pass Rate</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{stats.highestMark}</p>
+            <p className="text-sm text-muted-foreground">Highest Mark</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{stats.lowestMark}</p>
+            <p className="text-sm text-muted-foreground">Lowest Mark</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{stats.learnersWithMarks} / {stats.totalLearners}</p>
+            <p className="text-sm text-muted-foreground">Marks Captured</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
