@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
@@ -32,12 +33,21 @@ const ClassDetails = () => {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditLearnersOpen, setIsEditLearnersOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     if (classInfo) {
       setLearners(classInfo.learners);
     }
   }, [classInfo]);
+
+  useEffect(() => {
+    if (classInfo) {
+      const originalLearners = JSON.stringify(classInfo.learners.map(l => ({ name: l.name, mark: l.mark })).sort((a, b) => a.name.localeCompare(b.name)));
+      const currentLearners = JSON.stringify(learners.map(l => ({ name: l.name, mark: l.mark })).sort((a, b) => a.name.localeCompare(b.name)));
+      setHasUnsavedChanges(originalLearners !== currentLearners);
+    }
+  }, [learners, classInfo]);
 
   const sortedLearners = useMemo(() => {
     const itemsWithIndex = learners.map((learner, index) => ({
@@ -154,18 +164,35 @@ const ClassDetails = () => {
           <p className="text-muted-foreground">{classInfo.grade}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-           <Button variant="outline" onClick={() => setIsVoiceEntryOpen(true)}>
+          <Button onClick={handleSaveChanges} disabled={!hasUnsavedChanges}>
+            <Save className="mr-2 h-4 w-4" />
+            {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
+          </Button>
+          <Button variant="outline" onClick={() => setIsVoiceEntryOpen(true)}>
             <Mic className="mr-2 h-4 w-4" /> Voice Entry
           </Button>
-          <Button variant="outline" onClick={() => setIsEditLearnersOpen(true)}>
-            <Users className="mr-2 h-4 w-4" /> Manage Learners
-          </Button>
-          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" /> Import
-          </Button>
-          <Button onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" /> Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="sr-only">More options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setIsEditLearnersOpen(true)}>
+                <Users className="mr-2 h-4 w-4" />
+                <span>Manage Learners</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                <span>Import</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExport}>
+                <Download className="mr-2 h-4 w-4" />
+                <span>Export</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -173,16 +200,13 @@ const ClassDetails = () => {
       <MarkDistributionChart learners={learners} />
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <div>
             <CardTitle>Learner List</CardTitle>
             <CardDescription>
               Enter marks below or click headers to sort.
             </CardDescription>
           </div>
-          <Button onClick={handleSaveChanges}>
-            <Save className="mr-2 h-4 w-4" /> Save Marks
-          </Button>
         </CardHeader>
         <CardContent>
           <Table>
