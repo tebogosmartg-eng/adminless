@@ -11,6 +11,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
 import { ImportMarksDialog } from '@/components/ImportMarksDialog';
 import ClassStats from '@/components/ClassStats';
+import MarkDistributionChart from '@/components/MarkDistributionChart';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -118,6 +119,7 @@ const ClassDetails = () => {
       </div>
 
       <ClassStats learners={learners} />
+      <MarkDistributionChart learners={learners} />
 
       <Card>
         <CardHeader>
