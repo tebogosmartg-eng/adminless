@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Download, Save } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -32,6 +32,37 @@ const ClassDetails = () => {
     if (classId) {
       updateClass(classId, learners);
       showSuccess("Marks have been saved successfully!");
+    }
+  };
+
+  const handleExport = () => {
+    if (!classInfo) {
+      showError("Could not find class information to export.");
+      return;
+    }
+
+    const csvHeader = "Learner Name,Mark\n";
+    const csvRows = learners
+      .map(learner => `"${learner.name.replace(/"/g, '""')}",${learner.mark}`)
+      .join("\n");
+    const csvContent = csvHeader + csvRows;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      const filename = `${classInfo.grade}_${classInfo.subject}_${classInfo.className}_Marks.csv`.replace(/\s+/g, '_');
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showSuccess("Marks exported successfully!");
+    } else {
+      showError("Export feature is not supported in your browser.");
     }
   };
 
@@ -62,7 +93,7 @@ const ClassDetails = () => {
           <Button variant="outline" onClick={handleSaveChanges}>
             <Save className="mr-2 h-4 w-4" /> Save Marks
           </Button>
-          <Button>
+          <Button onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" /> Export Marks
           </Button>
         </div>
