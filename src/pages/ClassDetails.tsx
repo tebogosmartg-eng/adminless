@@ -10,6 +10,7 @@ import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
 import { ImportMarksDialog } from '@/components/ImportMarksDialog';
+import ClassStats from '@/components/ClassStats';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -115,6 +116,8 @@ const ClassDetails = () => {
           </Button>
         </div>
       </div>
+
+      <ClassStats learners={learners} />
 
       <Card>
         <CardHeader>
