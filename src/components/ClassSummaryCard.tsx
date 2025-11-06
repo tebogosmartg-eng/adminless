@@ -14,7 +14,7 @@ const ClassSummaryCard = ({ classInfo }: ClassSummaryCardProps) => {
 
   return (
     <Card className="hover:shadow-md transition-shadow">
-      <Link to={`/class/${classInfo.id}`} className="block">
+      <Link to={`/classes/${classInfo.id}`} className="block">
         <CardHeader>
           <CardTitle className="text-lg truncate">{classInfo.subject} - {classInfo.className}</CardTitle>
         </CardHeader>
