@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
 import { ImportMarksDialog } from '@/components/ImportMarksDialog';
 import ClassStats from '@/components/ClassStats';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
+import { EditLearnersDialog } from '@/components/EditLearnersDialog';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -29,6 +30,7 @@ const ClassDetails = () => {
   const [learners, setLearners] = useState<Learner[]>([]);
   const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isEditLearnersOpen, setIsEditLearnersOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
 
   useEffect(() => {
@@ -155,14 +157,14 @@ const ClassDetails = () => {
            <Button variant="outline" onClick={() => setIsVoiceEntryOpen(true)}>
             <Mic className="mr-2 h-4 w-4" /> Voice Entry
           </Button>
-          <Button variant="outline" onClick={handleSaveChanges}>
-            <Save className="mr-2 h-4 w-4" /> Save Marks
+          <Button variant="outline" onClick={() => setIsEditLearnersOpen(true)}>
+            <Users className="mr-2 h-4 w-4" /> Manage Learners
           </Button>
           <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" /> Import Marks
+            <Upload className="mr-2 h-4 w-4" /> Import
           </Button>
           <Button onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" /> Export Marks
+            <Download className="mr-2 h-4 w-4" /> Export
           </Button>
         </div>
       </div>
@@ -171,11 +173,16 @@ const ClassDetails = () => {
       <MarkDistributionChart learners={learners} />
 
       <Card>
-        <CardHeader>
-          <CardTitle>Learner List</CardTitle>
-          <CardDescription>
-            Enter the mark for each learner below. Click headers to sort.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Learner List</CardTitle>
+            <CardDescription>
+              Enter marks below or click headers to sort.
+            </CardDescription>
+          </div>
+          <Button onClick={handleSaveChanges}>
+            <Save className="mr-2 h-4 w-4" /> Save Marks
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>
@@ -228,6 +235,11 @@ const ClassDetails = () => {
         onOpenChange={setIsImportOpen}
         classInfo={classInfo}
         onImportComplete={handleUpdateAndSaveLearners}
+      />
+      <EditLearnersDialog
+        isOpen={isEditLearnersOpen}
+        onOpenChange={setIsEditLearnersOpen}
+        classInfo={classInfo}
       />
     </>
   );

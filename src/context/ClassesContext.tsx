@@ -8,6 +8,7 @@ interface ClassesContextType {
   updateLearners: (classId: string, updatedLearners: Learner[]) => void;
   updateClassDetails: (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => void;
   deleteClass: (classId: string) => void;
+  updateClassLearners: (classId: string, newLearners: Learner[]) => void;
 }
 
 const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
@@ -65,8 +66,20 @@ export const ClassesProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateClassLearners = (classId: string, newLearners: Learner[]) => {
+    const classInfo = classes.find(c => c.id === classId);
+    setClasses(prevClasses =>
+      prevClasses.map(c =>
+        c.id === classId ? { ...c, learners: newLearners } : c
+      )
+    );
+    if (classInfo) {
+      logActivity(`Updated learner list for class: "${classInfo.subject} - ${classInfo.className}"`);
+    }
+  };
+
   return (
-    <ClassesContext.Provider value={{ classes, addClass, updateLearners, updateClassDetails, deleteClass }}>
+    <ClassesContext.Provider value={{ classes, addClass, updateLearners, updateClassDetails, deleteClass, updateClassLearners }}>
       {children}
     </ClassesContext.Provider>
   );
