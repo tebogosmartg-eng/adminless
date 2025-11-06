@@ -10,6 +10,7 @@ import Classes from "./pages/Classes";
 import ClassDetails from "./pages/ClassDetails";
 import Scan from "./pages/Scan";
 import { ClassesProvider } from "./context/ClassesContext";
+import { ActivityProvider } from "./context/ActivityContext";
 
 const queryClient = new QueryClient();
 
@@ -18,20 +19,22 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <ClassesProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/classes" element={<Classes />} />
-              <Route path="/classes/:classId" element={<ClassDetails />} />
-              <Route path="/scan" element={<Scan />} />
-            </Route>
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </ClassesProvider>
+      <ActivityProvider>
+        <ClassesProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<Layout />} >
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/classes" element={<Classes />} />
+                <Route path="/classes/:classId" element={<ClassDetails />} />
+                <Route path="/scan" element={<Scan />} />
+              </Route>
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </ClassesProvider>
+      </ActivityProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

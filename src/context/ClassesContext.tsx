@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { ClassInfo, Learner } from '../components/CreateClassDialog';
+import { useActivity } from './ActivityContext';
 
 interface ClassesContextType {
   classes: ClassInfo[];
@@ -12,6 +13,7 @@ interface ClassesContextType {
 const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
 
 export const ClassesProvider = ({ children }: { children: ReactNode }) => {
+  const { logActivity } = useActivity();
   const [classes, setClasses] = useState<ClassInfo[]>(() => {
     try {
       const savedClasses = localStorage.getItem('classes');
@@ -28,14 +30,19 @@ export const ClassesProvider = ({ children }: { children: ReactNode }) => {
 
   const addClass = (newClass: ClassInfo) => {
     setClasses((prevClasses) => [...prevClasses, newClass]);
+    logActivity(`Created class: "${newClass.subject} - ${newClass.className}"`);
   };
 
   const updateLearners = (classId: string, updatedLearners: Learner[]) => {
+    const classInfo = classes.find(c => c.id === classId);
     setClasses((prevClasses) =>
       prevClasses.map((c) =>
         c.id === classId ? { ...c, learners: updatedLearners } : c
       )
     );
+    if (classInfo) {
+      logActivity(`Updated marks for class: "${classInfo.subject} - ${classInfo.className}"`);
+    }
   };
 
   const updateClassDetails = (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => {
@@ -44,10 +51,18 @@ export const ClassesProvider = ({ children }: { children: ReactNode }) => {
         c.id === classId ? { ...c, ...details } : c
       )
     );
+    const classInfo = classes.find(c => c.id === classId);
+     if (classInfo) {
+      logActivity(`Edited details for class: "${classInfo.subject} - ${classInfo.className}"`);
+    }
   };
 
   const deleteClass = (classId: string) => {
+    const classInfo = classes.find(c => c.id === classId);
     setClasses((prevClasses) => prevClasses.filter((c) => c.id !== classId));
+     if (classInfo) {
+      logActivity(`Deleted class: "${classInfo.subject} - ${classInfo.className}"`);
+    }
   };
 
   return (

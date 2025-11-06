@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Camera } from "lucide-react";
 import { useClasses } from "../context/ClassesContext";
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import DashboardStats from "@/components/DashboardStats";
 import GlobalStats from "@/components/GlobalStats";
 import { Link } from "react-router-dom";
+import RecentActivity from "@/components/RecentActivity";
 
 const Dashboard = () => {
   const { classes } = useClasses();
@@ -76,14 +77,7 @@ const Dashboard = () => {
       )}
       
       <div className="mt-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 text-center">
-            <p className="text-muted-foreground">No recent activity to display.</p>
-          </CardContent>
-        </Card>
+        <RecentActivity />
       </div>
     </>
   );
