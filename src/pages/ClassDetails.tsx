@@ -1,17 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useClasses } from '../context/ClassesContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Download, Save, Mic, Upload } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
 import { ImportMarksDialog } from '@/components/ImportMarksDialog';
 import ClassStats from '@/components/ClassStats';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
+
+type SortDirection = 'ascending' | 'descending';
+type SortKey = keyof Learner;
+
+interface SortConfig {
+  key: SortKey;
+  direction: SortDirection;
+}
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -21,12 +29,48 @@ const ClassDetails = () => {
   const [learners, setLearners] = useState<Learner[]>([]);
   const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
 
   useEffect(() => {
     if (classInfo) {
       setLearners(classInfo.learners);
     }
   }, [classInfo]);
+
+  const sortedLearners = useMemo(() => {
+    const itemsWithIndex = learners.map((learner, index) => ({
+      ...learner,
+      originalIndex: index,
+    }));
+
+    if (sortConfig.key) {
+      itemsWithIndex.sort((a, b) => {
+        const aVal = a[sortConfig.key!];
+        const bVal = b[sortConfig.key!];
+        let comparison = 0;
+
+        if (sortConfig.key === 'mark') {
+          const numA = aVal ? parseFloat(aVal) : -Infinity;
+          const numB = bVal ? parseFloat(bVal) : -Infinity;
+          if (numA > numB) comparison = 1;
+          else if (numA < numB) comparison = -1;
+        } else { // name
+          if (aVal.toLowerCase() > bVal.toLowerCase()) comparison = 1;
+          else if (aVal.toLowerCase() < bVal.toLowerCase()) comparison = -1;
+        }
+        return sortConfig.direction === 'descending' ? comparison * -1 : comparison;
+      });
+    }
+    return itemsWithIndex;
+  }, [learners, sortConfig]);
+
+  const requestSort = (key: SortKey) => {
+    let direction: SortDirection = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
 
   const handleMarkChange = (index: number, mark: string) => {
     const updatedLearners = [...learners];
@@ -125,7 +169,7 @@ const ClassDetails = () => {
         <CardHeader>
           <CardTitle>Learner List</CardTitle>
           <CardDescription>
-            Enter the mark for each learner below.
+            Enter the mark for each learner below. Click headers to sort.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -133,13 +177,23 @@ const ClassDetails = () => {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[100px]">#</TableHead>
-                <TableHead>Learner Name</TableHead>
-                <TableHead className="text-right w-[150px]">Mark</TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => requestSort('name')}>
+                    Learner Name
+                    {sortConfig.key === 'name' && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                  </Button>
+                </TableHead>
+                <TableHead className="text-right w-[150px]">
+                   <Button variant="ghost" onClick={() => requestSort('mark')}>
+                    Mark
+                    {sortConfig.key === 'mark' && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                  </Button>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {learners.map((learner, index) => (
-                <TableRow key={index}>
+              {sortedLearners.map((learner, index) => (
+                <TableRow key={learner.originalIndex}>
                   <TableCell className="font-medium">{index + 1}</TableCell>
                   <TableCell>{learner.name}</TableCell>
                   <TableCell className="text-right">
@@ -147,7 +201,7 @@ const ClassDetails = () => {
                       type="number"
                       placeholder="Enter mark"
                       value={learner.mark}
-                      onChange={(e) => handleMarkChange(index, e.target.value)}
+                      onChange={(e) => handleMarkChange(learner.originalIndex, e.target.value)}
                       className="text-right"
                     />
                   </TableCell>
