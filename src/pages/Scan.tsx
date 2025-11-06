@@ -9,42 +9,71 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 
-const mockScanResults: Learner[] = [
-  { name: "Alice Johnson", mark: "88" },
-  { name: "Bob Williams", mark: "72" },
-  { name: "Charlie Brown", mark: "95" },
+const mockScanResultsSets = [
+  [
+    { name: "Alice Johnson", mark: "88" },
+    { name: "Bob Williams", mark: "72" },
+    { name: "Charlie Brown", mark: "95" },
+  ],
+  [
+    { name: "David Smith", mark: "65" },
+    { name: "Emily Jones", mark: "91" },
+    { name: "Frank Miller", mark: "78" },
+  ],
+  [
+    { name: "Grace Davis", mark: "82" },
+    { name: "Henry Wilson", mark: "99" },
+    { name: "Ivy Moore", mark: "76" },
+  ],
 ];
 
 const Scan = () => {
   const { classes, updateLearners } = useClasses();
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [scannedLearners, setScannedLearners] = useState<Learner[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const newPreviews: Promise<string>[] = [];
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        newPreviews.push(new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        }));
+      });
+      
+      Promise.all(newPreviews).then((previews) => {
+        setImagePreviews(previews);
         setScannedLearners([]);
-      };
-      reader.readAsDataURL(file);
+      });
     }
   };
 
   const handleProcessImage = () => {
-    if (!imagePreview) {
-      showError("Please upload an image first.");
+    if (imagePreviews.length === 0) {
+      showError("Please upload one or more images first.");
       return;
     }
     setIsProcessing(true);
     setTimeout(() => {
-      // In a real app, you'd get these results from an OCR API
-      setScannedLearners(mockScanResults);
+      const allScannedLearners: Learner[] = [];
+      imagePreviews.forEach((_, index) => {
+        const resultSet = mockScanResultsSets[index % mockScanResultsSets.length];
+        allScannedLearners.push(...resultSet);
+      });
+      
+      const uniqueLearners = Object.values(allScannedLearners.reduce((acc, current) => {
+        acc[current.name] = current;
+        return acc;
+      }, {} as Record<string, Learner>));
+
+      setScannedLearners(uniqueLearners);
       setIsProcessing(false);
-      showSuccess("Image processed successfully!");
+      showSuccess(`Processed ${imagePreviews.length} image(s) successfully!`);
     }, 1500);
   };
 
@@ -78,8 +107,7 @@ const Scan = () => {
     updateLearners(selectedClassId, updatedLearners);
     showSuccess(`Marks saved to ${targetClass.className}. ${matchedCount} learner(s) updated.`);
     
-    // Reset state for next scan
-    setImagePreview(null);
+    setImagePreviews([]);
     setScannedLearners([]);
     setSelectedClassId(undefined);
   };
@@ -90,13 +118,17 @@ const Scan = () => {
       <div className="grid gap-8 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>1. Upload Script</CardTitle>
-            <CardDescription>Choose an image of the script to scan.</CardDescription>
+            <CardTitle>1. Upload Scripts</CardTitle>
+            <CardDescription>Choose one or more images of scripts to scan.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg">
-              {imagePreview ? (
-                <img src={imagePreview} alt="Script preview" className="max-h-full max-w-full object-contain" />
+            <div className="flex flex-col items-center justify-center w-full min-h-64 p-2 border-2 border-dashed rounded-lg">
+              {imagePreviews.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {imagePreviews.map((src, index) => (
+                    <img key={index} src={src} alt={`Script preview ${index + 1}`} className="max-h-full max-w-full object-contain rounded-md" />
+                  ))}
+                </div>
               ) : (
                 <div className="text-center">
                   <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -104,9 +136,9 @@ const Scan = () => {
                 </div>
               )}
             </div>
-            <Input type="file" accept="image/*" onChange={handleFileChange} className="mt-4" />
-            <Button onClick={handleProcessImage} disabled={isProcessing || !imagePreview} className="w-full mt-4">
-              {isProcessing ? "Processing..." : <><FileText className="mr-2 h-4 w-4" /> Process Image</>}
+            <Input type="file" accept="image/*" onChange={handleFileChange} className="mt-4" multiple />
+            <Button onClick={handleProcessImage} disabled={isProcessing || imagePreviews.length === 0} className="w-full mt-4">
+              {isProcessing ? "Processing..." : <><FileText className="mr-2 h-4 w-4" /> Process Images</>}
             </Button>
           </CardContent>
         </Card>
