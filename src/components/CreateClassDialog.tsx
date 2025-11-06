@@ -14,12 +14,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle } from "lucide-react";
 
+export interface Learner {
+  name: string;
+  mark: string;
+}
+
 export interface ClassInfo {
   id: string;
   grade: string;
   subject: string;
   className: string;
-  learners: string[];
+  learners: Learner[];
 }
 
 interface CreateClassDialogProps {
@@ -35,7 +40,10 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
 
   const handleSubmit = () => {
     if (grade && subject && className && learners) {
-      const learnerList = learners.split('\n').filter(name => name.trim() !== '');
+      const learnerList = learners.split('\n')
+        .filter(name => name.trim() !== '')
+        .map(name => ({ name: name.trim(), mark: '' }));
+
       onClassCreate({
         id: new Date().toISOString(),
         grade,

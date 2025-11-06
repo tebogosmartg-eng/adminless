@@ -1,14 +1,39 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useClasses } from '../context/ClassesContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, Edit } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, Download, Save } from 'lucide-react';
+import { Learner } from '@/components/CreateClassDialog';
+import { showSuccess } from '@/utils/toast';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
-  const { classes } = useClasses();
+  const { classes, updateClass } = useClasses();
   const classInfo = classes.find((c) => c.id === classId);
+
+  const [learners, setLearners] = useState<Learner[]>([]);
+
+  useEffect(() => {
+    if (classInfo) {
+      setLearners(classInfo.learners);
+    }
+  }, [classInfo]);
+
+  const handleMarkChange = (index: number, mark: string) => {
+    const updatedLearners = [...learners];
+    updatedLearners[index] = { ...updatedLearners[index], mark };
+    setLearners(updatedLearners);
+  };
+
+  const handleSaveChanges = () => {
+    if (classId) {
+      updateClass(classId, learners);
+      showSuccess("Marks have been saved successfully!");
+    }
+  };
 
   if (!classInfo) {
     return (
@@ -34,8 +59,8 @@ const ClassDetails = () => {
           <p className="text-muted-foreground">{classInfo.grade}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <Edit className="mr-2 h-4 w-4" /> Edit Class
+          <Button variant="outline" onClick={handleSaveChanges}>
+            <Save className="mr-2 h-4 w-4" /> Save Marks
           </Button>
           <Button>
             <Download className="mr-2 h-4 w-4" /> Export Marks
@@ -47,7 +72,7 @@ const ClassDetails = () => {
         <CardHeader>
           <CardTitle>Learner List</CardTitle>
           <CardDescription>
-            Showing {classInfo.learners.length} learners in this class.
+            Enter the mark for each learner below.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -56,15 +81,23 @@ const ClassDetails = () => {
               <TableRow>
                 <TableHead className="w-[100px]">#</TableHead>
                 <TableHead>Learner Name</TableHead>
-                <TableHead className="text-right">Mark</TableHead>
+                <TableHead className="text-right w-[150px]">Mark</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {classInfo.learners.map((learner, index) => (
+              {learners.map((learner, index) => (
                 <TableRow key={index}>
                   <TableCell className="font-medium">{index + 1}</TableCell>
-                  <TableCell>{learner}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">Not recorded</TableCell>
+                  <TableCell>{learner.name}</TableCell>
+                  <TableCell className="text-right">
+                    <Input
+                      type="number"
+                      placeholder="Enter mark"
+                      value={learner.mark}
+                      onChange={(e) => handleMarkChange(index, e.target.value)}
+                      className="text-right"
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
