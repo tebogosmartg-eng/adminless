@@ -11,31 +11,34 @@ import ClassDetails from "./pages/ClassDetails";
 import Scan from "./pages/Scan";
 import { ClassesProvider } from "./context/ClassesContext";
 import { ActivityProvider } from "./context/ActivityContext";
+import { ThemeProvider } from "./components/ThemeProvider";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <ActivityProvider>
-        <ClassesProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route element={<Layout />} >
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/classes" element={<Classes />} />
-                <Route path="/classes/:classId" element={<ClassDetails />} />
-                <Route path="/scan" element={<Scan />} />
-              </Route>
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </ClassesProvider>
-      </ActivityProvider>
-    </TooltipProvider>
+    <ThemeProvider defaultTheme="system" storageKey="smareg-theme">
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <ActivityProvider>
+          <ClassesProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/classes" element={<Classes />} />
+                  <Route path="/classes/:classId" element={<ClassDetails />} />
+                  <Route path="/scan" element={<Scan />} />
+                </Route>
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </ClassesProvider>
+        </ActivityProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
