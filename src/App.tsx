@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Classes from "./pages/Classes";
 import ClassDetails from "./pages/ClassDetails";
+import Scan from "./pages/Scan";
 import { ClassesProvider } from "./context/ClassesContext";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/classes" element={<Classes />} />
               <Route path="/classes/:classId" element={<ClassDetails />} />
+              <Route path="/scan" element={<Scan />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

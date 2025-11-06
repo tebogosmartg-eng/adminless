@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users } from "lucide-react";
+import { LayoutDashboard, Users, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const Sidebar = () => {
@@ -34,6 +34,18 @@ const Sidebar = () => {
           >
             <Users className="h-4 w-4" />
             Classes
+          </NavLink>
+          <NavLink
+            to="/scan"
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                isActive && "bg-muted text-primary"
+              )
+            }
+          >
+            <Camera className="h-4 w-4" />
+            Scan Scripts
           </NavLink>
         </nav>
       </div>

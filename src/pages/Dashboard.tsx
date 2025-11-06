@@ -24,8 +24,10 @@ const Dashboard = () => {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <div className="flex gap-2">
-          <Button>
-            <Camera className="mr-2 h-4 w-4" /> Scan Scripts
+          <Button asChild>
+            <Link to="/scan">
+              <Camera className="mr-2 h-4 w-4" /> Scan Scripts
+            </Link>
           </Button>
         </div>
       </div>
