@@ -18,6 +18,7 @@ import { ClassHeader } from '@/components/ClassHeader';
 import { LearnerList } from '@/components/LearnerList';
 import { AddLearnerDialog } from '@/components/AddLearnerDialog';
 import { generateClassPDF, generateBlankClassListPDF } from '@/utils/pdfGenerator';
+import confetti from 'canvas-confetti';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -36,6 +37,7 @@ const ClassDetails = () => {
   const [selectedProfileLearner, setSelectedProfileLearner] = useState<Learner | null>(null);
   
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [prevGradedCount, setPrevGradedCount] = useState(0);
 
   // AI Insights State
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
@@ -48,6 +50,8 @@ const ClassDetails = () => {
   useEffect(() => {
     if (classInfo) {
       setLearners(classInfo.learners);
+      const count = classInfo.learners.filter(l => l.mark && l.mark.trim() !== '').length;
+      setPrevGradedCount(count);
     }
   }, [classInfo]);
 
@@ -56,8 +60,35 @@ const ClassDetails = () => {
       const original = JSON.stringify(classInfo.learners);
       const current = JSON.stringify(learners);
       setHasUnsavedChanges(original !== current);
+      
+      // Check for completion to trigger confetti
+      const currentGradedCount = learners.filter(l => l.mark && l.mark.trim() !== '').length;
+      if (learners.length > 0 && currentGradedCount === learners.length && currentGradedCount > prevGradedCount) {
+        triggerConfetti();
+      }
+      setPrevGradedCount(currentGradedCount);
     }
   }, [learners, classInfo]);
+
+  const triggerConfetti = () => {
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval: any = setInterval(function() {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+    }, 250);
+  };
 
   const handleMarkChange = (index: number, mark: string) => {
     const updatedLearners = [...learners];

@@ -108,6 +108,24 @@ export const LearnerList = ({
     setSortConfig({ key, direction });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter') {
+      e.preventDefault();
+      const nextInput = document.getElementById(`mark-input-${currentIndex + 1}`);
+      if (nextInput) {
+        (nextInput as HTMLInputElement).focus();
+        (nextInput as HTMLInputElement).select(); // Auto-select content for easy overwriting
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevInput = document.getElementById(`mark-input-${currentIndex - 1}`);
+      if (prevInput) {
+        (prevInput as HTMLInputElement).focus();
+        (prevInput as HTMLInputElement).select();
+      }
+    }
+  };
+
   return (
     <Card className="transition-all duration-300">
       <CardHeader>
@@ -239,10 +257,12 @@ export const LearnerList = ({
                     </TableCell>
                     <TableCell>
                       <Input
+                        id={`mark-input-${index}`}
                         type="number"
                         placeholder="%"
                         value={learner.mark}
                         onChange={(e) => onMarkChange(learner.originalIndex, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, index)}
                         className={cn(
                           isAtRisk && "border-red-300 focus-visible:ring-red-500",
                           isInvalid && "border-orange-300 focus-visible:ring-orange-500"
