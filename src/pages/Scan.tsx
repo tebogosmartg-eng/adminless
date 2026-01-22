@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, Save, Loader2 } from 'lucide-react';
+import { Upload, FileText, Save, Loader2, PlusCircle, Users } from 'lucide-react';
 import { useClasses } from '../context/ClassesContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { showSuccess, showError } from '@/utils/toast';
 import { processImagesWithGemini } from '@/services/gemini';
+import { useNavigate } from 'react-router-dom';
 
 interface ScannedLearner {
   name: string;
@@ -23,12 +25,19 @@ interface ScannedDetails {
 }
 
 const Scan = () => {
-  const { classes, updateLearners } = useClasses();
+  const { classes, updateLearners, addClass } = useClasses();
+  const navigate = useNavigate();
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [scannedDetails, setScannedDetails] = useState<ScannedDetails | null>(null);
   const [scannedLearners, setScannedLearners] = useState<ScannedLearner[]>([]);
+  
+  // State for "Update Existing"
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
+  
+  // State for "Create New"
+  const [newClassName, setNewClassName] = useState("");
+  const [activeTab, setActiveTab] = useState("update");
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -65,6 +74,12 @@ const Scan = () => {
       
       setScannedDetails(result.details);
       setScannedLearners(result.learners);
+      
+      // Auto-populate new class name if detected
+      if (result.details) {
+        setNewClassName(`${result.details.grade} - ${result.details.testNumber || 'Test'}`);
+      }
+      
       showSuccess(`Processed successfully! Found ${result.learners.length} learners.`);
     } catch (error) {
       console.error(error);
@@ -74,13 +89,25 @@ const Scan = () => {
     }
   };
 
+  const handleDetailsChange = (field: keyof ScannedDetails, value: string) => {
+    if (scannedDetails) {
+      setScannedDetails({ ...scannedDetails, [field]: value });
+    }
+  };
+
   const handleScannedMarkChange = (index: number, newMark: string) => {
     const updatedScannedLearners = [...scannedLearners];
     updatedScannedLearners[index].mark = newMark;
     setScannedLearners(updatedScannedLearners);
   };
 
-  const handleSaveChanges = () => {
+  const handleScannedNameChange = (index: number, newName: string) => {
+    const updatedScannedLearners = [...scannedLearners];
+    updatedScannedLearners[index].name = newName;
+    setScannedLearners(updatedScannedLearners);
+  };
+
+  const handleSaveToExisting = () => {
     if (!selectedClassId) {
       showError("Please select a class to save the marks.");
       return;
@@ -93,8 +120,7 @@ const Scan = () => {
 
     let matchedCount = 0;
     const updatedLearners = targetClass.learners.map(learner => {
-      // Simple fuzzy match could be improved, currently doing exact case-insensitive match on name parts or full name
-      // Let's try to find if the scanned name contains the learner name or vice versa
+      // Simple fuzzy match could be improved
       const scannedMatch = scannedLearners.find(sl => {
         const slName = sl.name.toLowerCase();
         const lName = learner.name.toLowerCase();
@@ -103,7 +129,6 @@ const Scan = () => {
 
       if (scannedMatch) {
         try {
-          // Normalize mark
           let percentage = "";
           const markStr = scannedMatch.mark.trim();
 
@@ -119,8 +144,6 @@ const Scan = () => {
           } else if (markStr.includes("%")) {
             percentage = markStr.replace("%", "").trim();
           } else {
-            // Assume raw number is percentage if no other context, or just store raw value
-            // Ideally we want percentage for the app stats
              const num = parseFloat(markStr);
              if(!isNaN(num)) percentage = num.toString();
           }
@@ -142,11 +165,61 @@ const Scan = () => {
     updateLearners(selectedClassId, updatedLearners);
     showSuccess(`Marks saved to ${targetClass.className}. ${matchedCount} learner(s) updated.`);
     
-    // Reset state
+    // Cleanup
     setImagePreviews([]);
     setScannedLearners([]);
     setScannedDetails(null);
     setSelectedClassId(undefined);
+    navigate(`/classes/${selectedClassId}`);
+  };
+
+  const handleCreateNewClass = () => {
+    if (!scannedDetails || !newClassName) {
+      showError("Please ensure all class details are filled out.");
+      return;
+    }
+
+    const newLearners = scannedLearners.map(sl => {
+      // Normalize marks to percentage if possible, else keep raw
+      let mark = sl.mark;
+      const markStr = sl.mark.trim();
+      
+      if (markStr.includes("/")) {
+        const parts = markStr.split('/');
+        if (parts.length === 2) {
+          const obtained = parseFloat(parts[0]);
+          const total = parseFloat(parts[1]);
+          if (!isNaN(obtained) && !isNaN(total) && total !== 0) {
+            mark = ((obtained / total) * 100).toFixed(1);
+          }
+        }
+      } else if (markStr.includes("%")) {
+        mark = markStr.replace("%", "").trim();
+      }
+
+      return {
+        name: sl.name,
+        mark: mark
+      };
+    });
+
+    const newClass = {
+      id: new Date().toISOString(),
+      grade: scannedDetails.grade,
+      subject: scannedDetails.subject,
+      className: newClassName,
+      learners: newLearners
+    };
+
+    addClass(newClass);
+    showSuccess(`Created new class "${newClassName}" with ${newLearners.length} learners.`);
+    
+    // Cleanup
+    setImagePreviews([]);
+    setScannedLearners([]);
+    setScannedDetails(null);
+    setNewClassName("");
+    navigate(`/classes/${newClass.id}`);
   };
 
   return (
@@ -189,31 +262,88 @@ const Scan = () => {
         <Card>
           <CardHeader>
             <CardTitle>2. Review & Save</CardTitle>
-            <CardDescription>Verify the scanned data and save marks to a class.</CardDescription>
+            <CardDescription>Verify the scanned data and save marks.</CardDescription>
           </CardHeader>
           <CardContent>
             {scannedDetails && scannedLearners.length > 0 ? (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
-                  <div><Label>Subject</Label><Input value={scannedDetails.subject} readOnly /></div>
-                  <div><Label>Grade</Label><Input value={scannedDetails.grade} readOnly /></div>
-                  <div><Label>Test</Label><Input value={scannedDetails.testNumber} readOnly /></div>
-                  <div><Label>Date</Label><Input value={scannedDetails.date} readOnly /></div>
+                <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/20">
+                   {/* Editable Details */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Subject</Label>
+                    <Input 
+                      value={scannedDetails.subject} 
+                      onChange={(e) => handleDetailsChange('subject', e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Grade</Label>
+                    <Input 
+                      value={scannedDetails.grade} 
+                      onChange={(e) => handleDetailsChange('grade', e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Test / Assessment</Label>
+                    <Input 
+                      value={scannedDetails.testNumber} 
+                      onChange={(e) => handleDetailsChange('testNumber', e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Date</Label>
+                    <Input 
+                      value={scannedDetails.date} 
+                      onChange={(e) => handleDetailsChange('date', e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label>Save to Class</Label>
-                  <Select onValueChange={setSelectedClassId} value={selectedClassId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a class..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classes.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.subject} - {c.className}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="max-h-64 overflow-y-auto">
+
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="update">Update Existing Class</TabsTrigger>
+                    <TabsTrigger value="create">Create New Class</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="update" className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label>Select Class to Update</Label>
+                      <Select onValueChange={setSelectedClassId} value={selectedClassId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a class..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {classes.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.subject} - {c.className}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        We will match scanned names with names in the selected class.
+                      </p>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="create" className="space-y-4 pt-4">
+                     <div className="space-y-2">
+                      <Label>New Class Name</Label>
+                      <Input 
+                        placeholder="e.g. 10A - Term 1" 
+                        value={newClassName}
+                        onChange={(e) => setNewClassName(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        All scanned learners will be added to this new class.
+                      </p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+
+                <div className="max-h-64 overflow-y-auto border rounded-md">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -224,13 +354,20 @@ const Scan = () => {
                     <TableBody>
                       {scannedLearners.map((learner, index) => (
                         <TableRow key={index}>
-                          <TableCell>{learner.name}</TableCell>
+                          <TableCell>
+                             <Input
+                              type="text"
+                              value={learner.name}
+                              onChange={(e) => handleScannedNameChange(index, e.target.value)}
+                              className="h-8"
+                            />
+                          </TableCell>
                           <TableCell className="text-right">
                              <Input
                               type="text"
                               value={learner.mark}
                               onChange={(e) => handleScannedMarkChange(index, e.target.value)}
-                              className="w-28 text-right ml-auto"
+                              className="w-20 text-right ml-auto h-8"
                             />
                           </TableCell>
                         </TableRow>
@@ -238,12 +375,21 @@ const Scan = () => {
                     </TableBody>
                   </Table>
                 </div>
-                <Button onClick={handleSaveChanges} disabled={!selectedClassId} className="w-full">
-                  <Save className="mr-2 h-4 w-4" /> Save to Class
-                </Button>
+
+                {activeTab === 'update' ? (
+                  <Button onClick={handleSaveToExisting} disabled={!selectedClassId} className="w-full">
+                    <Save className="mr-2 h-4 w-4" /> Save to Existing Class
+                  </Button>
+                ) : (
+                  <Button onClick={handleCreateNewClass} disabled={!newClassName} className="w-full">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Create & Save Class
+                  </Button>
+                )}
+
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-center text-muted-foreground min-h-[200px]">
+              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground min-h-[200px]">
+                <FileText className="h-12 w-12 mb-2 opacity-20" />
                 <p>Processing results will appear here.</p>
               </div>
             )}
