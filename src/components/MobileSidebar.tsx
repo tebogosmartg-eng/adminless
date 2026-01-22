@@ -1,4 +1,4 @@
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, LayoutDashboard, Users, Camera, Settings } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -14,6 +14,12 @@ const MobileSidebar = () => {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="flex flex-col p-0">
+        <div className="sr-only">
+          <SheetTitle>Mobile Navigation Menu</SheetTitle>
+          <SheetDescription>
+            Navigate through Dashboard, Classes, Scan Scripts, and Settings.
+          </SheetDescription>
+        </div>
         <div className="flex h-16 items-center border-b px-6">
           <h1 className="text-2xl font-bold">SmaReg</h1>
         </div>
