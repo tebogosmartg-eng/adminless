@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { GradeSymbol, getGradeSymbol } from '@/utils/grading';
+import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -157,16 +159,34 @@ export const LearnerList = ({
             {sortedAndFilteredLearners.length > 0 ? (
               sortedAndFilteredLearners.map((learner, index) => {
                 const gradeSymbol = getGradeSymbol(learner.mark, gradingScheme);
+                const markNum = parseFloat(learner.mark);
+                const isAtRisk = !isNaN(markNum) && markNum < 50;
+
                 return (
-                  <TableRow key={learner.originalIndex}>
+                  <TableRow 
+                    key={learner.originalIndex} 
+                    className={cn(isAtRisk && "bg-red-50 hover:bg-red-100/80 dark:bg-red-950/20 dark:hover:bg-red-950/30")}
+                  >
                     <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
                     <TableCell>
-                       <button 
-                        className="font-medium hover:underline text-left"
-                        onClick={() => onProfileClick(learner)}
-                       >
-                        {learner.name}
-                       </button>
+                       <div className="flex items-center gap-2">
+                         <button 
+                          className="font-medium hover:underline text-left"
+                          onClick={() => onProfileClick(learner)}
+                         >
+                          {learner.name}
+                         </button>
+                         {isAtRisk && (
+                           <Tooltip>
+                             <TooltipTrigger>
+                               <AlertCircle className="h-4 w-4 text-red-500" />
+                             </TooltipTrigger>
+                             <TooltipContent>
+                               <p>At Risk: Mark below 50%</p>
+                             </TooltipContent>
+                           </Tooltip>
+                         )}
+                       </div>
                     </TableCell>
                     <TableCell>
                       <Input
@@ -174,7 +194,7 @@ export const LearnerList = ({
                         placeholder="%"
                         value={learner.mark}
                         onChange={(e) => onMarkChange(learner.originalIndex, e.target.value)}
-                        className=""
+                        className={cn(isAtRisk && "border-red-300 focus-visible:ring-red-500")}
                       />
                     </TableCell>
                     <TableCell>

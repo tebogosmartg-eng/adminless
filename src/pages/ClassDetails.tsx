@@ -17,7 +17,7 @@ import { LearnerProfileDialog } from '@/components/LearnerProfileDialog';
 import { ClassHeader } from '@/components/ClassHeader';
 import { LearnerList } from '@/components/LearnerList';
 import { AddLearnerDialog } from '@/components/AddLearnerDialog';
-import { generateClassPDF } from '@/utils/pdfGenerator';
+import { generateClassPDF, generateBlankClassListPDF } from '@/utils/pdfGenerator';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -90,6 +90,14 @@ const ClassDetails = () => {
       setInsights(null); 
     }
   };
+  
+  const handleClearMarks = () => {
+    if (confirm("Are you sure you want to clear ALL marks and comments? This cannot be undone once saved.")) {
+      const cleared = learners.map(l => ({ ...l, mark: "", comment: "" }));
+      setLearners(cleared);
+      showSuccess("All marks cleared. Click 'Save Changes' to confirm.");
+    }
+  };
 
   const handleUpdateAndSaveLearners = (updatedLearners: Learner[]) => {
     setLearners(updatedLearners);
@@ -137,16 +145,25 @@ const ClassDetails = () => {
 
   const handleExportPdf = () => {
     if (!classInfo) return;
-    
     try {
-      // Use current learner state to reflect what user sees
       const exportClassInfo = { ...classInfo, learners };
-      // Pass school settings to generator
       generateClassPDF(exportClassInfo, gradingScheme, schoolName, teacherName);
       showSuccess("PDF Report generated successfully!");
     } catch (error) {
       console.error(error);
       showError("Failed to generate PDF. Please try again.");
+    }
+  };
+  
+  const handleExportBlankPdf = () => {
+    if (!classInfo) return;
+    try {
+      const exportClassInfo = { ...classInfo, learners };
+      generateBlankClassListPDF(exportClassInfo, schoolName, teacherName);
+      showSuccess("Blank class list generated!");
+    } catch (error) {
+      console.error(error);
+      showError("Failed to generate PDF.");
     }
   };
 
@@ -233,6 +250,8 @@ const ClassDetails = () => {
         onOpenImport={() => setIsImportOpen(true)}
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
+        onExportBlankPdf={handleExportBlankPdf}
+        onClearMarks={handleClearMarks}
       />
 
       {!showComments && (

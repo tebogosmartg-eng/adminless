@@ -150,3 +150,77 @@ export const generateClassPDF = (
   // Save
   doc.save(`${classInfo.className}_${classInfo.subject}_Report.pdf`);
 };
+
+export const generateBlankClassListPDF = (
+  classInfo: ClassInfo,
+  schoolName: string = "My School", 
+  teacherName: string = ""
+) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.width;
+  const margin = 14;
+
+  // Header
+  doc.setFontSize(18);
+  doc.setTextColor(40);
+  doc.text("Mark Recording Sheet", margin, 20);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(schoolName, margin, 26);
+
+  // Context Info
+  const startY = 32;
+  doc.setFontSize(11);
+  doc.setTextColor(0);
+  doc.text(`Subject: ${classInfo.subject}`, margin, startY);
+  doc.text(`Class: ${classInfo.className}`, margin + 80, startY);
+  doc.text(`Grade: ${classInfo.grade}`, margin + 140, startY);
+  
+  if (teacherName) {
+    doc.text(`Teacher: ${teacherName}`, margin, startY + 6);
+  }
+
+  doc.text(`Date: _______________________`, margin + 80, startY + 6);
+  doc.text(`Task: _______________________`, margin + 140, startY + 6);
+
+  // Table Data (Just names and empty columns)
+  const tableRows = classInfo.learners.map((learner, index) => [
+    index + 1,
+    learner.name,
+    '', // Mark
+    '', // Comment
+  ]);
+
+  // Generate Table
+  autoTable(doc, {
+    startY: startY + 15,
+    head: [['#', 'Learner Name', 'Mark / Score', 'Notes / Comments']],
+    body: tableRows,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [240, 240, 240],
+      textColor: 40,
+      lineColor: 200,
+      lineWidth: 0.1,
+      fontSize: 10,
+      fontStyle: 'bold'
+    },
+    styles: {
+      fontSize: 10,
+      cellPadding: 4,
+      lineColor: 200,
+      lineWidth: 0.1,
+      minCellHeight: 10 // Extra height for writing
+    },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 80, fontStyle: 'bold' },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 'auto' }
+    },
+    margin: { top: 60, right: margin, bottom: 20, left: margin },
+  });
+
+  doc.save(`${classInfo.className}_BlankList.pdf`);
+};

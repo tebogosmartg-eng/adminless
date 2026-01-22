@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText, Eraser, File } from 'lucide-react';
 
 interface ClassHeaderProps {
   classNameStr: string;
@@ -18,6 +18,8 @@ interface ClassHeaderProps {
   onOpenImport: () => void;
   onExportCsv: () => void;
   onExportPdf: () => void;
+  onExportBlankPdf: () => void;
+  onClearMarks: () => void;
 }
 
 export const ClassHeader = ({
@@ -34,7 +36,9 @@ export const ClassHeader = ({
   onOpenEditLearners,
   onOpenImport,
   onExportCsv,
-  onExportPdf
+  onExportPdf,
+  onExportBlankPdf,
+  onClearMarks
 }: ClassHeaderProps) => {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -88,6 +92,11 @@ export const ClassHeader = ({
               <span>Import</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onClearMarks} className="text-orange-600 focus:text-orange-700">
+              <Eraser className="mr-2 h-4 w-4" />
+              <span>Clear All Marks</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onExportCsv}>
               <Download className="mr-2 h-4 w-4" />
               <span>Export CSV</span>
@@ -95,6 +104,10 @@ export const ClassHeader = ({
             <DropdownMenuItem onClick={onExportPdf}>
               <FileText className="mr-2 h-4 w-4" />
               <span>Export PDF Report</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onExportBlankPdf}>
+              <File className="mr-2 h-4 w-4" />
+              <span>Export Blank Sheet</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
