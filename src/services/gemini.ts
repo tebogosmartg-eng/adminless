@@ -1,8 +1,23 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-// API Key provided by user
-const API_KEY = "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
-const genAI = new GoogleGenerativeAI(API_KEY);
+// Function to get API Key from localStorage or use default (for demo purposes)
+const getApiKey = () => {
+  return localStorage.getItem('gemini_api_key') || "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
+};
+
+// Helper to get initialized model
+const getModel = (schema?: any) => {
+  const apiKey = getApiKey();
+  const genAI = new GoogleGenerativeAI(apiKey);
+  
+  return genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash", // Using standard stable model name
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: schema,
+    },
+  });
+};
 
 export interface GeminiScanResult {
   details: {
@@ -96,14 +111,7 @@ const commentsSchema = {
 };
 
 export async function processImagesWithGemini(imageDataUrls: string[]): Promise<GeminiScanResult> {
-  // Using gemini-3-flash-preview as requested
-  const model = genAI.getGenerativeModel({ 
-    model: "gemini-3-flash-preview",
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: scanResultSchema as any,
-    },
-  });
+  const model = getModel(scanResultSchema);
 
   const imageParts = imageDataUrls.map((url) => {
     // Extract base64 data and mime type
@@ -138,18 +146,12 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
     return JSON.parse(text) as GeminiScanResult;
   } catch (error) {
     console.error("Error processing images with Gemini:", error);
-    throw new Error("Failed to process images with AI.");
+    throw new Error("Failed to process images with AI. Please check your API key.");
   }
 }
 
 export async function generateClassInsights(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<ClassInsight> {
-  const model = genAI.getGenerativeModel({ 
-    model: "gemini-3-flash-preview",
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: insightsSchema as any,
-    },
-  });
+  const model = getModel(insightsSchema);
 
   // Filter out learners with no marks for the analysis
   const validLearners = learners.filter(l => l.mark && l.mark.trim() !== "");
@@ -177,18 +179,12 @@ export async function generateClassInsights(subject: string, grade: string, lear
     return JSON.parse(text) as ClassInsight;
   } catch (error) {
     console.error("Error generating insights with Gemini:", error);
-    throw new Error("Failed to generate insights.");
+    throw new Error("Failed to generate insights. Please check your API key.");
   }
 }
 
 export async function generateReportComments(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<LearnerComment[]> {
-  const model = genAI.getGenerativeModel({ 
-    model: "gemini-3-flash-preview",
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: commentsSchema as any,
-    },
-  });
+  const model = getModel(commentsSchema);
 
   const validLearners = learners.filter(l => l.mark && l.mark.trim() !== "");
   const learnersData = JSON.stringify(validLearners);
@@ -217,6 +213,6 @@ export async function generateReportComments(subject: string, grade: string, lea
     return JSON.parse(text) as LearnerComment[];
   } catch (error) {
     console.error("Error generating comments with Gemini:", error);
-    throw new Error("Failed to generate comments.");
+    throw new Error("Failed to generate comments. Please check your API key.");
   }
 }

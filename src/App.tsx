@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Classes from "./pages/Classes";
 import ClassDetails from "./pages/ClassDetails";
 import Scan from "./pages/Scan";
+import Settings from "./pages/Settings";
 import { ClassesProvider } from "./context/ClassesContext";
 import { ActivityProvider } from "./context/ActivityContext";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -30,6 +31,7 @@ const App = () => (
                   <Route path="/classes" element={<Classes />} />
                   <Route path="/classes/:classId" element={<ClassDetails />} />
                   <Route path="/scan" element={<Scan />} />
+                  <Route path="/settings" element={<Settings />} />
                 </Route>
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

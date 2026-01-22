@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal, Search, BrainCircuit, MessageSquare, Loader2, FileText } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
@@ -17,6 +18,7 @@ import { EditLearnersDialog } from '@/components/EditLearnersDialog';
 import { AiInsightsDialog } from '@/components/AiInsightsDialog';
 import { generateClassInsights, generateReportComments, ClassInsight } from '@/services/gemini';
 import { Textarea } from '@/components/ui/textarea';
+import { getGradeSymbol } from '@/utils/grading';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -136,9 +138,14 @@ const ClassDetails = () => {
       return;
     }
 
-    const csvHeader = "Learner Name,Mark,Comment\n";
+    const csvHeader = "Learner Name,Mark,Symbol,Level,Comment\n";
     const csvRows = learners
-      .map(learner => `"${learner.name.replace(/"/g, '""')}",${learner.mark},"${(learner.comment || '').replace(/"/g, '""')}"`)
+      .map(learner => {
+        const gradeSymbol = getGradeSymbol(learner.mark);
+        const symbol = gradeSymbol?.symbol || '';
+        const level = gradeSymbol?.level || '';
+        return `"${learner.name.replace(/"/g, '""')}",${learner.mark},${symbol},${level},"${(learner.comment || '').replace(/"/g, '""')}"`;
+      })
       .join("\n");
     const csvContent = csvHeader + csvRows;
 
@@ -176,7 +183,7 @@ const ClassDetails = () => {
       setInsights(result);
     } catch (error) {
       console.error(error);
-      showError("Failed to generate insights. Please try again.");
+      showError("Failed to generate insights. Check API Key in settings.");
     } finally {
       setIsGeneratingInsights(false);
     }
@@ -210,7 +217,7 @@ const ClassDetails = () => {
       showSuccess(`Generated comments for ${comments.length} learners.`);
     } catch (error) {
       console.error(error);
-      showError("Failed to generate comments. Please try again.");
+      showError("Failed to generate comments. Check API Key in settings.");
     } finally {
       setIsGeneratingComments(false);
     }
@@ -348,6 +355,7 @@ const ClassDetails = () => {
                     {sortConfig.key === 'mark' && <ArrowUpDown className="ml-2 h-4 w-4" />}
                   </Button>
                 </TableHead>
+                <TableHead className="w-[100px]">Symbol</TableHead>
                 {showComments && (
                    <TableHead>
                     <Button variant="ghost" onClick={() => requestSort('comment')}>
@@ -360,34 +368,44 @@ const ClassDetails = () => {
             </TableHeader>
             <TableBody>
               {sortedAndFilteredLearners.length > 0 ? (
-                sortedAndFilteredLearners.map((learner, index) => (
-                  <TableRow key={learner.originalIndex}>
-                    <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                    <TableCell className="font-medium">{learner.name}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        placeholder="%"
-                        value={learner.mark}
-                        onChange={(e) => handleMarkChange(learner.originalIndex, e.target.value)}
-                        className=""
-                      />
-                    </TableCell>
-                    {showComments && (
+                sortedAndFilteredLearners.map((learner, index) => {
+                  const gradeSymbol = getGradeSymbol(learner.mark);
+                  return (
+                    <TableRow key={learner.originalIndex}>
+                      <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                      <TableCell className="font-medium">{learner.name}</TableCell>
                       <TableCell>
-                        <Textarea
-                          value={learner.comment || ''}
-                          onChange={(e) => handleCommentChange(learner.originalIndex, e.target.value)}
-                          placeholder="Enter a comment or generate with AI..."
-                          className="min-h-[60px] resize-none"
+                        <Input
+                          type="number"
+                          placeholder="%"
+                          value={learner.mark}
+                          onChange={(e) => handleMarkChange(learner.originalIndex, e.target.value)}
+                          className=""
                         />
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))
+                      <TableCell>
+                        {gradeSymbol && (
+                          <Badge variant="outline" className={gradeSymbol.badgeColor}>
+                            {gradeSymbol.symbol} (L{gradeSymbol.level})
+                          </Badge>
+                        )}
+                      </TableCell>
+                      {showComments && (
+                        <TableCell>
+                          <Textarea
+                            value={learner.comment || ''}
+                            onChange={(e) => handleCommentChange(learner.originalIndex, e.target.value)}
+                            placeholder="Enter a comment or generate with AI..."
+                            className="min-h-[60px] resize-none"
+                          />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={showComments ? 4 : 3} className="h-24 text-center">
+                  <TableCell colSpan={showComments ? 5 : 4} className="h-24 text-center">
                     No learners found.
                   </TableCell>
                 </TableRow>

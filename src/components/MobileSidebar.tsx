@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu, LayoutDashboard, Users, Camera } from "lucide-react";
+import { Menu, LayoutDashboard, Users, Camera, Settings } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +54,18 @@ const MobileSidebar = () => {
           >
             <Camera className="h-5 w-5" />
             Scan Scripts
+          </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                isActive && "bg-muted text-primary"
+              )
+            }
+          >
+            <Settings className="h-5 w-5" />
+            Settings
           </NavLink>
         </nav>
       </SheetContent>
