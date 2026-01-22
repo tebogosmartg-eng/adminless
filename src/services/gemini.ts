@@ -23,6 +23,7 @@ const getModel = (modelName: string, schema?: any) => {
   };
 
   // Only add schema config if schema is provided AND model supports it (1.5+)
+  // Legacy models (gemini-pro, gemini-pro-vision) do not support responseSchema
   if (schema && modelName.includes('1.5')) {
     config.generationConfig = {
       responseMimeType: "application/json",
@@ -164,9 +165,12 @@ async function generateWithModelList<T>(
     "gemini-1.5-pro"
   ];
 
-  // If NOT multimodal (text only), we can also try the legacy gemini-pro as a last resort
+  // If NOT multimodal (text only), we can also try the legacy gemini-pro
+  // If IS multimodal, we try gemini-pro-vision
   if (!isMultimodal) {
     modelsToTry.push("gemini-pro");
+  } else {
+    modelsToTry.push("gemini-pro-vision");
   }
 
   let lastError: any = null;
@@ -177,15 +181,21 @@ async function generateWithModelList<T>(
       
       const model = getModel(modelName, schema);
       
-      // Special handling for legacy gemini-pro which needs JSON enforcement in prompt instead of schema
+      // Special handling for legacy models which need JSON enforcement in prompt instead of schema
       let currentPrompt = prompt;
-      if (modelName === "gemini-pro" && !modelName.includes("1.5")) {
+      const isLegacy = modelName === "gemini-pro" || modelName === "gemini-pro-vision";
+      
+      if (isLegacy) {
         // Clone prompt to avoid modifying original for other retries
         let legacyPrompt = Array.isArray(prompt) ? [...prompt] : [prompt];
+        const jsonInstruction = "\n\nIMPORTANT: Output ONLY valid JSON.";
+        
         if (typeof legacyPrompt[0] === 'string') {
-          legacyPrompt[0] = legacyPrompt[0] + "\n\nIMPORTANT: Output ONLY valid JSON.";
+          legacyPrompt[0] = legacyPrompt[0] + jsonInstruction;
         } else {
-          legacyPrompt.push("\n\nIMPORTANT: Output ONLY valid JSON.");
+          // If the first part is an image part (object), we need to insert text instruction
+          // Multimodal prompts are arrays of string | object. We'll append a string.
+          legacyPrompt.push(jsonInstruction);
         }
         currentPrompt = legacyPrompt;
       }
@@ -216,7 +226,7 @@ async function generateWithModelList<T>(
   
   if (msg.includes("404")) {
     throw new Error(
-      "AI Models not found (404). This usually means the 'Generative Language API' is not enabled in your Google Cloud Console project associated with this API Key."
+      "AI Models not found (404). Please ensure the 'Generative Language API' is enabled in your Google Cloud Console."
     );
   }
   
@@ -253,7 +263,7 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
     - If you cannot read a name or mark clearly, do your best to guess or skip it if impossible.
   `;
 
-  // True = isMultimodal (cannot use gemini-pro)
+  // True = isMultimodal
   return generateWithModelList<GeminiScanResult>([prompt, ...imageParts], scanResultSchema, "Scanning Images", true);
 }
 
