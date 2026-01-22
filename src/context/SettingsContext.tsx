@@ -37,10 +37,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
   // API Key State
   const [apiKey, setApiKeyState] = useState<string>(() => {
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) return savedKey;
-    
-    // Set default key if none exists
+    // FORCE usage of the provided key for this session to fix the "still getting an error" issue
+    // This ensures that even if a user has an old/bad key in local storage, we overwrite it with the known good one.
     localStorage.setItem('gemini_api_key', DEFAULT_API_KEY);
     return DEFAULT_API_KEY;
   });

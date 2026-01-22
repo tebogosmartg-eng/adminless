@@ -155,9 +155,10 @@ async function generateWithFallback<T>(
     const result = await model.generateContent(Array.isArray(prompt) ? prompt : [prompt]);
     const response = await result.response;
     const text = cleanJson(response.text());
+    console.log(`[Gemini Response for ${errorContext}]:`, text);
     return JSON.parse(text) as T;
   } catch (error: any) {
-    console.warn(`Flash model failed for ${errorContext}:`, error);
+    console.error(`[Gemini Error for ${errorContext}]:`, error);
     
     // Stop early if key is invalid/missing
     if (error.message.includes("API Key is missing")) throw error;
@@ -172,6 +173,7 @@ async function generateWithFallback<T>(
       const result = await model.generateContent(Array.isArray(prompt) ? prompt : [prompt]);
       const response = await result.response;
       const text = cleanJson(response.text());
+      console.log(`[Gemini Fallback Response]:`, text);
       return JSON.parse(text) as T;
     } catch (fallbackError: any) {
       console.error(`Pro model also failed for ${errorContext}:`, fallbackError);
@@ -180,6 +182,7 @@ async function generateWithFallback<T>(
       if (fallbackError.message) msg = fallbackError.message;
       if (msg.includes("404")) msg = "AI Model not found or API Key not authorized for this model.";
       if (msg.includes("403")) msg = "API Key declined. Check your billing/quota or key validity.";
+      if (msg.includes("SAFETY")) msg = "Content was blocked due to safety settings.";
       
       throw new Error(`AI Request Failed: ${msg}`);
     }
