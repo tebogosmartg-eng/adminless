@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, Save, Loader2, PlusCircle, Users } from 'lucide-react';
+import { Upload, FileText, Save, Loader2, PlusCircle, Users, PlayCircle } from 'lucide-react';
 import { useClasses } from '../context/ClassesContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -87,6 +87,34 @@ const Scan = () => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleSimulateScan = () => {
+    setIsProcessing(true);
+    
+    // Simulate a delay to feel real
+    setTimeout(() => {
+      const mockDetails: ScannedDetails = {
+        subject: "Physical Sciences",
+        grade: "Grade 11",
+        testNumber: "Term 3 Control Test",
+        date: new Date().toISOString().split('T')[0]
+      };
+
+      const mockLearners: ScannedLearner[] = [
+        { name: "Thabo Mbeki", mark: "78%" },
+        { name: "Sarah Connor", mark: "45/60" },
+        { name: "John Wick", mark: "92" },
+        { name: "Ellen Ripley", mark: "88%" },
+        { name: "Marty McFly", mark: "32/60" }
+      ];
+
+      setScannedDetails(mockDetails);
+      setScannedLearners(mockLearners);
+      setNewClassName(`${mockDetails.grade} - ${mockDetails.testNumber}`);
+      setIsProcessing(false);
+      showSuccess("Simulated scan complete!");
+    }, 1500);
   };
 
   const handleDetailsChange = (field: keyof ScannedDetails, value: string) => {
@@ -247,15 +275,25 @@ const Scan = () => {
               )}
             </div>
             <Input type="file" accept="image/*" onChange={handleFileChange} className="mt-4" multiple />
-            <Button onClick={handleProcessImage} disabled={isProcessing || imagePreviews.length === 0} className="w-full mt-4">
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing with Gemini AI...
-                </>
-              ) : (
-                <><FileText className="mr-2 h-4 w-4" /> Process Images</>
-              )}
-            </Button>
+            
+            <div className="flex flex-col gap-2 mt-4">
+              <Button onClick={handleProcessImage} disabled={isProcessing || imagePreviews.length === 0} className="w-full">
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing with Gemini AI...
+                  </>
+                ) : (
+                  <><FileText className="mr-2 h-4 w-4" /> Process Images</>
+                )}
+              </Button>
+              
+              <Button onClick={handleSimulateScan} variant="outline" disabled={isProcessing} className="w-full">
+                <PlayCircle className="mr-2 h-4 w-4" /> Simulate Scan (Demo Mode)
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Tip: Use "Simulate" to test functionality if you don't have a valid API Key.
+            </p>
           </CardContent>
         </Card>
 
