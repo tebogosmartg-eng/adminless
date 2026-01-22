@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle, AlertOctagon } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { GradeSymbol, getGradeSymbol } from '@/utils/grading';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useSettings } from '@/context/SettingsContext';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -44,6 +45,7 @@ export const LearnerList = ({
   onProfileClick,
   onAddLearnerClick
 }: LearnerListProps) => {
+  const { atRiskThreshold } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
 
@@ -160,7 +162,8 @@ export const LearnerList = ({
               sortedAndFilteredLearners.map((learner, index) => {
                 const gradeSymbol = getGradeSymbol(learner.mark, gradingScheme);
                 const markNum = parseFloat(learner.mark);
-                const isAtRisk = !isNaN(markNum) && markNum < 50;
+                const isAtRisk = !isNaN(markNum) && markNum < atRiskThreshold;
+                const isInvalid = !isNaN(markNum) && (markNum < 0 || markNum > 100);
 
                 return (
                   <TableRow 
@@ -182,7 +185,17 @@ export const LearnerList = ({
                                <AlertCircle className="h-4 w-4 text-red-500" />
                              </TooltipTrigger>
                              <TooltipContent>
-                               <p>At Risk: Mark below 50%</p>
+                               <p>At Risk: Mark below {atRiskThreshold}%</p>
+                             </TooltipContent>
+                           </Tooltip>
+                         )}
+                         {isInvalid && (
+                           <Tooltip>
+                             <TooltipTrigger>
+                               <AlertOctagon className="h-4 w-4 text-orange-500" />
+                             </TooltipTrigger>
+                             <TooltipContent>
+                               <p>Warning: Mark appears to be outside 0-100 range.</p>
                              </TooltipContent>
                            </Tooltip>
                          )}
@@ -194,7 +207,10 @@ export const LearnerList = ({
                         placeholder="%"
                         value={learner.mark}
                         onChange={(e) => onMarkChange(learner.originalIndex, e.target.value)}
-                        className={cn(isAtRisk && "border-red-300 focus-visible:ring-red-500")}
+                        className={cn(
+                          isAtRisk && "border-red-300 focus-visible:ring-red-500",
+                          isInvalid && "border-orange-300 focus-visible:ring-orange-500"
+                        )}
                       />
                     </TableCell>
                     <TableCell>

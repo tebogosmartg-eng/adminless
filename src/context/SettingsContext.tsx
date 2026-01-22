@@ -12,6 +12,8 @@ interface SettingsContextType {
   setSchoolName: (name: string) => void;
   teacherName: string;
   setTeacherName: (name: string) => void;
+  atRiskThreshold: number;
+  setAtRiskThreshold: (threshold: number) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -42,6 +44,12 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
   const [teacherName, setTeacherNameState] = useState<string>(() => {
     return localStorage.getItem('teacher_name') || "";
+  });
+
+  // At Risk Threshold State
+  const [atRiskThreshold, setAtRiskThresholdState] = useState<number>(() => {
+    const saved = localStorage.getItem('at_risk_threshold');
+    return saved ? parseInt(saved, 10) : 50;
   });
 
   useEffect(() => {
@@ -77,6 +85,11 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('teacher_name', name);
   };
 
+  const setAtRiskThreshold = (threshold: number) => {
+    setAtRiskThresholdState(threshold);
+    localStorage.setItem('at_risk_threshold', threshold.toString());
+  };
+
   return (
     <SettingsContext.Provider value={{ 
       gradingScheme, 
@@ -87,7 +100,9 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       schoolName,
       setSchoolName,
       teacherName,
-      setTeacherName
+      setTeacherName,
+      atRiskThreshold,
+      setAtRiskThreshold
     }}>
       {children}
     </SettingsContext.Provider>

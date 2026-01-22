@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ClassInfo, Learner } from './CreateClassDialog';
 import { showError, showSuccess } from '@/utils/toast';
+import { Download } from 'lucide-react';
 
 interface ImportMarksDialogProps {
   isOpen: boolean;
@@ -22,6 +23,20 @@ export const ImportMarksDialog = ({ isOpen, onOpenChange, classInfo, onImportCom
     if (event.target.files) {
       setFile(event.target.files[0]);
     }
+  };
+
+  const handleDownloadTemplate = () => {
+    const csvContent = "Learner Name,Mark\nStudent A,75\nStudent B,60";
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "marks_import_template.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleImport = () => {
@@ -73,9 +88,16 @@ export const ImportMarksDialog = ({ isOpen, onOpenChange, classInfo, onImportCom
             Upload a CSV file with "Learner Name" and "Mark" columns. The names will be matched against your class list.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
-          <Label htmlFor="csv-file">CSV File</Label>
-          <Input id="csv-file" type="file" accept=".csv" onChange={handleFileChange} />
+        <div className="space-y-4 py-4">
+          <div>
+            <Label htmlFor="csv-file">CSV File</Label>
+            <Input id="csv-file" type="file" accept=".csv" onChange={handleFileChange} className="mt-2" />
+          </div>
+          <div className="flex justify-start">
+             <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+               <Download className="mr-2 h-4 w-4" /> Download Template
+             </Button>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

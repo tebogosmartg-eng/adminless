@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { showSuccess, showError } from "@/utils/toast";
-import { Eye, EyeOff, Save, ShieldCheck, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson, School, User, Database } from "lucide-react";
+import { Eye, EyeOff, Save, ShieldCheck, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson, School, User, Database, AlertCircle } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { useClasses } from "@/context/ClassesContext";
 import { GradeSymbol } from "@/utils/grading";
@@ -27,7 +27,8 @@ const Settings = () => {
     apiKey, setApiKey, 
     gradingScheme, updateGradingScheme, resetGradingScheme,
     schoolName, setSchoolName,
-    teacherName, setTeacherName
+    teacherName, setTeacherName,
+    atRiskThreshold, setAtRiskThreshold
   } = useSettings();
 
   const { addClass } = useClasses();
@@ -38,6 +39,7 @@ const Settings = () => {
   // Local state for School Profile
   const [tempSchoolName, setTempSchoolName] = useState(schoolName);
   const [tempTeacherName, setTempTeacherName] = useState(teacherName);
+  const [tempThreshold, setTempThreshold] = useState(atRiskThreshold.toString());
   
   // Local state for grading scheme editing
   const [localScheme, setLocalScheme] = useState<GradeSymbol[]>(gradingScheme);
@@ -54,7 +56,14 @@ const Settings = () => {
   const handleSaveProfile = () => {
     setSchoolName(tempSchoolName);
     setTeacherName(tempTeacherName);
-    showSuccess("School profile updated.");
+    
+    const thresh = parseInt(tempThreshold);
+    if (!isNaN(thresh) && thresh >= 0 && thresh <= 100) {
+      setAtRiskThreshold(thresh);
+      showSuccess("School profile and thresholds updated.");
+    } else {
+      showError("Invalid threshold value. Must be between 0 and 100.");
+    }
   };
 
   const handleSchemeChange = (index: number, field: keyof GradeSymbol, value: any) => {
@@ -110,6 +119,7 @@ const Settings = () => {
         activities: localStorage.getItem('activities'),
         school_name: localStorage.getItem('school_name'),
         teacher_name: localStorage.getItem('teacher_name'),
+        at_risk_threshold: localStorage.getItem('at_risk_threshold'),
         timestamp: new Date().toISOString(),
         version: '1.0'
       };
@@ -144,6 +154,7 @@ const Settings = () => {
         if (data.activities) localStorage.setItem('activities', data.activities);
         if (data.school_name) localStorage.setItem('school_name', data.school_name);
         if (data.teacher_name) localStorage.setItem('teacher_name', data.teacher_name);
+        if (data.at_risk_threshold) localStorage.setItem('at_risk_threshold', data.at_risk_threshold);
         
         showSuccess("Data restored successfully. Reloading...");
         setTimeout(() => window.location.reload(), 1500);
@@ -162,6 +173,7 @@ const Settings = () => {
     localStorage.removeItem('grading_scheme');
     localStorage.removeItem('school_name');
     localStorage.removeItem('teacher_name');
+    localStorage.removeItem('at_risk_threshold');
     // We keep the API key to avoid annoyance
     showSuccess("All application data cleared.");
     setTimeout(() => window.location.reload(), 1000);
@@ -235,9 +247,30 @@ const Settings = () => {
                 />
               </div>
             </div>
+             <div className="grid w-full items-center gap-1.5 sm:col-span-2">
+              <Label htmlFor="threshold" className="flex items-center gap-2">
+                At Risk Threshold (%)
+                <AlertCircle className="h-3 w-3 text-muted-foreground" />
+              </Label>
+              <div className="relative">
+                <Input
+                  id="threshold"
+                  type="number"
+                  placeholder="50"
+                  min={0}
+                  max={100}
+                  value={tempThreshold}
+                  onChange={(e) => setTempThreshold(e.target.value)}
+                  className="w-full sm:w-[120px]"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Learners scoring below this percentage will be highlighted as "At Risk".
+                </p>
+              </div>
+            </div>
           </div>
           <Button onClick={handleSaveProfile}>
-            <Save className="mr-2 h-4 w-4" /> Save Profile
+            <Save className="mr-2 h-4 w-4" /> Save Profile & Settings
           </Button>
         </CardContent>
       </Card>

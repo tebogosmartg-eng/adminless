@@ -4,17 +4,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useSettings } from '@/context/SettingsContext';
 
 const AtRiskLearners = () => {
   const { classes } = useClasses();
+  const { atRiskThreshold } = useSettings();
 
   // Flatten all learners from all classes into a single list
-  // Filter for those with marks < 50%
+  // Filter for those with marks < threshold
   const atRiskList = classes.flatMap(classInfo => {
     return classInfo.learners
       .filter(l => {
         const markNum = parseFloat(l.mark);
-        return !isNaN(markNum) && markNum < 50;
+        return !isNaN(markNum) && markNum < atRiskThreshold;
       })
       .map(l => ({
         ...l,
@@ -34,7 +36,7 @@ const AtRiskLearners = () => {
             <AlertTriangle className="h-5 w-5 text-green-500" />
             At Risk Learners
           </CardTitle>
-          <CardDescription>Learners scoring below 50%</CardDescription>
+          <CardDescription>Learners scoring below {atRiskThreshold}%</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="py-6 text-center text-sm text-muted-foreground">
@@ -52,7 +54,7 @@ const AtRiskLearners = () => {
           <AlertTriangle className="h-5 w-5 text-destructive" />
           At Risk Learners
         </CardTitle>
-        <CardDescription>Learners scoring below 50%</CardDescription>
+        <CardDescription>Learners scoring below {atRiskThreshold}%</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
