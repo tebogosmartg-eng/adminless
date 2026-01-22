@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 // API Key provided by user
 const API_KEY = "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
@@ -17,9 +17,44 @@ export interface GeminiScanResult {
   }[];
 }
 
+const scanResultSchema = {
+  description: "Assessment scan result containing details and learner marks",
+  type: SchemaType.OBJECT,
+  properties: {
+    details: {
+      type: SchemaType.OBJECT,
+      properties: {
+        subject: { type: SchemaType.STRING, description: "The subject of the assessment", nullable: false },
+        grade: { type: SchemaType.STRING, description: "The grade level (e.g. Grade 10)", nullable: false },
+        testNumber: { type: SchemaType.STRING, description: "Name or number of the test", nullable: false },
+        date: { type: SchemaType.STRING, description: "Date of assessment (YYYY-MM-DD)", nullable: false },
+      },
+      required: ["subject", "grade", "testNumber", "date"],
+    },
+    learners: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          name: { type: SchemaType.STRING, description: "Full name of the learner", nullable: false },
+          mark: { type: SchemaType.STRING, description: "The mark obtained (e.g. '15/20' or '75%')", nullable: false },
+        },
+        required: ["name", "mark"],
+      },
+    },
+  },
+  required: ["details", "learners"],
+};
+
 export async function processImagesWithGemini(imageDataUrls: string[]): Promise<GeminiScanResult> {
   // Using gemini-3-flash-preview as requested
-  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-3-flash-preview",
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: scanResultSchema as any,
+    },
+  });
 
   const imageParts = imageDataUrls.map((url) => {
     // Extract base64 data and mime type
@@ -39,41 +74,20 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
 
   const prompt = `
     Analyze these images of student test scripts or mark sheets.
-    Extract the following assessment details:
-    1. Subject Name
-    2. Grade Level
-    3. Test Name or Number
-    4. Date (YYYY-MM-DD format if possible)
+    Extract the assessment details (subject, grade, test name, date) and the list of student names and their marks.
     
-    Also extract the list of student names and their marks.
-    - If the mark is a fraction (e.g., "15/20"), keep it as is.
+    For marks:
+    - If it is a fraction (e.g., "15/20"), keep it as is.
     - If it is a percentage, keep it as is.
-    - If you cannot read a name or mark clearly, do your best to guess or skip it.
-    
-    Return the result strictly as a JSON object with no markdown formatting. The structure must be:
-    {
-      "details": {
-        "subject": "string",
-        "grade": "string",
-        "testNumber": "string",
-        "date": "string"
-      },
-      "learners": [
-        { "name": "string", "mark": "string" }
-      ]
-    }
+    - If you cannot read a name or mark clearly, do your best to guess or skip it if impossible.
   `;
 
   try {
     const result = await model.generateContent([prompt, ...imageParts]);
     const response = await result.response;
     const text = response.text();
-
-    // Sanitize the output to ensure it's valid JSON
-    // Sometimes the model wraps it in ```json ... ```
-    const jsonString = text.replace(/```json/g, "").replace(/```/g, "").trim();
     
-    return JSON.parse(jsonString) as GeminiScanResult;
+    return JSON.parse(text) as GeminiScanResult;
   } catch (error) {
     console.error("Error processing images with Gemini:", error);
     throw new Error("Failed to process images with AI.");
