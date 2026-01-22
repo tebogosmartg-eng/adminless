@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText, Eraser, File, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText, Eraser, File, CheckCircle2, Share2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
@@ -24,6 +24,7 @@ interface ClassHeaderProps {
   onExportPdf: () => void;
   onExportBlankPdf: () => void;
   onClearMarks: () => void;
+  onShare: () => void;
 }
 
 export const ClassHeader = ({
@@ -44,7 +45,8 @@ export const ClassHeader = ({
   onExportCsv,
   onExportPdf,
   onExportBlankPdf,
-  onClearMarks
+  onClearMarks,
+  onShare
 }: ClassHeaderProps) => {
   const completionPercentage = learnerCount > 0 ? Math.round((gradedCount / learnerCount) * 100) : 0;
 
@@ -65,6 +67,9 @@ export const ClassHeader = ({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={onShare} title="Share Summary">
+            <Share2 className="mr-2 h-4 w-4" /> Share
+          </Button>
           <Button 
             variant="outline" 
             className="border-primary/20 text-primary hover:bg-primary/5"

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useClasses } from '../context/ClassesContext';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { LearnerList } from '@/components/LearnerList';
 import { AddLearnerDialog } from '@/components/AddLearnerDialog';
 import { generateClassPDF, generateBlankClassListPDF } from '@/utils/pdfGenerator';
 import confetti from 'canvas-confetti';
+import { calculateClassStats } from '@/utils/stats';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -70,6 +71,22 @@ const ClassDetails = () => {
     }
   }, [learners, classInfo]);
 
+  // Global Keyboard Shortcut for Saving
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        if (hasUnsavedChanges) {
+          handleSaveChanges();
+        } else {
+          showSuccess("No changes to save.");
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [learners, hasUnsavedChanges, classId]);
+
   const triggerConfetti = () => {
     const duration = 3 * 1000;
     const animationEnd = Date.now() + duration;
@@ -119,6 +136,7 @@ const ClassDetails = () => {
     if (classId) {
       updateLearners(classId, learners);
       showSuccess("Changes have been saved successfully!");
+      setHasUnsavedChanges(false);
       setInsights(null); 
     }
   };
@@ -137,6 +155,26 @@ const ClassDetails = () => {
       updateLearners(classId, updatedLearners);
       setInsights(null);
     }
+  };
+
+  const handleShareSummary = () => {
+    if (!classInfo) return;
+    const stats = calculateClassStats(learners);
+    
+    const summary = `
+📊 *Class Summary: ${classInfo.subject}*
+🏫 ${classInfo.grade} - ${classInfo.className}
+
+📈 Average: ${stats.average}%
+✅ Pass Rate: ${stats.passRate}%
+👨‍🎓 Learners: ${stats.totalLearners}
+
+Top Mark: ${stats.highestMark}%
+Lowest Mark: ${stats.lowestMark}%
+    `.trim();
+
+    navigator.clipboard.writeText(summary);
+    showSuccess("Class summary copied to clipboard!");
   };
 
   const handleExportCsv = () => {
@@ -311,6 +349,7 @@ const ClassDetails = () => {
         onExportPdf={handleExportPdf}
         onExportBlankPdf={handleExportBlankPdf}
         onClearMarks={handleClearMarks}
+        onShare={handleShareSummary}
       />
 
       {!showComments && (

@@ -6,12 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle, AlertOctagon, Filter } from 'lucide-react';
+import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle, AlertOctagon, Filter, Calculator } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { GradeSymbol, getGradeSymbol } from '@/utils/grading';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSettings } from '@/context/SettingsContext';
+import { showSuccess } from '@/utils/toast';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -50,6 +51,25 @@ export const LearnerList = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+
+  // Smart Input Logic
+  const handleMarkBlur = (index: number, currentValue: string) => {
+    // Check for "x/y" pattern (e.g. 15/20)
+    const fractionMatch = currentValue.match(/^(\d+(\.\d+)?)\s*\/\s*(\d+(\.\d+)?)$/);
+    
+    if (fractionMatch) {
+      const num = parseFloat(fractionMatch[1]);
+      const den = parseFloat(fractionMatch[3]);
+      
+      if (den !== 0) {
+        const percentage = ((num / den) * 100).toFixed(1).replace(/\.0$/, ''); // remove trailing .0 if integer
+        if (percentage !== currentValue) {
+           onMarkChange(index, percentage);
+           showSuccess(`Calculated: ${num}/${den} = ${percentage}%`);
+        }
+      }
+    }
+  };
 
   const sortedAndFilteredLearners = useMemo(() => {
     const filtered = learners
@@ -108,13 +128,23 @@ export const LearnerList = ({
     setSortConfig({ key, direction });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
-    if (e.key === 'ArrowDown' || e.key === 'Enter') {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number, originalIndex: number, currentValue: string) => {
+    if (e.key === 'Enter') {
+       e.preventDefault();
+       // Trigger calculation immediately on Enter
+       handleMarkBlur(originalIndex, currentValue);
+       
+       const nextInput = document.getElementById(`mark-input-${currentIndex + 1}`);
+       if (nextInput) {
+        (nextInput as HTMLInputElement).focus();
+        (nextInput as HTMLInputElement).select();
+       }
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       const nextInput = document.getElementById(`mark-input-${currentIndex + 1}`);
       if (nextInput) {
         (nextInput as HTMLInputElement).focus();
-        (nextInput as HTMLInputElement).select(); // Auto-select content for easy overwriting
+        (nextInput as HTMLInputElement).select();
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
@@ -135,7 +165,7 @@ export const LearnerList = ({
             <CardDescription>
               {showComments 
                 ? "View and edit generated report comments." 
-                : "Enter marks below, or click a name to view profile."}
+                : "Type marks (e.g. '85' or '17/20')."}
             </CardDescription>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -218,6 +248,7 @@ export const LearnerList = ({
                 const markNum = parseFloat(learner.mark);
                 const isAtRisk = !isNaN(markNum) && markNum < atRiskThreshold;
                 const isInvalid = !isNaN(markNum) && (markNum < 0 || markNum > 100);
+                const isCalculated = learner.mark.includes('.') && !learner.mark.endsWith('.0');
 
                 return (
                   <TableRow 
@@ -256,18 +287,28 @@ export const LearnerList = ({
                        </div>
                     </TableCell>
                     <TableCell>
-                      <Input
-                        id={`mark-input-${index}`}
-                        type="number"
-                        placeholder="%"
-                        value={learner.mark}
-                        onChange={(e) => onMarkChange(learner.originalIndex, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, index)}
-                        className={cn(
-                          isAtRisk && "border-red-300 focus-visible:ring-red-500",
-                          isInvalid && "border-orange-300 focus-visible:ring-orange-500"
-                        )}
-                      />
+                      <div className="relative">
+                        <Input
+                          id={`mark-input-${index}`}
+                          type="text" 
+                          inputMode="decimal"
+                          placeholder="%"
+                          value={learner.mark}
+                          onChange={(e) => onMarkChange(learner.originalIndex, e.target.value)}
+                          onBlur={(e) => handleMarkBlur(learner.originalIndex, e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, index, learner.originalIndex, learner.mark)}
+                          className={cn(
+                            "pr-8", // Make room for calculator icon if needed
+                            isAtRisk && "border-red-300 focus-visible:ring-red-500",
+                            isInvalid && "border-orange-300 focus-visible:ring-orange-500"
+                          )}
+                        />
+                         {isCalculated && (
+                           <div className="absolute right-2 top-2.5 pointer-events-none opacity-50">
+                             <Calculator className="h-3 w-3" />
+                           </div>
+                         )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {gradeSymbol && (
