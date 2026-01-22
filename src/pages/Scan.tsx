@@ -81,9 +81,9 @@ const Scan = () => {
       }
       
       showSuccess(`Processed successfully! Found ${result.learners.length} learners.`);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      showError("Failed to process images. Please try again.");
+      showError(error.message || "Failed to process images. Please try again.");
     } finally {
       setIsProcessing(false);
     }

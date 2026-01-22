@@ -1,22 +1,37 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-// Function to get API Key from localStorage or use default (for demo purposes)
+// Function to get API Key from localStorage
 const getApiKey = () => {
-  return localStorage.getItem('gemini_api_key') || "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
+  return localStorage.getItem('gemini_api_key') || "";
 };
 
 // Helper to get initialized model
 const getModel = (schema?: any) => {
   const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("Gemini API Key is missing. Please configure it in Settings.");
+  }
+
   const genAI = new GoogleGenerativeAI(apiKey);
   
   return genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash", // Using standard stable model name
+    model: "gemini-1.5-flash",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: schema,
     },
   });
+};
+
+// Helper to clean JSON string from markdown code blocks
+const cleanJson = (text: string) => {
+  let clean = text.trim();
+  if (clean.startsWith("```json")) {
+    clean = clean.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+  } else if (clean.startsWith("```")) {
+    clean = clean.replace(/^```\s*/, "").replace(/\s*```$/, "");
+  }
+  return clean;
 };
 
 export interface GeminiScanResult {
@@ -111,13 +126,11 @@ const commentsSchema = {
 };
 
 export async function processImagesWithGemini(imageDataUrls: string[]): Promise<GeminiScanResult> {
-  const model = getModel(scanResultSchema);
-
+  // Extract base64 data and mime type
   const imageParts = imageDataUrls.map((url) => {
-    // Extract base64 data and mime type
     const matches = url.match(/^data:(.+);base64,(.+)$/);
     if (!matches || matches.length < 3) {
-      throw new Error("Invalid image format");
+      throw new Error("Invalid image format. Please upload valid image files.");
     }
     
     return {
@@ -139,21 +152,22 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
   `;
 
   try {
+    const model = getModel(scanResultSchema);
     const result = await model.generateContent([prompt, ...imageParts]);
     const response = await result.response;
-    const text = response.text();
+    const text = cleanJson(response.text());
     
     return JSON.parse(text) as GeminiScanResult;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error processing images with Gemini:", error);
-    throw new Error("Failed to process images with AI. Please check your API key.");
+    if (error.message.includes("API Key is missing")) {
+      throw error;
+    }
+    throw new Error(`AI Processing Failed: ${error.message || "Unknown error"}`);
   }
 }
 
 export async function generateClassInsights(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<ClassInsight> {
-  const model = getModel(insightsSchema);
-
-  // Filter out learners with no marks for the analysis
   const validLearners = learners.filter(l => l.mark && l.mark.trim() !== "");
   const learnersData = JSON.stringify(validLearners);
 
@@ -172,20 +186,22 @@ export async function generateClassInsights(subject: string, grade: string, lear
   `;
 
   try {
+    const model = getModel(insightsSchema);
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    const text = cleanJson(response.text());
     
     return JSON.parse(text) as ClassInsight;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating insights with Gemini:", error);
-    throw new Error("Failed to generate insights. Please check your API key.");
+    if (error.message.includes("API Key is missing")) {
+      throw error;
+    }
+    throw new Error(`AI Insights Failed: ${error.message || "Unknown error"}`);
   }
 }
 
 export async function generateReportComments(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<LearnerComment[]> {
-  const model = getModel(commentsSchema);
-
   const validLearners = learners.filter(l => l.mark && l.mark.trim() !== "");
   const learnersData = JSON.stringify(validLearners);
 
@@ -206,13 +222,17 @@ export async function generateReportComments(subject: string, grade: string, lea
   `;
 
   try {
+    const model = getModel(commentsSchema);
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    const text = cleanJson(response.text());
     
     return JSON.parse(text) as LearnerComment[];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating comments with Gemini:", error);
-    throw new Error("Failed to generate comments. Please check your API key.");
+    if (error.message.includes("API Key is missing")) {
+      throw error;
+    }
+    throw new Error(`AI Comments Failed: ${error.message || "Unknown error"}`);
   }
 }
