@@ -1,15 +1,9 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-// Known invalid/placeholder keys to block
-const INVALID_KEYS = ["AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8"];
-
 // Function to get API Key from localStorage
 const getApiKey = () => {
   const key = localStorage.getItem('gemini_api_key');
   if (key && key.trim().length > 0) {
-    if (INVALID_KEYS.includes(key)) {
-      return null;
-    }
     return key;
   }
   return null;
@@ -155,7 +149,7 @@ async function generateWithFallback<T>(
   schema: any, 
   errorContext: string
 ): Promise<T> {
-  // Try Flash first
+  // Use Gemini 1.5 Flash as requested for fast, efficient scanning
   try {
     const model = getModel("gemini-1.5-flash", schema);
     const result = await model.generateContent(Array.isArray(prompt) ? prompt : [prompt]);

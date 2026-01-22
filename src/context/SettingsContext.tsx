@@ -18,6 +18,9 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
+// Default key provided for use
+const DEFAULT_API_KEY = "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
+
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const { logActivity } = useActivity();
   
@@ -34,7 +37,12 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
   // API Key State
   const [apiKey, setApiKeyState] = useState<string>(() => {
-    return localStorage.getItem('gemini_api_key') || "";
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) return savedKey;
+    
+    // Set default key if none exists
+    localStorage.setItem('gemini_api_key', DEFAULT_API_KEY);
+    return DEFAULT_API_KEY;
   });
 
   // School Profile State
