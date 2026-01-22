@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText } from 'lucide-react';
 
 interface ClassHeaderProps {
   classNameStr: string;
@@ -16,7 +16,8 @@ interface ClassHeaderProps {
   onOpenAddLearner: () => void;
   onOpenEditLearners: () => void;
   onOpenImport: () => void;
-  onExport: () => void;
+  onExportCsv: () => void;
+  onExportPdf: () => void;
 }
 
 export const ClassHeader = ({
@@ -32,7 +33,8 @@ export const ClassHeader = ({
   onOpenAddLearner,
   onOpenEditLearners,
   onOpenImport,
-  onExport
+  onExportCsv,
+  onExportPdf
 }: ClassHeaderProps) => {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -85,9 +87,14 @@ export const ClassHeader = ({
               <Upload className="mr-2 h-4 w-4" />
               <span>Import</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExport}>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onExportCsv}>
               <Download className="mr-2 h-4 w-4" />
               <span>Export CSV</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onExportPdf}>
+              <FileText className="mr-2 h-4 w-4" />
+              <span>Export PDF Report</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

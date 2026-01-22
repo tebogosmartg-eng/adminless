@@ -17,6 +17,7 @@ import { LearnerProfileDialog } from '@/components/LearnerProfileDialog';
 import { ClassHeader } from '@/components/ClassHeader';
 import { LearnerList } from '@/components/LearnerList';
 import { AddLearnerDialog } from '@/components/AddLearnerDialog';
+import { generateClassPDF } from '@/utils/pdfGenerator';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -98,7 +99,7 @@ const ClassDetails = () => {
     }
   };
 
-  const handleExport = () => {
+  const handleExportCsv = () => {
     if (!classInfo) {
       showError("Could not find class information to export.");
       return;
@@ -128,9 +129,25 @@ const ClassDetails = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showSuccess("Data exported successfully!");
+      showSuccess("CSV exported successfully!");
     } else {
       showError("Export feature is not supported in your browser.");
+    }
+  };
+
+  const handleExportPdf = () => {
+    if (!classInfo) return;
+    
+    try {
+      // Use current learner state to capture unsaved changes in export if desired,
+      // but mixing unsaved data might be confusing. 
+      // Let's use current state 'learners' to reflect what the user sees.
+      const exportClassInfo = { ...classInfo, learners };
+      generateClassPDF(exportClassInfo, gradingScheme);
+      showSuccess("PDF Report generated successfully!");
+    } catch (error) {
+      console.error(error);
+      showError("Failed to generate PDF. Please try again.");
     }
   };
 
@@ -215,7 +232,8 @@ const ClassDetails = () => {
         onOpenAddLearner={() => setIsAddLearnerOpen(true)}
         onOpenEditLearners={() => setIsEditLearnersOpen(true)}
         onOpenImport={() => setIsImportOpen(true)}
-        onExport={handleExport}
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
       />
 
       {!showComments && (
