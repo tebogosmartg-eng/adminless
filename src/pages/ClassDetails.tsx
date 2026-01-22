@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal, Search, BrainCircuit, MessageSquare, Loader2 } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal, Search, BrainCircuit, MessageSquare, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
@@ -20,6 +20,16 @@ import { generateClassInsights, generateReportComments, ClassInsight } from '@/s
 import { Textarea } from '@/components/ui/textarea';
 import { getGradeSymbol } from '@/utils/grading';
 import { useSettings } from '@/context/SettingsContext';
+import { LearnerProfileDialog } from '@/components/LearnerProfileDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -40,7 +50,14 @@ const ClassDetails = () => {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditLearnersOpen, setIsEditLearnersOpen] = useState(false);
   const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
+  const [isAddLearnerOpen, setIsAddLearnerOpen] = useState(false);
   
+  // Profile View State
+  const [selectedProfileLearner, setSelectedProfileLearner] = useState<Learner | null>(null);
+  
+  // Add Learner State
+  const [newLearnerName, setNewLearnerName] = useState("");
+
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,6 +133,23 @@ const ClassDetails = () => {
     const updatedLearners = [...learners];
     updatedLearners[index] = { ...updatedLearners[index], comment };
     setLearners(updatedLearners);
+  };
+  
+  const handleRemoveLearner = (index: number) => {
+    if (confirm("Are you sure you want to remove this learner?")) {
+      const updatedLearners = learners.filter((_, i) => i !== index);
+      setLearners(updatedLearners);
+      // We don't save immediately to allow "Save Changes" to be the final commit
+    }
+  };
+
+  const handleAddLearner = () => {
+    if (newLearnerName.trim()) {
+      setLearners([...learners, { name: newLearnerName.trim(), mark: "" }]);
+      setNewLearnerName("");
+      setIsAddLearnerOpen(false);
+      showSuccess("Learner added to the list. Remember to save changes.");
+    }
   };
 
   const handleSaveChanges = () => {
@@ -201,7 +235,6 @@ const ClassDetails = () => {
     }
 
     setIsGeneratingComments(true);
-    // Automatically open the comments view
     setShowComments(true);
     
     try {
@@ -277,13 +310,17 @@ const ClassDetails = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setIsAddLearnerOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                <span>Add Single Learner</span>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setIsEditLearnersOpen(true)}>
                 <Users className="mr-2 h-4 w-4" />
-                <span>Manage Learners</span>
+                <span>Bulk Manage</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
                 <Upload className="mr-2 h-4 w-4" />
-                <span>Import</span>
+                <span>Import CSV</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
@@ -309,7 +346,7 @@ const ClassDetails = () => {
               <CardDescription>
                 {showComments 
                   ? "View and edit generated report comments." 
-                  : "Enter marks below, search for a learner, or click headers to sort."}
+                  : "Enter marks below, or click a name to view profile."}
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -344,7 +381,7 @@ const ClassDetails = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[60px]">#</TableHead>
+                <TableHead className="w-[50px]">#</TableHead>
                 <TableHead className="w-[250px]">
                   <Button variant="ghost" onClick={() => requestSort('name')}>
                     Learner Name
@@ -366,6 +403,7 @@ const ClassDetails = () => {
                     </Button>
                    </TableHead>
                 )}
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -375,7 +413,14 @@ const ClassDetails = () => {
                   return (
                     <TableRow key={learner.originalIndex}>
                       <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                      <TableCell className="font-medium">{learner.name}</TableCell>
+                      <TableCell>
+                         <button 
+                          className="font-medium hover:underline text-left"
+                          onClick={() => setSelectedProfileLearner(learner)}
+                         >
+                          {learner.name}
+                         </button>
+                      </TableCell>
                       <TableCell>
                         <Input
                           type="number"
@@ -402,20 +447,62 @@ const ClassDetails = () => {
                           />
                         </TableCell>
                       )}
+                      <TableCell>
+                         <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemoveLearner(learner.originalIndex)}
+                         >
+                            <Trash2 className="h-4 w-4" />
+                         </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={showComments ? 5 : 4} className="h-24 text-center">
+                  <TableCell colSpan={showComments ? 6 : 5} className="h-24 text-center">
                     No learners found.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+          
+          <div className="pt-4 border-t mt-4 flex justify-center">
+             <Button variant="outline" onClick={() => setIsAddLearnerOpen(true)} className="w-full sm:w-auto">
+               <Plus className="mr-2 h-4 w-4" /> Add Learner
+             </Button>
+          </div>
         </CardContent>
       </Card>
+      
+      <Dialog open={isAddLearnerOpen} onOpenChange={setIsAddLearnerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Learner</DialogTitle>
+            <DialogDescription>
+              Enter the full name of the learner to add to this class.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Learner Name</Label>
+              <Input 
+                id="name" 
+                placeholder="e.g. John Doe" 
+                value={newLearnerName}
+                onChange={(e) => setNewLearnerName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddLearner()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handleAddLearner}>Add Learner</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <VoiceEntryDialog 
         isOpen={isVoiceEntryOpen}
@@ -440,6 +527,12 @@ const ClassDetails = () => {
         isLoading={isGeneratingInsights}
         insights={insights}
         onGenerate={handleGenerateInsights}
+      />
+      <LearnerProfileDialog
+        isOpen={!!selectedProfileLearner}
+        onOpenChange={(open) => !open && setSelectedProfileLearner(null)}
+        learner={selectedProfileLearner}
+        classSubject={`${classInfo.grade} ${classInfo.subject}`}
       />
     </>
   );

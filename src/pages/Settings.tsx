@@ -6,16 +6,27 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { showSuccess, showError } from "@/utils/toast";
-import { Eye, EyeOff, Save, ShieldCheck, RotateCcw, Plus, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Save, ShieldCheck, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { GradeSymbol } from "@/utils/grading";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Settings = () => {
   const { apiKey, setApiKey, gradingScheme, updateGradingScheme, resetGradingScheme } = useSettings();
   const [showKey, setShowKey] = useState(false);
   const [tempKey, setTempKey] = useState(apiKey);
   
-  // Local state for grading scheme editing to prevent constant context updates on every keystroke
+  // Local state for grading scheme editing
   const [localScheme, setLocalScheme] = useState<GradeSymbol[]>(gradingScheme);
 
   const handleSaveKey = () => {
@@ -34,7 +45,6 @@ const Settings = () => {
   };
 
   const handleSaveScheme = () => {
-    // Basic validation
     const isValid = localScheme.every(g => 
       !isNaN(g.min) && !isNaN(g.max) && g.symbol && !isNaN(g.level)
     );
@@ -51,13 +61,7 @@ const Settings = () => {
   const handleResetScheme = () => {
     if (confirm("Are you sure you want to reset to the default grading scheme?")) {
       resetGradingScheme();
-      // We need to sync local state after reset, but since resetGradingScheme updates context, 
-      // and we initialize local state from context, we might need a useEffect or just manual update here.
-      // However, the cleanest way is to let the context update trigger a re-render if we depended on it directly,
-      // but here we have local state. Let's just manually reset local state to match defaults.
-      // Ideally, we'd import defaultGradingScheme here, but let's just wait for context or force reload.
-      // Simpler:
-       window.location.reload(); 
+      window.location.reload(); 
     }
   };
   
@@ -77,6 +81,66 @@ const Settings = () => {
       badgeColor: "bg-gray-100 text-gray-700",
     };
     setLocalScheme([...localScheme, newRow]);
+  };
+
+  const handleExportData = () => {
+    try {
+      const data = {
+        classes: localStorage.getItem('classes'),
+        grading_scheme: localStorage.getItem('grading_scheme'),
+        activities: localStorage.getItem('activities'),
+        timestamp: new Date().toISOString(),
+        version: '1.0'
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `smareg_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showSuccess("Backup file downloaded successfully.");
+    } catch (error) {
+      showError("Failed to export data.");
+      console.error(error);
+    }
+  };
+
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        
+        if (data.classes) localStorage.setItem('classes', data.classes);
+        if (data.grading_scheme) localStorage.setItem('grading_scheme', data.grading_scheme);
+        if (data.activities) localStorage.setItem('activities', data.activities);
+        
+        showSuccess("Data restored successfully. Reloading...");
+        setTimeout(() => window.location.reload(), 1500);
+      } catch (err) {
+        showError("Failed to parse backup file. Invalid format.");
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+    // Reset the input value so the same file can be selected again if needed
+    event.target.value = '';
+  };
+
+  const handleClearData = () => {
+    localStorage.removeItem('classes');
+    localStorage.removeItem('activities');
+    localStorage.removeItem('grading_scheme');
+    // We keep the API key to avoid annoyance
+    showSuccess("All application data cleared.");
+    setTimeout(() => window.location.reload(), 1000);
   };
 
   return (
@@ -210,6 +274,75 @@ const Settings = () => {
                 </Button>
               </div>
            </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <FileJson className="h-5 w-5 text-primary" />
+            <CardTitle>Data Management</CardTitle>
+          </div>
+          <CardDescription>
+            Backup your data to a file or restore from a previous backup.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
+            <div>
+              <h3 className="font-semibold mb-1">Backup Data</h3>
+              <p className="text-sm text-muted-foreground">Download a JSON file containing all your classes and settings.</p>
+            </div>
+            <Button onClick={handleExportData} variant="outline">
+              <Download className="mr-2 h-4 w-4" /> Export to File
+            </Button>
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
+            <div>
+              <h3 className="font-semibold mb-1">Restore Data</h3>
+              <p className="text-sm text-muted-foreground">Upload a backup file to restore your data. Current data will be overwritten.</p>
+            </div>
+            <div className="relative">
+              <Button variant="outline" className="relative cursor-pointer">
+                 <Upload className="mr-2 h-4 w-4" /> Import from File
+                 <input 
+                  type="file" 
+                  accept=".json" 
+                  className="absolute inset-0 opacity-0 cursor-pointer" 
+                  onChange={handleImportData}
+                 />
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border border-destructive/20 rounded-lg bg-red-50 dark:bg-red-950/10">
+            <div>
+              <h3 className="font-semibold mb-1 text-destructive">Danger Zone</h3>
+              <p className="text-sm text-muted-foreground">Permanently remove all classes and reset the application.</p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                  <AlertTriangle className="mr-2 h-4 w-4" /> Clear All Data
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete all your classes, learners, and activity history from this browser.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Yes, Clear Everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </CardContent>
       </Card>
     </div>
