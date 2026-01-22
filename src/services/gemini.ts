@@ -1,9 +1,15 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
+// Known invalid/placeholder keys to block
+const INVALID_KEYS = ["AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8"];
+
 // Function to get API Key from localStorage
 const getApiKey = () => {
   const key = localStorage.getItem('gemini_api_key');
   if (key && key.trim().length > 0) {
+    if (INVALID_KEYS.includes(key)) {
+      return null;
+    }
     return key;
   }
   return null;
@@ -13,7 +19,7 @@ const getApiKey = () => {
 const getModel = (modelName: string = "gemini-1.5-flash", schema?: any) => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("Gemini API Key is missing. Please configure it in Settings.");
+    throw new Error("Gemini API Key is missing or invalid. Please configure a valid key in Settings.");
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -157,12 +163,17 @@ async function generateWithFallback<T>(
     const text = cleanJson(response.text());
     return JSON.parse(text) as T;
   } catch (error: any) {
-    console.warn(`Flash model failed for ${errorContext}, trying Pro...`, error);
+    console.warn(`Flash model failed for ${errorContext}:`, error);
     
+    // Stop early if key is invalid/missing
     if (error.message.includes("API Key is missing")) throw error;
+    if (error.message.includes("403") || error.message.includes("401")) {
+      throw new Error("Invalid API Key. Please check your settings.");
+    }
 
     // Try Pro as fallback
     try {
+      console.log("Attempting fallback to Gemini 1.5 Pro...");
       const model = getModel("gemini-1.5-pro", schema);
       const result = await model.generateContent(Array.isArray(prompt) ? prompt : [prompt]);
       const response = await result.response;
@@ -170,7 +181,13 @@ async function generateWithFallback<T>(
       return JSON.parse(text) as T;
     } catch (fallbackError: any) {
       console.error(`Pro model also failed for ${errorContext}:`, fallbackError);
-      throw new Error(`AI Request Failed (${errorContext}): ${fallbackError.message || "Unknown error"}. Check your API Key.`);
+      
+      let msg = "Unknown error";
+      if (fallbackError.message) msg = fallbackError.message;
+      if (msg.includes("404")) msg = "AI Model not found or API Key not authorized for this model.";
+      if (msg.includes("403")) msg = "API Key declined. Check your billing/quota or key validity.";
+      
+      throw new Error(`AI Request Failed: ${msg}`);
     }
   }
 }

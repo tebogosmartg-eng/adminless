@@ -32,7 +32,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
   // API Key State
   const [apiKey, setApiKeyState] = useState<string>(() => {
-    return localStorage.getItem('gemini_api_key') || "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
+    return localStorage.getItem('gemini_api_key') || "";
   });
 
   // School Profile State
