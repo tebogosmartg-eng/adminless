@@ -6,8 +6,6 @@ interface SettingsContextType {
   gradingScheme: GradeSymbol[];
   updateGradingScheme: (newScheme: GradeSymbol[]) => void;
   resetGradingScheme: () => void;
-  apiKey: string;
-  setApiKey: (key: string) => void;
   schoolName: string;
   setSchoolName: (name: string) => void;
   teacherName: string;
@@ -17,9 +15,6 @@ interface SettingsContextType {
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
-
-// Default key provided for use
-const DEFAULT_API_KEY = "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const { logActivity } = useActivity();
@@ -33,15 +28,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       console.error("Failed to parse grading scheme", error);
       return defaultGradingScheme;
     }
-  });
-
-  // API Key State
-  const [apiKey, setApiKeyState] = useState<string>(() => {
-    // FORCE usage of the provided key for this session to fix the "still getting an error" issue
-    // We trim it to ensure no hidden whitespace causes 403/404s
-    const forcedKey = DEFAULT_API_KEY.trim();
-    localStorage.setItem('gemini_api_key', forcedKey);
-    return forcedKey;
   });
 
   // School Profile State
@@ -73,16 +59,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     logActivity("Reset grading scheme to defaults");
   };
 
-  const setApiKey = (key: string) => {
-    const trimmed = key.trim();
-    setApiKeyState(trimmed);
-    if (trimmed) {
-      localStorage.setItem('gemini_api_key', trimmed);
-    } else {
-      localStorage.removeItem('gemini_api_key');
-    }
-  };
-
   const setSchoolName = (name: string) => {
     setSchoolNameState(name);
     localStorage.setItem('school_name', name);
@@ -103,8 +79,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       gradingScheme, 
       updateGradingScheme, 
       resetGradingScheme,
-      apiKey,
-      setApiKey,
       schoolName,
       setSchoolName,
       teacherName,

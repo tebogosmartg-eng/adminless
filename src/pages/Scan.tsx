@@ -292,7 +292,7 @@ const Scan = () => {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground text-center mt-2">
-              Tip: Use "Simulate" to test functionality if you don't have a valid API Key.
+              Tip: Use "Simulate" to test functionality quickly.
             </p>
           </CardContent>
         </Card>

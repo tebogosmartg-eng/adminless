@@ -1,19 +1,18 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-// Function to get API Key from localStorage
+// Hardcoded API Key as requested
+const API_KEY = "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
+
+// Function to get API Key
 const getApiKey = () => {
-  const key = localStorage.getItem('gemini_api_key');
-  if (key && key.trim().length > 0) {
-    return key;
-  }
-  return null;
+  return API_KEY;
 };
 
 // Helper to get initialized model
 const getModel = (modelName: string, schema?: any) => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("Gemini API Key is missing or invalid. Please configure a valid key in Settings.");
+    throw new Error("Gemini API Key is missing.");
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
