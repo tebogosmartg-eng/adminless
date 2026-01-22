@@ -7,9 +7,15 @@ import { getGradeSymbol } from '@/utils/grading';
 
 interface MarkDistributionChartProps {
   learners: Learner[];
+  title?: string;
+  description?: string;
 }
 
-const MarkDistributionChart = ({ learners }: MarkDistributionChartProps) => {
+const MarkDistributionChart = ({ 
+  learners, 
+  title = "Mark Distribution", 
+  description = "Number of learners per grade symbol." 
+}: MarkDistributionChartProps) => {
   const { gradingScheme } = useSettings();
 
   const chartData = useMemo(() => {
@@ -46,8 +52,8 @@ const MarkDistributionChart = ({ learners }: MarkDistributionChartProps) => {
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Mark Distribution</CardTitle>
-        <CardDescription>Number of learners per grade symbol.</CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         {hasData ? (

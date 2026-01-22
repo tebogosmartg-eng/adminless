@@ -8,9 +8,13 @@ import GlobalStats from '@/components/GlobalStats';
 import RecentActivity from '@/components/RecentActivity';
 import ClassComparisonChart from '@/components/ClassComparisonChart';
 import AtRiskLearners from '@/components/AtRiskLearners';
+import MarkDistributionChart from '@/components/MarkDistributionChart';
 
 const Dashboard = () => {
   const { classes } = useClasses();
+  
+  // Aggregate all learners for the global chart
+  const allLearners = classes.flatMap(c => c.learners);
 
   return (
     <div>
@@ -21,7 +25,14 @@ const Dashboard = () => {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           {classes.length > 0 && (
-            <ClassComparisonChart classes={classes} />
+            <>
+              <ClassComparisonChart classes={classes} />
+              <MarkDistributionChart 
+                learners={allLearners} 
+                title="Global Grade Distribution" 
+                description="Distribution of symbols across all classes and subjects." 
+              />
+            </>
           )}
 
           <Card>

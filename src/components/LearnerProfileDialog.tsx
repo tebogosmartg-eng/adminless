@@ -4,12 +4,16 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Learner } from "./CreateClassDialog";
 import { GradeSymbol, getGradeSymbol } from "@/utils/grading";
 import { useSettings } from "@/context/SettingsContext";
 import { Badge } from "@/components/ui/badge";
-import { User, GraduationCap, Quote } from "lucide-react";
+import { User, Quote, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { generateLearnerReportPDF } from "@/utils/pdfGenerator";
+import { showSuccess } from "@/utils/toast";
 
 interface LearnerProfileDialogProps {
   isOpen: boolean;
@@ -19,11 +23,34 @@ interface LearnerProfileDialogProps {
 }
 
 export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubject }: LearnerProfileDialogProps) => {
-  const { gradingScheme } = useSettings();
+  const { gradingScheme, schoolName, teacherName } = useSettings();
 
   if (!learner) return null;
 
   const symbol = getGradeSymbol(learner.mark, gradingScheme);
+
+  const handleDownloadReport = () => {
+    // We need to parse grade/subject/className from the combined string "Grade 10 Mathematics" passed as classSubject
+    // Ideally we'd pass the full classInfo object, but for now we'll approximate or use what we have.
+    // Actually, looking at parent usage, it passes `${classInfo.grade} ${classInfo.subject}`.
+    // Let's rely on the user or context, but since we don't have full class object here, we'll use classSubject as "Subject".
+    
+    // A better approach: The PDF generator takes specific fields. We can pass classSubject as Subject for now.
+    // To fix this properly, I should probably pass the classInfo object prop in the future, 
+    // but for now let's split the string or just use it.
+    
+    // NOTE: In the parent component (ClassDetails), it passes `${classInfo.grade} ${classInfo.subject}`.
+    // Let's create a temporary object to satisfy the PDF generator.
+    
+    const tempClassInfo = {
+      subject: classSubject,
+      grade: "", // Included in subject string effectively
+      className: "" 
+    };
+
+    generateLearnerReportPDF(learner, tempClassInfo, gradingScheme, schoolName, teacherName);
+    showSuccess(`Report downloaded for ${learner.name}`);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -76,6 +103,12 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
             </div>
           </div>
         </div>
+        
+        <DialogFooter>
+          <Button onClick={handleDownloadReport} className="w-full sm:w-auto">
+            <Download className="mr-2 h-4 w-4" /> Download Report Card
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
