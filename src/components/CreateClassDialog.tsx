@@ -17,6 +17,7 @@ import { PlusCircle } from "lucide-react";
 export interface Learner {
   name: string;
   mark: string;
+  comment?: string;
 }
 
 export interface ClassInfo {

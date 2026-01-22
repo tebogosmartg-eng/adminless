@@ -24,6 +24,11 @@ export interface ClassInsight {
   recommendations: string[];
 }
 
+export interface LearnerComment {
+  name: string;
+  comment: string;
+}
+
 const scanResultSchema = {
   description: "Assessment scan result containing details and learner marks",
   type: SchemaType.OBJECT,
@@ -75,6 +80,19 @@ const insightsSchema = {
     },
   },
   required: ["summary", "strengths", "weaknesses", "recommendations"],
+};
+
+const commentsSchema = {
+  description: "List of generated report comments for learners",
+  type: SchemaType.ARRAY,
+  items: {
+    type: SchemaType.OBJECT,
+    properties: {
+      name: { type: SchemaType.STRING, description: "Name of the learner", nullable: false },
+      comment: { type: SchemaType.STRING, description: "Generated report comment", nullable: false },
+    },
+    required: ["name", "comment"],
+  },
 };
 
 export async function processImagesWithGemini(imageDataUrls: string[]): Promise<GeminiScanResult> {
@@ -160,5 +178,45 @@ export async function generateClassInsights(subject: string, grade: string, lear
   } catch (error) {
     console.error("Error generating insights with Gemini:", error);
     throw new Error("Failed to generate insights.");
+  }
+}
+
+export async function generateReportComments(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<LearnerComment[]> {
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-3-flash-preview",
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: commentsSchema as any,
+    },
+  });
+
+  const validLearners = learners.filter(l => l.mark && l.mark.trim() !== "");
+  const learnersData = JSON.stringify(validLearners);
+
+  const prompt = `
+    Generate a short, encouraging, and specific report card comment (1-2 sentences) for each of the following students based on their mark.
+    
+    Context:
+    Subject: ${subject}
+    Grade: ${grade}
+    
+    Learner Data: ${learnersData}
+    
+    Guidelines:
+    - High marks: Praise their effort and mastery.
+    - Average marks: Encourage consistency and point out potential.
+    - Low marks: Be supportive, suggest focusing on basics, but remain positive.
+    - Use the learner's name in the comment.
+  `;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    return JSON.parse(text) as LearnerComment[];
+  } catch (error) {
+    console.error("Error generating comments with Gemini:", error);
+    throw new Error("Failed to generate comments.");
   }
 }

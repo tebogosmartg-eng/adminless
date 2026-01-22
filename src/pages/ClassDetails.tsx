@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal, Search, BrainCircuit } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal, Search, BrainCircuit, MessageSquare, Loader2, FileText } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
@@ -15,7 +15,8 @@ import ClassStats from '@/components/ClassStats';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
 import { EditLearnersDialog } from '@/components/EditLearnersDialog';
 import { AiInsightsDialog } from '@/components/AiInsightsDialog';
-import { generateClassInsights, ClassInsight } from '@/services/gemini';
+import { generateClassInsights, generateReportComments, ClassInsight } from '@/services/gemini';
+import { Textarea } from '@/components/ui/textarea';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -44,6 +45,10 @@ const ClassDetails = () => {
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [insights, setInsights] = useState<ClassInsight | null>(null);
 
+  // Comments State
+  const [showComments, setShowComments] = useState(false);
+  const [isGeneratingComments, setIsGeneratingComments] = useState(false);
+
   useEffect(() => {
     if (classInfo) {
       setLearners(classInfo.learners);
@@ -52,9 +57,9 @@ const ClassDetails = () => {
 
   useEffect(() => {
     if (classInfo) {
-      const originalLearners = JSON.stringify(classInfo.learners.map(l => ({ name: l.name, mark: l.mark })).sort((a, b) => a.name.localeCompare(b.name)));
-      const currentLearners = JSON.stringify(learners.map(l => ({ name: l.name, mark: l.mark })).sort((a, b) => a.name.localeCompare(b.name)));
-      setHasUnsavedChanges(originalLearners !== currentLearners);
+      const original = JSON.stringify(classInfo.learners);
+      const current = JSON.stringify(learners);
+      setHasUnsavedChanges(original !== current);
     }
   }, [learners, classInfo]);
 
@@ -65,8 +70,8 @@ const ClassDetails = () => {
 
     if (sortConfig.key) {
       filtered.sort((a, b) => {
-        const aVal = a[sortConfig.key!];
-        const bVal = b[sortConfig.key!];
+        const aVal = a[sortConfig.key!] || '';
+        const bVal = b[sortConfig.key!] || '';
         let comparison = 0;
 
         if (sortConfig.key === 'mark') {
@@ -79,9 +84,9 @@ const ClassDetails = () => {
           const numB = parseMark(bVal);
           if (numA > numB) comparison = 1;
           else if (numA < numB) comparison = -1;
-        } else { // name
-          if (aVal.toLowerCase() > bVal.toLowerCase()) comparison = 1;
-          else if (aVal.toLowerCase() < bVal.toLowerCase()) comparison = -1;
+        } else { // name or comment
+          if (aVal.toString().toLowerCase() > bVal.toString().toLowerCase()) comparison = 1;
+          else if (aVal.toString().toLowerCase() < bVal.toString().toLowerCase()) comparison = -1;
         }
         return sortConfig.direction === 'descending' ? comparison * -1 : comparison;
       });
@@ -103,11 +108,16 @@ const ClassDetails = () => {
     setLearners(updatedLearners);
   };
 
+  const handleCommentChange = (index: number, comment: string) => {
+    const updatedLearners = [...learners];
+    updatedLearners[index] = { ...updatedLearners[index], comment };
+    setLearners(updatedLearners);
+  };
+
   const handleSaveChanges = () => {
     if (classId) {
       updateLearners(classId, learners);
-      showSuccess("Marks have been saved successfully!");
-      // Reset insights when data changes
+      showSuccess("Changes have been saved successfully!");
       setInsights(null); 
     }
   };
@@ -126,9 +136,9 @@ const ClassDetails = () => {
       return;
     }
 
-    const csvHeader = "Learner Name,Mark\n";
+    const csvHeader = "Learner Name,Mark,Comment\n";
     const csvRows = learners
-      .map(learner => `"${learner.name.replace(/"/g, '""')}",${learner.mark}`)
+      .map(learner => `"${learner.name.replace(/"/g, '""')}",${learner.mark},"${(learner.comment || '').replace(/"/g, '""')}"`)
       .join("\n");
     const csvContent = csvHeader + csvRows;
 
@@ -145,7 +155,7 @@ const ClassDetails = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showSuccess("Marks exported successfully!");
+      showSuccess("Data exported successfully!");
     } else {
       showError("Export feature is not supported in your browser.");
     }
@@ -154,7 +164,6 @@ const ClassDetails = () => {
   const handleGenerateInsights = async () => {
     if (!classInfo) return;
     
-    // Check if there are any marks
     const hasMarks = learners.some(l => l.mark && l.mark.trim() !== "");
     if (!hasMarks) {
       showError("Please enter some marks before generating insights.");
@@ -170,6 +179,40 @@ const ClassDetails = () => {
       showError("Failed to generate insights. Please try again.");
     } finally {
       setIsGeneratingInsights(false);
+    }
+  };
+
+  const handleGenerateComments = async () => {
+    if (!classInfo) return;
+    
+    const hasMarks = learners.some(l => l.mark && l.mark.trim() !== "");
+    if (!hasMarks) {
+      showError("Please enter marks before generating comments.");
+      return;
+    }
+
+    setIsGeneratingComments(true);
+    // Automatically open the comments view
+    setShowComments(true);
+    
+    try {
+      const comments = await generateReportComments(classInfo.subject, classInfo.grade, learners);
+      
+      const updatedLearners = learners.map(learner => {
+        const generated = comments.find(c => c.name === learner.name);
+        if (generated) {
+          return { ...learner, comment: generated.comment };
+        }
+        return learner;
+      });
+
+      setLearners(updatedLearners);
+      showSuccess(`Generated comments for ${comments.length} learners.`);
+    } catch (error) {
+      console.error(error);
+      showError("Failed to generate comments. Please try again.");
+    } finally {
+      setIsGeneratingComments(false);
     }
   };
 
@@ -202,20 +245,26 @@ const ClassDetails = () => {
             className="border-primary/20 text-primary hover:bg-primary/5"
             onClick={() => setIsAiInsightsOpen(true)}
           >
-            <BrainCircuit className="mr-2 h-4 w-4" /> AI Insights
+            <BrainCircuit className="mr-2 h-4 w-4" /> Insights
+          </Button>
+          <Button 
+            variant="outline" 
+            className={showComments ? "bg-muted" : ""}
+            onClick={() => setShowComments(!showComments)}
+          >
+            <MessageSquare className="mr-2 h-4 w-4" /> {showComments ? 'Hide Comments' : 'Comments'}
           </Button>
           <Button onClick={handleSaveChanges} disabled={!hasUnsavedChanges}>
             <Save className="mr-2 h-4 w-4" />
             {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
           </Button>
           <Button variant="outline" onClick={() => setIsVoiceEntryOpen(true)}>
-            <Mic className="mr-2 h-4 w-4" /> Voice Entry
+            <Mic className="mr-2 h-4 w-4" /> Voice
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
                 <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">More options</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -229,34 +278,56 @@ const ClassDetails = () => {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
-                <span>Export</span>
+                <span>Export CSV</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      <ClassStats learners={learners} />
-      <MarkDistributionChart learners={learners} />
+      {!showComments && (
+        <>
+          <ClassStats learners={learners} />
+          <MarkDistributionChart learners={learners} />
+        </>
+      )}
 
-      <Card>
+      <Card className="transition-all duration-300">
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
             <div>
-              <CardTitle>Learner List</CardTitle>
+              <CardTitle>Learner List {showComments && "& Comments"}</CardTitle>
               <CardDescription>
-                Enter marks below, search for a learner, or click headers to sort.
+                {showComments 
+                  ? "View and edit generated report comments." 
+                  : "Enter marks below, search for a learner, or click headers to sort."}
               </CardDescription>
             </div>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search learners..."
-                className="pl-8 sm:w-[300px]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div className="flex gap-2">
+              {showComments && (
+                <Button 
+                  onClick={handleGenerateComments} 
+                  disabled={isGeneratingComments} 
+                  variant="secondary"
+                  className="bg-purple-100 text-purple-900 hover:bg-purple-200 dark:bg-purple-900/40 dark:text-purple-100"
+                >
+                  {isGeneratingComments ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
+                  ) : (
+                    <><BrainCircuit className="mr-2 h-4 w-4" /> AI Auto-Generate</>
+                  )}
+                </Button>
+              )}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search learners..."
+                  className="pl-8 sm:w-[250px]"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -264,41 +335,59 @@ const ClassDetails = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px]">#</TableHead>
-                <TableHead>
+                <TableHead className="w-[60px]">#</TableHead>
+                <TableHead className="w-[250px]">
                   <Button variant="ghost" onClick={() => requestSort('name')}>
                     Learner Name
                     {sortConfig.key === 'name' && <ArrowUpDown className="ml-2 h-4 w-4" />}
                   </Button>
                 </TableHead>
-                <TableHead className="text-right w-[150px]">
+                <TableHead className="w-[120px]">
                    <Button variant="ghost" onClick={() => requestSort('mark')}>
                     Mark
                     {sortConfig.key === 'mark' && <ArrowUpDown className="ml-2 h-4 w-4" />}
                   </Button>
                 </TableHead>
+                {showComments && (
+                   <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('comment')}>
+                      Comment
+                      {sortConfig.key === 'comment' && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                    </Button>
+                   </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedAndFilteredLearners.length > 0 ? (
                 sortedAndFilteredLearners.map((learner, index) => (
                   <TableRow key={learner.originalIndex}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
-                    <TableCell>{learner.name}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell className="font-medium">{learner.name}</TableCell>
+                    <TableCell>
                       <Input
                         type="number"
-                        placeholder="Enter mark"
+                        placeholder="%"
                         value={learner.mark}
                         onChange={(e) => handleMarkChange(learner.originalIndex, e.target.value)}
-                        className="text-right"
+                        className=""
                       />
                     </TableCell>
+                    {showComments && (
+                      <TableCell>
+                        <Textarea
+                          value={learner.comment || ''}
+                          onChange={(e) => handleCommentChange(learner.originalIndex, e.target.value)}
+                          placeholder="Enter a comment or generate with AI..."
+                          className="min-h-[60px] resize-none"
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="h-24 text-center">
+                  <TableCell colSpan={showComments ? 4 : 3} className="h-24 text-center">
                     No learners found.
                   </TableCell>
                 </TableRow>
