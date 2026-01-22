@@ -1,35 +1,86 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { showSuccess, showError } from "@/utils/toast";
-import { Eye, EyeOff, Save, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Save, ShieldCheck, RotateCcw, Plus, Trash2 } from "lucide-react";
+import { useSettings } from "@/context/SettingsContext";
+import { GradeSymbol } from "@/utils/grading";
 
 const Settings = () => {
-  const [apiKey, setApiKey] = useState("");
+  const { apiKey, setApiKey, gradingScheme, updateGradingScheme, resetGradingScheme } = useSettings();
   const [showKey, setShowKey] = useState(false);
-
-  useEffect(() => {
-    const storedKey = localStorage.getItem("gemini_api_key");
-    if (storedKey) {
-      setApiKey(storedKey);
-    }
-  }, []);
+  const [tempKey, setTempKey] = useState(apiKey);
+  
+  // Local state for grading scheme editing to prevent constant context updates on every keystroke
+  const [localScheme, setLocalScheme] = useState<GradeSymbol[]>(gradingScheme);
 
   const handleSaveKey = () => {
-    if (apiKey.trim()) {
-      localStorage.setItem("gemini_api_key", apiKey.trim());
+    setApiKey(tempKey);
+    if (tempKey) {
       showSuccess("API Key saved successfully.");
     } else {
-      localStorage.removeItem("gemini_api_key");
-      showSuccess("API Key removed. Using default demo key.");
+      showSuccess("API Key removed.");
     }
   };
 
+  const handleSchemeChange = (index: number, field: keyof GradeSymbol, value: any) => {
+    const updated = [...localScheme];
+    updated[index] = { ...updated[index], [field]: value };
+    setLocalScheme(updated);
+  };
+
+  const handleSaveScheme = () => {
+    // Basic validation
+    const isValid = localScheme.every(g => 
+      !isNaN(g.min) && !isNaN(g.max) && g.symbol && !isNaN(g.level)
+    );
+
+    if (!isValid) {
+      showError("Please ensure all fields are filled correctly.");
+      return;
+    }
+
+    updateGradingScheme(localScheme);
+    showSuccess("Grading scheme updated successfully.");
+  };
+
+  const handleResetScheme = () => {
+    if (confirm("Are you sure you want to reset to the default grading scheme?")) {
+      resetGradingScheme();
+      // We need to sync local state after reset, but since resetGradingScheme updates context, 
+      // and we initialize local state from context, we might need a useEffect or just manual update here.
+      // However, the cleanest way is to let the context update trigger a re-render if we depended on it directly,
+      // but here we have local state. Let's just manually reset local state to match defaults.
+      // Ideally, we'd import defaultGradingScheme here, but let's just wait for context or force reload.
+      // Simpler:
+       window.location.reload(); 
+    }
+  };
+  
+  const handleDeleteRow = (index: number) => {
+    const updated = localScheme.filter((_, i) => i !== index);
+    setLocalScheme(updated);
+  };
+
+  const handleAddRow = () => {
+    const newRow: GradeSymbol = {
+      id: Date.now().toString(),
+      min: 0,
+      max: 0,
+      symbol: "New",
+      level: 0,
+      color: "text-gray-700",
+      badgeColor: "bg-gray-100 text-gray-700",
+    };
+    setLocalScheme([...localScheme, newRow]);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
       <div>
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground">Manage your application preferences and integrations.</p>
@@ -55,8 +106,8 @@ const Settings = () => {
                 id="api-key"
                 type={showKey ? "text" : "password"}
                 placeholder="Enter your API key..."
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                value={tempKey}
+                onChange={(e) => setTempKey(e.target.value)}
                 className="pr-10"
               />
               <Button
@@ -81,33 +132,83 @@ const Settings = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Grading System</CardTitle>
-          <CardDescription>
-            View the current grading symbols used for class analysis.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Grading System</CardTitle>
+              <CardDescription>
+                Customize the grade ranges, symbols, and levels used for analysis.
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+               <Button variant="outline" size="sm" onClick={handleResetScheme}>
+                <RotateCcw className="mr-2 h-4 w-4" /> Reset Defaults
+              </Button>
+              <Button size="sm" onClick={handleSaveScheme}>
+                <Save className="mr-2 h-4 w-4" /> Save Changes
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
            <div className="rounded-md border">
-              <div className="grid grid-cols-3 border-b bg-muted/50 p-2 font-medium text-sm">
-                <div>Range</div>
-                <div>Symbol</div>
-                <div>Level</div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Min %</TableHead>
+                    <TableHead>Max %</TableHead>
+                    <TableHead>Symbol</TableHead>
+                    <TableHead>Level</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {localScheme.map((grade, index) => (
+                    <TableRow key={grade.id || index}>
+                      <TableCell>
+                        <Input 
+                          type="number" 
+                          className="h-8 w-20" 
+                          value={grade.min} 
+                          onChange={(e) => handleSchemeChange(index, 'min', parseFloat(e.target.value))}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input 
+                          type="number" 
+                          className="h-8 w-20" 
+                          value={grade.max} 
+                          onChange={(e) => handleSchemeChange(index, 'max', parseFloat(e.target.value))}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input 
+                          className="h-8 w-20" 
+                          value={grade.symbol} 
+                          onChange={(e) => handleSchemeChange(index, 'symbol', e.target.value)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                         <Input 
+                          type="number" 
+                          className="h-8 w-20" 
+                          value={grade.level} 
+                          onChange={(e) => handleSchemeChange(index, 'level', parseFloat(e.target.value))}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteRow(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="p-2 border-t bg-muted/20">
+                <Button variant="ghost" size="sm" className="w-full" onClick={handleAddRow}>
+                  <Plus className="mr-2 h-4 w-4" /> Add Range
+                </Button>
               </div>
-              {[
-                { range: "80 - 100%", symbol: "A", level: 7, color: "text-green-700" },
-                { range: "70 - 79%", symbol: "B", level: 6, color: "text-green-600" },
-                { range: "60 - 69%", symbol: "C", level: 5, color: "text-blue-600" },
-                { range: "50 - 59%", symbol: "D", level: 4, color: "text-yellow-600" },
-                { range: "40 - 49%", symbol: "E", level: 3, color: "text-orange-600" },
-                { range: "30 - 39%", symbol: "F", level: 2, color: "text-red-600" },
-                { range: "0 - 29%", symbol: "FF", level: 1, color: "text-red-700" },
-              ].map((grade, i) => (
-                <div key={i} className="grid grid-cols-3 p-2 text-sm border-b last:border-0">
-                  <div>{grade.range}</div>
-                  <div className={`font-bold ${grade.color}`}>{grade.symbol}</div>
-                  <div>{grade.level}</div>
-                </div>
-              ))}
            </div>
         </CardContent>
       </Card>

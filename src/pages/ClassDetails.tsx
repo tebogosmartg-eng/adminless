@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal, Search, BrainCircuit, MessageSquare, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal, Search, BrainCircuit, MessageSquare, Loader2 } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
@@ -19,6 +19,7 @@ import { AiInsightsDialog } from '@/components/AiInsightsDialog';
 import { generateClassInsights, generateReportComments, ClassInsight } from '@/services/gemini';
 import { Textarea } from '@/components/ui/textarea';
 import { getGradeSymbol } from '@/utils/grading';
+import { useSettings } from '@/context/SettingsContext';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -31,6 +32,7 @@ interface SortConfig {
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
   const { classes, updateLearners } = useClasses();
+  const { gradingScheme } = useSettings();
   const classInfo = classes.find((c) => c.id === classId);
 
   const [learners, setLearners] = useState<Learner[]>([]);
@@ -141,7 +143,7 @@ const ClassDetails = () => {
     const csvHeader = "Learner Name,Mark,Symbol,Level,Comment\n";
     const csvRows = learners
       .map(learner => {
-        const gradeSymbol = getGradeSymbol(learner.mark);
+        const gradeSymbol = getGradeSymbol(learner.mark, gradingScheme);
         const symbol = gradeSymbol?.symbol || '';
         const level = gradeSymbol?.level || '';
         return `"${learner.name.replace(/"/g, '""')}",${learner.mark},${symbol},${level},"${(learner.comment || '').replace(/"/g, '""')}"`;
@@ -369,7 +371,7 @@ const ClassDetails = () => {
             <TableBody>
               {sortedAndFilteredLearners.length > 0 ? (
                 sortedAndFilteredLearners.map((learner, index) => {
-                  const gradeSymbol = getGradeSymbol(learner.mark);
+                  const gradeSymbol = getGradeSymbol(learner.mark, gradingScheme);
                   return (
                     <TableRow key={learner.originalIndex}>
                       <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>

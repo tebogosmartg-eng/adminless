@@ -13,6 +13,7 @@ import Settings from "./pages/Settings";
 import { ClassesProvider } from "./context/ClassesContext";
 import { ActivityProvider } from "./context/ActivityContext";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { SettingsProvider } from "./context/SettingsContext";
 
 const queryClient = new QueryClient();
 
@@ -23,21 +24,23 @@ const App = () => (
         <Toaster />
         <Sonner />
         <ActivityProvider>
-          <ClassesProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route element={<Layout />}>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/classes" element={<Classes />} />
-                  <Route path="/classes/:classId" element={<ClassDetails />} />
-                  <Route path="/scan" element={<Scan />} />
-                  <Route path="/settings" element={<Settings />} />
-                </Route>
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </ClassesProvider>
+          <SettingsProvider>
+            <ClassesProvider>
+              <BrowserRouter>
+                <Routes>
+                  <Route element={<Layout />}>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/classes" element={<Classes />} />
+                    <Route path="/classes/:classId" element={<ClassDetails />} />
+                    <Route path="/scan" element={<Scan />} />
+                    <Route path="/settings" element={<Settings />} />
+                  </Route>
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </ClassesProvider>
+          </SettingsProvider>
         </ActivityProvider>
       </TooltipProvider>
     </ThemeProvider>
