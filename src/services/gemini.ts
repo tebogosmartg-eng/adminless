@@ -1,17 +1,16 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-// Function to get API Key from localStorage or use embedded default
+// Function to get API Key from localStorage
 const getApiKey = () => {
   const key = localStorage.getItem('gemini_api_key');
-  // Use stored key if valid, otherwise fallback to embedded key
   if (key && key.trim().length > 0) {
     return key;
   }
-  return "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
+  return null;
 };
 
 // Helper to get initialized model
-const getModel = (schema?: any) => {
+const getModel = (modelName: string = "gemini-1.5-flash", schema?: any) => {
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("Gemini API Key is missing. Please configure it in Settings.");
@@ -19,9 +18,8 @@ const getModel = (schema?: any) => {
 
   const genAI = new GoogleGenerativeAI(apiKey);
   
-  // Using gemini-1.5-flash-001 as it is the stable version
   return genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash-001",
+    model: modelName,
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: schema,
@@ -145,6 +143,38 @@ const commentsSchema = {
   },
 };
 
+// Generic generator with fallback
+async function generateWithFallback<T>(
+  prompt: string | (string | { inlineData: { mimeType: string; data: string } })[], 
+  schema: any, 
+  errorContext: string
+): Promise<T> {
+  // Try Flash first
+  try {
+    const model = getModel("gemini-1.5-flash", schema);
+    const result = await model.generateContent(Array.isArray(prompt) ? prompt : [prompt]);
+    const response = await result.response;
+    const text = cleanJson(response.text());
+    return JSON.parse(text) as T;
+  } catch (error: any) {
+    console.warn(`Flash model failed for ${errorContext}, trying Pro...`, error);
+    
+    if (error.message.includes("API Key is missing")) throw error;
+
+    // Try Pro as fallback
+    try {
+      const model = getModel("gemini-1.5-pro", schema);
+      const result = await model.generateContent(Array.isArray(prompt) ? prompt : [prompt]);
+      const response = await result.response;
+      const text = cleanJson(response.text());
+      return JSON.parse(text) as T;
+    } catch (fallbackError: any) {
+      console.error(`Pro model also failed for ${errorContext}:`, fallbackError);
+      throw new Error(`AI Request Failed (${errorContext}): ${fallbackError.message || "Unknown error"}. Check your API Key.`);
+    }
+  }
+}
+
 export async function processImagesWithGemini(imageDataUrls: string[]): Promise<GeminiScanResult> {
   // Extract base64 data and mime type
   const imageParts = imageDataUrls.map((url) => {
@@ -171,25 +201,7 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
     - If you cannot read a name or mark clearly, do your best to guess or skip it if impossible.
   `;
 
-  try {
-    const model = getModel(scanResultSchema);
-    const result = await model.generateContent([prompt, ...imageParts]);
-    const response = await result.response;
-    const text = cleanJson(response.text());
-    
-    try {
-      return JSON.parse(text) as GeminiScanResult;
-    } catch (parseError) {
-      console.error("JSON Parse Error. Raw Text:", text);
-      throw new Error("Failed to parse AI response. The model returned invalid JSON.");
-    }
-  } catch (error: any) {
-    console.error("Error processing images with Gemini:", error);
-    if (error.message.includes("API Key is missing")) {
-      throw error;
-    }
-    throw new Error(`AI Processing Failed: ${error.message || "Unknown error"}`);
-  }
+  return generateWithFallback<GeminiScanResult>([prompt, ...imageParts], scanResultSchema, "Scanning Images");
 }
 
 export async function generateClassInsights(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<ClassInsight> {
@@ -210,20 +222,7 @@ export async function generateClassInsights(subject: string, grade: string, lear
     4. Actionable recommendations for the teacher to improve results or help struggling students.
   `;
 
-  try {
-    const model = getModel(insightsSchema);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = cleanJson(response.text());
-    
-    return JSON.parse(text) as ClassInsight;
-  } catch (error: any) {
-    console.error("Error generating insights with Gemini:", error);
-    if (error.message.includes("API Key is missing")) {
-      throw error;
-    }
-    throw new Error(`AI Insights Failed: ${error.message || "Unknown error"}`);
-  }
+  return generateWithFallback<ClassInsight>(prompt, insightsSchema, "Class Insights");
 }
 
 export async function generateReportComments(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<LearnerComment[]> {
@@ -246,18 +245,5 @@ export async function generateReportComments(subject: string, grade: string, lea
     - Use the learner's name in the comment.
   `;
 
-  try {
-    const model = getModel(commentsSchema);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = cleanJson(response.text());
-    
-    return JSON.parse(text) as LearnerComment[];
-  } catch (error: any) {
-    console.error("Error generating comments with Gemini:", error);
-    if (error.message.includes("API Key is missing")) {
-      throw error;
-    }
-    throw new Error(`AI Comments Failed: ${error.message || "Unknown error"}`);
-  }
+  return generateWithFallback<LearnerComment[]>(prompt, commentsSchema, "Report Comments");
 }
