@@ -18,8 +18,8 @@ export interface GeminiScanResult {
 }
 
 export async function processImagesWithGemini(imageDataUrls: string[]): Promise<GeminiScanResult> {
-  // Using gemini-1.5-flash as requested (assuming 1.5 is the current version intended by "3 flash" or the latest available flash model)
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  // Using gemini-3-flash-preview as requested
+  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
   const imageParts = imageDataUrls.map((url) => {
     // Extract base64 data and mime type
