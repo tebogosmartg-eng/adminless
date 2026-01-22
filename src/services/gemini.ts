@@ -23,7 +23,6 @@ const getModel = (modelName: string, schema?: any) => {
   };
 
   // Only add schema config if schema is provided AND model supports it (1.5+)
-  // gemini-pro (1.0) does NOT support responseSchema and will throw if passed
   if (schema && modelName.includes('1.5')) {
     config.generationConfig = {
       responseMimeType: "application/json",
@@ -150,73 +149,82 @@ const commentsSchema = {
   },
 };
 
-// Generic generator with fallback
-async function generateWithFallback<T>(
+// Generic generator that tries multiple models in sequence
+async function generateWithModelList<T>(
   prompt: string | (string | { inlineData: { mimeType: string; data: string } })[], 
   schema: any, 
-  errorContext: string
+  errorContext: string,
+  isMultimodal: boolean = false
 ): Promise<T> {
-  // 1. Try Gemini 1.5 Flash (Preferred, Fast)
-  try {
-    const model = getModel("gemini-1.5-flash", schema);
-    const result = await model.generateContent(Array.isArray(prompt) ? prompt : [prompt]);
-    const response = await result.response;
-    const text = cleanJson(response.text());
-    console.log(`[Gemini 1.5 Flash Success]:`, text);
-    return JSON.parse(text) as T;
-  } catch (error: any) {
-    console.warn(`[Gemini 1.5 Flash Failed]:`, error);
-    
-    // Stop early if key is invalid/missing to save time
-    if (error.message.includes("API Key is missing")) throw error;
-    if (error.message.includes("403") || error.message.includes("401")) {
-      throw new Error("Invalid API Key. Please check your settings.");
-    }
+  // Define fallback hierarchy
+  let modelsToTry = [
+    "gemini-1.5-flash", 
+    "gemini-1.5-flash-001",
+    "gemini-1.5-flash-002",
+    "gemini-1.5-pro"
+  ];
 
-    // 2. Try Gemini 1.5 Pro (Fallback for capability)
+  // If NOT multimodal (text only), we can also try the legacy gemini-pro as a last resort
+  if (!isMultimodal) {
+    modelsToTry.push("gemini-pro");
+  }
+
+  let lastError: any = null;
+
+  for (const modelName of modelsToTry) {
     try {
-      console.log("Attempting fallback to Gemini 1.5 Pro...");
-      const model = getModel("gemini-1.5-pro", schema);
-      const result = await model.generateContent(Array.isArray(prompt) ? prompt : [prompt]);
-      const response = await result.response;
-      const text = cleanJson(response.text());
-      console.log(`[Gemini 1.5 Pro Success]:`, text);
-      return JSON.parse(text) as T;
-    } catch (fallbackError: any) {
-      console.warn(`[Gemini 1.5 Pro Failed]:`, fallbackError);
+      console.log(`[Gemini] Attempting ${errorContext} with ${modelName}...`);
       
-      // 3. Try Legacy Gemini Pro 1.0 (Fallback for availability/404s)
-      try {
-        console.log("Attempting final fallback to Gemini Pro (1.0)...");
-        // We pass 'gemini-pro' which tells getModel NOT to use responseSchema
-        const model = getModel("gemini-pro"); 
-        
-        // Ensure prompt forces JSON since we lost the schema enforcement
+      const model = getModel(modelName, schema);
+      
+      // Special handling for legacy gemini-pro which needs JSON enforcement in prompt instead of schema
+      let currentPrompt = prompt;
+      if (modelName === "gemini-pro" && !modelName.includes("1.5")) {
+        // Clone prompt to avoid modifying original for other retries
         let legacyPrompt = Array.isArray(prompt) ? [...prompt] : [prompt];
         if (typeof legacyPrompt[0] === 'string') {
           legacyPrompt[0] = legacyPrompt[0] + "\n\nIMPORTANT: Output ONLY valid JSON.";
         } else {
           legacyPrompt.push("\n\nIMPORTANT: Output ONLY valid JSON.");
         }
-
-        const result = await model.generateContent(legacyPrompt);
-        const response = await result.response;
-        const text = cleanJson(response.text());
-        console.log(`[Gemini Pro 1.0 Success]:`, text);
-        return JSON.parse(text) as T;
-
-      } catch (finalError: any) {
-         console.error(`[All Models Failed]:`, finalError);
-         
-         let msg = "Unknown error";
-         if (finalError.message) msg = finalError.message;
-         if (msg.includes("404")) msg = "AI Models not found. Your API Key may not support Gemini.";
-         if (msg.includes("403")) msg = "API Key declined. Check your billing/quota.";
-         
-         throw new Error(`AI Scan Failed: ${msg}`);
+        currentPrompt = legacyPrompt;
       }
+
+      const result = await model.generateContent(Array.isArray(currentPrompt) ? currentPrompt : [currentPrompt]);
+      const response = await result.response;
+      const text = cleanJson(response.text());
+      console.log(`[Gemini Success] ${modelName} worked.`);
+      return JSON.parse(text) as T;
+
+    } catch (error: any) {
+      console.warn(`[Gemini Failure] ${modelName} failed:`, error);
+      lastError = error;
+      
+      // Don't retry if the API key itself is missing or invalid (400/401/403)
+      // 404 means model not found, so we SHOULD retry with other models
+      if (error.message?.includes("API Key is missing")) throw error;
+      
+      // If we are at the last model, we will fall through to throw
     }
   }
+
+  // If we reach here, all models failed
+  console.error(`[Gemini Fatal] All models failed for ${errorContext}. Last error:`, lastError);
+  
+  let msg = "Unknown error";
+  if (lastError?.message) msg = lastError.message;
+  
+  if (msg.includes("404")) {
+    throw new Error(
+      "AI Models not found (404). This usually means the 'Generative Language API' is not enabled in your Google Cloud Console project associated with this API Key."
+    );
+  }
+  
+  if (msg.includes("403") || msg.includes("401")) {
+    throw new Error("Invalid API Key or Billing issue. Please check your settings.");
+  }
+
+  throw new Error(`AI Request Failed: ${msg}`);
 }
 
 export async function processImagesWithGemini(imageDataUrls: string[]): Promise<GeminiScanResult> {
@@ -245,7 +253,8 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
     - If you cannot read a name or mark clearly, do your best to guess or skip it if impossible.
   `;
 
-  return generateWithFallback<GeminiScanResult>([prompt, ...imageParts], scanResultSchema, "Scanning Images");
+  // True = isMultimodal (cannot use gemini-pro)
+  return generateWithModelList<GeminiScanResult>([prompt, ...imageParts], scanResultSchema, "Scanning Images", true);
 }
 
 export async function generateClassInsights(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<ClassInsight> {
@@ -266,7 +275,8 @@ export async function generateClassInsights(subject: string, grade: string, lear
     4. Actionable recommendations for the teacher to improve results or help struggling students.
   `;
 
-  return generateWithFallback<ClassInsight>(prompt, insightsSchema, "Class Insights");
+  // False = text only
+  return generateWithModelList<ClassInsight>(prompt, insightsSchema, "Class Insights", false);
 }
 
 export async function generateReportComments(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<LearnerComment[]> {
@@ -289,5 +299,6 @@ export async function generateReportComments(subject: string, grade: string, lea
     - Use the learner's name in the comment.
   `;
 
-  return generateWithFallback<LearnerComment[]>(prompt, commentsSchema, "Report Comments");
+  // False = text only
+  return generateWithModelList<LearnerComment[]>(prompt, commentsSchema, "Report Comments", false);
 }
