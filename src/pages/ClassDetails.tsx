@@ -78,9 +78,10 @@ const ClassDetails = () => {
     }
   };
 
-  const handleAddLearner = (name: string) => {
-    setLearners([...learners, { name, mark: "" }]);
-    showSuccess("Learner added to the list. Remember to save changes.");
+  const handleAddLearners = (names: string[]) => {
+    const newLearners = names.map(name => ({ name, mark: "" }));
+    setLearners([...learners, ...newLearners]);
+    showSuccess(`Added ${names.length} learner(s). Remember to save changes.`);
   };
 
   const handleSaveChanges = () => {
@@ -230,8 +231,6 @@ const ClassDetails = () => {
     }
   };
 
-  // Currently we don't have a button for this in LearnerList, but the architecture supports it if we add one.
-  // We'll leave it ready for future implementation or if LearnerList needs updating.
   const handleSimulateComments = () => {
      setIsGeneratingComments(true);
      setTimeout(() => {
@@ -258,12 +257,16 @@ const ClassDetails = () => {
     );
   }
 
+  const gradedCount = learners.filter(l => l.mark && l.mark.trim() !== '').length;
+
   return (
     <>
       <ClassHeader 
         classNameStr={classInfo.className}
         subject={classInfo.subject}
         grade={classInfo.grade}
+        learnerCount={learners.length}
+        gradedCount={gradedCount}
         hasUnsavedChanges={hasUnsavedChanges}
         showComments={showComments}
         onToggleComments={() => setShowComments(!showComments)}
@@ -302,7 +305,7 @@ const ClassDetails = () => {
       <AddLearnerDialog 
         isOpen={isAddLearnerOpen}
         onOpenChange={setIsAddLearnerOpen}
-        onAdd={handleAddLearner}
+        onAdd={handleAddLearners}
       />
       
       <VoiceEntryDialog 

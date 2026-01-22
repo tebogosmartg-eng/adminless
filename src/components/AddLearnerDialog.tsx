@@ -8,22 +8,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface AddLearnerDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onAdd: (name: string) => void;
+  onAdd: (names: string[]) => void;
 }
 
 export const AddLearnerDialog = ({ isOpen, onOpenChange, onAdd }: AddLearnerDialogProps) => {
-  const [newLearnerName, setNewLearnerName] = useState("");
+  const [learnerNames, setLearnerNames] = useState("");
 
   const handleAddLearner = () => {
-    if (newLearnerName.trim()) {
-      onAdd(newLearnerName.trim());
-      setNewLearnerName("");
+    const names = learnerNames
+      .split('\n')
+      .map(name => name.trim())
+      .filter(name => name !== "");
+
+    if (names.length > 0) {
+      onAdd(names);
+      setLearnerNames("");
       onOpenChange(false);
     }
   };
@@ -32,25 +37,27 @@ export const AddLearnerDialog = ({ isOpen, onOpenChange, onAdd }: AddLearnerDial
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New Learner</DialogTitle>
+          <DialogTitle>Add Learners</DialogTitle>
           <DialogDescription>
-            Enter the full name of the learner to add to this class.
+            Enter full names to add to this class. Put each name on a new line.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Learner Name</Label>
-            <Input 
-              id="name" 
-              placeholder="e.g. John Doe" 
-              value={newLearnerName}
-              onChange={(e) => setNewLearnerName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddLearner()}
+            <Label htmlFor="names">Learner Names</Label>
+            <Textarea 
+              id="names" 
+              placeholder="e.g.&#10;John Doe&#10;Jane Smith&#10;Bob Wilson" 
+              value={learnerNames}
+              onChange={(e) => setLearnerNames(e.target.value)}
+              className="min-h-[150px]"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleAddLearner}>Add Learner</Button>
+          <Button type="submit" onClick={handleAddLearner} disabled={!learnerNames.trim()}>
+            Add {learnerNames.split('\n').filter(n => n.trim()).length > 1 ? 'Learners' : 'Learner'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
