@@ -17,6 +17,13 @@ export interface GeminiScanResult {
   }[];
 }
 
+export interface ClassInsight {
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+}
+
 const scanResultSchema = {
   description: "Assessment scan result containing details and learner marks",
   type: SchemaType.OBJECT,
@@ -46,6 +53,30 @@ const scanResultSchema = {
   required: ["details", "learners"],
 };
 
+const insightsSchema = {
+  description: "AI analysis and insights for class performance",
+  type: SchemaType.OBJECT,
+  properties: {
+    summary: { type: SchemaType.STRING, description: "A brief executive summary of the class performance.", nullable: false },
+    strengths: { 
+      type: SchemaType.ARRAY, 
+      description: "List of key strengths identified in the results.",
+      items: { type: SchemaType.STRING } 
+    },
+    weaknesses: { 
+      type: SchemaType.ARRAY, 
+      description: "List of areas where learners struggled.",
+      items: { type: SchemaType.STRING } 
+    },
+    recommendations: { 
+      type: SchemaType.ARRAY, 
+      description: "Actionable recommendations for the teacher.",
+      items: { type: SchemaType.STRING } 
+    },
+  },
+  required: ["summary", "strengths", "weaknesses", "recommendations"],
+};
+
 export async function processImagesWithGemini(imageDataUrls: string[]): Promise<GeminiScanResult> {
   // Using gemini-3-flash-preview as requested
   const model = genAI.getGenerativeModel({ 
@@ -58,7 +89,6 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
 
   const imageParts = imageDataUrls.map((url) => {
     // Extract base64 data and mime type
-    // Format: data:image/jpeg;base64,....
     const matches = url.match(/^data:(.+);base64,(.+)$/);
     if (!matches || matches.length < 3) {
       throw new Error("Invalid image format");
@@ -91,5 +121,44 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
   } catch (error) {
     console.error("Error processing images with Gemini:", error);
     throw new Error("Failed to process images with AI.");
+  }
+}
+
+export async function generateClassInsights(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<ClassInsight> {
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-3-flash-preview",
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: insightsSchema as any,
+    },
+  });
+
+  // Filter out learners with no marks for the analysis
+  const validLearners = learners.filter(l => l.mark && l.mark.trim() !== "");
+  const learnersData = JSON.stringify(validLearners);
+
+  const prompt = `
+    Analyze the performance of the following class:
+    Subject: ${subject}
+    Grade: ${grade}
+    
+    Learner Data: ${learnersData}
+
+    Please provide:
+    1. A summary of how the class performed overall.
+    2. Key strengths noticed in the marks (e.g., high pass rate, consistency).
+    3. Weaknesses or areas of concern (e.g., significant failures, wide gap between top and bottom).
+    4. Actionable recommendations for the teacher to improve results or help struggling students.
+  `;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    return JSON.parse(text) as ClassInsight;
+  } catch (error) {
+    console.error("Error generating insights with Gemini:", error);
+    throw new Error("Failed to generate insights.");
   }
 }

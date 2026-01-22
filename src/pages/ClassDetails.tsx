@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal, Search } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, ArrowUpDown, Users, MoreHorizontal, Search, BrainCircuit } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
@@ -14,6 +14,8 @@ import { ImportMarksDialog } from '@/components/ImportMarksDialog';
 import ClassStats from '@/components/ClassStats';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
 import { EditLearnersDialog } from '@/components/EditLearnersDialog';
+import { AiInsightsDialog } from '@/components/AiInsightsDialog';
+import { generateClassInsights, ClassInsight } from '@/services/gemini';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -32,9 +34,15 @@ const ClassDetails = () => {
   const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditLearnersOpen, setIsEditLearnersOpen] = useState(false);
+  const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
+  
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // AI Insights State
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [insights, setInsights] = useState<ClassInsight | null>(null);
 
   useEffect(() => {
     if (classInfo) {
@@ -99,6 +107,8 @@ const ClassDetails = () => {
     if (classId) {
       updateLearners(classId, learners);
       showSuccess("Marks have been saved successfully!");
+      // Reset insights when data changes
+      setInsights(null); 
     }
   };
 
@@ -106,6 +116,7 @@ const ClassDetails = () => {
     setLearners(updatedLearners);
     if (classId) {
       updateLearners(classId, updatedLearners);
+      setInsights(null);
     }
   };
 
@@ -140,6 +151,28 @@ const ClassDetails = () => {
     }
   };
 
+  const handleGenerateInsights = async () => {
+    if (!classInfo) return;
+    
+    // Check if there are any marks
+    const hasMarks = learners.some(l => l.mark && l.mark.trim() !== "");
+    if (!hasMarks) {
+      showError("Please enter some marks before generating insights.");
+      return;
+    }
+
+    setIsGeneratingInsights(true);
+    try {
+      const result = await generateClassInsights(classInfo.subject, classInfo.grade, learners);
+      setInsights(result);
+    } catch (error) {
+      console.error(error);
+      showError("Failed to generate insights. Please try again.");
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  };
+
   if (!classInfo) {
     return (
       <div className="text-center py-12">
@@ -164,6 +197,13 @@ const ClassDetails = () => {
           <p className="text-muted-foreground">{classInfo.grade}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button 
+            variant="outline" 
+            className="border-primary/20 text-primary hover:bg-primary/5"
+            onClick={() => setIsAiInsightsOpen(true)}
+          >
+            <BrainCircuit className="mr-2 h-4 w-4" /> AI Insights
+          </Button>
           <Button onClick={handleSaveChanges} disabled={!hasUnsavedChanges}>
             <Save className="mr-2 h-4 w-4" />
             {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
@@ -284,6 +324,13 @@ const ClassDetails = () => {
         isOpen={isEditLearnersOpen}
         onOpenChange={setIsEditLearnersOpen}
         classInfo={classInfo}
+      />
+      <AiInsightsDialog
+        isOpen={isAiInsightsOpen}
+        onOpenChange={setIsAiInsightsOpen}
+        isLoading={isGeneratingInsights}
+        insights={insights}
+        onGenerate={handleGenerateInsights}
       />
     </>
   );
