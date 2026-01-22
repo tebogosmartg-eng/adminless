@@ -1,8 +1,8 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-// Function to get API Key from localStorage
+// Function to get API Key from localStorage or use embedded default
 const getApiKey = () => {
-  return localStorage.getItem('gemini_api_key') || "";
+  return localStorage.getItem('gemini_api_key') || "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
 };
 
 // Helper to get initialized model

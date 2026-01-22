@@ -26,9 +26,9 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     }
   });
 
-  // API Key State (Moving logic from Settings.tsx to here for consistency)
+  // API Key State (Defaulting to embedded key if not in storage)
   const [apiKey, setApiKeyState] = useState<string>(() => {
-    return localStorage.getItem('gemini_api_key') || "";
+    return localStorage.getItem('gemini_api_key') || "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
   });
 
   useEffect(() => {
