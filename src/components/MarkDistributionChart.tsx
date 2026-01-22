@@ -2,40 +2,44 @@ import { useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Learner } from '@/components/CreateClassDialog';
+import { useSettings } from '@/context/SettingsContext';
+import { getGradeSymbol } from '@/utils/grading';
 
 interface MarkDistributionChartProps {
   learners: Learner[];
 }
 
 const MarkDistributionChart = ({ learners }: MarkDistributionChartProps) => {
-  const chartData = useMemo(() => {
-    const ranges = [
-      { name: '0-9', count: 0 },
-      { name: '10-19', count: 0 },
-      { name: '20-29', count: 0 },
-      { name: '30-39', count: 0 },
-      { name: '40-49', count: 0 },
-      { name: '50-59', count: 0 },
-      { name: '60-69', count: 0 },
-      { name: '70-79', count: 0 },
-      { name: '80-89', count: 0 },
-      { name: '90-100', count: 0 },
-    ];
+  const { gradingScheme } = useSettings();
 
+  const chartData = useMemo(() => {
+    // Initialize counts for each symbol in the scheme
+    // Sort by min value ascending so the chart goes from low to high marks left-to-right
+    const sortedScheme = [...gradingScheme].sort((a, b) => a.min - b.min);
+    
+    const data = sortedScheme.map(grade => ({
+      name: grade.symbol,
+      count: 0,
+      min: grade.min, // keeping for reference
+      fill: grade.color.replace('text-', 'var(--') // This is tricky with Tailwind classes, let's map manually or use a default
+    }));
+
+    // Add a category for "Ungraded" or "Invalid" if needed, but for now we filter them
+    
     learners.forEach(learner => {
       if (learner.mark && !isNaN(parseFloat(learner.mark))) {
-        const mark = parseFloat(learner.mark);
-        if (mark >= 0 && mark <= 100) {
-          const rangeIndex = Math.floor(mark / 10);
-          // Handle 100% case
-          const finalIndex = rangeIndex === 10 ? 9 : rangeIndex;
-          ranges[finalIndex].count++;
+        const symbolObj = getGradeSymbol(learner.mark, gradingScheme);
+        if (symbolObj) {
+          const dataPoint = data.find(d => d.name === symbolObj.symbol);
+          if (dataPoint) {
+            dataPoint.count++;
+          }
         }
       }
     });
 
-    return ranges;
-  }, [learners]);
+    return data;
+  }, [learners, gradingScheme]);
 
   const hasData = useMemo(() => learners.some(l => l.mark && !isNaN(parseFloat(l.mark))), [learners]);
 
@@ -43,7 +47,7 @@ const MarkDistributionChart = ({ learners }: MarkDistributionChartProps) => {
     <Card className="mb-6">
       <CardHeader>
         <CardTitle>Mark Distribution</CardTitle>
-        <CardDescription>Number of learners in each mark percentage range.</CardDescription>
+        <CardDescription>Number of learners per grade symbol.</CardDescription>
       </CardHeader>
       <CardContent>
         {hasData ? (
@@ -54,6 +58,7 @@ const MarkDistributionChart = ({ learners }: MarkDistributionChartProps) => {
                 <XAxis dataKey="name" />
                 <YAxis allowDecimals={false} />
                 <Tooltip
+                  cursor={{ fill: 'transparent' }}
                   contentStyle={{
                     background: "hsl(var(--background))",
                     border: "1px solid hsl(var(--border))",
@@ -61,7 +66,8 @@ const MarkDistributionChart = ({ learners }: MarkDistributionChartProps) => {
                   }}
                 />
                 <Legend />
-                <Bar dataKey="count" name="Learners" fill="hsl(var(--primary))" />
+                {/* We use a single Bar with a default color, as Recharts individual bar coloring requires specific data structure or Cell components */}
+                <Bar dataKey="count" name="Learners" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
