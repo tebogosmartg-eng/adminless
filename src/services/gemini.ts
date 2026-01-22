@@ -10,7 +10,7 @@ const getApiKey = () => {
 };
 
 // Helper to get initialized model
-const getModel = (modelName: string = "gemini-1.5-flash", schema?: any) => {
+const getModel = (modelName: string, schema?: any) => {
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("Gemini API Key is missing or invalid. Please configure a valid key in Settings.");
@@ -18,13 +18,20 @@ const getModel = (modelName: string = "gemini-1.5-flash", schema?: any) => {
 
   const genAI = new GoogleGenerativeAI(apiKey);
   
-  return genAI.getGenerativeModel({ 
+  const config: any = {
     model: modelName,
-    generationConfig: {
+  };
+
+  // Only add schema config if schema is provided AND model supports it (1.5+)
+  // gemini-pro (1.0) does NOT support responseSchema and will throw if passed
+  if (schema && modelName.includes('1.5')) {
+    config.generationConfig = {
       responseMimeType: "application/json",
       responseSchema: schema,
-    },
-  });
+    };
+  }
+  
+  return genAI.getGenerativeModel(config);
 };
 
 // Robust JSON cleaner to handle Markdown blocks and extra text
@@ -149,42 +156,65 @@ async function generateWithFallback<T>(
   schema: any, 
   errorContext: string
 ): Promise<T> {
-  // Use Gemini 1.5 Flash as requested for fast, efficient scanning
+  // 1. Try Gemini 1.5 Flash (Preferred, Fast)
   try {
     const model = getModel("gemini-1.5-flash", schema);
     const result = await model.generateContent(Array.isArray(prompt) ? prompt : [prompt]);
     const response = await result.response;
     const text = cleanJson(response.text());
-    console.log(`[Gemini Response for ${errorContext}]:`, text);
+    console.log(`[Gemini 1.5 Flash Success]:`, text);
     return JSON.parse(text) as T;
   } catch (error: any) {
-    console.error(`[Gemini Error for ${errorContext}]:`, error);
+    console.warn(`[Gemini 1.5 Flash Failed]:`, error);
     
-    // Stop early if key is invalid/missing
+    // Stop early if key is invalid/missing to save time
     if (error.message.includes("API Key is missing")) throw error;
     if (error.message.includes("403") || error.message.includes("401")) {
       throw new Error("Invalid API Key. Please check your settings.");
     }
 
-    // Try Pro as fallback
+    // 2. Try Gemini 1.5 Pro (Fallback for capability)
     try {
       console.log("Attempting fallback to Gemini 1.5 Pro...");
       const model = getModel("gemini-1.5-pro", schema);
       const result = await model.generateContent(Array.isArray(prompt) ? prompt : [prompt]);
       const response = await result.response;
       const text = cleanJson(response.text());
-      console.log(`[Gemini Fallback Response]:`, text);
+      console.log(`[Gemini 1.5 Pro Success]:`, text);
       return JSON.parse(text) as T;
     } catch (fallbackError: any) {
-      console.error(`Pro model also failed for ${errorContext}:`, fallbackError);
+      console.warn(`[Gemini 1.5 Pro Failed]:`, fallbackError);
       
-      let msg = "Unknown error";
-      if (fallbackError.message) msg = fallbackError.message;
-      if (msg.includes("404")) msg = "AI Model not found or API Key not authorized for this model.";
-      if (msg.includes("403")) msg = "API Key declined. Check your billing/quota or key validity.";
-      if (msg.includes("SAFETY")) msg = "Content was blocked due to safety settings.";
-      
-      throw new Error(`AI Request Failed: ${msg}`);
+      // 3. Try Legacy Gemini Pro 1.0 (Fallback for availability/404s)
+      try {
+        console.log("Attempting final fallback to Gemini Pro (1.0)...");
+        // We pass 'gemini-pro' which tells getModel NOT to use responseSchema
+        const model = getModel("gemini-pro"); 
+        
+        // Ensure prompt forces JSON since we lost the schema enforcement
+        let legacyPrompt = Array.isArray(prompt) ? [...prompt] : [prompt];
+        if (typeof legacyPrompt[0] === 'string') {
+          legacyPrompt[0] = legacyPrompt[0] + "\n\nIMPORTANT: Output ONLY valid JSON.";
+        } else {
+          legacyPrompt.push("\n\nIMPORTANT: Output ONLY valid JSON.");
+        }
+
+        const result = await model.generateContent(legacyPrompt);
+        const response = await result.response;
+        const text = cleanJson(response.text());
+        console.log(`[Gemini Pro 1.0 Success]:`, text);
+        return JSON.parse(text) as T;
+
+      } catch (finalError: any) {
+         console.error(`[All Models Failed]:`, finalError);
+         
+         let msg = "Unknown error";
+         if (finalError.message) msg = finalError.message;
+         if (msg.includes("404")) msg = "AI Models not found. Your API Key may not support Gemini.";
+         if (msg.includes("403")) msg = "API Key declined. Check your billing/quota.";
+         
+         throw new Error(`AI Scan Failed: ${msg}`);
+      }
     }
   }
 }

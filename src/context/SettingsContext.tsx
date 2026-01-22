@@ -38,9 +38,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   // API Key State
   const [apiKey, setApiKeyState] = useState<string>(() => {
     // FORCE usage of the provided key for this session to fix the "still getting an error" issue
-    // This ensures that even if a user has an old/bad key in local storage, we overwrite it with the known good one.
-    localStorage.setItem('gemini_api_key', DEFAULT_API_KEY);
-    return DEFAULT_API_KEY;
+    // We trim it to ensure no hidden whitespace causes 403/404s
+    const forcedKey = DEFAULT_API_KEY.trim();
+    localStorage.setItem('gemini_api_key', forcedKey);
+    return forcedKey;
   });
 
   // School Profile State
@@ -73,9 +74,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const setApiKey = (key: string) => {
-    setApiKeyState(key);
-    if (key) {
-      localStorage.setItem('gemini_api_key', key);
+    const trimmed = key.trim();
+    setApiKeyState(trimmed);
+    if (trimmed) {
+      localStorage.setItem('gemini_api_key', trimmed);
     } else {
       localStorage.removeItem('gemini_api_key');
     }
