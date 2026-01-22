@@ -4,6 +4,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText, Eraser, File, CheckCircle2, Share2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { GradingLegend } from './GradingLegend';
 
 interface ClassHeaderProps {
   classNameStr: string;
@@ -142,8 +143,11 @@ export const ClassHeader = ({
         <div className="flex-1">
           <Progress value={completionPercentage} className="h-2" />
         </div>
-        <div className="min-w-[80px] text-right text-sm text-muted-foreground">
-          {gradedCount} / {learnerCount} ({completionPercentage}%)
+        <div className="flex items-center gap-4">
+           <div className="min-w-[80px] text-right text-sm text-muted-foreground">
+             {gradedCount} / {learnerCount} ({completionPercentage}%)
+           </div>
+           <GradingLegend />
         </div>
       </div>
     </div>
