@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ClassInsight } from "@/services/gemini";
-import { BrainCircuit, CheckCircle2, AlertTriangle, Lightbulb } from "lucide-react";
+import { BrainCircuit, CheckCircle2, AlertTriangle, Lightbulb, PlayCircle } from "lucide-react";
 import { Loader2 } from "lucide-react";
 
 interface AiInsightsDialogProps {
@@ -17,9 +17,10 @@ interface AiInsightsDialogProps {
   isLoading: boolean;
   insights: ClassInsight | null;
   onGenerate: () => void;
+  onSimulate: () => void;
 }
 
-export const AiInsightsDialog = ({ isOpen, onOpenChange, isLoading, insights, onGenerate }: AiInsightsDialogProps) => {
+export const AiInsightsDialog = ({ isOpen, onOpenChange, isLoading, insights, onGenerate, onSimulate }: AiInsightsDialogProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col">
@@ -45,7 +46,12 @@ export const AiInsightsDialog = ({ isOpen, onOpenChange, isLoading, insights, on
               <p className="text-muted-foreground max-w-xs">
                 Click the button below to generate a detailed analysis of this class's performance.
               </p>
-              <Button onClick={onGenerate}>Generate Insights</Button>
+              <div className="flex gap-2">
+                <Button onClick={onGenerate}>Generate Insights</Button>
+                <Button variant="outline" onClick={onSimulate}>
+                  <PlayCircle className="mr-2 h-4 w-4" /> Demo Mode
+                </Button>
+              </div>
             </div>
           ) : (
             <ScrollArea className="h-[500px] pr-4">

@@ -23,7 +23,6 @@ const getModel = (modelName: string, schema?: any) => {
   };
 
   // Only add schema config if schema is provided AND model supports it (1.5+)
-  // Legacy models (gemini-pro, gemini-pro-vision) do not support responseSchema
   if (schema && modelName.includes('1.5')) {
     config.generationConfig = {
       responseMimeType: "application/json",
@@ -165,8 +164,6 @@ async function generateWithModelList<T>(
     "gemini-1.5-pro"
   ];
 
-  // If NOT multimodal (text only), we can also try the legacy gemini-pro
-  // If IS multimodal, we try gemini-pro-vision
   if (!isMultimodal) {
     modelsToTry.push("gemini-pro");
   } else {
@@ -181,20 +178,16 @@ async function generateWithModelList<T>(
       
       const model = getModel(modelName, schema);
       
-      // Special handling for legacy models which need JSON enforcement in prompt instead of schema
       let currentPrompt = prompt;
       const isLegacy = modelName === "gemini-pro" || modelName === "gemini-pro-vision";
       
       if (isLegacy) {
-        // Clone prompt to avoid modifying original for other retries
         let legacyPrompt = Array.isArray(prompt) ? [...prompt] : [prompt];
         const jsonInstruction = "\n\nIMPORTANT: Output ONLY valid JSON.";
         
         if (typeof legacyPrompt[0] === 'string') {
           legacyPrompt[0] = legacyPrompt[0] + jsonInstruction;
         } else {
-          // If the first part is an image part (object), we need to insert text instruction
-          // Multimodal prompts are arrays of string | object. We'll append a string.
           legacyPrompt.push(jsonInstruction);
         }
         currentPrompt = legacyPrompt;
@@ -209,16 +202,10 @@ async function generateWithModelList<T>(
     } catch (error: any) {
       console.warn(`[Gemini Failure] ${modelName} failed:`, error);
       lastError = error;
-      
-      // Don't retry if the API key itself is missing or invalid (400/401/403)
-      // 404 means model not found, so we SHOULD retry with other models
       if (error.message?.includes("API Key is missing")) throw error;
-      
-      // If we are at the last model, we will fall through to throw
     }
   }
 
-  // If we reach here, all models failed
   console.error(`[Gemini Fatal] All models failed for ${errorContext}. Last error:`, lastError);
   
   let msg = "Unknown error";
@@ -263,7 +250,6 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
     - If you cannot read a name or mark clearly, do your best to guess or skip it if impossible.
   `;
 
-  // True = isMultimodal
   return generateWithModelList<GeminiScanResult>([prompt, ...imageParts], scanResultSchema, "Scanning Images", true);
 }
 
@@ -285,7 +271,6 @@ export async function generateClassInsights(subject: string, grade: string, lear
     4. Actionable recommendations for the teacher to improve results or help struggling students.
   `;
 
-  // False = text only
   return generateWithModelList<ClassInsight>(prompt, insightsSchema, "Class Insights", false);
 }
 
@@ -309,6 +294,46 @@ export async function generateReportComments(subject: string, grade: string, lea
     - Use the learner's name in the comment.
   `;
 
-  // False = text only
   return generateWithModelList<LearnerComment[]>(prompt, commentsSchema, "Report Comments", false);
 }
+
+// --- MOCK DATA FUNCTIONS ---
+
+export const getMockClassInsights = (): ClassInsight => {
+  return {
+    summary: "The class has performed reasonably well overall, with a strong pass rate of 75%. However, the top-end achievement is lower than expected, with few distinctions.",
+    strengths: [
+      "High pass rate indicates good grasp of fundamental concepts.",
+      "Most learners completed the assessment, showing good participation.",
+      "Learners in the middle range (50-60%) are very consistent."
+    ],
+    weaknesses: [
+      "Lack of distinctions (80%+) suggests a struggle with complex problem-solving.",
+      "A small group of learners is significantly behind the rest of the cohort.",
+      "Marks for Question 3 (Hypothetical) seem universally low based on aggregate trends."
+    ],
+    recommendations: [
+      "Review complex problem-solving strategies in the next lesson.",
+      "Organize a remedial session for the 5 learners scoring below 40%.",
+      "Provide extension activities to push the 70% earners into the distinction bracket."
+    ]
+  };
+};
+
+export const getMockReportComments = (learners: {name: string, mark: string}[]): LearnerComment[] => {
+  return learners.map(l => {
+    const mark = parseFloat(l.mark);
+    let comment = "";
+    
+    if (isNaN(mark)) comment = "Please ensure all assessments are submitted.";
+    else if (mark >= 80) comment = `Excellent work, ${l.name}! Your mastery of the content is impressive. Keep aiming high.`;
+    else if (mark >= 60) comment = `Good effort, ${l.name}. You are consistent, but focusing on the harder questions will boost your mark.`;
+    else if (mark >= 50) comment = `${l.name} has achieved a passing grade but should focus on revision to improve understanding.`;
+    else comment = `${l.name} is struggling with the core concepts. Extra assistance and daily revision are highly recommended.`;
+    
+    return {
+      name: l.name,
+      comment
+    };
+  });
+};

@@ -10,7 +10,7 @@ import ClassStats from '@/components/ClassStats';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
 import { EditLearnersDialog } from '@/components/EditLearnersDialog';
 import { AiInsightsDialog } from '@/components/AiInsightsDialog';
-import { generateClassInsights, generateReportComments, ClassInsight } from '@/services/gemini';
+import { generateClassInsights, generateReportComments, ClassInsight, getMockClassInsights, getMockReportComments } from '@/services/gemini';
 import { getGradeSymbol } from '@/utils/grading';
 import { useSettings } from '@/context/SettingsContext';
 import { LearnerProfileDialog } from '@/components/LearnerProfileDialog';
@@ -182,10 +182,19 @@ const ClassDetails = () => {
       setInsights(result);
     } catch (error) {
       console.error(error);
-      showError("Failed to generate insights. Check API Key in settings.");
+      showError("Failed to generate insights. Check API Key in settings or try Demo Mode.");
     } finally {
       setIsGeneratingInsights(false);
     }
+  };
+
+  const handleSimulateInsights = () => {
+    setIsGeneratingInsights(true);
+    setTimeout(() => {
+      setInsights(getMockClassInsights());
+      setIsGeneratingInsights(false);
+      showSuccess("Demo insights generated successfully!");
+    }, 1000);
   };
 
   const handleGenerateComments = async () => {
@@ -219,6 +228,22 @@ const ClassDetails = () => {
     } finally {
       setIsGeneratingComments(false);
     }
+  };
+
+  // Currently we don't have a button for this in LearnerList, but the architecture supports it if we add one.
+  // We'll leave it ready for future implementation or if LearnerList needs updating.
+  const handleSimulateComments = () => {
+     setIsGeneratingComments(true);
+     setTimeout(() => {
+        const mockComments = getMockReportComments(learners);
+        const updatedLearners = learners.map(learner => {
+          const generated = mockComments.find(c => c.name === learner.name);
+          return generated ? { ...learner, comment: generated.comment } : learner;
+        });
+        setLearners(updatedLearners);
+        setIsGeneratingComments(false);
+        showSuccess("Demo comments generated!");
+     }, 1000);
   };
 
   if (!classInfo) {
@@ -303,6 +328,7 @@ const ClassDetails = () => {
         isLoading={isGeneratingInsights}
         insights={insights}
         onGenerate={handleGenerateInsights}
+        onSimulate={handleSimulateInsights}
       />
       <LearnerProfileDialog
         isOpen={!!selectedProfileLearner}
