@@ -2,7 +2,12 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 // Function to get API Key from localStorage or use embedded default
 const getApiKey = () => {
-  return localStorage.getItem('gemini_api_key') || "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
+  const key = localStorage.getItem('gemini_api_key');
+  // Use stored key if valid, otherwise fallback to embedded key
+  if (key && key.trim().length > 0) {
+    return key;
+  }
+  return "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
 };
 
 // Helper to get initialized model
@@ -23,15 +28,29 @@ const getModel = (schema?: any) => {
   });
 };
 
-// Helper to clean JSON string from markdown code blocks
+// Robust JSON cleaner to handle Markdown blocks and extra text
 const cleanJson = (text: string) => {
-  let clean = text.trim();
-  if (clean.startsWith("```json")) {
-    clean = clean.replace(/^```json\s*/, "").replace(/\s*```$/, "");
-  } else if (clean.startsWith("```")) {
-    clean = clean.replace(/^```\s*/, "").replace(/\s*```$/, "");
+  if (!text) return "{}";
+  
+  // 1. Remove Markdown code blocks first
+  let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+  
+  // 2. Find the outer-most JSON object or array
+  const firstCurly = clean.indexOf('{');
+  const lastCurly = clean.lastIndexOf('}');
+  const firstSquare = clean.indexOf('[');
+  const lastSquare = clean.lastIndexOf(']');
+
+  // Determine if it's likely an object or an array
+  const isObject = firstCurly !== -1 && (firstSquare === -1 || firstCurly < firstSquare);
+  
+  if (isObject && firstCurly !== -1 && lastCurly !== -1) {
+    return clean.substring(firstCurly, lastCurly + 1);
+  } else if (!isObject && firstSquare !== -1 && lastSquare !== -1) {
+    return clean.substring(firstSquare, lastSquare + 1);
   }
-  return clean;
+  
+  return clean.trim();
 };
 
 export interface GeminiScanResult {
@@ -157,7 +176,12 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
     const response = await result.response;
     const text = cleanJson(response.text());
     
-    return JSON.parse(text) as GeminiScanResult;
+    try {
+      return JSON.parse(text) as GeminiScanResult;
+    } catch (parseError) {
+      console.error("JSON Parse Error. Raw Text:", text);
+      throw new Error("Failed to parse AI response. The model returned invalid JSON.");
+    }
   } catch (error: any) {
     console.error("Error processing images with Gemini:", error);
     if (error.message.includes("API Key is missing")) {
