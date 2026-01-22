@@ -19,8 +19,9 @@ const getModel = (schema?: any) => {
 
   const genAI = new GoogleGenerativeAI(apiKey);
   
+  // Using gemini-1.5-flash-001 as it is the stable version
   return genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash",
+    model: "gemini-1.5-flash-001",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: schema,
