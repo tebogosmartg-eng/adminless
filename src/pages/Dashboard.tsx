@@ -2,7 +2,7 @@ import { useClasses } from '../context/ClassesContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Camera } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import GlobalStats from '@/components/GlobalStats';
 import RecentActivity from '@/components/RecentActivity';
@@ -50,12 +50,20 @@ const Dashboard = () => {
               ) : (
                 <div className="text-center py-10 border-2 border-dashed rounded-lg">
                   <h3 className="text-lg font-semibold">No classes yet</h3>
-                  <p className="text-muted-foreground mt-1">You haven't created any classes. Get started now.</p>
-                  <Button asChild className="mt-4">
-                    <Link to="/classes">
-                      <PlusCircle className="mr-2 h-4 w-4" /> Create Class
-                    </Link>
-                  </Button>
+                  <p className="text-muted-foreground mt-1 mb-6">You haven't created any classes. Get started now.</p>
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <Button asChild>
+                      <Link to="/classes">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Create Manually
+                      </Link>
+                    </Button>
+                    <span className="text-xs text-muted-foreground">OR</span>
+                    <Button asChild variant="outline">
+                      <Link to="/scan">
+                        <Camera className="mr-2 h-4 w-4" /> Scan Scripts (AI)
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
