@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import { SearchCommand } from "./SearchCommand";
 
 const Layout = () => {
   return (
@@ -12,6 +13,7 @@ const Layout = () => {
           <Outlet />
         </main>
       </div>
+      <SearchCommand />
     </div>
   );
 };
