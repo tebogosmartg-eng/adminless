@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText, Eraser, File, CheckCircle2, Share2 } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText, Eraser, File, CheckCircle2, Share2, Zap } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { GradingLegend } from './GradingLegend';
@@ -18,6 +18,7 @@ interface ClassHeaderProps {
   onSave: () => void;
   onOpenAiInsights: () => void;
   onOpenVoiceEntry: () => void;
+  onOpenRapidEntry: () => void;
   onOpenAddLearner: () => void;
   onOpenEditLearners: () => void;
   onOpenImport: () => void;
@@ -40,6 +41,7 @@ export const ClassHeader = ({
   onSave,
   onOpenAiInsights,
   onOpenVoiceEntry,
+  onOpenRapidEntry,
   onOpenAddLearner,
   onOpenEditLearners,
   onOpenImport,
@@ -89,9 +91,16 @@ export const ClassHeader = ({
             <Save className="mr-2 h-4 w-4" />
             {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
           </Button>
-          <Button variant="outline" onClick={onOpenVoiceEntry}>
-            <Mic className="mr-2 h-4 w-4" /> Voice
-          </Button>
+          
+          <div className="flex items-center rounded-md border bg-background">
+             <Button variant="ghost" className="rounded-r-none border-r px-3" onClick={onOpenRapidEntry} title="Rapid Type Mode">
+                <Zap className="mr-2 h-4 w-4" /> Rapid
+             </Button>
+             <Button variant="ghost" className="rounded-l-none px-3" onClick={onOpenVoiceEntry} title="Voice Entry Mode">
+                <Mic className="h-4 w-4" />
+             </Button>
+          </div>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">

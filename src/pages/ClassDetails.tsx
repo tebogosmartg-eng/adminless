@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
 import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
+import { RapidEntryDialog } from '@/components/RapidEntryDialog';
 import { ImportMarksDialog } from '@/components/ImportMarksDialog';
 import ClassStats from '@/components/ClassStats';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
@@ -29,6 +30,7 @@ const ClassDetails = () => {
 
   const [learners, setLearners] = useState<Learner[]>([]);
   const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);
+  const [isRapidEntryOpen, setIsRapidEntryOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditLearnersOpen, setIsEditLearnersOpen] = useState(false);
   const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
@@ -371,6 +373,7 @@ Lowest Mark: ${stats.lowestMark}%
         onSave={handleSaveChanges}
         onOpenAiInsights={() => setIsAiInsightsOpen(true)}
         onOpenVoiceEntry={() => setIsVoiceEntryOpen(true)}
+        onOpenRapidEntry={() => setIsRapidEntryOpen(true)}
         onOpenAddLearner={() => setIsAddLearnerOpen(true)}
         onOpenEditLearners={() => setIsEditLearnersOpen(true)}
         onOpenImport={() => setIsImportOpen(true)}
@@ -416,6 +419,14 @@ Lowest Mark: ${stats.lowestMark}%
         learners={learners}
         onComplete={handleUpdateAndSaveLearners}
       />
+      
+      <RapidEntryDialog 
+        isOpen={isRapidEntryOpen}
+        onOpenChange={setIsRapidEntryOpen}
+        learners={learners}
+        onComplete={handleUpdateAndSaveLearners}
+      />
+
       <ImportMarksDialog
         isOpen={isImportOpen}
         onOpenChange={setIsImportOpen}
