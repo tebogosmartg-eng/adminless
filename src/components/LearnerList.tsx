@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle, AlertOctagon } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle, AlertOctagon, Filter } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { GradeSymbol, getGradeSymbol } from '@/utils/grading';
 import { cn } from '@/lib/utils';
@@ -47,12 +48,31 @@ export const LearnerList = ({
 }: LearnerListProps) => {
   const { atRiskThreshold } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
 
   const sortedAndFilteredLearners = useMemo(() => {
     const filtered = learners
       .map((learner, index) => ({ ...learner, originalIndex: index }))
-      .filter(learner => learner.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      .filter(learner => {
+        // Search Filter
+        const matchesSearch = learner.name.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        // Status Filter
+        let matchesStatus = true;
+        const markNum = parseFloat(learner.mark);
+        const hasMark = !isNaN(markNum);
+        
+        if (statusFilter === 'at-risk') {
+          matchesStatus = hasMark && markNum < atRiskThreshold;
+        } else if (statusFilter === 'passing') {
+          matchesStatus = hasMark && markNum >= atRiskThreshold;
+        } else if (statusFilter === 'missing') {
+           matchesStatus = !hasMark || learner.mark === '';
+        }
+
+        return matchesSearch && matchesStatus;
+      });
 
     if (sortConfig.key) {
       filtered.sort((a, b) => {
@@ -78,7 +98,7 @@ export const LearnerList = ({
       });
     }
     return filtered;
-  }, [learners, sortConfig, searchQuery]);
+  }, [learners, sortConfig, searchQuery, statusFilter, atRiskThreshold]);
 
   const requestSort = (key: SortKey) => {
     let direction: SortDirection = 'ascending';
@@ -91,7 +111,7 @@ export const LearnerList = ({
   return (
     <Card className="transition-all duration-300">
       <CardHeader>
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
           <div>
             <CardTitle>Learner List {showComments && "& Comments"}</CardTitle>
             <CardDescription>
@@ -100,7 +120,7 @@ export const LearnerList = ({
                 : "Enter marks below, or click a name to view profile."}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {showComments && (
               <Button 
                 onClick={onGenerateComments} 
@@ -115,15 +135,31 @@ export const LearnerList = ({
                 )}
               </Button>
             )}
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search learners..."
-                className="pl-8 sm:w-[250px]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            
+            <div className="flex items-center gap-2">
+               <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Learners</SelectItem>
+                  <SelectItem value="passing">Passing</SelectItem>
+                  <SelectItem value="at-risk">At Risk</SelectItem>
+                  <SelectItem value="missing">Missing Mark</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="relative flex-1 sm:w-[200px]">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -133,16 +169,16 @@ export const LearnerList = ({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[50px]">#</TableHead>
-              <TableHead className="w-[250px]">
-                <Button variant="ghost" onClick={() => requestSort('name')}>
+              <TableHead className="min-w-[200px]">
+                <Button variant="ghost" onClick={() => requestSort('name')} className="pl-0 hover:pl-2 transition-all">
                   Learner Name
-                  {sortConfig.key === 'name' && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                  {sortConfig.key === 'name' && <ArrowUpDown className="ml-2 h-3 w-3" />}
                 </Button>
               </TableHead>
               <TableHead className="w-[120px]">
-                 <Button variant="ghost" onClick={() => requestSort('mark')}>
+                 <Button variant="ghost" onClick={() => requestSort('mark')} className="pl-0 hover:pl-2 transition-all">
                   Mark
-                  {sortConfig.key === 'mark' && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                  {sortConfig.key === 'mark' && <ArrowUpDown className="ml-2 h-3 w-3" />}
                 </Button>
               </TableHead>
               <TableHead className="w-[100px]">Symbol</TableHead>
@@ -150,7 +186,7 @@ export const LearnerList = ({
                  <TableHead>
                   <Button variant="ghost" onClick={() => requestSort('comment')}>
                     Comment
-                    {sortConfig.key === 'comment' && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                    {sortConfig.key === 'comment' && <ArrowUpDown className="ml-2 h-3 w-3" />}
                   </Button>
                  </TableHead>
               )}
@@ -245,8 +281,10 @@ export const LearnerList = ({
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={showComments ? 6 : 5} className="h-24 text-center">
-                  No learners found.
+                <TableCell colSpan={showComments ? 6 : 5} className="h-24 text-center text-muted-foreground">
+                  {statusFilter !== 'all' || searchQuery 
+                    ? "No learners match your filters." 
+                    : "No learners in this class yet."}
                 </TableCell>
               </TableRow>
             )}
