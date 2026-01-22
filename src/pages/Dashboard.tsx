@@ -7,6 +7,7 @@ import ClassSummaryCard from '@/components/ClassSummaryCard';
 import GlobalStats from '@/components/GlobalStats';
 import RecentActivity from '@/components/RecentActivity';
 import ClassComparisonChart from '@/components/ClassComparisonChart';
+import AtRiskLearners from '@/components/AtRiskLearners';
 
 const Dashboard = () => {
   const { classes } = useClasses();
@@ -49,7 +50,8 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-6">
+          <AtRiskLearners />
           <RecentActivity />
         </div>
       </div>

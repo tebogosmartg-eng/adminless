@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { showSuccess, showError } from "@/utils/toast";
-import { Eye, EyeOff, Save, ShieldCheck, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson, School, User } from "lucide-react";
+import { Eye, EyeOff, Save, ShieldCheck, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson, School, User, Database } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
+import { useClasses } from "@/context/ClassesContext";
 import { GradeSymbol } from "@/utils/grading";
 import {
   AlertDialog,
@@ -28,6 +29,8 @@ const Settings = () => {
     schoolName, setSchoolName,
     teacherName, setTeacherName
   } = useSettings();
+
+  const { addClass } = useClasses();
 
   const [showKey, setShowKey] = useState(false);
   const [tempKey, setTempKey] = useState(apiKey);
@@ -162,6 +165,27 @@ const Settings = () => {
     // We keep the API key to avoid annoyance
     showSuccess("All application data cleared.");
     setTimeout(() => window.location.reload(), 1000);
+  };
+
+  const handleGenerateDemoData = () => {
+    const demoClass = {
+      id: new Date().toISOString(),
+      grade: "Grade 10",
+      subject: "Mathematics",
+      className: "10-Demo",
+      learners: [
+        { name: "Alice Smith", mark: "85", comment: "Excellent work, keep it up!" },
+        { name: "Bob Johnson", mark: "42", comment: "Needs to focus more on algebra." },
+        { name: "Charlie Brown", mark: "65", comment: "Good improvement this term." },
+        { name: "David Wilson", mark: "32", comment: "Struggling with basics. Needs tutoring." },
+        { name: "Eve Davis", mark: "91", comment: "Outstanding performance." },
+        { name: "Frank Miller", mark: "55", comment: "Satisfactory, but can do better." },
+        { name: "Grace Lee", mark: "78", comment: "Very consistent work." },
+        { name: "Henry Ford", mark: "25", comment: "Critical: Did not submit homework." },
+      ]
+    };
+    addClass(demoClass);
+    showSuccess("Demo class '10-Demo' created successfully!");
   };
 
   return (
@@ -354,6 +378,16 @@ const Settings = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
+            <div>
+              <h3 className="font-semibold mb-1">Generate Demo Data</h3>
+              <p className="text-sm text-muted-foreground">Add a sample class with random learners to test features.</p>
+            </div>
+            <Button onClick={handleGenerateDemoData} variant="outline" className="text-primary hover:text-primary">
+              <Database className="mr-2 h-4 w-4" /> Create Demo Class
+            </Button>
+          </div>
+
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
             <div>
               <h3 className="font-semibold mb-1">Backup Data</h3>
