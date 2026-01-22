@@ -3,12 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, Save, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Save, Loader2 } from 'lucide-react';
 import { useClasses } from '../context/ClassesContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { showSuccess, showError } from '@/utils/toast';
+import { processImagesWithGemini } from '@/services/gemini';
 
 interface ScannedLearner {
   name: string;
@@ -21,38 +21,6 @@ interface ScannedDetails {
   grade: string;
   date: string;
 }
-
-interface MockScanResult {
-  details: ScannedDetails;
-  learners: ScannedLearner[];
-}
-
-const mockScanResultsSets: MockScanResult[] = [
-  {
-    details: { subject: "Mathematics", testNumber: "Test 1", grade: "Grade 10", date: "2024-07-21" },
-    learners: [
-      { name: "Alice Johnson", mark: "88/100" },
-      { name: "Bob Williams", mark: "72/100" },
-      { name: "Charlie Brown", mark: "95/100" },
-    ],
-  },
-  {
-    details: { subject: "Physical Science", testNumber: "Experiment 3", grade: "Grade 11", date: "2024-07-20" },
-    learners: [
-      { name: "David Smith", mark: "35/50" },
-      { name: "Emily Jones", mark: "48/50" },
-      { name: "Frank Miller", mark: "29/50" },
-    ],
-  },
-  {
-    details: { subject: "History", testNumber: "Essay 2", grade: "Grade 9", date: "2024-07-19" },
-    learners: [
-      { name: "Grace Davis", mark: "65/75" },
-      { name: "Henry Wilson", mark: "71/75" },
-      { name: "Ivy Moore", mark: "55/75" },
-    ],
-  },
-];
 
 const Scan = () => {
   const { classes, updateLearners } = useClasses();
@@ -82,20 +50,28 @@ const Scan = () => {
     }
   };
 
-  const handleProcessImage = () => {
+  const handleProcessImage = async () => {
     if (imagePreviews.length === 0) {
       showError("Please upload one or more images first.");
       return;
     }
+    
     setIsProcessing(true);
-    setTimeout(() => {
-      // Cycle through mock data based on number of images to simulate different results
-      const resultSet = mockScanResultsSets[imagePreviews.length % mockScanResultsSets.length];
-      setScannedDetails(resultSet.details);
-      setScannedLearners(resultSet.learners);
+    setScannedLearners([]);
+    setScannedDetails(null);
+
+    try {
+      const result = await processImagesWithGemini(imagePreviews);
+      
+      setScannedDetails(result.details);
+      setScannedLearners(result.learners);
+      showSuccess(`Processed successfully! Found ${result.learners.length} learners.`);
+    } catch (error) {
+      console.error(error);
+      showError("Failed to process images. Please try again.");
+    } finally {
       setIsProcessing(false);
-      showSuccess(`Processed ${imagePreviews.length} image(s) successfully!`);
-    }, 1500);
+    }
   };
 
   const handleScannedMarkChange = (index: number, newMark: string) => {
@@ -117,24 +93,47 @@ const Scan = () => {
 
     let matchedCount = 0;
     const updatedLearners = targetClass.learners.map(learner => {
-      const scannedMatch = scannedLearners.find(sl => sl.name.toLowerCase() === learner.name.toLowerCase());
+      // Simple fuzzy match could be improved, currently doing exact case-insensitive match on name parts or full name
+      // Let's try to find if the scanned name contains the learner name or vice versa
+      const scannedMatch = scannedLearners.find(sl => {
+        const slName = sl.name.toLowerCase();
+        const lName = learner.name.toLowerCase();
+        return slName.includes(lName) || lName.includes(slName);
+      });
+
       if (scannedMatch) {
         try {
-          const parts = scannedMatch.mark.split('/');
-          if (parts.length !== 2) throw new Error("Invalid format");
+          // Normalize mark
+          let percentage = "";
+          const markStr = scannedMatch.mark.trim();
+
+          if (markStr.includes("/")) {
+            const parts = markStr.split('/');
+            if (parts.length === 2) {
+              const obtained = parseFloat(parts[0]);
+              const total = parseFloat(parts[1]);
+              if (!isNaN(obtained) && !isNaN(total) && total !== 0) {
+                percentage = ((obtained / total) * 100).toFixed(1);
+              }
+            }
+          } else if (markStr.includes("%")) {
+            percentage = markStr.replace("%", "").trim();
+          } else {
+            // Assume raw number is percentage if no other context, or just store raw value
+            // Ideally we want percentage for the app stats
+             const num = parseFloat(markStr);
+             if(!isNaN(num)) percentage = num.toString();
+          }
+
+          if (percentage) {
+            matchedCount++;
+            return { ...learner, mark: percentage };
+          }
           
-          const obtained = parseFloat(parts[0]);
-          const total = parseFloat(parts[1]);
-
-          if (isNaN(obtained) || isNaN(total) || total === 0) throw new Error("Invalid numbers");
-
-          const percentage = ((obtained / total) * 100).toFixed(1);
-          matchedCount++;
-          return { ...learner, mark: percentage };
-
+          return learner;
         } catch (e) {
-          console.error(`Could not parse mark "${scannedMatch.mark}" for ${learner.name}. Skipping.`);
-          return learner; // Return original learner if parsing fails
+          console.error(`Could not parse mark "${scannedMatch.mark}" for ${learner.name}.`, e);
+          return learner; 
         }
       }
       return learner;
@@ -176,7 +175,13 @@ const Scan = () => {
             </div>
             <Input type="file" accept="image/*" onChange={handleFileChange} className="mt-4" multiple />
             <Button onClick={handleProcessImage} disabled={isProcessing || imagePreviews.length === 0} className="w-full mt-4">
-              {isProcessing ? "Processing..." : <><FileText className="mr-2 h-4 w-4" /> Process Images</>}
+              {isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing with Gemini AI...
+                </>
+              ) : (
+                <><FileText className="mr-2 h-4 w-4" /> Process Images</>
+              )}
             </Button>
           </CardContent>
         </Card>
@@ -213,7 +218,7 @@ const Scan = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Learner Name</TableHead>
-                        <TableHead className="text-right">Mark (Obtained/Total)</TableHead>
+                        <TableHead className="text-right">Mark</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -226,7 +231,6 @@ const Scan = () => {
                               value={learner.mark}
                               onChange={(e) => handleScannedMarkChange(index, e.target.value)}
                               className="w-28 text-right ml-auto"
-                              placeholder="e.g. 42/50"
                             />
                           </TableCell>
                         </TableRow>
@@ -239,7 +243,7 @@ const Scan = () => {
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-center text-muted-foreground">
+              <div className="flex items-center justify-center h-full text-center text-muted-foreground min-h-[200px]">
                 <p>Processing results will appear here.</p>
               </div>
             )}
