@@ -4,7 +4,12 @@ import { ClassInfo } from '@/components/CreateClassDialog';
 import { GradeSymbol, getGradeSymbol } from './grading';
 import { format } from 'date-fns';
 
-export const generateClassPDF = (classInfo: ClassInfo, gradingScheme: GradeSymbol[]) => {
+export const generateClassPDF = (
+  classInfo: ClassInfo, 
+  gradingScheme: GradeSymbol[], 
+  schoolName: string = "My School", 
+  teacherName: string = ""
+) => {
   const doc = new jsPDF();
 
   // Document Configuration
@@ -14,31 +19,41 @@ export const generateClassPDF = (classInfo: ClassInfo, gradingScheme: GradeSymbo
   // Header Section
   doc.setFontSize(22);
   doc.setTextColor(40);
-  doc.text("Class Performance Report", margin, 20);
+  doc.text(schoolName, margin, 20);
+
+  doc.setFontSize(14);
+  doc.setTextColor(100);
+  doc.text("Class Performance Report", margin, 28);
   
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(`Generated on: ${format(new Date(), 'PPP')}`, margin, 26);
+  const dateStr = format(new Date(), 'PPP');
+  doc.text(`Generated on: ${dateStr}`, margin, 34);
+  
+  if (teacherName) {
+    doc.text(`Teacher: ${teacherName}`, pageWidth - margin - doc.getTextWidth(`Teacher: ${teacherName}`), 20);
+  }
 
   // Class Details Box
+  const startY = 42;
   doc.setDrawColor(200);
   doc.setFillColor(245, 247, 250);
-  doc.roundedRect(margin, 32, pageWidth - (margin * 2), 24, 2, 2, 'FD');
+  doc.roundedRect(margin, startY, pageWidth - (margin * 2), 24, 2, 2, 'FD');
 
   doc.setFontSize(10);
   doc.setTextColor(80);
-  doc.text("Subject:", margin + 5, 40);
-  doc.text("Class Name:", margin + 5, 48);
-  doc.text("Grade:", margin + 80, 40);
-  doc.text("Total Learners:", margin + 80, 48);
+  doc.text("Subject:", margin + 5, startY + 8);
+  doc.text("Class Name:", margin + 5, startY + 16);
+  doc.text("Grade:", margin + 80, startY + 8);
+  doc.text("Total Learners:", margin + 80, startY + 16);
 
   doc.setFontSize(11);
   doc.setTextColor(0);
   doc.setFont("helvetica", "bold");
-  doc.text(classInfo.subject, margin + 25, 40);
-  doc.text(classInfo.className, margin + 25, 48);
-  doc.text(classInfo.grade, margin + 95, 40);
-  doc.text(classInfo.learners.length.toString(), margin + 110, 48);
+  doc.text(classInfo.subject, margin + 25, startY + 8);
+  doc.text(classInfo.className, margin + 25, startY + 16);
+  doc.text(classInfo.grade, margin + 95, startY + 8);
+  doc.text(classInfo.learners.length.toString(), margin + 110, startY + 16);
 
   // Stats Calculation
   const marks = classInfo.learners
@@ -58,14 +73,14 @@ export const generateClassPDF = (classInfo: ClassInfo, gradingScheme: GradeSymbo
   doc.setFontSize(10);
   doc.setTextColor(80);
   doc.setFont("helvetica", "normal");
-  doc.text("Average:", margin + 140, 40);
-  doc.text("Pass Rate:", margin + 140, 48);
+  doc.text("Average:", margin + 140, startY + 8);
+  doc.text("Pass Rate:", margin + 140, startY + 16);
 
   doc.setFontSize(11);
   doc.setTextColor(0);
   doc.setFont("helvetica", "bold");
-  doc.text(`${average}%`, margin + 160, 40);
-  doc.text(`${passRate}%`, margin + 160, 48);
+  doc.text(`${average}%`, margin + 160, startY + 8);
+  doc.text(`${passRate}%`, margin + 160, startY + 16);
 
   // Table Data
   const tableRows = classInfo.learners.map((learner, index) => {
@@ -82,7 +97,7 @@ export const generateClassPDF = (classInfo: ClassInfo, gradingScheme: GradeSymbo
 
   // Generate Table
   autoTable(doc, {
-    startY: 65,
+    startY: startY + 30,
     head: [['#', 'Learner Name', 'Mark', 'Symbol', 'Level', 'Comment']],
     body: tableRows,
     theme: 'grid',
@@ -123,6 +138,12 @@ export const generateClassPDF = (classInfo: ClassInfo, gradingScheme: GradeSymbo
       pageWidth / 2,
       doc.internal.pageSize.height - 10,
       { align: 'center' }
+    );
+    doc.text(
+      schoolName,
+      margin,
+      doc.internal.pageSize.height - 10,
+      { align: 'left' }
     );
   }
 

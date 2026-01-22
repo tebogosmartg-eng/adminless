@@ -22,7 +22,7 @@ import { generateClassPDF } from '@/utils/pdfGenerator';
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
   const { classes, updateLearners } = useClasses();
-  const { gradingScheme } = useSettings();
+  const { gradingScheme, schoolName, teacherName } = useSettings();
   const classInfo = classes.find((c) => c.id === classId);
 
   const [learners, setLearners] = useState<Learner[]>([]);
@@ -139,11 +139,10 @@ const ClassDetails = () => {
     if (!classInfo) return;
     
     try {
-      // Use current learner state to capture unsaved changes in export if desired,
-      // but mixing unsaved data might be confusing. 
-      // Let's use current state 'learners' to reflect what the user sees.
+      // Use current learner state to reflect what user sees
       const exportClassInfo = { ...classInfo, learners };
-      generateClassPDF(exportClassInfo, gradingScheme);
+      // Pass school settings to generator
+      generateClassPDF(exportClassInfo, gradingScheme, schoolName, teacherName);
       showSuccess("PDF Report generated successfully!");
     } catch (error) {
       console.error(error);

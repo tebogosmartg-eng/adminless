@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { showSuccess, showError } from "@/utils/toast";
-import { Eye, EyeOff, Save, ShieldCheck, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson } from "lucide-react";
+import { Eye, EyeOff, Save, ShieldCheck, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson, School, User } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { GradeSymbol } from "@/utils/grading";
 import {
@@ -22,9 +22,19 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const Settings = () => {
-  const { apiKey, setApiKey, gradingScheme, updateGradingScheme, resetGradingScheme } = useSettings();
+  const { 
+    apiKey, setApiKey, 
+    gradingScheme, updateGradingScheme, resetGradingScheme,
+    schoolName, setSchoolName,
+    teacherName, setTeacherName
+  } = useSettings();
+
   const [showKey, setShowKey] = useState(false);
   const [tempKey, setTempKey] = useState(apiKey);
+  
+  // Local state for School Profile
+  const [tempSchoolName, setTempSchoolName] = useState(schoolName);
+  const [tempTeacherName, setTempTeacherName] = useState(teacherName);
   
   // Local state for grading scheme editing
   const [localScheme, setLocalScheme] = useState<GradeSymbol[]>(gradingScheme);
@@ -36,6 +46,12 @@ const Settings = () => {
     } else {
       showSuccess("API Key removed.");
     }
+  };
+
+  const handleSaveProfile = () => {
+    setSchoolName(tempSchoolName);
+    setTeacherName(tempTeacherName);
+    showSuccess("School profile updated.");
   };
 
   const handleSchemeChange = (index: number, field: keyof GradeSymbol, value: any) => {
@@ -89,6 +105,8 @@ const Settings = () => {
         classes: localStorage.getItem('classes'),
         grading_scheme: localStorage.getItem('grading_scheme'),
         activities: localStorage.getItem('activities'),
+        school_name: localStorage.getItem('school_name'),
+        teacher_name: localStorage.getItem('teacher_name'),
         timestamp: new Date().toISOString(),
         version: '1.0'
       };
@@ -121,6 +139,8 @@ const Settings = () => {
         if (data.classes) localStorage.setItem('classes', data.classes);
         if (data.grading_scheme) localStorage.setItem('grading_scheme', data.grading_scheme);
         if (data.activities) localStorage.setItem('activities', data.activities);
+        if (data.school_name) localStorage.setItem('school_name', data.school_name);
+        if (data.teacher_name) localStorage.setItem('teacher_name', data.teacher_name);
         
         showSuccess("Data restored successfully. Reloading...");
         setTimeout(() => window.location.reload(), 1500);
@@ -130,7 +150,6 @@ const Settings = () => {
       }
     };
     reader.readAsText(file);
-    // Reset the input value so the same file can be selected again if needed
     event.target.value = '';
   };
 
@@ -138,6 +157,8 @@ const Settings = () => {
     localStorage.removeItem('classes');
     localStorage.removeItem('activities');
     localStorage.removeItem('grading_scheme');
+    localStorage.removeItem('school_name');
+    localStorage.removeItem('teacher_name');
     // We keep the API key to avoid annoyance
     showSuccess("All application data cleared.");
     setTimeout(() => window.location.reload(), 1000);
@@ -151,6 +172,51 @@ const Settings = () => {
       </div>
       
       <Separator />
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <School className="h-5 w-5 text-primary" />
+            <CardTitle>School & Report Profile</CardTitle>
+          </div>
+          <CardDescription>
+            These details will appear on your generated PDF reports.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid w-full items-center gap-1.5">
+              <Label htmlFor="school-name">School Name</Label>
+              <div className="relative">
+                <School className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="school-name"
+                  placeholder="e.g. Sunnydale High School"
+                  value={tempSchoolName}
+                  onChange={(e) => setTempSchoolName(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="grid w-full items-center gap-1.5">
+              <Label htmlFor="teacher-name">Teacher Name</Label>
+              <div className="relative">
+                <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="teacher-name"
+                  placeholder="e.g. Mr. Smith"
+                  value={tempTeacherName}
+                  onChange={(e) => setTempTeacherName(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+          </div>
+          <Button onClick={handleSaveProfile}>
+            <Save className="mr-2 h-4 w-4" /> Save Profile
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

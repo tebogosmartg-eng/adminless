@@ -8,6 +8,10 @@ interface SettingsContextType {
   resetGradingScheme: () => void;
   apiKey: string;
   setApiKey: (key: string) => void;
+  schoolName: string;
+  setSchoolName: (name: string) => void;
+  teacherName: string;
+  setTeacherName: (name: string) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -26,9 +30,18 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     }
   });
 
-  // API Key State (Defaulting to embedded key if not in storage)
+  // API Key State
   const [apiKey, setApiKeyState] = useState<string>(() => {
     return localStorage.getItem('gemini_api_key') || "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8";
+  });
+
+  // School Profile State
+  const [schoolName, setSchoolNameState] = useState<string>(() => {
+    return localStorage.getItem('school_name') || "My School";
+  });
+
+  const [teacherName, setTeacherNameState] = useState<string>(() => {
+    return localStorage.getItem('teacher_name') || "";
   });
 
   useEffect(() => {
@@ -54,13 +67,27 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const setSchoolName = (name: string) => {
+    setSchoolNameState(name);
+    localStorage.setItem('school_name', name);
+  };
+
+  const setTeacherName = (name: string) => {
+    setTeacherNameState(name);
+    localStorage.setItem('teacher_name', name);
+  };
+
   return (
     <SettingsContext.Provider value={{ 
       gradingScheme, 
       updateGradingScheme, 
       resetGradingScheme,
       apiKey,
-      setApiKey
+      setApiKey,
+      schoolName,
+      setSchoolName,
+      teacherName,
+      setTeacherName
     }}>
       {children}
     </SettingsContext.Provider>
