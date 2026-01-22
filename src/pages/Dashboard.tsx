@@ -6,6 +6,7 @@ import { PlusCircle } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import GlobalStats from '@/components/GlobalStats';
 import RecentActivity from '@/components/RecentActivity';
+import ClassComparisonChart from '@/components/ClassComparisonChart';
 
 const Dashboard = () => {
   const { classes } = useClasses();
@@ -17,7 +18,11 @@ const Dashboard = () => {
       {classes.length > 0 && <GlobalStats classes={classes} />}
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
+          {classes.length > 0 && (
+            <ClassComparisonChart classes={classes} />
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>All Classes Overview</CardTitle>
