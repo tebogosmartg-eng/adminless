@@ -10,6 +10,8 @@ interface SettingsContextType {
   setSchoolName: (name: string) => void;
   teacherName: string;
   setTeacherName: (name: string) => void;
+  schoolLogo: string | null;
+  setSchoolLogo: (logo: string | null) => void;
   atRiskThreshold: number;
   setAtRiskThreshold: (threshold: number) => void;
 }
@@ -37,6 +39,11 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
   const [teacherName, setTeacherNameState] = useState<string>(() => {
     return localStorage.getItem('teacher_name') || "";
+  });
+
+  // Logo State (Base64 string)
+  const [schoolLogo, setSchoolLogoState] = useState<string | null>(() => {
+    return localStorage.getItem('school_logo') || null;
   });
 
   // At Risk Threshold State
@@ -69,6 +76,20 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('teacher_name', name);
   };
 
+  const setSchoolLogo = (logo: string | null) => {
+    setSchoolLogoState(logo);
+    if (logo) {
+      try {
+        localStorage.setItem('school_logo', logo);
+      } catch (e) {
+        console.error("Logo too large for localStorage", e);
+        // Fallback or error handling could go here
+      }
+    } else {
+      localStorage.removeItem('school_logo');
+    }
+  };
+
   const setAtRiskThreshold = (threshold: number) => {
     setAtRiskThresholdState(threshold);
     localStorage.setItem('at_risk_threshold', threshold.toString());
@@ -83,6 +104,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       setSchoolName,
       teacherName,
       setTeacherName,
+      schoolLogo,
+      setSchoolLogo,
       atRiskThreshold,
       setAtRiskThreshold
     }}>

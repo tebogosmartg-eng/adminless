@@ -23,32 +23,21 @@ interface LearnerProfileDialogProps {
 }
 
 export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubject }: LearnerProfileDialogProps) => {
-  const { gradingScheme, schoolName, teacherName } = useSettings();
+  const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
 
   if (!learner) return null;
 
   const symbol = getGradeSymbol(learner.mark, gradingScheme);
 
   const handleDownloadReport = () => {
-    // We need to parse grade/subject/className from the combined string "Grade 10 Mathematics" passed as classSubject
-    // Ideally we'd pass the full classInfo object, but for now we'll approximate or use what we have.
-    // Actually, looking at parent usage, it passes `${classInfo.grade} ${classInfo.subject}`.
-    // Let's rely on the user or context, but since we don't have full class object here, we'll use classSubject as "Subject".
-    
-    // A better approach: The PDF generator takes specific fields. We can pass classSubject as Subject for now.
-    // To fix this properly, I should probably pass the classInfo object prop in the future, 
-    // but for now let's split the string or just use it.
-    
-    // NOTE: In the parent component (ClassDetails), it passes `${classInfo.grade} ${classInfo.subject}`.
-    // Let's create a temporary object to satisfy the PDF generator.
-    
+    // NOTE: We approximate the class info structure here since we only have the combined string
     const tempClassInfo = {
       subject: classSubject,
-      grade: "", // Included in subject string effectively
+      grade: "", 
       className: "" 
     };
 
-    generateLearnerReportPDF(learner, tempClassInfo, gradingScheme, schoolName, teacherName);
+    generateLearnerReportPDF(learner, tempClassInfo, gradingScheme, schoolName, teacherName, schoolLogo);
     showSuccess(`Report downloaded for ${learner.name}`);
   };
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { showSuccess, showError } from "@/utils/toast";
-import { Save, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson, School, User, Database, AlertCircle } from "lucide-react";
+import { Save, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson, School, User, Database, AlertCircle, ImagePlus, X } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { useClasses } from "@/context/ClassesContext";
 import { GradeSymbol } from "@/utils/grading";
@@ -27,6 +27,7 @@ const Settings = () => {
     gradingScheme, updateGradingScheme, resetGradingScheme,
     schoolName, setSchoolName,
     teacherName, setTeacherName,
+    schoolLogo, setSchoolLogo,
     atRiskThreshold, setAtRiskThreshold
   } = useSettings();
 
@@ -36,6 +37,7 @@ const Settings = () => {
   const [tempSchoolName, setTempSchoolName] = useState(schoolName);
   const [tempTeacherName, setTempTeacherName] = useState(teacherName);
   const [tempThreshold, setTempThreshold] = useState(atRiskThreshold.toString());
+  const logoInputRef = useRef<HTMLInputElement>(null);
   
   // Local state for grading scheme editing
   const [localScheme, setLocalScheme] = useState<GradeSymbol[]>(gradingScheme);
@@ -51,6 +53,30 @@ const Settings = () => {
     } else {
       showError("Invalid threshold value. Must be between 0 and 100.");
     }
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 500 * 1024) { // 500KB limit
+        showError("Image too large. Please use a logo smaller than 500KB.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setSchoolLogo(base64String);
+        showSuccess("School logo updated.");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setSchoolLogo(null);
+    if (logoInputRef.current) logoInputRef.current.value = "";
+    showSuccess("School logo removed.");
   };
 
   const handleSchemeChange = (index: number, field: keyof GradeSymbol, value: any) => {
@@ -106,9 +132,10 @@ const Settings = () => {
         activities: localStorage.getItem('activities'),
         school_name: localStorage.getItem('school_name'),
         teacher_name: localStorage.getItem('teacher_name'),
+        school_logo: localStorage.getItem('school_logo'),
         at_risk_threshold: localStorage.getItem('at_risk_threshold'),
         timestamp: new Date().toISOString(),
-        version: '1.0'
+        version: '1.1'
       };
       
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -141,6 +168,7 @@ const Settings = () => {
         if (data.activities) localStorage.setItem('activities', data.activities);
         if (data.school_name) localStorage.setItem('school_name', data.school_name);
         if (data.teacher_name) localStorage.setItem('teacher_name', data.teacher_name);
+        if (data.school_logo) localStorage.setItem('school_logo', data.school_logo);
         if (data.at_risk_threshold) localStorage.setItem('at_risk_threshold', data.at_risk_threshold);
         
         showSuccess("Data restored successfully. Reloading...");
@@ -155,12 +183,7 @@ const Settings = () => {
   };
 
   const handleClearData = () => {
-    localStorage.removeItem('classes');
-    localStorage.removeItem('activities');
-    localStorage.removeItem('grading_scheme');
-    localStorage.removeItem('school_name');
-    localStorage.removeItem('teacher_name');
-    localStorage.removeItem('at_risk_threshold');
+    localStorage.clear(); // Clears everything including logo
     showSuccess("All application data cleared.");
     setTimeout(() => window.location.reload(), 1000);
   };
@@ -205,59 +228,100 @@ const Settings = () => {
             These details will appear on your generated PDF reports.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="school-name">School Name</Label>
-              <div className="relative">
-                <School className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="school-name"
-                  placeholder="e.g. Sunnydale High School"
-                  value={tempSchoolName}
-                  onChange={(e) => setTempSchoolName(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
+        <CardContent className="space-y-6">
+          <div className="flex flex-col md:flex-row gap-6">
+            {/* Logo Section */}
+            <div className="flex flex-col items-center gap-2">
+               <Label>School Logo</Label>
+               <div className="h-32 w-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/30 overflow-hidden relative group">
+                  {schoolLogo ? (
+                    <>
+                      <img src={schoolLogo} alt="School Logo" className="h-full w-full object-contain p-1" />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Button variant="destructive" size="icon" onClick={handleRemoveLogo}>
+                           <Trash2 className="h-4 w-4" />
+                         </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <ImagePlus className="h-8 w-8 text-muted-foreground opacity-50" />
+                  )}
+               </div>
+               <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="relative cursor-pointer" asChild>
+                    <label>
+                       Upload
+                       <input 
+                        ref={logoInputRef}
+                        type="file" 
+                        accept="image/png, image/jpeg" 
+                        className="hidden" 
+                        onChange={handleLogoUpload}
+                       />
+                    </label>
+                  </Button>
+               </div>
+               <p className="text-[10px] text-muted-foreground max-w-[150px] text-center">
+                 Max 500KB. PNG or JPG. Used in PDF reports.
+               </p>
             </div>
-            <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="teacher-name">Teacher Name</Label>
-              <div className="relative">
-                <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="teacher-name"
-                  placeholder="e.g. Mr. Smith"
-                  value={tempTeacherName}
-                  onChange={(e) => setTempTeacherName(e.target.value)}
-                  className="pl-9"
-                />
+
+            {/* Fields Section */}
+            <div className="flex-1 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid w-full items-center gap-1.5">
+                  <Label htmlFor="school-name">School Name</Label>
+                  <div className="relative">
+                    <School className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="school-name"
+                      placeholder="e.g. Sunnydale High School"
+                      value={tempSchoolName}
+                      onChange={(e) => setTempSchoolName(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                <div className="grid w-full items-center gap-1.5">
+                  <Label htmlFor="teacher-name">Teacher Name</Label>
+                  <div className="relative">
+                    <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="teacher-name"
+                      placeholder="e.g. Mr. Smith"
+                      value={tempTeacherName}
+                      onChange={(e) => setTempTeacherName(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                 <div className="grid w-full items-center gap-1.5 sm:col-span-2">
+                  <Label htmlFor="threshold" className="flex items-center gap-2">
+                    At Risk Threshold (%)
+                    <AlertCircle className="h-3 w-3 text-muted-foreground" />
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="threshold"
+                      type="number"
+                      placeholder="50"
+                      min={0}
+                      max={100}
+                      value={tempThreshold}
+                      onChange={(e) => setTempThreshold(e.target.value)}
+                      className="w-full sm:w-[120px]"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Learners scoring below this percentage will be highlighted as "At Risk".
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-             <div className="grid w-full items-center gap-1.5 sm:col-span-2">
-              <Label htmlFor="threshold" className="flex items-center gap-2">
-                At Risk Threshold (%)
-                <AlertCircle className="h-3 w-3 text-muted-foreground" />
-              </Label>
-              <div className="relative">
-                <Input
-                  id="threshold"
-                  type="number"
-                  placeholder="50"
-                  min={0}
-                  max={100}
-                  value={tempThreshold}
-                  onChange={(e) => setTempThreshold(e.target.value)}
-                  className="w-full sm:w-[120px]"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Learners scoring below this percentage will be highlighted as "At Risk".
-                </p>
-              </div>
+              <Button onClick={handleSaveProfile} className="w-full sm:w-auto">
+                <Save className="mr-2 h-4 w-4" /> Save Profile & Settings
+              </Button>
             </div>
           </div>
-          <Button onClick={handleSaveProfile}>
-            <Save className="mr-2 h-4 w-4" /> Save Profile & Settings
-          </Button>
         </CardContent>
       </Card>
 

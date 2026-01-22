@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle, AlertOctagon, Filter, Calculator } from 'lucide-react';
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle, AlertOctagon, Filter, Calculator, CheckSquare, MessageSquare } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { GradeSymbol, getGradeSymbol } from '@/utils/grading';
 import { cn } from '@/lib/utils';
@@ -33,6 +34,9 @@ interface LearnerListProps {
   onRemoveLearner: (index: number) => void;
   onProfileClick: (learner: Learner) => void;
   onAddLearnerClick: () => void;
+  onBatchDelete?: (indices: number[]) => void;
+  onBatchComment?: (indices: number[], comment: string) => void;
+  onBatchClearMarks?: (indices: number[]) => void;
 }
 
 export const LearnerList = ({
@@ -45,12 +49,16 @@ export const LearnerList = ({
   onCommentChange,
   onRemoveLearner,
   onProfileClick,
-  onAddLearnerClick
+  onAddLearnerClick,
+  onBatchDelete,
+  onBatchComment,
+  onBatchClearMarks
 }: LearnerListProps) => {
   const { atRiskThreshold } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
   // Smart Input Logic
   const handleMarkBlur = (index: number, currentValue: string) => {
@@ -131,7 +139,6 @@ export const LearnerList = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number, originalIndex: number, currentValue: string) => {
     if (e.key === 'Enter') {
        e.preventDefault();
-       // Trigger calculation immediately on Enter
        handleMarkBlur(originalIndex, currentValue);
        
        const nextInput = document.getElementById(`mark-input-${currentIndex + 1}`);
@@ -156,6 +163,54 @@ export const LearnerList = ({
     }
   };
 
+  // Selection Logic
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIndices = sortedAndFilteredLearners.map(l => l.originalIndex);
+      setSelectedIndices(allIndices);
+    } else {
+      setSelectedIndices([]);
+    }
+  };
+
+  const handleSelectOne = (index: number, checked: boolean) => {
+    if (checked) {
+      setSelectedIndices(prev => [...prev, index]);
+    } else {
+      setSelectedIndices(prev => prev.filter(i => i !== index));
+    }
+  };
+
+  const executeBatchDelete = () => {
+    if (onBatchDelete && selectedIndices.length > 0) {
+      if (confirm(`Are you sure you want to delete ${selectedIndices.length} learners?`)) {
+        onBatchDelete(selectedIndices);
+        setSelectedIndices([]);
+      }
+    }
+  };
+
+  const executeBatchClearMarks = () => {
+    if (onBatchClearMarks && selectedIndices.length > 0) {
+       if (confirm(`Clear marks for ${selectedIndices.length} learners?`)) {
+        onBatchClearMarks(selectedIndices);
+        setSelectedIndices([]);
+      }
+    }
+  };
+
+  const executeBatchComment = () => {
+    if (onBatchComment && selectedIndices.length > 0) {
+      const comment = prompt("Enter a comment for selected learners:");
+      if (comment !== null) {
+        onBatchComment(selectedIndices, comment);
+        setSelectedIndices([]);
+      }
+    }
+  };
+
+  const allSelected = sortedAndFilteredLearners.length > 0 && selectedIndices.length === sortedAndFilteredLearners.length;
+
   return (
     <Card className="transition-all duration-300">
       <CardHeader>
@@ -169,6 +224,36 @@ export const LearnerList = ({
             </CardDescription>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
+            {selectedIndices.length > 0 && (
+              <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 bg-muted/50 p-1 rounded-md">
+                 <span className="text-xs font-medium px-2">{selectedIndices.length} selected</span>
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <Button size="icon" variant="destructive" className="h-8 w-8" onClick={executeBatchDelete}>
+                       <Trash2 className="h-4 w-4" />
+                     </Button>
+                   </TooltipTrigger>
+                   <TooltipContent>Delete Selected</TooltipContent>
+                 </Tooltip>
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <Button size="icon" variant="outline" className="h-8 w-8" onClick={executeBatchComment}>
+                       <MessageSquare className="h-4 w-4" />
+                     </Button>
+                   </TooltipTrigger>
+                   <TooltipContent>Bulk Comment</TooltipContent>
+                 </Tooltip>
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <Button size="icon" variant="outline" className="h-8 w-8 text-orange-500" onClick={executeBatchClearMarks}>
+                       <AlertOctagon className="h-4 w-4" />
+                     </Button>
+                   </TooltipTrigger>
+                   <TooltipContent>Clear Marks</TooltipContent>
+                 </Tooltip>
+              </div>
+            )}
+            
             {showComments && (
               <Button 
                 onClick={onGenerateComments} 
@@ -216,6 +301,12 @@ export const LearnerList = ({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[40px]">
+                <Checkbox 
+                  checked={allSelected}
+                  onCheckedChange={handleSelectAll}
+                />
+              </TableHead>
               <TableHead className="w-[50px]">#</TableHead>
               <TableHead className="min-w-[200px]">
                 <Button variant="ghost" onClick={() => requestSort('name')} className="pl-0 hover:pl-2 transition-all">
@@ -249,12 +340,22 @@ export const LearnerList = ({
                 const isAtRisk = !isNaN(markNum) && markNum < atRiskThreshold;
                 const isInvalid = !isNaN(markNum) && (markNum < 0 || markNum > 100);
                 const isCalculated = learner.mark.includes('.') && !learner.mark.endsWith('.0');
+                const isSelected = selectedIndices.includes(learner.originalIndex);
 
                 return (
                   <TableRow 
                     key={learner.originalIndex} 
-                    className={cn(isAtRisk && "bg-red-50 hover:bg-red-100/80 dark:bg-red-950/20 dark:hover:bg-red-950/30")}
+                    className={cn(
+                      isAtRisk && "bg-red-50 hover:bg-red-100/80 dark:bg-red-950/20 dark:hover:bg-red-950/30",
+                      isSelected && "bg-muted/50"
+                    )}
                   >
+                    <TableCell>
+                      <Checkbox 
+                        checked={isSelected}
+                        onCheckedChange={(checked) => handleSelectOne(learner.originalIndex, !!checked)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
                     <TableCell>
                        <div className="flex items-center gap-2">
@@ -342,7 +443,7 @@ export const LearnerList = ({
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={showComments ? 6 : 5} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={showComments ? 7 : 6} className="h-24 text-center text-muted-foreground">
                   {statusFilter !== 'all' || searchQuery 
                     ? "No learners match your filters." 
                     : "No learners in this class yet."}

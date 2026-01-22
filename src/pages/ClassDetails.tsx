@@ -24,7 +24,7 @@ import { calculateClassStats } from '@/utils/stats';
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
   const { classes, updateLearners } = useClasses();
-  const { gradingScheme, schoolName, teacherName } = useSettings();
+  const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   const classInfo = classes.find((c) => c.id === classId);
 
   const [learners, setLearners] = useState<Learner[]>([]);
@@ -126,6 +126,35 @@ const ClassDetails = () => {
     }
   };
 
+  // Batch Operations
+  const handleBatchDelete = (indices: number[]) => {
+    const updatedLearners = learners.filter((_, i) => !indices.includes(i));
+    setLearners(updatedLearners);
+    showSuccess(`Deleted ${indices.length} learners.`);
+  };
+
+  const handleBatchComment = (indices: number[], comment: string) => {
+    const updatedLearners = [...learners];
+    indices.forEach(index => {
+      if (updatedLearners[index]) {
+        updatedLearners[index] = { ...updatedLearners[index], comment };
+      }
+    });
+    setLearners(updatedLearners);
+    showSuccess(`Updated comments for ${indices.length} learners.`);
+  };
+
+  const handleBatchClearMarks = (indices: number[]) => {
+    const updatedLearners = [...learners];
+    indices.forEach(index => {
+      if (updatedLearners[index]) {
+        updatedLearners[index] = { ...updatedLearners[index], mark: "" };
+      }
+    });
+    setLearners(updatedLearners);
+    showSuccess(`Cleared marks for ${indices.length} learners.`);
+  };
+
   const handleAddLearners = (names: string[]) => {
     const newLearners = names.map(name => ({ name, mark: "" }));
     setLearners([...learners, ...newLearners]);
@@ -217,7 +246,7 @@ Lowest Mark: ${stats.lowestMark}%
     if (!classInfo) return;
     try {
       const exportClassInfo = { ...classInfo, learners };
-      generateClassPDF(exportClassInfo, gradingScheme, schoolName, teacherName);
+      generateClassPDF(exportClassInfo, gradingScheme, schoolName, teacherName, schoolLogo);
       showSuccess("PDF Report generated successfully!");
     } catch (error) {
       console.error(error);
@@ -229,7 +258,7 @@ Lowest Mark: ${stats.lowestMark}%
     if (!classInfo) return;
     try {
       const exportClassInfo = { ...classInfo, learners };
-      generateBlankClassListPDF(exportClassInfo, schoolName, teacherName);
+      generateBlankClassListPDF(exportClassInfo, schoolName, teacherName, schoolLogo);
       showSuccess("Blank class list generated!");
     } catch (error) {
       console.error(error);
@@ -370,6 +399,9 @@ Lowest Mark: ${stats.lowestMark}%
         onRemoveLearner={handleRemoveLearner}
         onProfileClick={setSelectedProfileLearner}
         onAddLearnerClick={() => setIsAddLearnerOpen(true)}
+        onBatchDelete={handleBatchDelete}
+        onBatchComment={handleBatchComment}
+        onBatchClearMarks={handleBatchClearMarks}
       />
       
       <AddLearnerDialog 

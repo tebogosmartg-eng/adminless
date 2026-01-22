@@ -8,34 +8,50 @@ export const generateClassPDF = (
   classInfo: ClassInfo, 
   gradingScheme: GradeSymbol[], 
   schoolName: string = "My School", 
-  teacherName: string = ""
+  teacherName: string = "",
+  schoolLogo: string | null = null
 ) => {
   const doc = new jsPDF();
 
   // Document Configuration
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
+  let headerStartY = 20;
+
+  // Logo Logic
+  if (schoolLogo) {
+    try {
+      doc.addImage(schoolLogo, 'PNG', margin, 10, 25, 25);
+      // If logo exists, shift school name text
+      headerStartY = 20;
+    } catch (e) {
+      console.warn("Failed to add logo to PDF", e);
+    }
+  }
   
   // Header Section
   doc.setFontSize(22);
   doc.setTextColor(40);
-  doc.text(schoolName, margin, 20);
+  
+  // Align school name next to logo if exists, else left
+  const textX = schoolLogo ? margin + 30 : margin;
+  doc.text(schoolName, textX, 22);
 
   doc.setFontSize(14);
   doc.setTextColor(100);
-  doc.text("Class Performance Report", margin, 28);
+  doc.text("Class Performance Report", textX, 30);
   
   doc.setFontSize(10);
   doc.setTextColor(100);
   const dateStr = format(new Date(), 'PPP');
-  doc.text(`Generated on: ${dateStr}`, margin, 34);
+  doc.text(`Generated on: ${dateStr}`, textX, 36);
   
   if (teacherName) {
-    doc.text(`Teacher: ${teacherName}`, pageWidth - margin - doc.getTextWidth(`Teacher: ${teacherName}`), 20);
+    doc.text(`Teacher: ${teacherName}`, pageWidth - margin - doc.getTextWidth(`Teacher: ${teacherName}`), 22);
   }
 
   // Class Details Box
-  const startY = 42;
+  const startY = 48; // Shifted down slightly to accommodate logo area if needed
   doc.setDrawColor(200);
   doc.setFillColor(245, 247, 250);
   doc.roundedRect(margin, startY, pageWidth - (margin * 2), 24, 2, 2, 'FD');
@@ -154,23 +170,32 @@ export const generateClassPDF = (
 export const generateBlankClassListPDF = (
   classInfo: ClassInfo,
   schoolName: string = "My School", 
-  teacherName: string = ""
+  teacherName: string = "",
+  schoolLogo: string | null = null
 ) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
 
+  // Header Logic with Logo
+  const textX = schoolLogo ? margin + 30 : margin;
+  if (schoolLogo) {
+    try {
+      doc.addImage(schoolLogo, 'PNG', margin, 10, 25, 25);
+    } catch (e) {}
+  }
+
   // Header
   doc.setFontSize(18);
   doc.setTextColor(40);
-  doc.text("Mark Recording Sheet", margin, 20);
+  doc.text("Mark Recording Sheet", textX, 20);
   
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(schoolName, margin, 26);
+  doc.text(schoolName, textX, 26);
 
   // Context Info
-  const startY = 32;
+  const startY = 40;
   doc.setFontSize(11);
   doc.setTextColor(0);
   doc.text(`Subject: ${classInfo.subject}`, margin, startY);
@@ -230,7 +255,8 @@ export const generateLearnerReportPDF = (
   classInfo: { subject: string; grade: string; className: string },
   gradingScheme: GradeSymbol[],
   schoolName: string = "My School",
-  teacherName: string = ""
+  teacherName: string = "",
+  schoolLogo: string | null = null
 ) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
@@ -241,23 +267,35 @@ export const generateLearnerReportPDF = (
   doc.setLineWidth(1);
   doc.rect(margin, margin, pageWidth - (margin * 2), 257); // Page border
 
+  // Logo if available
+  if (schoolLogo) {
+     try {
+       // Center logo
+       const logoSize = 30;
+       const logoX = (pageWidth - logoSize) / 2;
+       doc.addImage(schoolLogo, 'PNG', logoX, 30, logoSize, logoSize);
+     } catch (e) {}
+  }
+
   // Header
+  const textStartY = schoolLogo ? 70 : 40;
+  
   doc.setFontSize(24);
   doc.setTextColor(41, 37, 36);
   doc.setFont("helvetica", "bold");
-  doc.text(schoolName, pageWidth / 2, 40, { align: 'center' });
+  doc.text(schoolName, pageWidth / 2, textStartY, { align: 'center' });
   
   doc.setFontSize(14);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
-  doc.text("Learner Performance Report", pageWidth / 2, 50, { align: 'center' });
+  doc.text("Learner Performance Report", pageWidth / 2, textStartY + 10, { align: 'center' });
 
   // Divider
   doc.setDrawColor(200);
-  doc.line(margin + 20, 60, pageWidth - (margin + 20), 60);
+  doc.line(margin + 20, textStartY + 20, pageWidth - (margin + 20), textStartY + 20);
 
   // Student Info
-  const startY = 80;
+  const startY = textStartY + 40;
   doc.setFontSize(12);
   doc.setTextColor(80);
   doc.text("Learner Name:", margin + 20, startY);
