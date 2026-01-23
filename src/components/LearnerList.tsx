@@ -7,13 +7,21 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle, AlertOctagon, Filter, Calculator, CheckSquare, MessageSquare } from 'lucide-react';
+import { ArrowUpDown, Search, BrainCircuit, Loader2, Plus, Trash2, AlertCircle, AlertOctagon, Filter, Calculator, CheckSquare, MessageSquare, BookText } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { GradeSymbol, getGradeSymbol } from '@/utils/grading';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSettings } from '@/context/SettingsContext';
 import { showSuccess } from '@/utils/toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -54,7 +62,7 @@ export const LearnerList = ({
   onBatchComment,
   onBatchClearMarks
 }: LearnerListProps) => {
-  const { atRiskThreshold } = useSettings();
+  const { atRiskThreshold, commentBank } = useSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
@@ -201,12 +209,21 @@ export const LearnerList = ({
 
   const executeBatchComment = () => {
     if (onBatchComment && selectedIndices.length > 0) {
+      // We can use a simpler approach here or integrate a dialog.
+      // For now, let's keep the prompt but maybe later upgrade it.
       const comment = prompt("Enter a comment for selected learners:");
       if (comment !== null) {
         onBatchComment(selectedIndices, comment);
         setSelectedIndices([]);
       }
     }
+  };
+
+  const insertComment = (index: number, text: string) => {
+    const current = learners[index].comment || "";
+    // If empty, just set it. If exists, append.
+    const newVal = current ? `${current} ${text}` : text;
+    onCommentChange(index, newVal);
   };
 
   const allSelected = sortedAndFilteredLearners.length > 0 && selectedIndices.length === sortedAndFilteredLearners.length;
@@ -420,12 +437,36 @@ export const LearnerList = ({
                     </TableCell>
                     {showComments && (
                       <TableCell>
-                        <Textarea
-                          value={learner.comment || ''}
-                          onChange={(e) => onCommentChange(learner.originalIndex, e.target.value)}
-                          placeholder="Enter a comment or generate with AI..."
-                          className="min-h-[60px] resize-none"
-                        />
+                         <div className="relative flex gap-1">
+                            <Textarea
+                              value={learner.comment || ''}
+                              onChange={(e) => onCommentChange(learner.originalIndex, e.target.value)}
+                              placeholder="Enter comment..."
+                              className="min-h-[60px] resize-none flex-1 text-xs"
+                            />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 self-start mt-1">
+                                  <BookText className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-[300px]">
+                                <DropdownMenuLabel>Comment Bank</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {commentBank.length === 0 ? (
+                                  <div className="p-2 text-xs text-muted-foreground">
+                                    No saved comments. Add them in Settings.
+                                  </div>
+                                ) : (
+                                  commentBank.map((comment, i) => (
+                                    <DropdownMenuItem key={i} onClick={() => insertComment(learner.originalIndex, comment)}>
+                                      <span className="truncate">{comment}</span>
+                                    </DropdownMenuItem>
+                                  ))
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                         </div>
                       </TableCell>
                     )}
                     <TableCell>

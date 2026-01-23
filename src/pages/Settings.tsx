@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { showSuccess, showError } from "@/utils/toast";
-import { Save, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson, School, User, Database, AlertCircle, ImagePlus, X } from "lucide-react";
+import { Save, RotateCcw, Plus, Trash2, Download, Upload, AlertTriangle, FileJson, School, User, Database, AlertCircle, ImagePlus, MessageSquareQuote } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { useClasses } from "@/context/ClassesContext";
 import { GradeSymbol } from "@/utils/grading";
@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Settings = () => {
   const { 
@@ -28,7 +29,8 @@ const Settings = () => {
     schoolName, setSchoolName,
     teacherName, setTeacherName,
     schoolLogo, setSchoolLogo,
-    atRiskThreshold, setAtRiskThreshold
+    atRiskThreshold, setAtRiskThreshold,
+    commentBank, addToCommentBank, removeFromCommentBank
   } = useSettings();
 
   const { addClass } = useClasses();
@@ -41,6 +43,9 @@ const Settings = () => {
   
   // Local state for grading scheme editing
   const [localScheme, setLocalScheme] = useState<GradeSymbol[]>(gradingScheme);
+  
+  // Local state for comment bank
+  const [newComment, setNewComment] = useState("");
 
   const handleSaveProfile = () => {
     setSchoolName(tempSchoolName);
@@ -123,6 +128,14 @@ const Settings = () => {
     };
     setLocalScheme([...localScheme, newRow]);
   };
+  
+  const handleAddComment = () => {
+    if (newComment.trim()) {
+      addToCommentBank(newComment.trim());
+      setNewComment("");
+      showSuccess("Comment added to bank.");
+    }
+  };
 
   const handleExportData = () => {
     try {
@@ -134,8 +147,9 @@ const Settings = () => {
         teacher_name: localStorage.getItem('teacher_name'),
         school_logo: localStorage.getItem('school_logo'),
         at_risk_threshold: localStorage.getItem('at_risk_threshold'),
+        comment_bank: localStorage.getItem('comment_bank'),
         timestamp: new Date().toISOString(),
-        version: '1.1'
+        version: '1.2'
       };
       
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -170,6 +184,7 @@ const Settings = () => {
         if (data.teacher_name) localStorage.setItem('teacher_name', data.teacher_name);
         if (data.school_logo) localStorage.setItem('school_logo', data.school_logo);
         if (data.at_risk_threshold) localStorage.setItem('at_risk_threshold', data.at_risk_threshold);
+        if (data.comment_bank) localStorage.setItem('comment_bank', data.comment_bank);
         
         showSuccess("Data restored successfully. Reloading...");
         setTimeout(() => window.location.reload(), 1500);
@@ -324,89 +339,133 @@ const Settings = () => {
           </div>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Grading System</CardTitle>
-              <CardDescription>
-                Customize the grade ranges, symbols, and levels used for analysis.
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-               <Button variant="outline" size="sm" onClick={handleResetScheme}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Reset Defaults
-              </Button>
-              <Button size="sm" onClick={handleSaveScheme}>
-                <Save className="mr-2 h-4 w-4" /> Save Changes
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-           <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Min %</TableHead>
-                    <TableHead>Max %</TableHead>
-                    <TableHead>Symbol</TableHead>
-                    <TableHead>Level</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {localScheme.map((grade, index) => (
-                    <TableRow key={grade.id || index}>
-                      <TableCell>
-                        <Input 
-                          type="number" 
-                          className="h-8 w-20" 
-                          value={grade.min} 
-                          onChange={(e) => handleSchemeChange(index, 'min', parseFloat(e.target.value))}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input 
-                          type="number" 
-                          className="h-8 w-20" 
-                          value={grade.max} 
-                          onChange={(e) => handleSchemeChange(index, 'max', parseFloat(e.target.value))}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input 
-                          className="h-8 w-20" 
-                          value={grade.symbol} 
-                          onChange={(e) => handleSchemeChange(index, 'symbol', e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                         <Input 
-                          type="number" 
-                          className="h-8 w-20" 
-                          value={grade.level} 
-                          onChange={(e) => handleSchemeChange(index, 'level', parseFloat(e.target.value))}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteRow(index)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="p-2 border-t bg-muted/20">
-                <Button variant="ghost" size="sm" className="w-full" onClick={handleAddRow}>
-                  <Plus className="mr-2 h-4 w-4" /> Add Range
-                </Button>
+      
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="h-full">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Grading System</CardTitle>
+                  <CardDescription>
+                    Customize the grade ranges, symbols, and levels used for analysis.
+                  </CardDescription>
+                </div>
               </div>
-           </div>
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                 <div className="rounded-md border max-h-[300px] overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Min</TableHead>
+                          <TableHead>Max</TableHead>
+                          <TableHead>Sym</TableHead>
+                          <TableHead>Lvl</TableHead>
+                          <TableHead className="w-[40px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {localScheme.map((grade, index) => (
+                          <TableRow key={grade.id || index}>
+                            <TableCell className="p-2">
+                              <Input 
+                                type="number" 
+                                className="h-8 w-16" 
+                                value={grade.min} 
+                                onChange={(e) => handleSchemeChange(index, 'min', parseFloat(e.target.value))}
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Input 
+                                type="number" 
+                                className="h-8 w-16" 
+                                value={grade.max} 
+                                onChange={(e) => handleSchemeChange(index, 'max', parseFloat(e.target.value))}
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Input 
+                                className="h-8 w-16" 
+                                value={grade.symbol} 
+                                onChange={(e) => handleSchemeChange(index, 'symbol', e.target.value)}
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                               <Input 
+                                type="number" 
+                                className="h-8 w-12" 
+                                value={grade.level} 
+                                onChange={(e) => handleSchemeChange(index, 'level', parseFloat(e.target.value))}
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteRow(index)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                 </div>
+                 <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleAddRow} className="flex-1">
+                      <Plus className="mr-2 h-4 w-4" /> Add Range
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleResetScheme}>
+                      <RotateCcw className="mr-2 h-4 w-4" /> Reset
+                    </Button>
+                    <Button size="sm" onClick={handleSaveScheme}>
+                      <Save className="mr-2 h-4 w-4" /> Save
+                    </Button>
+                 </div>
+              </div>
+            </CardContent>
+        </Card>
+
+        <Card className="h-full flex flex-col">
+            <CardHeader>
+               <div className="flex items-center gap-2">
+                  <MessageSquareQuote className="h-5 w-5 text-primary" />
+                  <CardTitle>Comment Bank</CardTitle>
+               </div>
+               <CardDescription>
+                  Save frequently used comments for quick access.
+               </CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col gap-4">
+               <div className="flex gap-2">
+                  <Input 
+                    placeholder="Type a new comment..." 
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+                  />
+                  <Button onClick={handleAddComment} disabled={!newComment.trim()}>Add</Button>
+               </div>
+               
+               <ScrollArea className="flex-1 h-[240px] border rounded-md p-2">
+                  {commentBank.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                       No saved comments yet.
+                    </div>
+                  ) : (
+                    <ul className="space-y-1">
+                      {commentBank.map((comment, index) => (
+                        <li key={index} className="flex items-center justify-between p-2 bg-muted/40 rounded-md hover:bg-muted group">
+                           <span className="text-sm truncate mr-2">{comment}</span>
+                           <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" onClick={() => removeFromCommentBank(comment)}>
+                              <Trash2 className="h-3 w-3" />
+                           </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+               </ScrollArea>
+            </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>

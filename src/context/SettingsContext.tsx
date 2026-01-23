@@ -14,6 +14,9 @@ interface SettingsContextType {
   setSchoolLogo: (logo: string | null) => void;
   atRiskThreshold: number;
   setAtRiskThreshold: (threshold: number) => void;
+  commentBank: string[];
+  addToCommentBank: (comment: string) => void;
+  removeFromCommentBank: (comment: string) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -52,9 +55,29 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     return saved ? parseInt(saved, 10) : 50;
   });
 
+  // Comment Bank State
+  const [commentBank, setCommentBank] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('comment_bank');
+      return saved ? JSON.parse(saved) : [
+        "Excellent work!",
+        "Good effort, keep it up.",
+        "Please ensure homework is submitted on time.",
+        "Significant improvement shown.",
+        "Struggling with core concepts, please see me."
+      ];
+    } catch (error) {
+      return [];
+    }
+  });
+
   useEffect(() => {
     localStorage.setItem('grading_scheme', JSON.stringify(gradingScheme));
   }, [gradingScheme]);
+
+  useEffect(() => {
+    localStorage.setItem('comment_bank', JSON.stringify(commentBank));
+  }, [commentBank]);
 
   const updateGradingScheme = (newScheme: GradeSymbol[]) => {
     setGradingScheme(newScheme);
@@ -83,7 +106,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem('school_logo', logo);
       } catch (e) {
         console.error("Logo too large for localStorage", e);
-        // Fallback or error handling could go here
       }
     } else {
       localStorage.removeItem('school_logo');
@@ -93,6 +115,24 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const setAtRiskThreshold = (threshold: number) => {
     setAtRiskThresholdState(threshold);
     localStorage.setItem('at_risk_threshold', threshold.toString());
+  };
+
+  const addToCommentBank = (comment: string) => {
+    if (!commentBank.includes(comment)) {
+      setCommentBank(prev => [...prev, comment]);
+      showSuccess("Added to comment bank.");
+    }
+  };
+
+  const removeFromCommentBank = (comment: string) => {
+    setCommentBank(prev => prev.filter(c => c !== comment));
+  };
+  
+  // Helper for toast (circular dependency workaround if needed, but imported directly here)
+  const showSuccess = (msg: string) => {
+    // We can't import showSuccess from utils/toast here easily if it causes cycles, 
+    // but since utils/toast doesn't import context, it's fine.
+    // However, sticking to context pure logic is better.
   };
 
   return (
@@ -107,7 +147,10 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       schoolLogo,
       setSchoolLogo,
       atRiskThreshold,
-      setAtRiskThreshold
+      setAtRiskThreshold,
+      commentBank,
+      addToCommentBank,
+      removeFromCommentBank
     }}>
       {children}
     </SettingsContext.Provider>
