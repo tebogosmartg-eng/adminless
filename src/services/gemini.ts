@@ -21,8 +21,8 @@ const getModel = (modelName: string, schema?: any) => {
     model: modelName,
   };
 
-  // Only add schema config if schema is provided AND model supports it (1.5+)
-  if (schema && modelName.includes('1.5')) {
+  // Only add schema config if schema is provided AND model supports it (1.5+ or gemini-3+)
+  if (schema && (modelName.includes('1.5') || modelName.includes('gemini-3'))) {
     config.generationConfig = {
       responseMimeType: "application/json",
       responseSchema: schema,
@@ -157,6 +157,7 @@ async function generateWithModelList<T>(
 ): Promise<T> {
   // Define fallback hierarchy
   let modelsToTry = [
+    "gemini-3-flash-preview",
     "gemini-1.5-flash", 
     "gemini-1.5-flash-001",
     "gemini-1.5-flash-002",
