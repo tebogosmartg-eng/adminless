@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Session } from '@supabase/supabase-js';
 
 export interface Activity {
   id: string;
@@ -13,29 +15,51 @@ interface ActivityContextType {
 
 const ActivityContext = createContext<ActivityContextType | undefined>(undefined);
 
-export const ActivityProvider = ({ children }: { children: ReactNode }) => {
-  const [activities, setActivities] = useState<Activity[]>(() => {
-    try {
-      const savedActivities = localStorage.getItem('activities');
-      return savedActivities ? JSON.parse(savedActivities) : [];
-    } catch (error) {
-      console.error("Failed to parse activities from localStorage", error);
-      return [];
-    }
-  });
+export const ActivityProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
+  const [activities, setActivities] = useState<Activity[]>([]);
 
   useEffect(() => {
-    localStorage.setItem('activities', JSON.stringify(activities));
-  }, [activities]);
+    if (!session?.user.id) return;
 
-  const logActivity = useCallback((message: string) => {
-    const newActivity: Activity = {
-      id: new Date().toISOString(),
-      timestamp: new Date().toISOString(),
-      message,
+    const fetchActivities = async () => {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('timestamp', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error('Error fetching activities:', error);
+      } else {
+        setActivities(data || []);
+      }
     };
-    setActivities((prevActivities) => [newActivity, ...prevActivities].slice(0, 20)); // Keep last 20 activities
-  }, []);
+
+    fetchActivities();
+  }, [session?.user.id]);
+
+  const logActivity = useCallback(async (message: string) => {
+    if (!session?.user.id) return;
+
+    const newActivity = {
+      user_id: session.user.id,
+      message,
+      timestamp: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('activities')
+      .insert([newActivity])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error logging activity:', error);
+    } else if (data) {
+      setActivities((prev) => [data, ...prev].slice(0, 20));
+    }
+  }, [session?.user.id]);
 
   return (
     <ActivityContext.Provider value={{ activities, logActivity }}>
