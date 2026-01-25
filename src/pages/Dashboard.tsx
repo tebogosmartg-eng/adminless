@@ -1,48 +1,18 @@
-import { useClasses } from '../context/ClassesContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { PlusCircle, Camera, BarChart3, BookOpen, GraduationCap } from 'lucide-react';
+import { BarChart3, BookOpen, GraduationCap } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ClassSummaryCard from '@/components/ClassSummaryCard';
 import GlobalStats from '@/components/GlobalStats';
-import RecentActivity from '@/components/RecentActivity';
-import ClassComparisonChart from '@/components/ClassComparisonChart';
-import AggregatedPerformanceChart from '@/components/AggregatedPerformanceChart';
-import AtRiskLearners from '@/components/AtRiskLearners';
-import MarkDistributionChart from '@/components/MarkDistributionChart';
-import { DailyAttendanceCard } from '@/components/DailyAttendanceCard';
-import { TodoList } from '@/components/TodoList';
-import { useMemo } from 'react';
+import { useDashboardData } from '@/hooks/useDashboardData';
+import { DashboardOverviewTab } from '@/components/DashboardOverviewTab';
+import { DashboardGroupedView } from '@/components/DashboardGroupedView';
 
 const Dashboard = () => {
-  const { classes } = useClasses();
-  
-  // Only show active classes on the dashboard
-  const activeClasses = useMemo(() => classes.filter(c => !c.archived), [classes]);
-  
-  // Aggregate all learners for the global chart from active classes only
-  const allActiveLearners = activeClasses.flatMap(c => c.learners);
-
-  // Group active classes by subject
-  const classesBySubject = useMemo(() => {
-    const groups: Record<string, typeof classes> = {};
-    activeClasses.forEach(c => {
-      if (!groups[c.subject]) groups[c.subject] = [];
-      groups[c.subject].push(c);
-    });
-    return groups;
-  }, [activeClasses]);
-
-  // Group active classes by grade
-  const classesByGrade = useMemo(() => {
-    const groups: Record<string, typeof classes> = {};
-    activeClasses.forEach(c => {
-      if (!groups[c.grade]) groups[c.grade] = [];
-      groups[c.grade].push(c);
-    });
-    return groups;
-  }, [activeClasses]);
+  const { 
+    classes,
+    activeClasses, 
+    allActiveLearners, 
+    classesBySubject, 
+    classesByGrade 
+  } = useDashboardData();
 
   return (
     <div className="space-y-6">
@@ -66,96 +36,27 @@ const Dashboard = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-6">
-              {activeClasses.length > 0 && (
-                <>
-                  <ClassComparisonChart classes={activeClasses} />
-                  <MarkDistributionChart 
-                    learners={allActiveLearners} 
-                    title="Global Grade Distribution" 
-                    description="Distribution of symbols across active classes." 
-                  />
-                </>
-              )}
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Active Classes</CardTitle>
-                  <CardDescription>Quick access to your current class registers.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {activeClasses.length > 0 ? (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {activeClasses.map(classInfo => (
-                        <ClassSummaryCard key={classInfo.id} classInfo={classInfo} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                      <h3 className="text-lg font-semibold">No active classes</h3>
-                      <p className="text-muted-foreground mt-1 mb-6">
-                        {classes.length > 0 
-                          ? "All your classes are archived." 
-                          : "You haven't created any classes yet."}
-                      </p>
-                      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <Button asChild>
-                          <Link to="/classes">
-                            <PlusCircle className="mr-2 h-4 w-4" /> Create Manually
-                          </Link>
-                        </Button>
-                        <span className="text-xs text-muted-foreground">OR</span>
-                        <Button asChild variant="outline">
-                          <Link to="/scan">
-                            <Camera className="mr-2 h-4 w-4" /> Scan Scripts (AI)
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-            <div className="lg:col-span-1 space-y-6">
-              <DailyAttendanceCard />
-              <TodoList />
-              <AtRiskLearners />
-              <RecentActivity />
-            </div>
-          </div>
+          <DashboardOverviewTab 
+            activeClasses={activeClasses}
+            allActiveLearners={allActiveLearners}
+            totalClassesCount={classes.length}
+          />
         </TabsContent>
 
         <TabsContent value="subjects" className="space-y-6">
-          <AggregatedPerformanceChart classes={activeClasses} groupBy="subject" />
-          <div className="space-y-6">
-             {Object.entries(classesBySubject).map(([subject, subjectClasses]) => (
-                <div key={subject} className="space-y-4">
-                   <h3 className="text-lg font-semibold">{subject}</h3>
-                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {subjectClasses.map(c => (
-                         <ClassSummaryCard key={c.id} classInfo={c} />
-                      ))}
-                   </div>
-                </div>
-             ))}
-          </div>
+          <DashboardGroupedView 
+            activeClasses={activeClasses}
+            groupedClasses={classesBySubject}
+            groupBy="subject"
+          />
         </TabsContent>
 
         <TabsContent value="grades" className="space-y-6">
-          <AggregatedPerformanceChart classes={activeClasses} groupBy="grade" />
-          <div className="space-y-6">
-             {Object.entries(classesByGrade).sort().map(([grade, gradeClasses]) => (
-                <div key={grade} className="space-y-4">
-                   <h3 className="text-lg font-semibold">{grade}</h3>
-                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {gradeClasses.map(c => (
-                         <ClassSummaryCard key={c.id} classInfo={c} />
-                      ))}
-                   </div>
-                </div>
-             ))}
-          </div>
+          <DashboardGroupedView 
+            activeClasses={activeClasses}
+            groupedClasses={classesByGrade}
+            groupBy="grade"
+          />
         </TabsContent>
       </Tabs>
     </div>
