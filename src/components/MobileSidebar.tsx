@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu, LayoutDashboard, Users, Camera, Settings } from "lucide-react";
+import { Menu, LayoutDashboard, Users, Camera, Settings, FileBarChart } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,7 @@ const MobileSidebar = () => {
         <div className="sr-only">
           <SheetTitle>Mobile Navigation Menu</SheetTitle>
           <SheetDescription>
-            Navigate through Dashboard, Classes, Scan Scripts, and Settings.
+            Navigate through Dashboard, Classes, Scan Scripts, Reports, and Settings.
           </SheetDescription>
         </div>
         <div className="flex h-16 items-center border-b px-6">
@@ -60,6 +60,18 @@ const MobileSidebar = () => {
           >
             <Camera className="h-5 w-5" />
             Scan Scripts
+          </NavLink>
+          <NavLink
+            to="/reports"
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                isActive && "bg-muted text-primary"
+              )
+            }
+          >
+            <FileBarChart className="h-5 w-5" />
+            Reports
           </NavLink>
           <NavLink
             to="/settings"

@@ -13,6 +13,7 @@ import Classes from "./pages/Classes";
 import ClassDetails from "./pages/ClassDetails";
 import Scan from "./pages/Scan";
 import Settings from "./pages/Settings";
+import Reports from "./pages/Reports";
 import Login from "./pages/Login";
 import { ClassesProvider } from "./context/ClassesContext";
 import { ActivityProvider } from "./context/ActivityContext";
@@ -75,6 +76,7 @@ const App = () => {
                       <Route path="/classes" element={<Classes />} />
                       <Route path="/classes/:classId" element={<ClassDetails />} />
                       <Route path="/scan" element={<Scan />} />
+                      <Route path="/reports" element={<Reports />} />
                       <Route path="/settings" element={<Settings />} />
                     </Route>
                     <Route path="*" element={<NotFound />} />
