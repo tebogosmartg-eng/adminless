@@ -1,16 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
-import { format, addDays, subDays, isSameDay } from 'date-fns';
+import { format, addDays, subDays, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X, Clock, AlertCircle, Save, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X, Clock, AlertCircle, Save, Loader2, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { Learner } from '@/components/CreateClassDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface AttendanceViewProps {
   classId: string;
@@ -23,6 +26,7 @@ interface AttendanceRecord {
   id?: string;
   learner_id: string;
   status: AttendanceStatus;
+  date?: string; // Added for export logic
 }
 
 export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
@@ -31,6 +35,7 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Fetch attendance for selected date
   useEffect(() => {
@@ -124,6 +129,116 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
     setSaving(false);
   };
 
+  const handleExportReport = async (type: 'csv' | 'pdf') => {
+    setIsExporting(true);
+    try {
+      const start = startOfMonth(date);
+      const end = endOfMonth(date);
+      const formattedStart = format(start, 'yyyy-MM-dd');
+      const formattedEnd = format(end, 'yyyy-MM-dd');
+
+      // Fetch all attendance for this month
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('class_id', classId)
+        .gte('date', formattedStart)
+        .lte('date', formattedEnd)
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+
+      // Process data: Get unique dates
+      const recordMap: Record<string, Record<string, string>> = {}; // learnerId -> date -> status
+      const datesSet = new Set<string>();
+
+      data?.forEach((record: any) => {
+        if (!recordMap[record.learner_id]) recordMap[record.learner_id] = {};
+        recordMap[record.learner_id][record.date] = record.status;
+        datesSet.add(record.date);
+      });
+
+      const sortedDates = Array.from(datesSet).sort();
+      
+      if (sortedDates.length === 0) {
+        showError("No attendance records found for this month.");
+        setIsExporting(false);
+        return;
+      }
+
+      if (type === 'csv') {
+        let csv = 'Learner Name,' + sortedDates.join(',') + ',Present,Absent,Late\n';
+        
+        learners.forEach(l => {
+          if (!l.id) return;
+          const records = recordMap[l.id] || {};
+          let row = `"${l.name}"`;
+          let present = 0, absent = 0, late = 0;
+
+          sortedDates.forEach(d => {
+             const status = records[d] || '-';
+             row += `,${status}`;
+             if (status === 'present') present++;
+             if (status === 'absent') absent++;
+             if (status === 'late') late++;
+          });
+          
+          row += `,${present},${absent},${late}\n`;
+          csv += row;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Attendance_${format(date, 'MMM_yyyy')}.csv`;
+        link.click();
+        
+      } else {
+        const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
+        doc.setFontSize(16);
+        doc.text(`Attendance Register: ${format(date, 'MMMM yyyy')}`, 14, 15);
+        
+        const head = [['Name', ...sortedDates.map(d => format(new Date(d), 'dd')), 'P', 'A', 'L']];
+        const body = learners.map(l => {
+           if (!l.id) return [];
+           const records = recordMap[l.id] || {};
+           let present = 0, absent = 0, late = 0;
+           
+           const statuses = sortedDates.map(d => {
+              const s = records[d];
+              if (s === 'present') { present++; return 'P'; }
+              if (s === 'absent') { absent++; return 'A'; }
+              if (s === 'late') { late++; return 'L'; }
+              if (s === 'excused') return 'E';
+              return '-';
+           });
+           
+           return [l.name, ...statuses, present, absent, late];
+        }).filter(row => row.length > 0);
+
+        autoTable(doc, {
+          startY: 25,
+          head: head,
+          body: body,
+          theme: 'grid',
+          styles: { fontSize: 8, cellPadding: 1 },
+          headStyles: { fillColor: [41, 37, 36], textColor: 255 },
+          columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' } }
+        });
+        
+        doc.save(`Attendance_${format(date, 'MMM_yyyy')}.pdf`);
+      }
+
+      showSuccess("Attendance report exported.");
+    } catch (e) {
+      console.error(e);
+      showError("Failed to export attendance.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const stats = useMemo(() => {
     const counts = { present: 0, absent: 0, late: 0, excused: 0, unmarked: 0 };
     learners.forEach(l => {
@@ -181,14 +296,34 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
             </Button>
         </div>
 
-        <div className="flex items-center gap-4 text-sm">
-             <div className="flex items-center gap-1 text-green-600"><Check className="h-4 w-4" /> {stats.present}</div>
-             <div className="flex items-center gap-1 text-red-600"><X className="h-4 w-4" /> {stats.absent}</div>
-             <div className="flex items-center gap-1 text-orange-600"><Clock className="h-4 w-4" /> {stats.late}</div>
+        <div className="flex items-center gap-2 text-sm">
+             <div className="flex items-center gap-4 mr-2 hidden md:flex">
+                 <div className="flex items-center gap-1 text-green-600 font-medium"><Check className="h-4 w-4" /> {stats.present}</div>
+                 <div className="flex items-center gap-1 text-red-600 font-medium"><X className="h-4 w-4" /> {stats.absent}</div>
+                 <div className="flex items-center gap-1 text-orange-600 font-medium"><Clock className="h-4 w-4" /> {stats.late}</div>
+             </div>
+             
              <Button onClick={saveAttendance} disabled={!hasChanges || saving} size="sm">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 {hasChanges ? "Save Changes" : "Saved"}
              </Button>
+
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                   <Button variant="outline" size="sm" disabled={isExporting}>
+                      <Download className="h-4 w-4 md:mr-2" /> 
+                      <span className="hidden md:inline">Export</span>
+                   </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                   <DropdownMenuItem onClick={() => handleExportReport('csv')}>
+                      <FileSpreadsheet className="mr-2 h-4 w-4" /> Monthly CSV
+                   </DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => handleExportReport('pdf')}>
+                      <FileText className="mr-2 h-4 w-4" /> Monthly PDF
+                   </DropdownMenuItem>
+                </DropdownMenuContent>
+             </DropdownMenu>
         </div>
       </div>
 

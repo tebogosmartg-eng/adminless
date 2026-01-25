@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Upload } from "lucide-react";
+import Papa from "papaparse";
+import { showSuccess, showError } from "@/utils/toast";
 
 export interface Learner {
   name: string;
@@ -40,6 +42,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
   const [subject, setSubject] = useState("");
   const [className, setClassName] = useState("");
   const [learners, setLearners] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = () => {
     if (grade && subject && className && learners) {
@@ -64,6 +67,43 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
     } else {
       // Basic validation feedback
       alert("Please fill in all fields.");
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      Papa.parse(file, {
+        complete: (results) => {
+          // Attempt to find names in the CSV
+          // 1. If header "Name" or "Learner Name" exists
+          // 2. Or just take first column
+          
+          let names: string[] = [];
+          
+          if (results.meta.fields && (results.meta.fields.includes("Name") || results.meta.fields.includes("Learner Name"))) {
+             const field = results.meta.fields.includes("Name") ? "Name" : "Learner Name";
+             names = (results.data as any[]).map(row => row[field]).filter(n => n);
+          } else {
+             // Take first column of first 100 rows
+             names = (results.data as any[])
+                .map(row => Array.isArray(row) ? row[0] : Object.values(row)[0])
+                .filter(n => n && typeof n === 'string' && n.trim().length > 0) as string[];
+          }
+
+          if (names.length > 0) {
+             const current = learners ? learners + "\n" : "";
+             setLearners(current + names.join("\n"));
+             showSuccess(`Imported ${names.length} names from CSV.`);
+          } else {
+             showError("Could not find names in CSV file.");
+          }
+          
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        },
+        header: true, // Try with header first
+        skipEmptyLines: true
+      });
     }
   };
 
@@ -104,14 +144,28 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
             <Label htmlFor="learners" className="text-right pt-2">
               Learners
             </Label>
-            <Textarea
-              id="learners"
-              value={learners}
-              onChange={(e) => setLearners(e.target.value)}
-              placeholder="Enter one learner name per line..."
-              className="col-span-3"
-              rows={6}
-            />
+            <div className="col-span-3 flex flex-col gap-2">
+                <Textarea
+                id="learners"
+                value={learners}
+                onChange={(e) => setLearners(e.target.value)}
+                placeholder="Enter one learner name per line..."
+                className="w-full"
+                rows={6}
+                />
+                <div className="flex justify-end">
+                   <Button variant="outline" size="sm" type="button" onClick={() => fileInputRef.current?.click()}>
+                     <Upload className="mr-2 h-3 w-3" /> Import CSV List
+                   </Button>
+                   <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept=".csv"
+                      onChange={handleFileUpload}
+                   />
+                </div>
+            </div>
           </div>
         </div>
         <DialogFooter>
