@@ -1,18 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Learner } from "./CreateClassDialog";
-import { GradeSymbol, getGradeSymbol } from "@/utils/grading";
+import { getGradeSymbol } from "@/utils/grading";
 import { useSettings } from "@/context/SettingsContext";
 import { useClasses } from "@/context/ClassesContext";
 import { Badge } from "@/components/ui/badge";
-import { User, Quote, Download, TrendingUp, History, Calendar } from "lucide-react";
+import { User, Quote, Download, TrendingUp, History, Calendar, Check, X, Clock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { generateLearnerReportPDF } from "@/utils/pdfGenerator";
 import { showSuccess } from "@/utils/toast";
@@ -28,6 +27,8 @@ import {
 } from 'recharts';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from "lucide-react";
 
 interface LearnerProfileDialogProps {
   isOpen: boolean;
@@ -39,6 +40,9 @@ interface LearnerProfileDialogProps {
 export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubject }: LearnerProfileDialogProps) => {
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   const { classes } = useClasses();
+  
+  const [attendanceStats, setAttendanceStats] = useState({ present: 0, absent: 0, late: 0, excused: 0, total: 0 });
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
 
   // Find all history for this learner across all classes
   const learnerHistory = useMemo(() => {
@@ -74,9 +78,35 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
     return { avg, max, min, count: learnerHistory.length };
   }, [learnerHistory]);
 
+  useEffect(() => {
+    if (isOpen && learner?.id) {
+       const fetchAttendance = async () => {
+           setLoadingAttendance(true);
+           const { data } = await supabase
+               .from('attendance')
+               .select('status')
+               .eq('learner_id', learner.id);
+           
+           if (data) {
+               const newStats = data.reduce((acc: any, curr: any) => {
+                   acc[curr.status] = (acc[curr.status] || 0) + 1;
+                   acc.total++;
+                   return acc;
+               }, { present: 0, absent: 0, late: 0, excused: 0, total: 0 });
+               setAttendanceStats(newStats);
+           }
+           setLoadingAttendance(false);
+       };
+       fetchAttendance();
+    }
+  }, [isOpen, learner]);
+
   if (!learner) return null;
 
   const currentSymbol = getGradeSymbol(learner.mark, gradingScheme);
+  const attendanceRate = attendanceStats.total > 0 
+    ? Math.round(((attendanceStats.present + attendanceStats.late) / attendanceStats.total) * 100) 
+    : 0;
 
   const handleDownloadReport = () => {
     // NOTE: We approximate the class info structure here since we only have the combined string
@@ -106,9 +136,10 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
         </DialogHeader>
 
         <Tabs defaultValue="current" className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="current">Current Report</TabsTrigger>
             <TabsTrigger value="history">History & Trends</TabsTrigger>
+            <TabsTrigger value="attendance">Attendance</TabsTrigger>
           </TabsList>
           
           <TabsContent value="current" className="flex-1 space-y-4 pt-4 overflow-y-auto">
@@ -242,6 +273,55 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
                 <p className="text-xs">Make sure the name spelling is identical across classes.</p>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="attendance" className="flex-1 space-y-4 pt-4 overflow-y-auto">
+             {loadingAttendance ? (
+                <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+             ) : attendanceStats.total === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">
+                   <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                   <p>No attendance records found for this learner.</p>
+                </div>
+             ) : (
+                <div className="space-y-6">
+                    <div className="flex items-center justify-center p-6 bg-muted/30 rounded-xl border">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                                Attendance Rate
+                            </p>
+                            <span className={
+                                `text-5xl font-extrabold tracking-tight ${attendanceRate >= 90 ? 'text-green-600' : attendanceRate >= 80 ? 'text-amber-600' : 'text-red-600'}`
+                            }>
+                                {attendanceRate}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/10 flex flex-col items-center">
+                            <Check className="h-6 w-6 text-green-600 mb-2" />
+                            <span className="text-2xl font-bold">{attendanceStats.present}</span>
+                            <span className="text-xs text-muted-foreground">Present</span>
+                        </div>
+                        <div className="p-4 border rounded-lg bg-red-50 dark:bg-red-950/10 flex flex-col items-center">
+                            <X className="h-6 w-6 text-red-600 mb-2" />
+                            <span className="text-2xl font-bold">{attendanceStats.absent}</span>
+                            <span className="text-xs text-muted-foreground">Absent</span>
+                        </div>
+                        <div className="p-4 border rounded-lg bg-orange-50 dark:bg-orange-950/10 flex flex-col items-center">
+                            <Clock className="h-6 w-6 text-orange-600 mb-2" />
+                            <span className="text-2xl font-bold">{attendanceStats.late}</span>
+                            <span className="text-xs text-muted-foreground">Late</span>
+                        </div>
+                        <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/10 flex flex-col items-center">
+                            <AlertCircle className="h-6 w-6 text-blue-600 mb-2" />
+                            <span className="text-2xl font-bold">{attendanceStats.excused}</span>
+                            <span className="text-xs text-muted-foreground">Excused</span>
+                        </div>
+                    </div>
+                </div>
+             )}
           </TabsContent>
         </Tabs>
         

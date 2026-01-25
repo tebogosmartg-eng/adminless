@@ -11,6 +11,7 @@ import ClassComparisonChart from '@/components/ClassComparisonChart';
 import AggregatedPerformanceChart from '@/components/AggregatedPerformanceChart';
 import AtRiskLearners from '@/components/AtRiskLearners';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
+import { DailyAttendanceCard } from '@/components/DailyAttendanceCard';
 import { useMemo } from 'react';
 
 const Dashboard = () => {
@@ -116,6 +117,7 @@ const Dashboard = () => {
               </Card>
             </div>
             <div className="lg:col-span-1 space-y-6">
+              <DailyAttendanceCard />
               <AtRiskLearners />
               <RecentActivity />
             </div>
