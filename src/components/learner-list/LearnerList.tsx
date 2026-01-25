@@ -8,8 +8,8 @@ import { GradeSymbol } from '@/utils/grading';
 import { useSettings } from '@/context/SettingsContext';
 import { showSuccess } from '@/utils/toast';
 import { useLearnerTable } from '@/hooks/useLearnerTable';
-import { LearnerListToolbar } from '@/components/LearnerListToolbar';
-import { LearnerListRow } from '@/components/LearnerListRow';
+import { LearnerListToolbar } from './LearnerListToolbar';
+import { LearnerListRow } from './LearnerListRow';
 
 interface LearnerListProps {
   learners: Learner[];

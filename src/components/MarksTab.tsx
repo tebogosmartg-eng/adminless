@@ -1,7 +1,7 @@
 import ClassStats from '@/components/ClassStats';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
 import { AssessmentReflection } from '@/components/AssessmentReflection';
-import { LearnerList } from '@/components/LearnerList';
+import { LearnerList } from '@/components/learner-list/LearnerList';
 import { Learner } from '@/components/CreateClassDialog';
 import { GradeSymbol } from '@/utils/grading';
 

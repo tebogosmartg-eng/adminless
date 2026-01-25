@@ -15,9 +15,9 @@ import { generateLearnerReportPDF } from "@/utils/pdfGenerator";
 import { showSuccess } from "@/utils/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLearnerHistory } from "@/hooks/useLearnerHistory";
-import { ProfileSummaryTab } from "@/components/ProfileSummaryTab";
-import { ProfileHistoryTab } from "@/components/ProfileHistoryTab";
-import { ProfileAttendanceTab } from "@/components/ProfileAttendanceTab";
+import { ProfileSummaryTab } from "./learner-profile/ProfileSummaryTab";
+import { ProfileHistoryTab } from "./learner-profile/ProfileHistoryTab";
+import { ProfileAttendanceTab } from "./learner-profile/ProfileAttendanceTab";
 
 interface LearnerProfileDialogProps {
   isOpen: boolean;
