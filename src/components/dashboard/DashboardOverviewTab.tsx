@@ -5,10 +5,10 @@ import { PlusCircle, Camera } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import ClassComparisonChart from '@/components/ClassComparisonChart';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
-import RecentActivity from '@/components/RecentActivity';
-import AtRiskLearners from '@/components/AtRiskLearners';
-import { DailyAttendanceCard } from '@/components/DailyAttendanceCard';
-import { TodoList } from '@/components/TodoList';
+import RecentActivity from './RecentActivity';
+import AtRiskLearners from './AtRiskLearners';
+import { DailyAttendanceCard } from './DailyAttendanceCard';
+import { TodoList } from './TodoList';
 import { ClassInfo, Learner } from '@/components/CreateClassDialog';
 
 interface DashboardOverviewTabProps {

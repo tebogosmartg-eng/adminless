@@ -5,9 +5,9 @@ import autoTable from 'jspdf-autotable';
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { useReportsData } from '@/hooks/useReportsData';
-import { ReportsFilterCard } from '@/components/ReportsFilterCard';
-import { ReportsAssessmentSelector } from '@/components/ReportsAssessmentSelector';
-import { ReportsResults } from '@/components/ReportsResults';
+import { ReportsFilterCard } from '@/components/reports/ReportsFilterCard';
+import { ReportsAssessmentSelector } from '@/components/reports/ReportsAssessmentSelector';
+import { ReportsResults } from '@/components/reports/ReportsResults';
 
 const Reports = () => {
   const { classes } = useClasses();

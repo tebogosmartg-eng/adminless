@@ -1,9 +1,9 @@
 import { BarChart3, BookOpen, GraduationCap } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import GlobalStats from '@/components/GlobalStats';
+import GlobalStats from '@/components/dashboard/GlobalStats';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import { DashboardOverviewTab } from '@/components/DashboardOverviewTab';
-import { DashboardGroupedView } from '@/components/DashboardGroupedView';
+import { DashboardOverviewTab } from '@/components/dashboard/DashboardOverviewTab';
+import { DashboardGroupedView } from '@/components/dashboard/DashboardGroupedView';
 
 const Dashboard = () => {
   const { 

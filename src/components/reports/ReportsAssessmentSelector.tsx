@@ -24,10 +24,9 @@ export const ReportsAssessmentSelector = ({
   onCalculate
 }: ReportsAssessmentSelectorProps) => {
   const totalWeight = Object.values(weights)
-    .filter(w => selectedClassIds.some(id => weights[id] === w)) // This logic is slightly off, need to map from ids
+    .filter(w => selectedClassIds.some(id => weights[id] === w))
     .reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
     
-  // Better calc for display
   const displayTotalWeight = selectedClassIds.reduce((acc, id) => acc + (parseFloat(weights[id]) || 0), 0);
 
   return (
