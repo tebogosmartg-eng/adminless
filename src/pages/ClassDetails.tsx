@@ -22,6 +22,9 @@ import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReports
 import confetti from 'canvas-confetti';
 import { calculateClassStats } from '@/utils/stats';
 import { ModerationToolsDialog } from '@/components/ModerationToolsDialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AttendanceView } from '@/components/AttendanceView';
+import { ListChecks, CalendarDays } from 'lucide-react';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -51,6 +54,9 @@ const ClassDetails = () => {
   // Comments State
   const [showComments, setShowComments] = useState(false);
   const [isGeneratingComments, setIsGeneratingComments] = useState(false);
+
+  // View Mode
+  const [activeTab, setActiveTab] = useState("marks");
 
   useEffect(() => {
     if (classInfo) {
@@ -400,28 +406,45 @@ Lowest Mark: ${stats.lowestMark}%
         onOpenModeration={() => setIsModerationOpen(true)}
       />
 
-      {!showComments && (
-        <>
-          <ClassStats learners={learners} />
-          <MarkDistributionChart learners={learners} />
-        </>
-      )}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+         <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+            <TabsTrigger value="marks" className="flex items-center gap-2">
+               <ListChecks className="h-4 w-4" /> Marks & Assessment
+            </TabsTrigger>
+            <TabsTrigger value="attendance" className="flex items-center gap-2">
+               <CalendarDays className="h-4 w-4" /> Attendance
+            </TabsTrigger>
+         </TabsList>
 
-      <LearnerList
-        learners={learners}
-        showComments={showComments}
-        gradingScheme={gradingScheme}
-        isGeneratingComments={isGeneratingComments}
-        onGenerateComments={handleGenerateComments}
-        onMarkChange={handleMarkChange}
-        onCommentChange={handleCommentChange}
-        onRemoveLearner={handleRemoveLearner}
-        onProfileClick={setSelectedProfileLearner}
-        onAddLearnerClick={() => setIsAddLearnerOpen(true)}
-        onBatchDelete={handleBatchDelete}
-        onBatchComment={handleBatchComment}
-        onBatchClearMarks={handleBatchClearMarks}
-      />
+         <TabsContent value="marks" className="space-y-6 mt-4">
+            {!showComments && (
+                <>
+                <ClassStats learners={learners} />
+                <MarkDistributionChart learners={learners} />
+                </>
+            )}
+
+            <LearnerList
+                learners={learners}
+                showComments={showComments}
+                gradingScheme={gradingScheme}
+                isGeneratingComments={isGeneratingComments}
+                onGenerateComments={handleGenerateComments}
+                onMarkChange={handleMarkChange}
+                onCommentChange={handleCommentChange}
+                onRemoveLearner={handleRemoveLearner}
+                onProfileClick={setSelectedProfileLearner}
+                onAddLearnerClick={() => setIsAddLearnerOpen(true)}
+                onBatchDelete={handleBatchDelete}
+                onBatchComment={handleBatchComment}
+                onBatchClearMarks={handleBatchClearMarks}
+            />
+         </TabsContent>
+
+         <TabsContent value="attendance" className="mt-4">
+            {classInfo.id && <AttendanceView classId={classInfo.id} learners={learners} />}
+         </TabsContent>
+      </Tabs>
       
       <AddLearnerDialog 
         isOpen={isAddLearnerOpen}
