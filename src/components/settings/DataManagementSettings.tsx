@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileJson, Database, Download, Upload, AlertTriangle } from "lucide-react";
+import { FileJson, Database, Download, Upload, AlertTriangle, FileText, Loader2 } from "lucide-react";
 import { useClasses } from "@/context/ClassesContext";
+import { useSettings } from "@/context/SettingsContext";
+import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import {
   AlertDialog,
@@ -16,24 +19,42 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const DataManagementSettings = () => {
-  const { addClass } = useClasses();
+  const { classes, addClass } = useClasses();
+  const { gradingScheme, schoolName, teacherName, schoolLogo, atRiskThreshold, commentBank } = useSettings();
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
-  const handleExportData = () => {
+  const handleExportData = async () => {
     try {
-      const data = {
-        classes: localStorage.getItem('classes'),
-        grading_scheme: localStorage.getItem('grading_scheme'),
-        activities: localStorage.getItem('activities'),
-        school_name: localStorage.getItem('school_name'),
-        teacher_name: localStorage.getItem('teacher_name'),
-        school_logo: localStorage.getItem('school_logo'),
-        at_risk_threshold: localStorage.getItem('at_risk_threshold'),
-        comment_bank: localStorage.getItem('comment_bank'),
-        timestamp: new Date().toISOString(),
-        version: '1.2'
+      // 1. Gather all data from current state/context (which is synced with Supabase)
+      // We assume the context has the latest data.
+      const exportData = {
+        metadata: {
+          version: '2.0',
+          timestamp: new Date().toISOString(),
+          exported_by: teacherName || 'User'
+        },
+        settings: {
+          schoolName,
+          teacherName,
+          schoolLogo,
+          atRiskThreshold,
+          gradingScheme,
+          commentBank
+        },
+        classes: classes.map(c => ({
+          grade: c.grade,
+          subject: c.subject,
+          className: c.className,
+          learners: c.learners.map(l => ({
+            name: l.name,
+            mark: l.mark,
+            comment: l.comment
+          }))
+        }))
       };
       
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -41,47 +62,140 @@ export const DataManagementSettings = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      showSuccess("Backup file downloaded successfully.");
+      showSuccess("Cloud data exported to backup file successfully.");
     } catch (error) {
       showError("Failed to export data.");
       console.error(error);
     }
   };
 
-  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExportAuditLog = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch ALL activities, not just the recent ones in context
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('timestamp', { ascending: false });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        showSuccess("No activity history found to export.");
+        return;
+      }
+
+      // Convert to CSV
+      const headers = "Date,Time,Message\n";
+      const rows = data.map(act => {
+        const dateObj = new Date(act.timestamp);
+        const date = dateObj.toLocaleDateString();
+        const time = dateObj.toLocaleTimeString();
+        const msg = act.message.replace(/,/g, ';'); // Simple escape
+        return `${date},${time},"${msg}"`;
+      }).join("\n");
+
+      const csvContent = headers + rows;
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `smareg_audit_log_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showSuccess("Audit log downloaded successfully.");
+    } catch (error) {
+      console.error(error);
+      showError("Failed to download audit log.");
+    }
+  };
+
+  const handleImportData = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setIsRestoring(true);
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const content = e.target?.result as string;
         const data = JSON.parse(content);
         
-        if (data.classes) localStorage.setItem('classes', data.classes);
-        if (data.grading_scheme) localStorage.setItem('grading_scheme', data.grading_scheme);
-        if (data.activities) localStorage.setItem('activities', data.activities);
-        if (data.school_name) localStorage.setItem('school_name', data.school_name);
-        if (data.teacher_name) localStorage.setItem('teacher_name', data.teacher_name);
-        if (data.school_logo) localStorage.setItem('school_logo', data.school_logo);
-        if (data.at_risk_threshold) localStorage.setItem('at_risk_threshold', data.at_risk_threshold);
-        if (data.comment_bank) localStorage.setItem('comment_bank', data.comment_bank);
+        // Validate basic structure
+        if (!data.classes || !Array.isArray(data.classes)) {
+          throw new Error("Invalid backup file format");
+        }
+
+        // Restore Settings (Optional - requires updating profile)
+        // For now, we focus on restoring Classes content as that's the critical data
         
-        showSuccess("Data restored successfully. Reloading...");
-        setTimeout(() => window.location.reload(), 1500);
+        let restoredCount = 0;
+        
+        // Restore Classes
+        for (const cls of data.classes) {
+          // We assume 'addClass' handles Supabase insertion
+          // We reconstruct the class object. ID is generated by DB.
+          const newClass = {
+            id: '', // database will generate
+            grade: cls.grade,
+            subject: cls.subject,
+            className: `${cls.className} (Restored)`, // Append restored to distinguish
+            learners: cls.learners || []
+          };
+          
+          await addClass(newClass);
+          restoredCount++;
+        }
+        
+        showSuccess(`Successfully restored ${restoredCount} classes from backup.`);
       } catch (err) {
         showError("Failed to parse backup file. Invalid format.");
         console.error(err);
+      } finally {
+        setIsRestoring(false);
       }
     };
     reader.readAsText(file);
     event.target.value = '';
   };
 
-  const handleClearData = () => {
-    localStorage.clear(); // Clears everything including logo
-    showSuccess("All application data cleared.");
-    setTimeout(() => window.location.reload(), 1000);
+  const handleClearData = async () => {
+    setIsClearing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Delete all classes (Cascades to learners)
+      const { error: classError } = await supabase
+        .from('classes')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (classError) throw classError;
+
+      // Delete activities
+      const { error: actError } = await supabase
+        .from('activities')
+        .delete()
+        .eq('user_id', user.id);
+        
+      if (actError) throw actError;
+
+      // Optionally reset profile settings? 
+      // We'll leave profile settings intact as "User preferences" often stay.
+
+      showSuccess("All classes and activity history cleared from database.");
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+      console.error(error);
+      showError("Failed to clear data.");
+      setIsClearing(false);
+    }
   };
 
   const handleGenerateDemoData = () => {
@@ -102,7 +216,7 @@ export const DataManagementSettings = () => {
       ]
     };
     addClass(demoClass);
-    showSuccess("Demo class '10-Demo' created successfully!");
+    showSuccess("Demo class '10-Demo' created in database!");
   };
 
   return (
@@ -110,17 +224,17 @@ export const DataManagementSettings = () => {
       <CardHeader>
         <div className="flex items-center gap-2">
           <FileJson className="h-5 w-5 text-primary" />
-          <CardTitle>Data Management</CardTitle>
+          <CardTitle>Data Management & Audit</CardTitle>
         </div>
         <CardDescription>
-          Backup your data to a file or restore from a previous backup.
+          Manage your cloud data, create backups, and export audit trails.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
           <div>
             <h3 className="font-semibold mb-1">Generate Demo Data</h3>
-            <p className="text-sm text-muted-foreground">Add a sample class with random learners to test features.</p>
+            <p className="text-sm text-muted-foreground">Add a sample class to your cloud database.</p>
           </div>
           <Button onClick={handleGenerateDemoData} variant="outline" className="text-primary hover:text-primary">
             <Database className="mr-2 h-4 w-4" /> Create Demo Class
@@ -129,27 +243,39 @@ export const DataManagementSettings = () => {
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
           <div>
-            <h3 className="font-semibold mb-1">Backup Data</h3>
-            <p className="text-sm text-muted-foreground">Download a JSON file containing all your classes and settings.</p>
+            <h3 className="font-semibold mb-1">Full Backup</h3>
+            <p className="text-sm text-muted-foreground">Download a JSON file of all your current classes and settings.</p>
           </div>
           <Button onClick={handleExportData} variant="outline">
-            <Download className="mr-2 h-4 w-4" /> Export to File
+            <Download className="mr-2 h-4 w-4" /> Export Backup
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
+          <div>
+            <h3 className="font-semibold mb-1">Audit Log</h3>
+            <p className="text-sm text-muted-foreground">Download a CSV of all actions taken (Created classes, edits, etc).</p>
+          </div>
+          <Button onClick={handleExportAuditLog} variant="outline">
+            <FileText className="mr-2 h-4 w-4" /> Download Log
           </Button>
         </div>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
           <div>
             <h3 className="font-semibold mb-1">Restore Data</h3>
-            <p className="text-sm text-muted-foreground">Upload a backup file to restore your data. Current data will be overwritten.</p>
+            <p className="text-sm text-muted-foreground">Upload a backup file. Classes will be added as new entries.</p>
           </div>
           <div className="relative">
-            <Button variant="outline" className="relative cursor-pointer">
-               <Upload className="mr-2 h-4 w-4" /> Import from File
+            <Button variant="outline" className="relative cursor-pointer" disabled={isRestoring}>
+               {isRestoring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+               {isRestoring ? "Restoring..." : "Import Backup"}
                <input 
                 type="file" 
                 accept=".json" 
                 className="absolute inset-0 opacity-0 cursor-pointer" 
                 onChange={handleImportData}
+                disabled={isRestoring}
                />
             </Button>
           </div>
@@ -158,25 +284,25 @@ export const DataManagementSettings = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border border-destructive/20 rounded-lg bg-red-50 dark:bg-red-950/10">
           <div>
             <h3 className="font-semibold mb-1 text-destructive">Danger Zone</h3>
-            <p className="text-sm text-muted-foreground">Permanently remove all classes and reset the application.</p>
+            <p className="text-sm text-muted-foreground">Permanently delete all classes and activity history from the cloud.</p>
           </div>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive">
-                <AlertTriangle className="mr-2 h-4 w-4" /> Clear All Data
+              <Button variant="destructive" disabled={isClearing}>
+                <AlertTriangle className="mr-2 h-4 w-4" /> {isClearing ? "Clearing..." : "Clear Cloud Data"}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete all your classes, learners, and activity history from this browser.
+                  This action cannot be undone. This will permanently delete all your classes, learners, and activity history from the database.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleClearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Yes, Clear Everything
+                  Yes, Delete Everything
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
