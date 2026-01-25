@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useClasses } from '../context/ClassesContext';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { AddLearnerDialog } from '@/components/AddLearnerDialog';
 import { generateClassPDF, generateBlankClassListPDF } from '@/utils/pdfGenerator';
 import confetti from 'canvas-confetti';
 import { calculateClassStats } from '@/utils/stats';
+import { ModerationToolsDialog } from '@/components/ModerationToolsDialog';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -35,6 +36,7 @@ const ClassDetails = () => {
   const [isEditLearnersOpen, setIsEditLearnersOpen] = useState(false);
   const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
   const [isAddLearnerOpen, setIsAddLearnerOpen] = useState(false);
+  const [isModerationOpen, setIsModerationOpen] = useState(false);
   
   // Profile View State
   const [selectedProfileLearner, setSelectedProfileLearner] = useState<Learner | null>(null);
@@ -358,6 +360,7 @@ Lowest Mark: ${stats.lowestMark}%
   }
 
   const gradedCount = learners.filter(l => l.mark && l.mark.trim() !== '').length;
+  const currentStats = calculateClassStats(learners);
 
   return (
     <>
@@ -382,6 +385,7 @@ Lowest Mark: ${stats.lowestMark}%
         onExportBlankPdf={handleExportBlankPdf}
         onClearMarks={handleClearMarks}
         onShare={handleShareSummary}
+        onOpenModeration={() => setIsModerationOpen(true)}
       />
 
       {!showComments && (
@@ -445,6 +449,12 @@ Lowest Mark: ${stats.lowestMark}%
         insights={insights}
         onGenerate={handleGenerateInsights}
         onSimulate={handleSimulateInsights}
+      />
+      <ModerationToolsDialog 
+        isOpen={isModerationOpen}
+        onOpenChange={setIsModerationOpen}
+        learners={learners}
+        classAverage={currentStats.average}
       />
       <LearnerProfileDialog
         isOpen={!!selectedProfileLearner}
