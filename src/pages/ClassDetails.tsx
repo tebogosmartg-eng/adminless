@@ -3,11 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { useClasses } from '../context/ClassesContext';
 import { Button } from '@/components/ui/button';
 import { Learner } from '@/components/CreateClassDialog';
-import { showSuccess, showError } from '@/utils/toast';
-import { generateClassInsights, generateReportComments, ClassInsight, getMockClassInsights, getMockReportComments } from '@/services/gemini';
+import { showSuccess } from '@/utils/toast';
 import { useSettings } from '@/context/SettingsContext';
 import { ClassHeader } from '@/components/ClassHeader';
-import confetti from 'canvas-confetti';
 import { calculateClassStats } from '@/utils/stats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AttendanceView } from '@/components/AttendanceView';
@@ -15,6 +13,8 @@ import { ListChecks, CalendarDays } from 'lucide-react';
 import { MarksTab } from '@/components/MarksTab';
 import { ClassDialogsManager } from '@/components/ClassDialogsManager';
 import { useClassExport } from '@/hooks/useClassExport';
+import { useLearnerState } from '@/hooks/useLearnerState';
+import { useAiFeatures } from '@/hooks/useAiFeatures';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -22,31 +22,35 @@ const ClassDetails = () => {
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   const classInfo = classes.find((c) => c.id === classId);
 
-  const [learners, setLearners] = useState<Learner[]>([]);
-  
-  // Dialog State
-  const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);
-  const [isRapidEntryOpen, setIsRapidEntryOpen] = useState(false);
-  const [isImportOpen, setIsImportOpen] = useState(false);
-  const [isEditLearnersOpen, setIsEditLearnersOpen] = useState(false);
-  const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
-  const [isAddLearnerOpen, setIsAddLearnerOpen] = useState(false);
-  const [isModerationOpen, setIsModerationOpen] = useState(false);
-  const [selectedProfileLearner, setSelectedProfileLearner] = useState<Learner | null>(null);
-  
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [prevGradedCount, setPrevGradedCount] = useState(0);
+  // Custom Hooks for Logic
+  const {
+    learners,
+    setLearners,
+    hasUnsavedChanges,
+    handleMarkChange,
+    handleCommentChange,
+    handleRemoveLearner,
+    handleBatchDelete,
+    handleBatchComment,
+    handleBatchClearMarks,
+    handleAddLearners,
+    handleClearMarks,
+    handleUpdateLearners,
+    handleSaveChanges
+  } = useLearnerState(classInfo, updateLearners);
 
-  // AI & Comments State
-  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
-  const [insights, setInsights] = useState<ClassInsight | null>(null);
-  const [showComments, setShowComments] = useState(false);
-  const [isGeneratingComments, setIsGeneratingComments] = useState(false);
+  const {
+    isGeneratingInsights,
+    insights,
+    setInsights,
+    handleGenerateInsights,
+    handleSimulateInsights,
+    showComments,
+    setShowComments,
+    isGeneratingComments,
+    handleGenerateComments
+  } = useAiFeatures(classInfo, learners, setLearners);
 
-  // View Mode
-  const [activeTab, setActiveTab] = useState("marks");
-
-  // Hook for Exports
   const { 
     handleShareSummary,
     handleExportCsv,
@@ -55,170 +59,42 @@ const ClassDetails = () => {
     handleExportBlankPdf
   } = useClassExport(classInfo, learners, gradingScheme, schoolName, teacherName, schoolLogo);
 
-  useEffect(() => {
-    if (classInfo) {
-      setLearners(classInfo.learners);
-      const count = classInfo.learners.filter(l => l.mark && l.mark.trim() !== '').length;
-      setPrevGradedCount(count);
-    }
-  }, [classInfo]);
+  // UI State
+  const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);
+  const [isRapidEntryOpen, setIsRapidEntryOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isEditLearnersOpen, setIsEditLearnersOpen] = useState(false);
+  const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
+  const [isAddLearnerOpen, setIsAddLearnerOpen] = useState(false);
+  const [isModerationOpen, setIsModerationOpen] = useState(false);
+  const [selectedProfileLearner, setSelectedProfileLearner] = useState<Learner | null>(null);
+  const [activeTab, setActiveTab] = useState("marks");
 
-  useEffect(() => {
-    if (classInfo) {
-      const original = JSON.stringify(classInfo.learners);
-      const current = JSON.stringify(learners);
-      setHasUnsavedChanges(original !== current);
-      
-      const currentGradedCount = learners.filter(l => l.mark && l.mark.trim() !== '').length;
-      if (learners.length > 0 && currentGradedCount === learners.length && currentGradedCount > prevGradedCount) {
-        triggerConfetti();
-      }
-      setPrevGradedCount(currentGradedCount);
-    }
-  }, [learners, classInfo]);
-
+  // Global Save Shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        if (hasUnsavedChanges) handleSaveChanges();
-        else showSuccess("No changes to save.");
+        if (hasUnsavedChanges) {
+          handleSaveChanges();
+          setInsights(null); // Clear outdated insights on save
+        } else {
+          showSuccess("No changes to save.");
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [learners, hasUnsavedChanges]);
+  }, [hasUnsavedChanges, handleSaveChanges, setInsights]);
 
-  const triggerConfetti = () => {
-    const duration = 3000;
-    const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
-    const interval: any = setInterval(function() {
-      const timeLeft = animationEnd - Date.now();
-      if (timeLeft <= 0) return clearInterval(interval);
-      const particleCount = 50 * (timeLeft / duration);
-      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
-      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
-    }, 250);
-  };
-
-  const handleMarkChange = (index: number, mark: string) => {
-    const updated = [...learners];
-    updated[index] = { ...updated[index], mark };
-    setLearners(updated);
-  };
-
-  const handleCommentChange = (index: number, comment: string) => {
-    const updated = [...learners];
-    updated[index] = { ...updated[index], comment };
-    setLearners(updated);
-  };
-  
-  const handleRemoveLearner = (index: number) => {
-    if (confirm("Are you sure you want to remove this learner?")) {
-      setLearners(learners.filter((_, i) => i !== index));
-    }
-  };
-
-  const handleBatchDelete = (indices: number[]) => {
-    setLearners(learners.filter((_, i) => !indices.includes(i)));
-    showSuccess(`Deleted ${indices.length} learners.`);
-  };
-
-  const handleBatchComment = (indices: number[], comment: string) => {
-    const updated = [...learners];
-    indices.forEach(index => { if (updated[index]) updated[index] = { ...updated[index], comment }; });
-    setLearners(updated);
-    showSuccess(`Updated comments for ${indices.length} learners.`);
-  };
-
-  const handleBatchClearMarks = (indices: number[]) => {
-    const updated = [...learners];
-    indices.forEach(index => { if (updated[index]) updated[index] = { ...updated[index], mark: "" }; });
-    setLearners(updated);
-    showSuccess(`Cleared marks for ${indices.length} learners.`);
-  };
-
-  const handleAddLearners = (names: string[]) => {
-    const newLearners = names.map(name => ({ name, mark: "" }));
-    setLearners([...learners, ...newLearners]);
-    showSuccess(`Added ${names.length} learner(s). Remember to save changes.`);
-  };
-
-  const handleSaveChanges = () => {
+  // Wrapper for update learners to also clear insights
+  const handleUpdateAndClearInsights = (updated: Learner[]) => {
+    handleUpdateLearners(updated);
     if (classId) {
-      updateLearners(classId, learners);
-      showSuccess("Changes have been saved successfully!");
-      setHasUnsavedChanges(false);
-      setInsights(null); 
-    }
-  };
-  
-  const handleClearMarks = () => {
-    if (confirm("Clear ALL marks and comments? This cannot be undone once saved.")) {
-      setLearners(learners.map(l => ({ ...l, mark: "", comment: "" })));
-      showSuccess("All marks cleared. Click 'Save Changes' to confirm.");
-    }
-  };
-
-  const handleUpdateAndSaveLearners = (updatedLearners: Learner[]) => {
-    setLearners(updatedLearners);
-    if (classId) {
-      updateLearners(classId, updatedLearners);
-      setInsights(null);
-    }
-  };
-
-  const handleGenerateInsights = async () => {
-    if (!classInfo) return;
-    if (!learners.some(l => l.mark && l.mark.trim() !== "")) {
-      showError("Please enter some marks before generating insights.");
-      return;
-    }
-    setIsGeneratingInsights(true);
-    try {
-      const result = await generateClassInsights(classInfo.subject, classInfo.grade, learners);
-      setInsights(result);
-    } catch (error) {
-      console.error(error);
-      showError("Failed to generate insights.");
-    } finally {
-      setIsGeneratingInsights(false);
-    }
-  };
-
-  const handleSimulateInsights = () => {
-    setIsGeneratingInsights(true);
-    setTimeout(() => {
-      setInsights(getMockClassInsights());
-      setIsGeneratingInsights(false);
-      showSuccess("Demo insights generated!");
-    }, 1000);
-  };
-
-  const handleGenerateComments = async () => {
-    if (!classInfo) return;
-    if (!learners.some(l => l.mark && l.mark.trim() !== "")) {
-      showError("Enter marks before generating comments.");
-      return;
-    }
-    setIsGeneratingComments(true);
-    setShowComments(true);
-    try {
-      const comments = await generateReportComments(classInfo.subject, classInfo.grade, learners);
-      const updated = learners.map(l => {
-        const gen = comments.find(c => c.name === l.name);
-        return gen ? { ...l, comment: gen.comment } : l;
-      });
-      setLearners(updated);
-      showSuccess(`Generated comments for ${comments.length} learners.`);
-    } catch (error) {
-      console.error(error);
-      showError("Failed to generate comments.");
-    } finally {
-      setIsGeneratingComments(false);
+        // We might want to auto-save here depending on preference, but for now just update local state
+        // The dialogs typically pass the final state
+        updateLearners(classId, updated); 
+        setInsights(null);
     }
   };
 
@@ -245,7 +121,7 @@ const ClassDetails = () => {
         hasUnsavedChanges={hasUnsavedChanges}
         showComments={showComments}
         onToggleComments={() => setShowComments(!showComments)}
-        onSave={handleSaveChanges}
+        onSave={() => { handleSaveChanges(); setInsights(null); }}
         onOpenAiInsights={() => setIsAiInsightsOpen(true)}
         onOpenVoiceEntry={() => setIsVoiceEntryOpen(true)}
         onOpenRapidEntry={() => setIsRapidEntryOpen(true)}
@@ -310,7 +186,7 @@ const ClassDetails = () => {
         selectedProfileLearner={selectedProfileLearner} setSelectedProfileLearner={setSelectedProfileLearner}
         isGeneratingInsights={isGeneratingInsights}
         insights={insights}
-        onUpdateLearners={handleUpdateAndSaveLearners}
+        onUpdateLearners={handleUpdateAndClearInsights}
         onAddLearners={handleAddLearners}
         onGenerateInsights={handleGenerateInsights}
         onSimulateInsights={handleSimulateInsights}
