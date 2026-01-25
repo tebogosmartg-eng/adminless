@@ -1,31 +1,20 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useClasses } from '../context/ClassesContext';
 import { Button } from '@/components/ui/button';
 import { Learner } from '@/components/CreateClassDialog';
 import { showSuccess, showError } from '@/utils/toast';
-import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
-import { RapidEntryDialog } from '@/components/RapidEntryDialog';
-import { ImportMarksDialog } from '@/components/ImportMarksDialog';
-import ClassStats from '@/components/ClassStats';
-import MarkDistributionChart from '@/components/MarkDistributionChart';
-import { EditLearnersDialog } from '@/components/EditLearnersDialog';
-import { AiInsightsDialog } from '@/components/AiInsightsDialog';
 import { generateClassInsights, generateReportComments, ClassInsight, getMockClassInsights, getMockReportComments } from '@/services/gemini';
-import { getGradeSymbol } from '@/utils/grading';
 import { useSettings } from '@/context/SettingsContext';
-import { LearnerProfileDialog } from '@/components/LearnerProfileDialog';
 import { ClassHeader } from '@/components/ClassHeader';
-import { LearnerList } from '@/components/LearnerList';
-import { AddLearnerDialog } from '@/components/AddLearnerDialog';
-import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReportsPDF } from '@/utils/pdfGenerator';
 import confetti from 'canvas-confetti';
 import { calculateClassStats } from '@/utils/stats';
-import { ModerationToolsDialog } from '@/components/ModerationToolsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AttendanceView } from '@/components/AttendanceView';
 import { ListChecks, CalendarDays } from 'lucide-react';
-import { AssessmentReflection } from '@/components/AssessmentReflection';
+import { MarksTab } from '@/components/MarksTab';
+import { ClassDialogsManager } from '@/components/ClassDialogsManager';
+import { useClassExport } from '@/hooks/useClassExport';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -34,6 +23,8 @@ const ClassDetails = () => {
   const classInfo = classes.find((c) => c.id === classId);
 
   const [learners, setLearners] = useState<Learner[]>([]);
+  
+  // Dialog State
   const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);
   const [isRapidEntryOpen, setIsRapidEntryOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -41,23 +32,28 @@ const ClassDetails = () => {
   const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
   const [isAddLearnerOpen, setIsAddLearnerOpen] = useState(false);
   const [isModerationOpen, setIsModerationOpen] = useState(false);
-  
-  // Profile View State
   const [selectedProfileLearner, setSelectedProfileLearner] = useState<Learner | null>(null);
   
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [prevGradedCount, setPrevGradedCount] = useState(0);
 
-  // AI Insights State
+  // AI & Comments State
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [insights, setInsights] = useState<ClassInsight | null>(null);
-
-  // Comments State
   const [showComments, setShowComments] = useState(false);
   const [isGeneratingComments, setIsGeneratingComments] = useState(false);
 
   // View Mode
   const [activeTab, setActiveTab] = useState("marks");
+
+  // Hook for Exports
+  const { 
+    handleShareSummary,
+    handleExportCsv,
+    handleExportPdf,
+    handleExportBulkPdf,
+    handleExportBlankPdf
+  } = useClassExport(classInfo, learners, gradingScheme, schoolName, teacherName, schoolLogo);
 
   useEffect(() => {
     if (classInfo) {
@@ -73,7 +69,6 @@ const ClassDetails = () => {
       const current = JSON.stringify(learners);
       setHasUnsavedChanges(original !== current);
       
-      // Check for completion to trigger confetti
       const currentGradedCount = learners.filter(l => l.mark && l.mark.trim() !== '').length;
       if (learners.length > 0 && currentGradedCount === learners.length && currentGradedCount > prevGradedCount) {
         triggerConfetti();
@@ -82,36 +77,27 @@ const ClassDetails = () => {
     }
   }, [learners, classInfo]);
 
-  // Global Keyboard Shortcut for Saving
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        if (hasUnsavedChanges) {
-          handleSaveChanges();
-        } else {
-          showSuccess("No changes to save.");
-        }
+        if (hasUnsavedChanges) handleSaveChanges();
+        else showSuccess("No changes to save.");
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [learners, hasUnsavedChanges, classId]);
+  }, [learners, hasUnsavedChanges]);
 
   const triggerConfetti = () => {
-    const duration = 3 * 1000;
+    const duration = 3000;
     const animationEnd = Date.now() + duration;
     const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-
     const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
     const interval: any = setInterval(function() {
       const timeLeft = animationEnd - Date.now();
-
-      if (timeLeft <= 0) {
-        return clearInterval(interval);
-      }
-
+      if (timeLeft <= 0) return clearInterval(interval);
       const particleCount = 50 * (timeLeft / duration);
       confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
       confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
@@ -119,50 +105,39 @@ const ClassDetails = () => {
   };
 
   const handleMarkChange = (index: number, mark: string) => {
-    const updatedLearners = [...learners];
-    updatedLearners[index] = { ...updatedLearners[index], mark };
-    setLearners(updatedLearners);
+    const updated = [...learners];
+    updated[index] = { ...updated[index], mark };
+    setLearners(updated);
   };
 
   const handleCommentChange = (index: number, comment: string) => {
-    const updatedLearners = [...learners];
-    updatedLearners[index] = { ...updatedLearners[index], comment };
-    setLearners(updatedLearners);
+    const updated = [...learners];
+    updated[index] = { ...updated[index], comment };
+    setLearners(updated);
   };
   
   const handleRemoveLearner = (index: number) => {
     if (confirm("Are you sure you want to remove this learner?")) {
-      const updatedLearners = learners.filter((_, i) => i !== index);
-      setLearners(updatedLearners);
+      setLearners(learners.filter((_, i) => i !== index));
     }
   };
 
-  // Batch Operations
   const handleBatchDelete = (indices: number[]) => {
-    const updatedLearners = learners.filter((_, i) => !indices.includes(i));
-    setLearners(updatedLearners);
+    setLearners(learners.filter((_, i) => !indices.includes(i)));
     showSuccess(`Deleted ${indices.length} learners.`);
   };
 
   const handleBatchComment = (indices: number[], comment: string) => {
-    const updatedLearners = [...learners];
-    indices.forEach(index => {
-      if (updatedLearners[index]) {
-        updatedLearners[index] = { ...updatedLearners[index], comment };
-      }
-    });
-    setLearners(updatedLearners);
+    const updated = [...learners];
+    indices.forEach(index => { if (updated[index]) updated[index] = { ...updated[index], comment }; });
+    setLearners(updated);
     showSuccess(`Updated comments for ${indices.length} learners.`);
   };
 
   const handleBatchClearMarks = (indices: number[]) => {
-    const updatedLearners = [...learners];
-    indices.forEach(index => {
-      if (updatedLearners[index]) {
-        updatedLearners[index] = { ...updatedLearners[index], mark: "" };
-      }
-    });
-    setLearners(updatedLearners);
+    const updated = [...learners];
+    indices.forEach(index => { if (updated[index]) updated[index] = { ...updated[index], mark: "" }; });
+    setLearners(updated);
     showSuccess(`Cleared marks for ${indices.length} learners.`);
   };
 
@@ -182,9 +157,8 @@ const ClassDetails = () => {
   };
   
   const handleClearMarks = () => {
-    if (confirm("Are you sure you want to clear ALL marks and comments? This cannot be undone once saved.")) {
-      const cleared = learners.map(l => ({ ...l, mark: "", comment: "" }));
-      setLearners(cleared);
+    if (confirm("Clear ALL marks and comments? This cannot be undone once saved.")) {
+      setLearners(learners.map(l => ({ ...l, mark: "", comment: "" })));
       showSuccess("All marks cleared. Click 'Save Changes' to confirm.");
     }
   };
@@ -197,113 +171,19 @@ const ClassDetails = () => {
     }
   };
 
-  const handleShareSummary = () => {
-    if (!classInfo) return;
-    const stats = calculateClassStats(learners);
-    
-    const summary = `
-📊 *Class Summary: ${classInfo.subject}*
-🏫 ${classInfo.grade} - ${classInfo.className}
-
-📈 Average: ${stats.average}%
-✅ Pass Rate: ${stats.passRate}%
-👨‍🎓 Learners: ${stats.totalLearners}
-
-Top Mark: ${stats.highestMark}%
-Lowest Mark: ${stats.lowestMark}%
-    `.trim();
-
-    navigator.clipboard.writeText(summary);
-    showSuccess("Class summary copied to clipboard!");
-  };
-
-  const handleExportCsv = () => {
-    if (!classInfo) {
-      showError("Could not find class information to export.");
-      return;
-    }
-
-    const csvHeader = "Learner Name,Mark,Symbol,Level,Comment\n";
-    const csvRows = learners
-      .map(learner => {
-        const gradeSymbol = getGradeSymbol(learner.mark, gradingScheme);
-        const symbol = gradeSymbol?.symbol || '';
-        const level = gradeSymbol?.level || '';
-        return `"${learner.name.replace(/"/g, '""')}",${learner.mark},${symbol},${level},"${(learner.comment || '').replace(/"/g, '""')}"`;
-      })
-      .join("\n");
-    const csvContent = csvHeader + csvRows;
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      const filename = `${classInfo.grade}_${classInfo.subject}_${classInfo.className}_Marks.csv`.replace(/\s+/g, '_');
-      link.setAttribute("href", url);
-      link.setAttribute("download", filename);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      showSuccess("CSV exported successfully!");
-    } else {
-      showError("Export feature is not supported in your browser.");
-    }
-  };
-
-  const handleExportPdf = () => {
-    if (!classInfo) return;
-    try {
-      const exportClassInfo = { ...classInfo, learners };
-      generateClassPDF(exportClassInfo, gradingScheme, schoolName, teacherName, schoolLogo);
-      showSuccess("PDF Report generated successfully!");
-    } catch (error) {
-      console.error(error);
-      showError("Failed to generate PDF. Please try again.");
-    }
-  };
-  
-  const handleExportBulkPdf = () => {
-    if (!classInfo) return;
-    try {
-      generateBulkLearnerReportsPDF(learners, classInfo, gradingScheme, schoolName, teacherName, schoolLogo);
-      showSuccess("Bulk PDF Report generated successfully!");
-    } catch (error) {
-      console.error(error);
-      showError("Failed to generate bulk PDF.");
-    }
-  };
-
-  const handleExportBlankPdf = () => {
-    if (!classInfo) return;
-    try {
-      const exportClassInfo = { ...classInfo, learners };
-      generateBlankClassListPDF(exportClassInfo, schoolName, teacherName, schoolLogo);
-      showSuccess("Blank class list generated!");
-    } catch (error) {
-      console.error(error);
-      showError("Failed to generate PDF.");
-    }
-  };
-
   const handleGenerateInsights = async () => {
     if (!classInfo) return;
-    
-    const hasMarks = learners.some(l => l.mark && l.mark.trim() !== "");
-    if (!hasMarks) {
+    if (!learners.some(l => l.mark && l.mark.trim() !== "")) {
       showError("Please enter some marks before generating insights.");
       return;
     }
-
     setIsGeneratingInsights(true);
     try {
       const result = await generateClassInsights(classInfo.subject, classInfo.grade, learners);
       setInsights(result);
     } catch (error) {
       console.error(error);
-      showError("Failed to generate insights. Check API Key in settings or try Demo Mode.");
+      showError("Failed to generate insights.");
     } finally {
       setIsGeneratingInsights(false);
     }
@@ -314,65 +194,39 @@ Lowest Mark: ${stats.lowestMark}%
     setTimeout(() => {
       setInsights(getMockClassInsights());
       setIsGeneratingInsights(false);
-      showSuccess("Demo insights generated successfully!");
+      showSuccess("Demo insights generated!");
     }, 1000);
   };
 
   const handleGenerateComments = async () => {
     if (!classInfo) return;
-    
-    const hasMarks = learners.some(l => l.mark && l.mark.trim() !== "");
-    if (!hasMarks) {
-      showError("Please enter marks before generating comments.");
+    if (!learners.some(l => l.mark && l.mark.trim() !== "")) {
+      showError("Enter marks before generating comments.");
       return;
     }
-
     setIsGeneratingComments(true);
     setShowComments(true);
-    
     try {
       const comments = await generateReportComments(classInfo.subject, classInfo.grade, learners);
-      
-      const updatedLearners = learners.map(learner => {
-        const generated = comments.find(c => c.name === learner.name);
-        if (generated) {
-          return { ...learner, comment: generated.comment };
-        }
-        return learner;
+      const updated = learners.map(l => {
+        const gen = comments.find(c => c.name === l.name);
+        return gen ? { ...l, comment: gen.comment } : l;
       });
-
-      setLearners(updatedLearners);
+      setLearners(updated);
       showSuccess(`Generated comments for ${comments.length} learners.`);
     } catch (error) {
       console.error(error);
-      showError("Failed to generate comments. Check API Key in settings.");
+      showError("Failed to generate comments.");
     } finally {
       setIsGeneratingComments(false);
     }
-  };
-
-  const handleSimulateComments = () => {
-     setIsGeneratingComments(true);
-     setTimeout(() => {
-        const mockComments = getMockReportComments(learners);
-        const updatedLearners = learners.map(learner => {
-          const generated = mockComments.find(c => c.name === learner.name);
-          return generated ? { ...learner, comment: generated.comment } : learner;
-        });
-        setLearners(updatedLearners);
-        setIsGeneratingComments(false);
-        showSuccess("Demo comments generated!");
-     }, 1000);
   };
 
   if (!classInfo) {
     return (
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold">Class not found</h2>
-        <p className="text-muted-foreground mt-2">The class you are looking for does not exist.</p>
-        <Button asChild className="mt-4">
-          <Link to="/classes">Back to Classes</Link>
-        </Button>
+        <Button asChild className="mt-4"><Link to="/classes">Back to Classes</Link></Button>
       </div>
     );
   }
@@ -417,42 +271,23 @@ Lowest Mark: ${stats.lowestMark}%
             </TabsTrigger>
          </TabsList>
 
-         <TabsContent value="marks" className="space-y-6 mt-4">
-            {!showComments && (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                   <div className="lg:col-span-1">
-                      <ClassStats learners={learners} />
-                   </div>
-                   <div className="lg:col-span-1">
-                      <MarkDistributionChart 
-                         learners={learners} 
-                         title="Grade Distribution" 
-                         description="Symbol frequency" 
-                      />
-                   </div>
-                   <div className="lg:col-span-1">
-                      <AssessmentReflection 
-                         classId={classInfo.id} 
-                         initialNotes={classInfo.notes || ""} 
-                      />
-                   </div>
-                </div>
-            )}
-
-            <LearnerList
-                learners={learners}
-                showComments={showComments}
-                gradingScheme={gradingScheme}
-                isGeneratingComments={isGeneratingComments}
-                onGenerateComments={handleGenerateComments}
-                onMarkChange={handleMarkChange}
-                onCommentChange={handleCommentChange}
-                onRemoveLearner={handleRemoveLearner}
-                onProfileClick={setSelectedProfileLearner}
-                onAddLearnerClick={() => setIsAddLearnerOpen(true)}
-                onBatchDelete={handleBatchDelete}
-                onBatchComment={handleBatchComment}
-                onBatchClearMarks={handleBatchClearMarks}
+         <TabsContent value="marks">
+            <MarksTab 
+              learners={learners}
+              showComments={showComments}
+              gradingScheme={gradingScheme}
+              isGeneratingComments={isGeneratingComments}
+              classId={classInfo.id}
+              notes={classInfo.notes || ""}
+              onGenerateComments={handleGenerateComments}
+              onMarkChange={handleMarkChange}
+              onCommentChange={handleCommentChange}
+              onRemoveLearner={handleRemoveLearner}
+              onProfileClick={setSelectedProfileLearner}
+              onAddLearnerClick={() => setIsAddLearnerOpen(true)}
+              onBatchDelete={handleBatchDelete}
+              onBatchComment={handleBatchComment}
+              onBatchClearMarks={handleBatchClearMarks}
             />
          </TabsContent>
 
@@ -461,56 +296,24 @@ Lowest Mark: ${stats.lowestMark}%
          </TabsContent>
       </Tabs>
       
-      <AddLearnerDialog 
-        isOpen={isAddLearnerOpen}
-        onOpenChange={setIsAddLearnerOpen}
-        onAdd={handleAddLearners}
-      />
-      
-      <VoiceEntryDialog 
-        isOpen={isVoiceEntryOpen}
-        onOpenChange={setIsVoiceEntryOpen}
-        learners={learners}
-        onComplete={handleUpdateAndSaveLearners}
-      />
-      
-      <RapidEntryDialog 
-        isOpen={isRapidEntryOpen}
-        onOpenChange={setIsRapidEntryOpen}
-        learners={learners}
-        onComplete={handleUpdateAndSaveLearners}
-      />
-
-      <ImportMarksDialog
-        isOpen={isImportOpen}
-        onOpenChange={setIsImportOpen}
+      <ClassDialogsManager
         classInfo={classInfo}
-        onImportComplete={handleUpdateAndSaveLearners}
-      />
-      <EditLearnersDialog
-        isOpen={isEditLearnersOpen}
-        onOpenChange={setIsEditLearnersOpen}
-        classInfo={classInfo}
-      />
-      <AiInsightsDialog
-        isOpen={isAiInsightsOpen}
-        onOpenChange={setIsAiInsightsOpen}
-        isLoading={isGeneratingInsights}
-        insights={insights}
-        onGenerate={handleGenerateInsights}
-        onSimulate={handleSimulateInsights}
-      />
-      <ModerationToolsDialog 
-        isOpen={isModerationOpen}
-        onOpenChange={setIsModerationOpen}
         learners={learners}
         classAverage={currentStats.average}
-      />
-      <LearnerProfileDialog
-        isOpen={!!selectedProfileLearner}
-        onOpenChange={(open) => !open && setSelectedProfileLearner(null)}
-        learner={selectedProfileLearner}
-        classSubject={`${classInfo.grade} ${classInfo.subject}`}
+        isVoiceEntryOpen={isVoiceEntryOpen} setIsVoiceEntryOpen={setIsVoiceEntryOpen}
+        isRapidEntryOpen={isRapidEntryOpen} setIsRapidEntryOpen={setIsRapidEntryOpen}
+        isImportOpen={isImportOpen} setIsImportOpen={setIsImportOpen}
+        isEditLearnersOpen={isEditLearnersOpen} setIsEditLearnersOpen={setIsEditLearnersOpen}
+        isAiInsightsOpen={isAiInsightsOpen} setIsAiInsightsOpen={setIsAiInsightsOpen}
+        isAddLearnerOpen={isAddLearnerOpen} setIsAddLearnerOpen={setIsAddLearnerOpen}
+        isModerationOpen={isModerationOpen} setIsModerationOpen={setIsModerationOpen}
+        selectedProfileLearner={selectedProfileLearner} setSelectedProfileLearner={setSelectedProfileLearner}
+        isGeneratingInsights={isGeneratingInsights}
+        insights={insights}
+        onUpdateLearners={handleUpdateAndSaveLearners}
+        onAddLearners={handleAddLearners}
+        onGenerateInsights={handleGenerateInsights}
+        onSimulateInsights={handleSimulateInsights}
       />
     </>
   );
