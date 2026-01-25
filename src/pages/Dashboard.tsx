@@ -12,6 +12,7 @@ import AggregatedPerformanceChart from '@/components/AggregatedPerformanceChart'
 import AtRiskLearners from '@/components/AtRiskLearners';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
 import { DailyAttendanceCard } from '@/components/DailyAttendanceCard';
+import { TodoList } from '@/components/TodoList';
 import { useMemo } from 'react';
 
 const Dashboard = () => {
@@ -118,6 +119,7 @@ const Dashboard = () => {
             </div>
             <div className="lg:col-span-1 space-y-6">
               <DailyAttendanceCard />
+              <TodoList />
               <AtRiskLearners />
               <RecentActivity />
             </div>

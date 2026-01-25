@@ -23,7 +23,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine
+  ReferenceLine,
+  Legend
 } from 'recharts';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -53,20 +54,20 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
       const match = c.learners.find(l => l.name.toLowerCase() === learner.name.toLowerCase());
       if (match && match.mark && !isNaN(parseFloat(match.mark))) {
         return {
-          classId: c.id,
+          id: c.id,
           subject: c.subject,
           grade: c.grade,
           className: c.className,
           mark: parseFloat(match.mark),
           comment: match.comment,
-          date: c.id // Using ID as proxy for date if it's timestamp-based, otherwise just insertion order
+          date: new Date(c.id).getTime() // Class ID is timestamp
         };
       }
       return [];
     });
 
-    // Sort by "date" (class ID is timestamp based in this app)
-    return history.sort((a, b) => a.date.localeCompare(b.date));
+    // Sort by date
+    return history.sort((a, b) => a.date - b.date);
   }, [learner, classes]);
 
   const stats = useMemo(() => {
@@ -74,9 +75,18 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
     const total = learnerHistory.reduce((sum, item) => sum + item.mark, 0);
     const avg = Math.round(total / learnerHistory.length);
     const max = Math.max(...learnerHistory.map(i => i.mark));
-    const min = Math.min(...learnerHistory.map(i => i.mark));
-    return { avg, max, min, count: learnerHistory.length };
+    return { avg, max, count: learnerHistory.length };
   }, [learnerHistory]);
+
+  const subjects = useMemo(() => {
+    return Array.from(new Set(learnerHistory.map(h => h.subject)));
+  }, [learnerHistory]);
+
+  // Color mapping for subjects
+  const getSubjectColor = (subject: string, idx: number) => {
+    const colors = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#9333ea', '#0891b2'];
+    return colors[idx % colors.length];
+  };
 
   useEffect(() => {
     if (isOpen && learner?.id) {
@@ -109,7 +119,6 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
     : 0;
 
   const handleDownloadReport = () => {
-    // NOTE: We approximate the class info structure here since we only have the combined string
     const tempClassInfo = {
       subject: classSubject,
       grade: "", 
@@ -186,10 +195,9 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
           <TabsContent value="history" className="flex-1 space-y-4 pt-4 overflow-hidden flex flex-col">
             {learnerHistory.length > 0 ? (
               <div className="flex flex-col h-full space-y-4">
-                 {/* Mini Stats */}
                  <div className="grid grid-cols-3 gap-2">
                     <div className="bg-muted/30 p-3 rounded-lg text-center border">
-                       <span className="text-xs text-muted-foreground">Average</span>
+                       <span className="text-xs text-muted-foreground">Overall Avg</span>
                        <p className="text-xl font-bold">{stats?.avg}%</p>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-lg text-center border">
@@ -197,18 +205,17 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
                        <p className="text-xl font-bold">{stats?.count}</p>
                     </div>
                      <div className="bg-muted/30 p-3 rounded-lg text-center border">
-                       <span className="text-xs text-muted-foreground">Highest</span>
+                       <span className="text-xs text-muted-foreground">Best Mark</span>
                        <p className="text-xl font-bold text-green-600">{stats?.max}%</p>
                     </div>
                  </div>
 
-                 {/* Trend Chart */}
-                 <div className="h-[200px] w-full border rounded-lg p-2 bg-card">
+                 <div className="h-[250px] w-full border rounded-lg p-2 bg-card">
                    <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={learnerHistory}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="subject" hide />
-                        <YAxis domain={[0, 100]} hide />
+                        <XAxis dataKey="className" hide />
+                        <YAxis domain={[0, 100]} />
                         <Tooltip 
                           content={({ active, payload }) => {
                             if (active && payload && payload.length) {
@@ -224,44 +231,63 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
                             return null;
                           }}
                         />
-                        <ReferenceLine y={50} stroke="red" strokeDasharray="3 3" opacity={0.5} />
+                        <ReferenceLine y={50} stroke="red" strokeDasharray="3 3" opacity={0.3} />
+                        
+                        {/* We use a single line but rely on Dots to distinguish? 
+                            Actually, rendering multiple Lines is hard with this flat data structure in Recharts unless we pivot it.
+                            Given the complexity, a single trend line sorted by date is usually what teachers want to see (progress over time).
+                            However, different subjects can vary wildly. 
+                            Let's map custom dots for subjects.
+                        */}
                         <Line 
                           type="monotone" 
                           dataKey="mark" 
                           stroke="hsl(var(--primary))" 
-                          strokeWidth={2} 
-                          dot={{ r: 4, fill: "hsl(var(--primary))" }} 
-                          activeDot={{ r: 6 }} 
+                          strokeWidth={2}
+                          dot={({ cx, cy, payload }) => {
+                             const subjectIdx = subjects.indexOf(payload.subject);
+                             return (
+                               <circle cx={cx} cy={cy} r={4} fill={getSubjectColor(payload.subject, subjectIdx)} stroke="none" />
+                             );
+                          }}
+                          activeDot={{ r: 6 }}
                         />
                       </LineChart>
                    </ResponsiveContainer>
+                   <div className="flex flex-wrap gap-2 justify-center mt-2">
+                      {subjects.map((sub, idx) => (
+                        <div key={sub} className="flex items-center gap-1 text-[10px]">
+                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getSubjectColor(sub, idx) }} />
+                           <span>{sub}</span>
+                        </div>
+                      ))}
+                   </div>
                  </div>
 
-                 {/* History List */}
                  <div className="flex-1 border rounded-md overflow-hidden flex flex-col">
-                    <div className="bg-muted/50 p-2 border-b">
-                      <h4 className="text-xs font-semibold flex items-center gap-2">
-                        <History className="h-3 w-3" /> Assessment History
-                      </h4>
-                    </div>
                     <ScrollArea className="flex-1">
                        <div className="divide-y">
-                         {learnerHistory.map((item, idx) => (
-                           <div key={idx} className="p-3 flex items-center justify-between hover:bg-muted/20 transition-colors">
-                              <div className="flex flex-col gap-0.5">
-                                 <span className="text-sm font-medium truncate max-w-[200px]">{item.subject}</span>
-                                 <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" /> {item.className}
-                                 </span>
-                              </div>
-                              <div className="text-right">
-                                 <span className={`text-sm font-bold ${item.mark >= 50 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {item.mark}%
-                                 </span>
-                                 {item.grade && <p className="text-[10px] text-muted-foreground">{item.grade}</p>}
-                              </div>
-                           </div>
-                         ))}
+                         {learnerHistory.map((item, idx) => {
+                           const subIdx = subjects.indexOf(item.subject);
+                           return (
+                             <div key={idx} className="p-3 flex items-center justify-between hover:bg-muted/20 transition-colors">
+                                <div className="flex items-center gap-3">
+                                   <div className="w-1 h-8 rounded-full" style={{ backgroundColor: getSubjectColor(item.subject, subIdx) }} />
+                                   <div className="flex flex-col gap-0.5">
+                                      <span className="text-sm font-medium truncate max-w-[200px]">{item.subject}</span>
+                                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                         <Calendar className="h-3 w-3" /> {item.className}
+                                      </span>
+                                   </div>
+                                </div>
+                                <div className="text-right">
+                                   <span className={`text-sm font-bold ${item.mark >= 50 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {item.mark}%
+                                   </span>
+                                </div>
+                             </div>
+                           )
+                         })}
                        </div>
                     </ScrollArea>
                  </div>
@@ -270,7 +296,6 @@ export const LearnerProfileDialog = ({ isOpen, onOpenChange, learner, classSubje
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-2">
                 <TrendingUp className="h-12 w-12 opacity-20" />
                 <p>No other history found for this learner.</p>
-                <p className="text-xs">Make sure the name spelling is identical across classes.</p>
               </div>
             )}
           </TabsContent>
