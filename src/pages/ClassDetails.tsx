@@ -18,7 +18,7 @@ import { LearnerProfileDialog } from '@/components/LearnerProfileDialog';
 import { ClassHeader } from '@/components/ClassHeader';
 import { LearnerList } from '@/components/LearnerList';
 import { AddLearnerDialog } from '@/components/AddLearnerDialog';
-import { generateClassPDF, generateBlankClassListPDF } from '@/utils/pdfGenerator';
+import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReportsPDF } from '@/utils/pdfGenerator';
 import confetti from 'canvas-confetti';
 import { calculateClassStats } from '@/utils/stats';
 import { ModerationToolsDialog } from '@/components/ModerationToolsDialog';
@@ -258,6 +258,17 @@ Lowest Mark: ${stats.lowestMark}%
     }
   };
   
+  const handleExportBulkPdf = () => {
+    if (!classInfo) return;
+    try {
+      generateBulkLearnerReportsPDF(learners, classInfo, gradingScheme, schoolName, teacherName, schoolLogo);
+      showSuccess("Bulk PDF Report generated successfully!");
+    } catch (error) {
+      console.error(error);
+      showError("Failed to generate bulk PDF.");
+    }
+  };
+
   const handleExportBlankPdf = () => {
     if (!classInfo) return;
     try {
@@ -383,6 +394,7 @@ Lowest Mark: ${stats.lowestMark}%
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
         onExportBlankPdf={handleExportBlankPdf}
+        onExportBulkReports={handleExportBulkPdf}
         onClearMarks={handleClearMarks}
         onShare={handleShareSummary}
         onOpenModeration={() => setIsModerationOpen(true)}

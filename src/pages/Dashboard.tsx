@@ -11,12 +11,33 @@ import ClassComparisonChart from '@/components/ClassComparisonChart';
 import AggregatedPerformanceChart from '@/components/AggregatedPerformanceChart';
 import AtRiskLearners from '@/components/AtRiskLearners';
 import MarkDistributionChart from '@/components/MarkDistributionChart';
+import { useMemo } from 'react';
 
 const Dashboard = () => {
   const { classes } = useClasses();
   
   // Aggregate all learners for the global chart
   const allLearners = classes.flatMap(c => c.learners);
+
+  // Group classes by subject
+  const classesBySubject = useMemo(() => {
+    const groups: Record<string, typeof classes> = {};
+    classes.forEach(c => {
+      if (!groups[c.subject]) groups[c.subject] = [];
+      groups[c.subject].push(c);
+    });
+    return groups;
+  }, [classes]);
+
+  // Group classes by grade
+  const classesByGrade = useMemo(() => {
+    const groups: Record<string, typeof classes> = {};
+    classes.forEach(c => {
+      if (!groups[c.grade]) groups[c.grade] = [];
+      groups[c.grade].push(c);
+    });
+    return groups;
+  }, [classes]);
 
   return (
     <div className="space-y-6">
@@ -96,13 +117,34 @@ const Dashboard = () => {
 
         <TabsContent value="subjects" className="space-y-6">
           <AggregatedPerformanceChart classes={classes} groupBy="subject" />
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-             {/* We could list classes grouped by subject here later */}
+          <div className="space-y-6">
+             {Object.entries(classesBySubject).map(([subject, subjectClasses]) => (
+                <div key={subject} className="space-y-4">
+                   <h3 className="text-lg font-semibold">{subject}</h3>
+                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {subjectClasses.map(c => (
+                         <ClassSummaryCard key={c.id} classInfo={c} />
+                      ))}
+                   </div>
+                </div>
+             ))}
           </div>
         </TabsContent>
 
         <TabsContent value="grades" className="space-y-6">
           <AggregatedPerformanceChart classes={classes} groupBy="grade" />
+          <div className="space-y-6">
+             {Object.entries(classesByGrade).sort().map(([grade, gradeClasses]) => (
+                <div key={grade} className="space-y-4">
+                   <h3 className="text-lg font-semibold">{grade}</h3>
+                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {gradeClasses.map(c => (
+                         <ClassSummaryCard key={c.id} classInfo={c} />
+                      ))}
+                   </div>
+                </div>
+             ))}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

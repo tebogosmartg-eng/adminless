@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText, Eraser, File, CheckCircle2, Share2, Zap, Ruler } from 'lucide-react';
+import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText, Eraser, File, CheckCircle2, Share2, Zap, Ruler, Files } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { GradingLegend } from './GradingLegend';
@@ -25,6 +25,7 @@ interface ClassHeaderProps {
   onExportCsv: () => void;
   onExportPdf: () => void;
   onExportBlankPdf: () => void;
+  onExportBulkReports: () => void;
   onClearMarks: () => void;
   onShare: () => void;
   onOpenModeration: () => void;
@@ -49,6 +50,7 @@ export const ClassHeader = ({
   onExportCsv,
   onExportPdf,
   onExportBlankPdf,
+  onExportBulkReports,
   onClearMarks,
   onShare,
   onOpenModeration
@@ -137,11 +139,15 @@ export const ClassHeader = ({
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onExportCsv}>
                 <Download className="mr-2 h-4 w-4" />
-                <span>Export CSV</span>
+                <span>Export CSV Data</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onExportPdf}>
                 <FileText className="mr-2 h-4 w-4" />
-                <span>Export PDF Report</span>
+                <span>Export Class Report</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onExportBulkReports}>
+                <Files className="mr-2 h-4 w-4" />
+                <span>Export All Learner Reports</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onExportBlankPdf}>
                 <File className="mr-2 h-4 w-4" />
