@@ -5,7 +5,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Learner } from "./CreateClassDialog";
+import { Learner } from "@/components/CreateClassDialog";
 import { getGradeSymbol } from "@/utils/grading";
 import { useSettings } from "@/context/SettingsContext";
 import { useClasses } from "@/context/ClassesContext";
@@ -15,9 +15,9 @@ import { generateLearnerReportPDF } from "@/utils/pdfGenerator";
 import { showSuccess } from "@/utils/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLearnerHistory } from "@/hooks/useLearnerHistory";
-import { ProfileSummaryTab } from "./learner-profile/ProfileSummaryTab";
-import { ProfileHistoryTab } from "./learner-profile/ProfileHistoryTab";
-import { ProfileAttendanceTab } from "./learner-profile/ProfileAttendanceTab";
+import { ProfileSummaryTab } from "@/components/learner-profile/ProfileSummaryTab";
+import { ProfileHistoryTab } from "@/components/learner-profile/ProfileHistoryTab";
+import { ProfileAttendanceTab } from "@/components/learner-profile/ProfileAttendanceTab";
 
 interface LearnerProfileDialogProps {
   isOpen: boolean;

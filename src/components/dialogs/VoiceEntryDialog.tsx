@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, ArrowRight, ArrowLeft, Check } from 'lucide-react';
-import { Learner } from './CreateClassDialog';
+import { Learner } from '@/components/CreateClassDialog';
 import { showError, showSuccess } from '@/utils/toast';
 
 interface VoiceEntryDialogProps {

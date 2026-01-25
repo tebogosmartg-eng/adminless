@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Learner } from "./CreateClassDialog";
+import { Learner } from "@/components/CreateClassDialog";
 import { AlertTriangle, CheckCircle2, SearchX, TrendingUp, TrendingDown, Ruler } from "lucide-react";
 import { useMemo } from "react";
 

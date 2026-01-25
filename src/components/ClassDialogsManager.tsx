@@ -1,11 +1,11 @@
-import { VoiceEntryDialog } from '@/components/VoiceEntryDialog';
-import { RapidEntryDialog } from '@/components/RapidEntryDialog';
-import { ImportMarksDialog } from '@/components/ImportMarksDialog';
-import { EditLearnersDialog } from '@/components/EditLearnersDialog';
-import { AiInsightsDialog } from '@/components/AiInsightsDialog';
-import { AddLearnerDialog } from '@/components/AddLearnerDialog';
-import { ModerationToolsDialog } from '@/components/ModerationToolsDialog';
-import { LearnerProfileDialog } from '@/components/LearnerProfileDialog';
+import { VoiceEntryDialog } from '@/components/dialogs/VoiceEntryDialog';
+import { RapidEntryDialog } from '@/components/dialogs/RapidEntryDialog';
+import { ImportMarksDialog } from '@/components/dialogs/ImportMarksDialog';
+import { EditLearnersDialog } from '@/components/dialogs/EditLearnersDialog';
+import { AiInsightsDialog } from '@/components/dialogs/AiInsightsDialog';
+import { AddLearnerDialog } from '@/components/dialogs/AddLearnerDialog';
+import { ModerationToolsDialog } from '@/components/dialogs/ModerationToolsDialog';
+import { LearnerProfileDialog } from '@/components/dialogs/LearnerProfileDialog';
 import { Learner, ClassInfo } from '@/components/CreateClassDialog';
 import { ClassInsight } from '@/services/gemini';
 
