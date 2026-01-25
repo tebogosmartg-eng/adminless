@@ -1,6 +1,4 @@
-import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, Camera, Settings, FileBarChart } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { NavLinks } from "./NavLinks";
 
 const Sidebar = () => {
   return (
@@ -10,67 +8,7 @@ const Sidebar = () => {
           <h1 className="text-2xl font-bold">SmaReg</h1>
         </div>
         <nav className="flex-1 space-y-1 p-4">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                isActive && "bg-muted text-primary"
-              )
-            }
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Dashboard
-          </NavLink>
-          <NavLink
-            to="/classes"
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                isActive && "bg-muted text-primary"
-              )
-            }
-          >
-            <Users className="h-4 w-4" />
-            Classes
-          </NavLink>
-          <NavLink
-            to="/scan"
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                isActive && "bg-muted text-primary"
-              )
-            }
-          >
-            <Camera className="h-4 w-4" />
-            Scan Scripts
-          </NavLink>
-          <NavLink
-            to="/reports"
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                isActive && "bg-muted text-primary"
-              )
-            }
-          >
-            <FileBarChart className="h-4 w-4" />
-            Reports
-          </NavLink>
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                isActive && "bg-muted text-primary"
-              )
-            }
-          >
-            <Settings className="h-4 w-4" />
-            Settings
-          </NavLink>
+          <NavLinks />
         </nav>
       </div>
     </aside>

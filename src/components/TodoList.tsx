@@ -1,101 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Plus, Trash2, CheckSquare } from 'lucide-react';
-import { showSuccess, showError } from '@/utils/toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-
-interface Todo {
-  id: string;
-  title: string;
-  completed: boolean;
-  created_at: string;
-}
+import { useTodos } from '@/hooks/useTodos';
 
 export const TodoList = () => {
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const { todos, loading, adding, addTodo, toggleTodo, deleteTodo } = useTodos();
   const [newTodo, setNewTodo] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
-    fetchTodos();
-  }, []);
-
-  const fetchTodos = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('todos')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error(error);
-    } else {
-      setTodos(data || []);
-    }
-    setLoading(false);
-  };
-
-  const handleAddTodo = async () => {
-    if (!newTodo.trim()) return;
-    setAdding(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('todos')
-      .insert([{ user_id: user.id, title: newTodo.trim(), completed: false }])
-      .select()
-      .single();
-
-    if (error) {
-      showError('Failed to add task.');
-    } else if (data) {
-      setTodos([data, ...todos]);
-      setNewTodo('');
-      showSuccess('Task added.');
-    }
-    setAdding(false);
-  };
-
-  const handleToggle = async (id: string, currentStatus: boolean) => {
-    // Optimistic update
-    setTodos(todos.map(t => t.id === id ? { ...t, completed: !currentStatus } : t));
-
-    const { error } = await supabase
-      .from('todos')
-      .update({ completed: !currentStatus })
-      .eq('id', id);
-
-    if (error) {
-      showError('Failed to update task.');
-      // Revert on error
-      fetchTodos();
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    // Optimistic update
-    setTodos(todos.filter(t => t.id !== id));
-
-    const { error } = await supabase
-      .from('todos')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      showError('Failed to delete task.');
-      fetchTodos();
-    }
+  const handleAddTodo = () => {
+    addTodo(newTodo);
+    setNewTodo('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -150,7 +69,7 @@ export const TodoList = () => {
                   <Checkbox 
                     id={`todo-${todo.id}`} 
                     checked={todo.completed}
-                    onCheckedChange={() => handleToggle(todo.id, todo.completed)}
+                    onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
                     className="mt-1"
                   />
                   <div className="flex-1 min-w-0">
@@ -168,7 +87,7 @@ export const TodoList = () => {
                     variant="ghost" 
                     size="icon" 
                     className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    onClick={() => handleDelete(todo.id)}
+                    onClick={() => deleteTodo(todo.id)}
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>

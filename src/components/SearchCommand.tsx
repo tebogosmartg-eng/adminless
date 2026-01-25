@@ -7,10 +7,10 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClasses } from "@/context/ClassesContext";
-import { LayoutDashboard, Users, Camera, Settings, User, BookOpen } from "lucide-react";
+import { LayoutDashboard, Users, Camera, Settings, User, BookOpen, FileBarChart } from "lucide-react";
 
 export function SearchCommand() {
   const [open, setOpen] = useState(false);
@@ -42,8 +42,7 @@ export function SearchCommand() {
   };
 
   // Flatten learners for search, filtering out duplicates if any (though unlikely here)
-  // Limiting to recent/top matches might be good if list is huge, but filtering happens in Command component logic usually
-  const allLearners = classes.flatMap(c => 
+  const allLearners = useMemo(() => classes.flatMap(c => 
     c.learners.map(l => ({ 
       ...l, 
       classId: c.id, 
@@ -51,7 +50,7 @@ export function SearchCommand() {
       subject: c.subject,
       key: `${c.id}-${l.name}`
     }))
-  );
+  ), [classes]);
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
@@ -70,6 +69,10 @@ export function SearchCommand() {
           <CommandItem onSelect={() => runCommand(() => navigate("/scan"))}>
             <Camera className="mr-2 h-4 w-4" />
             Scan Scripts
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => navigate("/reports"))}>
+            <FileBarChart className="mr-2 h-4 w-4" />
+            Reports
           </CommandItem>
            <CommandItem onSelect={() => runCommand(() => navigate("/settings"))}>
             <Settings className="mr-2 h-4 w-4" />
