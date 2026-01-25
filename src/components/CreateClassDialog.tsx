@@ -30,6 +30,7 @@ export interface ClassInfo {
   className: string;
   learners: Learner[];
   archived?: boolean;
+  notes?: string;
 }
 
 interface CreateClassDialogProps {
@@ -56,7 +57,8 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
         subject,
         className,
         learners: learnerList,
-        archived: false
+        archived: false,
+        notes: ""
       });
       // Reset form and close dialog
       setGrade("");

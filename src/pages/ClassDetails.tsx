@@ -25,6 +25,7 @@ import { ModerationToolsDialog } from '@/components/ModerationToolsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AttendanceView } from '@/components/AttendanceView';
 import { ListChecks, CalendarDays } from 'lucide-react';
+import { AssessmentReflection } from '@/components/AssessmentReflection';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -418,10 +419,24 @@ Lowest Mark: ${stats.lowestMark}%
 
          <TabsContent value="marks" className="space-y-6 mt-4">
             {!showComments && (
-                <>
-                <ClassStats learners={learners} />
-                <MarkDistributionChart learners={learners} />
-                </>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                   <div className="lg:col-span-1">
+                      <ClassStats learners={learners} />
+                   </div>
+                   <div className="lg:col-span-1">
+                      <MarkDistributionChart 
+                         learners={learners} 
+                         title="Grade Distribution" 
+                         description="Symbol frequency" 
+                      />
+                   </div>
+                   <div className="lg:col-span-1">
+                      <AssessmentReflection 
+                         classId={classInfo.id} 
+                         initialNotes={classInfo.notes || ""} 
+                      />
+                   </div>
+                </div>
             )}
 
             <LearnerList

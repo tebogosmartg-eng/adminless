@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Filter, Calculator, Download, FileSpreadsheet, RefreshCw } from 'lucide-react';
+import { Filter, Calculator, Download, FileSpreadsheet, RefreshCw, LineChart as LineChartIcon } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { ClassInfo } from '@/components/CreateClassDialog';
 import { useSettings } from '@/context/SettingsContext';
@@ -17,6 +17,17 @@ import { getGradeSymbol } from '@/utils/grading';
 import autoTable from 'jspdf-autotable';
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
+import { calculateClassStats } from '@/utils/stats';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend
+} from 'recharts';
 
 interface AggregatedLearner {
   name: string;
@@ -120,7 +131,6 @@ const Reports = () => {
     // Calculate Finals
     const results = Object.values(learnerMap).map(learner => {
       let weightedSum = 0;
-      let usedWeight = 0;
 
       selectedClassIds.forEach(classId => {
         const mark = learner.marks[classId];
@@ -128,18 +138,8 @@ const Reports = () => {
 
         if (mark !== null) {
           weightedSum += mark * weight;
-          usedWeight += weight; // If we want to re-normalize if a student missed a test
-          // But standard aggregation usually counts 0 for missing unless excused.
-          // For this tool, let's assume missing = 0 contribution BUT we divide by TOTAL intended weight.
-          // Or should we ignore missing? 
-          // Let's stick to strict weighting: Mark * Weight. If null, 0 contribution.
         }
       });
-
-      // Final calculation: Sum / Total Weight * 100 ??
-      // Actually usually: (Mark * Weight%) summed up.
-      // If weights entered as "20", "20", "60", sum is 100.
-      // Final = (Mark1 * 20 + Mark2 * 20 + Mark3 * 60) / 100.
       
       const final = totalWeight > 0 ? (weightedSum / totalWeight) : 0;
       return { ...learner, finalMark: parseFloat(final.toFixed(1)) };
@@ -148,6 +148,25 @@ const Reports = () => {
     setAggregatedData(results);
     showSuccess(`Calculated results for ${results.length} learners.`);
   };
+
+  // Prepare trend data
+  const trendData = useMemo(() => {
+    if (selectedClassIds.length === 0) return [];
+
+    // Map selected IDs to class info and sort by creation date (id is timestamp in this app logic)
+    const sortedAssessments = selectedClassIds
+      .map(id => classes.find(c => c.id === id)!)
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+    return sortedAssessments.map(c => {
+      const stats = calculateClassStats(c.learners);
+      return {
+        name: c.className,
+        average: stats.average,
+        passRate: stats.passRate
+      };
+    });
+  }, [selectedClassIds, classes]);
 
   const handleExportCSV = () => {
     if (!aggregatedData) return;
@@ -336,8 +355,36 @@ const Reports = () => {
         </div>
 
         {/* Right Column: Results */}
-        <div className="lg:col-span-2">
-           <Card className="h-full flex flex-col">
+        <div className="lg:col-span-2 space-y-6">
+           {aggregatedData && trendData.length > 1 && (
+             <Card>
+                <CardHeader className="pb-2">
+                   <CardTitle className="text-lg flex items-center gap-2">
+                      <LineChartIcon className="h-4 w-4 text-primary" /> Cohort Performance Trend
+                   </CardTitle>
+                   <CardDescription>Average performance across selected assessments (chronological).</CardDescription>
+                </CardHeader>
+                <CardContent>
+                   <div className="h-[200px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                         <LineChart data={trendData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="name" tick={{fontSize: 12}} />
+                            <YAxis domain={[0, 100]} />
+                            <Tooltip 
+                               contentStyle={{ borderRadius: '8px', border: '1px solid #eee' }}
+                            />
+                            <Legend />
+                            <Line type="monotone" dataKey="average" name="Class Average" stroke="hsl(var(--primary))" strokeWidth={2} activeDot={{ r: 6 }} />
+                            <Line type="monotone" dataKey="passRate" name="Pass Rate" stroke="hsl(var(--destructive))" strokeWidth={2} />
+                         </LineChart>
+                      </ResponsiveContainer>
+                   </div>
+                </CardContent>
+             </Card>
+           )}
+
+           <Card className="h-full flex flex-col min-h-[500px]">
               <CardHeader className="flex flex-row items-center justify-between">
                  <div>
                     <CardTitle>Results Preview</CardTitle>
@@ -358,7 +405,7 @@ const Reports = () => {
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden p-0">
                  {aggregatedData ? (
-                    <div className="h-[600px] overflow-auto border-t">
+                    <div className="h-full max-h-[600px] overflow-auto border-t">
                         <Table>
                             <TableHeader>
                                 <TableRow>

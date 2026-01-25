@@ -12,6 +12,7 @@ interface ClassesContextType {
   deleteClass: (classId: string) => void;
   updateClassLearners: (classId: string, newLearners: Learner[]) => void;
   toggleClassArchive: (classId: string, archived: boolean) => void;
+  updateClassNotes: (classId: string, notes: string) => void;
 }
 
 const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
@@ -44,6 +45,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         subject: c.subject,
         className: c.class_name,
         archived: c.archived || false,
+        notes: c.notes || '',
         learners: c.learners.map((l: any) => ({
           name: l.name,
           mark: l.mark,
@@ -69,7 +71,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         grade: newClass.grade,
         subject: newClass.subject,
         class_name: newClass.className,
-        archived: false
+        archived: false,
+        notes: newClass.notes || ''
       }])
       .select()
       .single();
@@ -103,6 +106,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         subject: classData.subject,
         className: classData.class_name,
         archived: false,
+        notes: classData.notes || '',
         learners: learnersData ? learnersData.map((l: any) => ({
             name: l.name,
             mark: l.mark,
@@ -119,6 +123,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             subject: classData.subject,
             className: classData.class_name,
             archived: false,
+            notes: classData.notes || '',
             learners: []
         };
         setClasses((prev) => [...prev, createdClass]);
@@ -211,6 +216,19 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     }
   };
 
+  const updateClassNotes = async (classId: string, notes: string) => {
+    setClasses((prevClasses) =>
+        prevClasses.map((c) =>
+          c.id === classId ? { ...c, notes } : c
+        )
+      );
+  
+    await supabase.from('classes').update({ notes }).eq('id', classId);
+    
+    // We don't log activity here to avoid spamming logs on every keystroke save,
+    // or maybe we should only if it's significant? Let's leave it for now.
+  };
+
   const deleteClass = async (classId: string) => {
     const classInfo = classes.find(c => c.id === classId);
     setClasses((prevClasses) => prevClasses.filter((c) => c.id !== classId));
@@ -250,7 +268,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       updateClassDetails, 
       deleteClass, 
       updateClassLearners,
-      toggleClassArchive 
+      toggleClassArchive,
+      updateClassNotes
     }}>
       {children}
     </ClassesContext.Provider>
