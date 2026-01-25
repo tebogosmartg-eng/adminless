@@ -16,28 +16,31 @@ import { useMemo } from 'react';
 const Dashboard = () => {
   const { classes } = useClasses();
   
-  // Aggregate all learners for the global chart
-  const allLearners = classes.flatMap(c => c.learners);
+  // Only show active classes on the dashboard
+  const activeClasses = useMemo(() => classes.filter(c => !c.archived), [classes]);
+  
+  // Aggregate all learners for the global chart from active classes only
+  const allActiveLearners = activeClasses.flatMap(c => c.learners);
 
-  // Group classes by subject
+  // Group active classes by subject
   const classesBySubject = useMemo(() => {
     const groups: Record<string, typeof classes> = {};
-    classes.forEach(c => {
+    activeClasses.forEach(c => {
       if (!groups[c.subject]) groups[c.subject] = [];
       groups[c.subject].push(c);
     });
     return groups;
-  }, [classes]);
+  }, [activeClasses]);
 
-  // Group classes by grade
+  // Group active classes by grade
   const classesByGrade = useMemo(() => {
     const groups: Record<string, typeof classes> = {};
-    classes.forEach(c => {
+    activeClasses.forEach(c => {
       if (!groups[c.grade]) groups[c.grade] = [];
       groups[c.grade].push(c);
     });
     return groups;
-  }, [classes]);
+  }, [activeClasses]);
 
   return (
     <div className="space-y-6">
@@ -45,7 +48,7 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold">Dashboard</h1>
       </div>
 
-      {classes.length > 0 && <GlobalStats classes={classes} />}
+      {activeClasses.length > 0 && <GlobalStats classes={activeClasses} />}
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
@@ -63,33 +66,37 @@ const Dashboard = () => {
         <TabsContent value="overview" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-6">
-              {classes.length > 0 && (
+              {activeClasses.length > 0 && (
                 <>
-                  <ClassComparisonChart classes={classes} />
+                  <ClassComparisonChart classes={activeClasses} />
                   <MarkDistributionChart 
-                    learners={allLearners} 
+                    learners={allActiveLearners} 
                     title="Global Grade Distribution" 
-                    description="Distribution of symbols across all classes and subjects." 
+                    description="Distribution of symbols across active classes." 
                   />
                 </>
               )}
 
               <Card>
                 <CardHeader>
-                  <CardTitle>All Classes</CardTitle>
-                  <CardDescription>Quick access to your class registers.</CardDescription>
+                  <CardTitle>Active Classes</CardTitle>
+                  <CardDescription>Quick access to your current class registers.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {classes.length > 0 ? (
+                  {activeClasses.length > 0 ? (
                     <div className="grid gap-4 md:grid-cols-2">
-                      {classes.map(classInfo => (
+                      {activeClasses.map(classInfo => (
                         <ClassSummaryCard key={classInfo.id} classInfo={classInfo} />
                       ))}
                     </div>
                   ) : (
                     <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                      <h3 className="text-lg font-semibold">No classes yet</h3>
-                      <p className="text-muted-foreground mt-1 mb-6">You haven't created any classes. Get started now.</p>
+                      <h3 className="text-lg font-semibold">No active classes</h3>
+                      <p className="text-muted-foreground mt-1 mb-6">
+                        {classes.length > 0 
+                          ? "All your classes are archived." 
+                          : "You haven't created any classes yet."}
+                      </p>
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                         <Button asChild>
                           <Link to="/classes">
@@ -116,7 +123,7 @@ const Dashboard = () => {
         </TabsContent>
 
         <TabsContent value="subjects" className="space-y-6">
-          <AggregatedPerformanceChart classes={classes} groupBy="subject" />
+          <AggregatedPerformanceChart classes={activeClasses} groupBy="subject" />
           <div className="space-y-6">
              {Object.entries(classesBySubject).map(([subject, subjectClasses]) => (
                 <div key={subject} className="space-y-4">
@@ -132,7 +139,7 @@ const Dashboard = () => {
         </TabsContent>
 
         <TabsContent value="grades" className="space-y-6">
-          <AggregatedPerformanceChart classes={classes} groupBy="grade" />
+          <AggregatedPerformanceChart classes={activeClasses} groupBy="grade" />
           <div className="space-y-6">
              {Object.entries(classesByGrade).sort().map(([grade, gradeClasses]) => (
                 <div key={grade} className="space-y-4">

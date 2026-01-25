@@ -18,6 +18,7 @@ export interface Learner {
   name: string;
   mark: string;
   comment?: string;
+  id?: string; // Optional ID for database tracking
 }
 
 export interface ClassInfo {
@@ -26,6 +27,7 @@ export interface ClassInfo {
   subject: string;
   className: string;
   learners: Learner[];
+  archived?: boolean;
 }
 
 interface CreateClassDialogProps {
@@ -51,6 +53,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
         subject,
         className,
         learners: learnerList,
+        archived: false
       });
       // Reset form and close dialog
       setGrade("");

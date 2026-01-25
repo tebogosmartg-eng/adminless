@@ -11,6 +11,7 @@ interface ClassesContextType {
   updateClassDetails: (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => void;
   deleteClass: (classId: string) => void;
   updateClassLearners: (classId: string, newLearners: Learner[]) => void;
+  toggleClassArchive: (classId: string, archived: boolean) => void;
 }
 
 const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
@@ -42,10 +43,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         grade: c.grade,
         subject: c.subject,
         className: c.class_name,
+        archived: c.archived || false,
         learners: c.learners.map((l: any) => ({
-          // We attach the ID here to track edits, but the interface Learner might not have it strictly defined yet.
-          // For now we map it to match the existing Learner interface, but we might need to rely on names or strict order if not careful.
-          // Ideally, Learner interface should have an optional ID.
           name: l.name,
           mark: l.mark,
           comment: l.comment,
@@ -69,7 +68,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         user_id: session.user.id,
         grade: newClass.grade,
         subject: newClass.subject,
-        class_name: newClass.className
+        class_name: newClass.className,
+        archived: false
       }])
       .select()
       .single();
@@ -97,12 +97,12 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         console.error('Error adding learners:', learnersError);
       }
       
-      // Update local state with real IDs
       const createdClass: ClassInfo = {
         id: classData.id,
         grade: classData.grade,
         subject: classData.subject,
         className: classData.class_name,
+        archived: false,
         learners: learnersData ? learnersData.map((l: any) => ({
             name: l.name,
             mark: l.mark,
@@ -118,6 +118,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             grade: classData.grade,
             subject: classData.subject,
             className: classData.class_name,
+            archived: false,
             learners: []
         };
         setClasses((prev) => [...prev, createdClass]);
@@ -127,31 +128,15 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   };
 
   const updateLearners = async (classId: string, updatedLearners: Learner[]) => {
-    // This function assumes we are updating marks/comments for existing learners.
-    // However, the input `updatedLearners` might contain new learners if the UI adds them purely client-side before save.
-    // Since the app seems to treat 'learners' array as the source of truth, we should reconcile.
-    // For simplicity given the "Save" button model:
-    // We can upsert if we have IDs, or delete all and re-insert (easiest but changes IDs), or reconcile carefully.
-    // Let's iterate and update.
-
     const classInfo = classes.find(c => c.id === classId);
     if (!classInfo) return;
 
-    // We'll update state optimistically first
+    // Optimistic update
     setClasses((prevClasses) =>
       prevClasses.map((c) =>
         c.id === classId ? { ...c, learners: updatedLearners } : c
       )
     );
-
-    // Now persist to Supabase
-    // Strategy: 
-    // 1. Get current learners in DB for this class.
-    // 2. Identify deletes (in DB but not in updatedLearners).
-    // 3. Identify updates (in DB and in updatedLearners).
-    // 4. Identify inserts (not in DB but in updatedLearners).
-    // Note: The `Learner` interface in `CreateClassDialog` doesn't strictly have ID, but we mapped it in fetch.
-    // If `learner` has an `id` property (from our fetch), it's existing. If not, it's new.
 
     const learnersWithId = updatedLearners.filter((l: any) => l.id);
     const learnersWithoutId = updatedLearners.filter((l: any) => !l.id);
@@ -175,16 +160,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         }));
         const { data: newLearnersData } = await supabase.from('learners').insert(toInsert).select();
         
-        // We need to refresh local state with new IDs to prevent future duplicates if saved again immediately
         if (newLearnersData) {
-            setClasses(prev => prev.map(c => {
-                if (c.id !== classId) return c;
-                // Merge new IDs back into the learners array
-                // This is tricky without refetching, so let's just refetch the class learners to be safe
-                return c; 
-            }));
-            
-             // Refetch learners for this class to get IDs synced
+            // Refetch learners for this class to get IDs synced
             const { data: refreshedLearners } = await supabase
                 .from('learners')
                 .select('*')
@@ -202,7 +179,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     }
 
     // 3. Deletes
-    // Any ID in `classInfo.learners` (old state) that is NOT in `learnersWithId` (new state) should be deleted.
     const currentIds = learnersWithId.map((l:any) => l.id);
     const idsToDelete = classInfo.learners
         .map((l:any) => l.id)
@@ -212,11 +188,10 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         await supabase.from('learners').delete().in('id', idsToDelete);
     }
 
-    logActivity(`Updated class: "${classInfo.subject} - ${classInfo.className}"`);
+    logActivity(`Updated marks for: "${classInfo.subject} - ${classInfo.className}"`);
   };
 
   const updateClassDetails = async (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => {
-    // Optimistic update
     setClasses((prevClasses) =>
       prevClasses.map((c) =>
         c.id === classId ? { ...c, ...details } : c
@@ -228,15 +203,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     if (details.subject) dbUpdates.subject = details.subject;
     if (details.className) dbUpdates.class_name = details.className;
 
-    const { error } = await supabase
-      .from('classes')
-      .update(dbUpdates)
-      .eq('id', classId);
-
-    if (error) {
-        console.error("Failed to update class details", error);
-        // revert?
-    }
+    await supabase.from('classes').update(dbUpdates).eq('id', classId);
 
     const classInfo = classes.find(c => c.id === classId);
     if (classInfo) {
@@ -246,33 +213,45 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const deleteClass = async (classId: string) => {
     const classInfo = classes.find(c => c.id === classId);
-    
-    // Optimistic delete
     setClasses((prevClasses) => prevClasses.filter((c) => c.id !== classId));
 
-    const { error } = await supabase
-      .from('classes')
-      .delete()
-      .eq('id', classId);
-      
-    if (error) {
-        console.error("Failed to delete class", error);
-    }
+    await supabase.from('classes').delete().eq('id', classId);
 
     if (classInfo) {
       logActivity(`Deleted class: "${classInfo.subject} - ${classInfo.className}"`);
     }
   };
 
-  // This function is essentially the same as updateLearners in my implementation, 
-  // but in the original context it might have been used differently. 
-  // I'll alias it to ensure compatibility.
+  const toggleClassArchive = async (classId: string, archived: boolean) => {
+    setClasses((prevClasses) =>
+      prevClasses.map((c) =>
+        c.id === classId ? { ...c, archived } : c
+      )
+    );
+
+    await supabase.from('classes').update({ archived }).eq('id', classId);
+
+    const classInfo = classes.find(c => c.id === classId);
+    if (classInfo) {
+        const action = archived ? "Archived" : "Restored";
+        logActivity(`${action} class: "${classInfo.subject} - ${classInfo.className}"`);
+    }
+  };
+
   const updateClassLearners = (classId: string, newLearners: Learner[]) => {
       updateLearners(classId, newLearners);
   };
 
   return (
-    <ClassesContext.Provider value={{ classes, addClass, updateLearners, updateClassDetails, deleteClass, updateClassLearners }}>
+    <ClassesContext.Provider value={{ 
+      classes, 
+      addClass, 
+      updateLearners, 
+      updateClassDetails, 
+      deleteClass, 
+      updateClassLearners,
+      toggleClassArchive 
+    }}>
       {children}
     </ClassesContext.Provider>
   );
