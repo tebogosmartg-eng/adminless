@@ -15,6 +15,7 @@ import { ClassDialogsManager } from '@/components/ClassDialogsManager';
 import { useClassExport } from '@/hooks/useClassExport';
 import { useLearnerState } from '@/hooks/useLearnerState';
 import { useAiFeatures } from '@/hooks/useAiFeatures';
+import { useClassDialogs } from '@/hooks/useClassDialogs';
 
 const ClassDetails = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -59,15 +60,9 @@ const ClassDetails = () => {
     handleExportBlankPdf
   } = useClassExport(classInfo, learners, gradingScheme, schoolName, teacherName, schoolLogo);
 
-  // UI State
-  const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);
-  const [isRapidEntryOpen, setIsRapidEntryOpen] = useState(false);
-  const [isImportOpen, setIsImportOpen] = useState(false);
-  const [isEditLearnersOpen, setIsEditLearnersOpen] = useState(false);
-  const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
-  const [isAddLearnerOpen, setIsAddLearnerOpen] = useState(false);
-  const [isModerationOpen, setIsModerationOpen] = useState(false);
-  const [selectedProfileLearner, setSelectedProfileLearner] = useState<Learner | null>(null);
+  // Dialog State Hook
+  const dialogs = useClassDialogs();
+
   const [activeTab, setActiveTab] = useState("marks");
 
   // Global Save Shortcut
@@ -122,19 +117,19 @@ const ClassDetails = () => {
         showComments={showComments}
         onToggleComments={() => setShowComments(!showComments)}
         onSave={() => { handleSaveChanges(); setInsights(null); }}
-        onOpenAiInsights={() => setIsAiInsightsOpen(true)}
-        onOpenVoiceEntry={() => setIsVoiceEntryOpen(true)}
-        onOpenRapidEntry={() => setIsRapidEntryOpen(true)}
-        onOpenAddLearner={() => setIsAddLearnerOpen(true)}
-        onOpenEditLearners={() => setIsEditLearnersOpen(true)}
-        onOpenImport={() => setIsImportOpen(true)}
+        onOpenAiInsights={() => dialogs.setIsAiInsightsOpen(true)}
+        onOpenVoiceEntry={() => dialogs.setIsVoiceEntryOpen(true)}
+        onOpenRapidEntry={() => dialogs.setIsRapidEntryOpen(true)}
+        onOpenAddLearner={() => dialogs.setIsAddLearnerOpen(true)}
+        onOpenEditLearners={() => dialogs.setIsEditLearnersOpen(true)}
+        onOpenImport={() => dialogs.setIsImportOpen(true)}
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
         onExportBlankPdf={handleExportBlankPdf}
         onExportBulkReports={handleExportBulkPdf}
         onClearMarks={handleClearMarks}
         onShare={handleShareSummary}
-        onOpenModeration={() => setIsModerationOpen(true)}
+        onOpenModeration={() => dialogs.setIsModerationOpen(true)}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
@@ -159,8 +154,8 @@ const ClassDetails = () => {
               onMarkChange={handleMarkChange}
               onCommentChange={handleCommentChange}
               onRemoveLearner={handleRemoveLearner}
-              onProfileClick={setSelectedProfileLearner}
-              onAddLearnerClick={() => setIsAddLearnerOpen(true)}
+              onProfileClick={dialogs.setSelectedProfileLearner}
+              onAddLearnerClick={() => dialogs.setIsAddLearnerOpen(true)}
               onBatchDelete={handleBatchDelete}
               onBatchComment={handleBatchComment}
               onBatchClearMarks={handleBatchClearMarks}
@@ -176,14 +171,7 @@ const ClassDetails = () => {
         classInfo={classInfo}
         learners={learners}
         classAverage={currentStats.average}
-        isVoiceEntryOpen={isVoiceEntryOpen} setIsVoiceEntryOpen={setIsVoiceEntryOpen}
-        isRapidEntryOpen={isRapidEntryOpen} setIsRapidEntryOpen={setIsRapidEntryOpen}
-        isImportOpen={isImportOpen} setIsImportOpen={setIsImportOpen}
-        isEditLearnersOpen={isEditLearnersOpen} setIsEditLearnersOpen={setIsEditLearnersOpen}
-        isAiInsightsOpen={isAiInsightsOpen} setIsAiInsightsOpen={setIsAiInsightsOpen}
-        isAddLearnerOpen={isAddLearnerOpen} setIsAddLearnerOpen={setIsAddLearnerOpen}
-        isModerationOpen={isModerationOpen} setIsModerationOpen={setIsModerationOpen}
-        selectedProfileLearner={selectedProfileLearner} setSelectedProfileLearner={setSelectedProfileLearner}
+        {...dialogs}
         isGeneratingInsights={isGeneratingInsights}
         insights={insights}
         onUpdateLearners={handleUpdateAndClearInsights}
