@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Learner, ClassInfo } from '@/components/CreateClassDialog';
+import { Learner, ClassInfo } from '@/types';
 import { showSuccess } from '@/utils/toast';
 import confetti from 'canvas-confetti';
 

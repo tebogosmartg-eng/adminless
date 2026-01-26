@@ -1,6 +1,6 @@
 import { useScanLogic } from '@/hooks/useScanLogic';
-import { ScanUploadSection } from '@/components/ScanUploadSection';
-import { ScanReviewSection } from '@/components/ScanReviewSection';
+import { ScanUploadSection } from '@/components/scan/ScanUploadSection';
+import { ScanReviewSection } from '@/components/scan/ScanReviewSection';
 
 const Scan = () => {
   const {

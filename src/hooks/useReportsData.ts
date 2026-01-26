@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ClassInfo } from '@/components/CreateClassDialog';
+import { ClassInfo } from '@/types';
 import { calculateClassStats } from '@/utils/stats';
 import { showSuccess, showError } from '@/utils/toast';
 

@@ -1,4 +1,4 @@
-import { Learner } from "@/components/CreateClassDialog";
+import { Learner } from "@/types";
 import { GradeSymbol } from "@/utils/grading";
 import { Badge } from "@/components/ui/badge";
 import { Quote } from "lucide-react";

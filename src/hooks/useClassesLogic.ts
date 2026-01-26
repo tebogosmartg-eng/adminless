@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClasses } from "@/context/ClassesContext";
-import { ClassInfo } from "@/components/CreateClassDialog";
+import { ClassInfo } from "@/types";
 import { showSuccess } from "@/utils/toast";
 
 export const useClassesLogic = () => {

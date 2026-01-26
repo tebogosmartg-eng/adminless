@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Learner } from '@/components/CreateClassDialog';
+import { Learner } from '@/types';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;

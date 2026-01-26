@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Learner, ClassInfo } from '@/components/CreateClassDialog';
+import { Learner, ClassInfo } from '@/types';
 
 export const useLearnerHistory = (learner: Learner | null, classes: ClassInfo[]) => {
   const history = useMemo(() => {

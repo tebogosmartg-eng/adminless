@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Learner } from '@/components/CreateClassDialog';
+import { Learner } from '@/types';
 
 export const useClassDialogs = () => {
   const [isVoiceEntryOpen, setIsVoiceEntryOpen] = useState(false);

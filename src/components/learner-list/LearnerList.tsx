@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowUpDown, Plus } from 'lucide-react';
-import { Learner } from '@/components/CreateClassDialog';
+import { Learner } from '@/types';
 import { GradeSymbol } from '@/utils/grading';
 import { useSettings } from '@/context/SettingsContext';
 import { showSuccess } from '@/utils/toast';

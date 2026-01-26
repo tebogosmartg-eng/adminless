@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { ClassInfo, Learner } from '@/components/CreateClassDialog';
+import { ClassInfo, Learner } from '@/types';
 import { GradeSymbol, getGradeSymbol } from './grading';
 import { format } from 'date-fns';
 

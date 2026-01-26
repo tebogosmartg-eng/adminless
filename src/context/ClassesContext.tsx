@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { ClassInfo, Learner } from '../components/CreateClassDialog';
+import { ClassInfo, Learner } from '@/types';
 import { useActivity } from './ActivityContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
@@ -224,9 +224,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       );
   
     await supabase.from('classes').update({ notes }).eq('id', classId);
-    
-    // We don't log activity here to avoid spamming logs on every keystroke save,
-    // or maybe we should only if it's significant? Let's leave it for now.
   };
 
   const deleteClass = async (classId: string) => {

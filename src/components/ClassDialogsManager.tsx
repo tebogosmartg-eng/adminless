@@ -6,7 +6,7 @@ import { AiInsightsDialog } from '@/components/dialogs/AiInsightsDialog';
 import { AddLearnerDialog } from '@/components/dialogs/AddLearnerDialog';
 import { ModerationToolsDialog } from '@/components/dialogs/ModerationToolsDialog';
 import { LearnerProfileDialog } from '@/components/dialogs/LearnerProfileDialog';
-import { Learner, ClassInfo } from '@/components/CreateClassDialog';
+import { Learner, ClassInfo } from '@/types';
 import { ClassInsight } from '@/services/gemini';
 
 interface ClassDialogsManagerProps {

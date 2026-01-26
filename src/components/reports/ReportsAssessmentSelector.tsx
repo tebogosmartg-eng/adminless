@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Calculator } from 'lucide-react';
-import { ClassInfo } from '@/components/CreateClassDialog';
+import { ClassInfo } from '@/types';
 
 interface ReportsAssessmentSelectorProps {
   filteredClasses: ClassInfo[];

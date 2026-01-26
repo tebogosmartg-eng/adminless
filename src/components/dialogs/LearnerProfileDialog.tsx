@@ -5,7 +5,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Learner } from "@/components/CreateClassDialog";
+import { Learner } from "@/types";
 import { getGradeSymbol } from "@/utils/grading";
 import { useSettings } from "@/context/SettingsContext";
 import { useClasses } from "@/context/ClassesContext";

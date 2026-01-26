@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Learner } from "./CreateClassDialog";
+import { Learner } from "@/types";
 import { calculateClassStats } from "@/utils/stats";
 
 const ClassStats = ({ learners }: { learners: Learner[] }) => {

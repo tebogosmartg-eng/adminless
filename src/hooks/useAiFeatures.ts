@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClassInfo, Learner } from '@/components/CreateClassDialog';
+import { ClassInfo, Learner } from '@/types';
 import { generateClassInsights, generateReportComments, ClassInsight, getMockClassInsights, getMockReportComments } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 

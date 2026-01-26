@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ClassInfo } from "@/components/CreateClassDialog";
+import { ClassInfo } from "@/types";
 import { useClasses } from "@/context/ClassesContext";
 import { showSuccess } from "@/utils/toast";
 

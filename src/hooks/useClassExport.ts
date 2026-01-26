@@ -1,4 +1,4 @@
-import { ClassInfo, Learner } from '@/components/CreateClassDialog';
+import { ClassInfo, Learner } from '@/types';
 import { GradeSymbol, getGradeSymbol } from '@/utils/grading';
 import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReportsPDF } from '@/utils/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';

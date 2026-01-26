@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
-import { Learner } from '@/components/CreateClassDialog';
+import { Learner } from '@/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 

@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ClassInfo, Learner } from "@/components/CreateClassDialog";
+import { ClassInfo, Learner } from "@/types";
 import { useClasses } from "@/context/ClassesContext";
 import { showSuccess } from "@/utils/toast";
 

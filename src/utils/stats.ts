@@ -1,4 +1,4 @@
-import { Learner } from "@/components/CreateClassDialog";
+import { Learner } from "@/types";
 
 export const calculateClassStats = (learners: Learner[]) => {
   const marks = learners

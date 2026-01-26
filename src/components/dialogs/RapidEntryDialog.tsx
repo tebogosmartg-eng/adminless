@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Learner } from "@/components/CreateClassDialog";
+import { Learner } from "@/types";
 import { ChevronLeft, ChevronRight, Check, Calculator } from "lucide-react";
 import { showSuccess } from "@/utils/toast";
 

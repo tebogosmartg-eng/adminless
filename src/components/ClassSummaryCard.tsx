@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ClassInfo } from "./CreateClassDialog";
+import { ClassInfo } from "@/types";
 import { calculateClassStats } from "@/utils/stats";
 import { Users } from "lucide-react";
 import { Link } from "react-router-dom";

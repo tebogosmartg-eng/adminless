@@ -1,6 +1,6 @@
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import AggregatedPerformanceChart from '@/components/charts/AggregatedPerformanceChart';
-import { ClassInfo } from '@/components/CreateClassDialog';
+import { ClassInfo } from '@/types';
 
 interface DashboardGroupedViewProps {
   activeClasses: ClassInfo[];
