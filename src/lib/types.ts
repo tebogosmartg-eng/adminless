@@ -21,6 +21,7 @@ export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 export interface AttendanceRecord {
   id?: string;
   learner_id: string;
+  class_id?: string;
   status: AttendanceStatus;
   date?: string;
   user_id?: string;

@@ -5,52 +5,52 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Learner, AttendanceRecord, AttendanceStatus } from '@/lib/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { db } from '@/db';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { queueAction } from '@/services/sync';
 
 export const useAttendance = (classId: string, learners: Learner[]) => {
   const [date, setDate] = useState<Date>(new Date());
+  // We use this local state to hold unsaved edits before they are committed to Dexie if desired,
+  // OR we can write directly to Dexie. Direct to Dexie is smoother for offline.
+  // However, the original UI had "Save Changes" button. Let's keep that pattern for batching updates?
+  // Actually, Dexie is fast. Writing immediately on click is better UX for offline apps usually (auto-save).
+  // But to minimize sync traffic, let's keep the "staging" state and save on button click.
+  
+  const formattedDate = format(date, 'yyyy-MM-dd');
+
+  // Live Query from Local DB
+  const liveAttendance = useLiveQuery(
+    () => db.attendance.where('class_id').equals(classId).filter(r => r.date === formattedDate).toArray(),
+    [classId, formattedDate]
+  );
+
   const [attendanceData, setAttendanceData] = useState<Record<string, AttendanceRecord>>({});
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Sync local state when DB updates (e.g. initial load or sync pull)
   useEffect(() => {
-    const fetchAttendance = async () => {
-      setLoading(true);
-      const formattedDate = format(date, 'yyyy-MM-dd');
-      
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('class_id', classId)
-        .eq('date', formattedDate);
-
-      if (error) {
-        console.error('Error fetching attendance:', error);
-        showError('Failed to load attendance.');
-      } else {
+    if (liveAttendance) {
         const map: Record<string, AttendanceRecord> = {};
-        data?.forEach((record: any) => {
-          map[record.learner_id] = record as AttendanceRecord;
+        liveAttendance.forEach(r => {
+            map[r.learner_id] = r;
         });
         setAttendanceData(map);
         setHasChanges(false);
-      }
-      setLoading(false);
-    };
-
-    fetchAttendance();
-  }, [classId, date]);
+    }
+  }, [liveAttendance]);
 
   const handleStatusChange = (learnerId: string, status: AttendanceStatus) => {
     if (!learnerId) {
-      showError("Cannot mark attendance: Learner ID missing. Please refresh or save class first.");
+      showError("Cannot mark attendance: Learner ID missing.");
       return;
     }
 
     setAttendanceData(prev => ({
       ...prev,
-      [learnerId]: { ...prev[learnerId], learner_id: learnerId, status }
+      [learnerId]: { ...prev[learnerId], learner_id: learnerId, status, date: formattedDate, class_id: classId }
     }));
     setHasChanges(true);
   };
@@ -59,7 +59,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
     const newData = { ...attendanceData };
     learners.forEach(l => {
       if (l.id) {
-        newData[l.id] = { ...newData[l.id], learner_id: l.id, status };
+        newData[l.id] = { ...newData[l.id], learner_id: l.id, status, date: formattedDate, class_id: classId };
       }
     });
     setAttendanceData(newData);
@@ -68,40 +68,31 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
 
   const saveAttendance = async () => {
     setSaving(true);
-    const formattedDate = format(date, 'yyyy-MM-dd');
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("No user");
 
-    if (!user) {
-        showError("Authentication error.");
+        const recordsToSave = Object.values(attendanceData).map(r => ({
+            ...r,
+            user_id: user.id
+        }));
+
+        if (recordsToSave.length === 0) return;
+
+        // 1. Save to Local DB
+        await db.attendance.bulkPut(recordsToSave);
+
+        // 2. Queue for Sync (Upsert based on learner_id + date constraint in Supabase)
+        await queueAction('attendance', 'upsert', recordsToSave);
+
+        setHasChanges(false);
+        showSuccess('Attendance saved.');
+    } catch (e) {
+        console.error(e);
+        showError('Failed to save.');
+    } finally {
         setSaving(false);
-        return;
     }
-
-    const upsertData = Object.values(attendanceData).map(record => ({
-      class_id: classId,
-      learner_id: record.learner_id,
-      date: formattedDate,
-      status: record.status,
-      user_id: user.id
-    }));
-
-    if (upsertData.length === 0) {
-        setSaving(false);
-        return;
-    }
-
-    const { error } = await supabase
-      .from('attendance')
-      .upsert(upsertData, { onConflict: 'learner_id,date' });
-
-    if (error) {
-      console.error('Error saving attendance:', error);
-      showError('Failed to save attendance.');
-    } else {
-      showSuccess('Attendance saved successfully.');
-      setHasChanges(false);
-    }
-    setSaving(false);
   };
 
   const handleExportReport = async (type: 'csv' | 'pdf') => {
@@ -109,32 +100,33 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
     try {
       const start = startOfMonth(date);
       const end = endOfMonth(date);
-      const formattedStart = format(start, 'yyyy-MM-dd');
-      const formattedEnd = format(end, 'yyyy-MM-dd');
+      const sStr = format(start, 'yyyy-MM-dd');
+      const eStr = format(end, 'yyyy-MM-dd');
 
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('class_id', classId)
-        .gte('date', formattedStart)
-        .lte('date', formattedEnd)
-        .order('date', { ascending: true });
+      // Query Local DB instead of Supabase for export
+      // Range query on date is tricky if date is part of compound key or just string.
+      // Dexie filtering:
+      const data = await db.attendance
+        .where('class_id').equals(classId)
+        .filter(r => r.date! >= sStr && r.date! <= eStr)
+        .toArray();
 
-      if (error) throw error;
+      // Sort by date
+      data.sort((a, b) => a.date!.localeCompare(b.date!));
 
       const recordMap: Record<string, Record<string, string>> = {}; 
       const datesSet = new Set<string>();
 
-      data?.forEach((record: any) => {
+      data.forEach((record) => {
         if (!recordMap[record.learner_id]) recordMap[record.learner_id] = {};
-        recordMap[record.learner_id][record.date] = record.status;
-        datesSet.add(record.date);
+        recordMap[record.learner_id][record.date!] = record.status;
+        datesSet.add(record.date!);
       });
 
       const sortedDates = Array.from(datesSet).sort();
       
       if (sortedDates.length === 0) {
-        showError("No attendance records found for this month.");
+        showError("No attendance records found locally for this month.");
         setIsExporting(false);
         return;
       }
@@ -228,7 +220,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   return {
     date, setDate,
     attendanceData,
-    loading,
+    loading: !liveAttendance, 
     saving,
     hasChanges,
     isExporting,

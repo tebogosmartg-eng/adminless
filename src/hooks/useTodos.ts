@@ -1,89 +1,69 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
-import { Todo } from '@/lib/types';
+import { db } from '@/db';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { queueAction } from '@/services/sync';
 
 export const useTodos = () => {
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
-    fetchTodos();
-  }, []);
-
-  const fetchTodos = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('todos')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error(error);
-    } else {
-      setTodos(data || []);
-    }
-    setLoading(false);
-  };
+  // Live query automatically updates component when DB changes
+  const todos = useLiveQuery(
+    () => db.todos.orderBy('completed').toArray()
+  ) || [];
 
   const addTodo = async (title: string) => {
     if (!title.trim()) return;
     setAdding(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const newTodo = {
+            id: crypto.randomUUID(),
+            user_id: user.id,
+            title: title.trim(),
+            completed: false,
+            created_at: new Date().toISOString()
+        };
+
+        await db.todos.add(newTodo);
+        await queueAction('todos', 'create', newTodo);
+        
+        showSuccess('Task added.');
+    } catch (e) {
+        showError('Failed to add task locally.');
+    } finally {
         setAdding(false);
-        return;
     }
-
-    const { data, error } = await supabase
-      .from('todos')
-      .insert([{ user_id: user.id, title: title.trim(), completed: false }])
-      .select()
-      .single();
-
-    if (error) {
-      showError('Failed to add task.');
-    } else if (data) {
-      setTodos([data, ...todos]);
-      showSuccess('Task added.');
-    }
-    setAdding(false);
   };
 
   const toggleTodo = async (id: string, currentStatus: boolean) => {
-    // Optimistic update
-    setTodos(todos.map(t => t.id === id ? { ...t, completed: !currentStatus } : t));
-
-    const { error } = await supabase
-      .from('todos')
-      .update({ completed: !currentStatus })
-      .eq('id', id);
-
-    if (error) {
-      showError('Failed to update task.');
-      fetchTodos(); // Revert
+    try {
+        await db.todos.update(id, { completed: !currentStatus });
+        await queueAction('todos', 'update', { id, completed: !currentStatus });
+    } catch (e) {
+        showError('Failed to update task.');
     }
   };
 
   const deleteTodo = async (id: string) => {
-    // Optimistic update
-    setTodos(todos.filter(t => t.id !== id));
-
-    const { error } = await supabase
-      .from('todos')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      showError('Failed to delete task.');
-      fetchTodos(); // Revert
+    try {
+        await db.todos.delete(id);
+        await queueAction('todos', 'delete', { id });
+    } catch (e) {
+        showError('Failed to delete task.');
     }
   };
 
-  return { todos, loading, adding, addTodo, toggleTodo, deleteTodo };
+  return { 
+      todos: todos.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)), 
+      loading: !todos, 
+      adding, 
+      addTodo, 
+      toggleTodo, 
+      deleteTodo 
+  };
 };

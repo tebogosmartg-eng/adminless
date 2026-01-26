@@ -9,8 +9,6 @@ export const pullData = async (userId: string) => {
     if (classes) await db.classes.bulkPut(classes);
 
     // 2. Learners (Need all learners for user's classes)
-    // We get them via join usually, but for sync fetch flat
-    // Helper to get class IDs
     const classIds = classes?.map(c => c.id) || [];
     
     if (classIds.length > 0) {
@@ -29,16 +27,23 @@ export const pullData = async (userId: string) => {
                 if (marks) await db.assessment_marks.bulkPut(marks);
             }
         }
+
+        // 5. Attendance (New)
+        // Fetching all attendance history might be heavy. For now, fetch recent? 
+        // Or fetch all to ensure full offline capability. Let's fetch all for user's classes.
+        // We can optimize with 'updated_at' later.
+        const { data: attendance } = await supabase.from('attendance').select('*').in('class_id', classIds);
+        if (attendance) await db.attendance.bulkPut(attendance);
     }
 
-    // 5. Academic Config
+    // 6. Academic Config
     const { data: years } = await supabase.from('academic_years').select('*').eq('user_id', userId);
     if (years) await db.academic_years.bulkPut(years);
     
     const { data: terms } = await supabase.from('terms').select('*').eq('user_id', userId);
     if (terms) await db.terms.bulkPut(terms);
 
-    // 6. Extras
+    // 7. Extras
     const { data: profiles } = await supabase.from('profiles').select('*').eq('id', userId);
     if (profiles) await db.profiles.bulkPut(profiles);
 
@@ -74,6 +79,7 @@ export const pushChanges = async () => {
         const { error: e } = await supabase.from(table as any).update(payload).eq('id', payload.id);
         error = e;
       } else if (action === 'upsert') {
+        // Handle attendance specifically? Supabase upsert works with unique constraints.
         const { error: e } = await supabase.from(table as any).upsert(payload);
         error = e;
       } else if (action === 'delete') {
@@ -103,7 +109,6 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
     timestamp: Date.now()
   });
   
-  // Try to push immediately if online
   if (navigator.onLine) {
     pushChanges(); // Non-blocking
   }

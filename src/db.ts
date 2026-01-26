@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { 
-  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo 
+  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord 
 } from '@/lib/types';
 
 // Extend types for DB storage (flattened structures where necessary)
@@ -31,6 +31,7 @@ export class SmaRegDB extends Dexie {
   assessment_marks!: Table<AssessmentMark>;
   activities!: Table<Activity>;
   todos!: Table<Todo>;
+  attendance!: Table<AttendanceRecord>;
   sync_queue!: Table<DBSyncItem>;
   profiles!: Table<any>;
 
@@ -50,10 +51,14 @@ export class SmaRegDB extends Dexie {
       profiles: 'id'
     });
 
-    // Version 2: Add missing indexes required for orderBy('name')
     this.version(2).stores({
       academic_years: 'id, closed, name',
       terms: 'id, year_id, name'
+    });
+
+    // Version 3: Add attendance table with compound index for querying by class/date and uniqueness
+    this.version(3).stores({
+      attendance: '[learner_id+date], class_id, date'
     });
   }
 }
