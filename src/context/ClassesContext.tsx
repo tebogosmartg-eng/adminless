@@ -144,6 +144,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     const classInfo = classes.find(c => c.id === classId);
     if (!classInfo) return;
 
+    // Optimistic UI update
     setClasses((prevClasses) =>
       prevClasses.map((c) =>
         c.id === classId ? { ...c, learners: updatedLearners } : c
@@ -153,16 +154,24 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     const learnersWithId = updatedLearners.filter((l: any) => l.id);
     const learnersWithoutId = updatedLearners.filter((l: any) => !l.id);
 
-    // 1. Updates
-    for (const l of learnersWithId) {
-       await supabase.from('learners').update({
-           name: l.name,
-           mark: l.mark,
-           comment: l.comment
-       }).eq('id', (l as any).id);
+    // 1. Bulk Update (Upsert) for existing items
+    if (learnersWithId.length > 0) {
+      const updates = learnersWithId.map(l => ({
+        id: l.id,
+        class_id: classId, // required for policy checks usually, good practice
+        name: l.name,
+        mark: l.mark,
+        comment: l.comment
+      }));
+      
+      const { error } = await supabase
+        .from('learners')
+        .upsert(updates, { onConflict: 'id' });
+        
+      if (error) console.error("Error bulk updating learners:", error);
     }
 
-    // 2. Inserts
+    // 2. Bulk Insert for new items
     if (learnersWithoutId.length > 0) {
         const toInsert = learnersWithoutId.map(l => ({
             class_id: classId,
@@ -170,23 +179,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             mark: l.mark || '',
             comment: l.comment || ''
         }));
-        const { data: newLearnersData } = await supabase.from('learners').insert(toInsert).select();
-        
-        if (newLearnersData) {
-            const { data: refreshedLearners } = await supabase
-                .from('learners')
-                .select('*')
-                .eq('class_id', classId);
-                
-            if (refreshedLearners) {
-                 setClasses(prev => prev.map(c => c.id === classId ? { ...c, learners: refreshedLearners.map((l:any) => ({
-                    name: l.name,
-                    mark: l.mark,
-                    comment: l.comment,
-                    id: l.id
-                 })) } : c));
-            }
-        }
+        await supabase.from('learners').insert(toInsert);
     }
 
     // 3. Deletes
@@ -197,6 +190,22 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
     if (idsToDelete.length > 0) {
         await supabase.from('learners').delete().in('id', idsToDelete);
+    }
+
+    // 4. Refetch to get IDs for new items and ensure sync
+    const { data: refreshedLearners } = await supabase
+        .from('learners')
+        .select('*')
+        .eq('class_id', classId)
+        .order('created_at', { ascending: true }); // Keep robust ordering if needed, or sort by name
+
+    if (refreshedLearners) {
+        setClasses(prev => prev.map(c => c.id === classId ? { ...c, learners: refreshedLearners.map((l:any) => ({
+            name: l.name,
+            mark: l.mark,
+            comment: l.comment,
+            id: l.id
+        })) } : c));
     }
 
     logActivity(`Updated marks for: "${classInfo.subject} - ${classInfo.className}"`);
