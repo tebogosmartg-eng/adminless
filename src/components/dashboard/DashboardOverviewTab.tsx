@@ -12,6 +12,7 @@ import { TodoList } from './TodoList';
 import { PendingActions } from './PendingActions';
 import { ActiveTermStats } from './ActiveTermStats';
 import { UpcomingAssessments } from './UpcomingAssessments';
+import { YearPerformanceTrend } from './YearPerformanceTrend';
 import { ClassInfo, Learner } from '@/lib/types';
 
 interface DashboardOverviewTabProps {
@@ -25,7 +26,10 @@ export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalCl
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2 space-y-6">
         
-        <ActiveTermStats />
+        <div className="grid gap-6 md:grid-cols-2">
+            <ActiveTermStats />
+            <YearPerformanceTrend />
+        </div>
 
         {activeClasses.length > 0 && (
            <PendingActions classes={activeClasses} />

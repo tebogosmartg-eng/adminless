@@ -10,7 +10,8 @@ import { useSettings } from '@/context/SettingsContext';
 import { useClasses } from '@/context/ClassesContext';
 import { useLearnerHistory } from '@/hooks/useLearnerHistory';
 import { getGradeSymbol } from '@/utils/grading';
-import { ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Share2 } from 'lucide-react';
+import { showSuccess } from '@/utils/toast';
 
 interface LearnerProfileDialogProps {
   learner: Learner | null;
@@ -43,6 +44,21 @@ export const LearnerProfileDialog = ({
 
   const currentSymbol = getGradeSymbol(learner.mark, gradingScheme);
 
+  const handleShare = () => {
+    const text = `
+🎓 *Learner Report*
+👤 ${learner.name}
+📚 ${classSubject}
+
+📊 Current Mark: ${learner.mark ? learner.mark + '%' : 'N/A'}
+${currentSymbol ? `🏷️ Symbol: ${currentSymbol.symbol} (Level ${currentSymbol.level})` : ''}
+💬 Comment: ${learner.comment || 'No comment'}
+    `.trim();
+    
+    navigator.clipboard.writeText(text);
+    showSuccess("Learner summary copied to clipboard.");
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl h-[85vh] flex flex-col">
@@ -73,6 +89,9 @@ export const LearnerProfileDialog = ({
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
+          <Button variant="ghost" size="icon" onClick={handleShare} title="Share Summary to WhatsApp/Text">
+             <Share2 className="h-4 w-4" />
+          </Button>
         </DialogHeader>
         
         <Tabs defaultValue="academic" className="flex-1 flex flex-col overflow-hidden">
