@@ -1,11 +1,13 @@
-import { BarChart3, BookOpen, GraduationCap } from 'lucide-react';
+import { BarChart3, BookOpen, GraduationCap, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GlobalStats from '@/components/dashboard/GlobalStats';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { DashboardOverviewTab } from '@/components/dashboard/DashboardOverviewTab';
 import { DashboardGroupedView } from '@/components/dashboard/DashboardGroupedView';
+import { useClasses } from '@/context/ClassesContext';
 
 const Dashboard = () => {
+  const { loading } = useClasses();
   const { 
     classes,
     activeClasses, 
@@ -13,6 +15,14 @@ const Dashboard = () => {
     classesBySubject, 
     classesByGrade 
   } = useDashboardData();
+
+  if (loading) {
+    return (
+        <div className="flex h-[50vh] w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

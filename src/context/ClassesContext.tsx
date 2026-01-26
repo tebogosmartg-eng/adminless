@@ -6,6 +6,7 @@ import { Session } from '@supabase/supabase-js';
 
 interface ClassesContextType {
   classes: ClassInfo[];
+  loading: boolean;
   addClass: (classInfo: ClassInfo) => void;
   updateLearners: (classId: string, updatedLearners: Learner[]) => void;
   updateClassDetails: (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => void;
@@ -20,12 +21,17 @@ const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
 export const ClassesProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
   const [classes, setClasses] = useState<ClassInfo[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Fetch classes and learners on mount
   useEffect(() => {
-    if (!session?.user.id) return;
+    if (!session?.user.id) {
+        setLoading(false);
+        return;
+    }
 
     const fetchData = async () => {
+      setLoading(true);
       const { data: classesData, error: classesError } = await supabase
         .from('classes')
         .select(`
@@ -36,6 +42,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
       if (classesError) {
         console.error('Error fetching classes:', classesError);
+        setLoading(false);
         return;
       }
 
@@ -55,6 +62,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       }));
 
       setClasses(formattedClasses);
+      setLoading(false);
     };
 
     fetchData();
@@ -258,6 +266,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   return (
     <ClassesContext.Provider value={{ 
       classes, 
+      loading,
       addClass, 
       updateLearners, 
       updateClassDetails, 

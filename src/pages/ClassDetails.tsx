@@ -12,10 +12,11 @@ import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
 import { showSuccess } from "@/utils/toast";
+import { Loader2 } from "lucide-react";
 
 const ClassDetails = () => {
   const { id } = useParams();
-  const { classes, updateClassLearners, updateClassDetails } = useClasses();
+  const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   
   const classInfo = classes.find((c) => c.id === id);
@@ -61,6 +62,14 @@ const ClassDetails = () => {
       document.title = `${classInfo.className} - ${classInfo.subject} | SmaReg`;
     }
   }, [classInfo]);
+
+  if (classesLoading) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!classInfo) {
     return <div className="p-8 text-center text-muted-foreground">Class not found.</div>;
