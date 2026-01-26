@@ -4,14 +4,59 @@ import { ClassInfo, Learner, GradeSymbol } from '@/lib/types';
 import { getGradeSymbol } from './grading';
 import { format } from 'date-fns';
 
+interface SchoolProfile {
+  name: string;
+  teacher: string;
+  logo: string | null;
+  email: string;
+  phone: string;
+}
+
+const addHeader = (doc: jsPDF, profile: SchoolProfile, title: string) => {
+  const pageWidth = doc.internal.pageSize.width;
+  const margin = 14;
+
+  if (profile.logo) {
+    try {
+      doc.addImage(profile.logo, 'PNG', margin, 10, 25, 25);
+    } catch (e) {
+      console.warn("Failed to add logo to PDF", e);
+    }
+  }
+
+  const textX = profile.logo ? margin + 30 : margin;
+  
+  doc.setFontSize(22);
+  doc.setTextColor(40);
+  doc.setFont("helvetica", "bold");
+  doc.text(profile.name, textX, 20);
+
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.setFont("helvetica", "normal");
+  
+  let contactY = 26;
+  if (profile.email || profile.phone) {
+      const contactText = [profile.email, profile.phone].filter(Boolean).join(" | ");
+      doc.text(contactText, textX, contactY);
+      contactY += 6;
+  }
+
+  doc.setFontSize(14);
+  doc.setTextColor(41, 37, 36);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, textX, contactY + 4);
+  
+  // Return Y position where header ends
+  return contactY + 10;
+};
+
 const addLearnerReportPage = (
   doc: jsPDF,
   learner: Learner,
   classInfo: { subject: string; grade: string; className: string },
   gradingScheme: GradeSymbol[],
-  schoolName: string,
-  teacherName: string,
-  schoolLogo: string | null
+  profile: SchoolProfile
 ) => {
   const pageWidth = doc.internal.pageSize.width;
   const margin = 20;
@@ -20,37 +65,46 @@ const addLearnerReportPage = (
   doc.setLineWidth(1);
   doc.rect(margin, margin, pageWidth - (margin * 2), 257);
 
-  if (schoolLogo) {
+  if (profile.logo) {
      try {
        const logoSize = 30;
        const logoX = (pageWidth - logoSize) / 2;
-       doc.addImage(schoolLogo, 'PNG', logoX, 30, logoSize, logoSize);
+       doc.addImage(profile.logo, 'PNG', logoX, 30, logoSize, logoSize);
      } catch (e) {}
   }
 
-  const textStartY = schoolLogo ? 70 : 40;
+  const textStartY = profile.logo ? 70 : 40;
   
   doc.setFontSize(24);
   doc.setTextColor(41, 37, 36);
   doc.setFont("helvetica", "bold");
-  doc.text(schoolName, pageWidth / 2, textStartY, { align: 'center' });
+  doc.text(profile.name, pageWidth / 2, textStartY, { align: 'center' });
+
+  // Contact info
+  if (profile.email || profile.phone) {
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.setFont("helvetica", "normal");
+    const contactText = [profile.email, profile.phone].filter(Boolean).join(" • ");
+    doc.text(contactText, pageWidth / 2, textStartY + 6, { align: 'center' });
+  }
   
   doc.setFontSize(14);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
-  doc.text("Learner Performance Report", pageWidth / 2, textStartY + 10, { align: 'center' });
+  doc.text("Learner Performance Report", pageWidth / 2, textStartY + 16, { align: 'center' });
 
   doc.setDrawColor(200);
-  doc.line(margin + 20, textStartY + 20, pageWidth - (margin + 20), textStartY + 20);
+  doc.line(margin + 20, textStartY + 26, pageWidth - (margin + 20), textStartY + 26);
 
-  const startY = textStartY + 40;
+  const startY = textStartY + 45;
   doc.setFontSize(12);
   doc.setTextColor(80);
   doc.text("Learner Name:", margin + 20, startY);
   doc.text("Grade:", margin + 20, startY + 10);
   doc.text("Class:", margin + 20, startY + 20);
   doc.text("Subject:", margin + 20, startY + 30);
-  if (teacherName) {
+  if (profile.teacher) {
     doc.text("Teacher:", margin + 20, startY + 40);
   }
 
@@ -60,8 +114,8 @@ const addLearnerReportPage = (
   doc.text(classInfo.grade, margin + 60, startY + 10);
   doc.text(classInfo.className, margin + 60, startY + 20);
   doc.text(classInfo.subject, margin + 60, startY + 30);
-  if (teacherName) {
-    doc.text(teacherName, margin + 60, startY + 40);
+  if (profile.teacher) {
+    doc.text(profile.teacher, margin + 60, startY + 40);
   }
 
   const resultY = startY + 60;
@@ -121,39 +175,30 @@ export const generateClassPDF = (
   gradingScheme: GradeSymbol[], 
   schoolName: string = "My School", 
   teacherName: string = "",
-  schoolLogo: string | null = null
+  schoolLogo: string | null = null,
+  contactEmail: string = "",
+  contactPhone: string = ""
 ) => {
   const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.width;
+  const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
+  
   const margin = 14;
-
-  if (schoolLogo) {
-    try {
-      doc.addImage(schoolLogo, 'PNG', margin, 10, 25, 25);
-    } catch (e) {
-      console.warn("Failed to add logo to PDF", e);
-    }
-  }
+  const pageWidth = doc.internal.pageSize.width;
   
-  doc.setFontSize(22);
-  doc.setTextColor(40);
-  const textX = schoolLogo ? margin + 30 : margin;
-  doc.text(schoolName, textX, 22);
+  // Header
+  const headerBottomY = addHeader(doc, profile, "Class Performance Report");
 
-  doc.setFontSize(14);
-  doc.setTextColor(100);
-  doc.text("Class Performance Report", textX, 30);
-  
   doc.setFontSize(10);
   doc.setTextColor(100);
   const dateStr = format(new Date(), 'PPP');
-  doc.text(`Generated on: ${dateStr}`, textX, 36);
+  doc.text(`Generated on: ${dateStr}`, pageWidth - margin - doc.getTextWidth(`Generated on: ${dateStr}`), 20);
   
   if (teacherName) {
-    doc.text(`Teacher: ${teacherName}`, pageWidth - margin - doc.getTextWidth(`Teacher: ${teacherName}`), 22);
+    doc.text(`Teacher: ${teacherName}`, pageWidth - margin - doc.getTextWidth(`Teacher: ${teacherName}`), 26);
   }
 
-  const startY = 48;
+  const startY = headerBottomY + 10;
+  
   doc.setDrawColor(200);
   doc.setFillColor(245, 247, 250);
   doc.roundedRect(margin, startY, pageWidth - (margin * 2), 24, 2, 2, 'FD');
@@ -267,28 +312,17 @@ export const generateBlankClassListPDF = (
   classInfo: ClassInfo,
   schoolName: string = "My School", 
   teacherName: string = "",
-  schoolLogo: string | null = null
+  schoolLogo: string | null = null,
+  contactEmail: string = "",
+  contactPhone: string = ""
 ) => {
   const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.width;
+  const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
   const margin = 14;
 
-  const textX = schoolLogo ? margin + 30 : margin;
-  if (schoolLogo) {
-    try {
-      doc.addImage(schoolLogo, 'PNG', margin, 10, 25, 25);
-    } catch (e) {}
-  }
+  const headerBottomY = addHeader(doc, profile, "Mark Recording Sheet");
 
-  doc.setFontSize(18);
-  doc.setTextColor(40);
-  doc.text("Mark Recording Sheet", textX, 20);
-  
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text(schoolName, textX, 26);
-
-  const startY = 40;
+  const startY = headerBottomY + 10;
   doc.setFontSize(11);
   doc.setTextColor(0);
   doc.text(`Subject: ${classInfo.subject}`, margin, startY);
@@ -347,10 +381,13 @@ export const generateLearnerReportPDF = (
   gradingScheme: GradeSymbol[],
   schoolName: string = "My School",
   teacherName: string = "",
-  schoolLogo: string | null = null
+  schoolLogo: string | null = null,
+  contactEmail: string = "",
+  contactPhone: string = ""
 ) => {
   const doc = new jsPDF();
-  addLearnerReportPage(doc, learner, classInfo, gradingScheme, schoolName, teacherName, schoolLogo);
+  const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
+  addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile);
   doc.save(`${learner.name}_Report.pdf`);
 };
 
@@ -360,13 +397,16 @@ export const generateBulkLearnerReportsPDF = (
   gradingScheme: GradeSymbol[],
   schoolName: string = "My School",
   teacherName: string = "",
-  schoolLogo: string | null = null
+  schoolLogo: string | null = null,
+  contactEmail: string = "",
+  contactPhone: string = ""
 ) => {
   const doc = new jsPDF();
-  
+  const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
+
   learners.forEach((learner, index) => {
     if (index > 0) doc.addPage();
-    addLearnerReportPage(doc, learner, classInfo, gradingScheme, schoolName, teacherName, schoolLogo);
+    addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile);
   });
 
   doc.save(`${classInfo.className}_All_Reports.pdf`);

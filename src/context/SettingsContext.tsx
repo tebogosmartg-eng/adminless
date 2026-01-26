@@ -13,6 +13,10 @@ interface SettingsContextType {
   setSchoolName: (name: string) => void;
   teacherName: string;
   setTeacherName: (name: string) => void;
+  contactEmail: string;
+  setContactEmail: (email: string) => void;
+  contactPhone: string;
+  setContactPhone: (phone: string) => void;
   schoolLogo: string | null;
   setSchoolLogo: (logo: string | null) => void;
   atRiskThreshold: number;
@@ -30,10 +34,11 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [gradingScheme, setGradingSchemeState] = useState<GradeSymbol[]>(defaultGradingScheme);
   const [schoolName, setSchoolNameState] = useState<string>("My School");
   const [teacherName, setTeacherNameState] = useState<string>("");
+  const [contactEmail, setContactEmailState] = useState<string>("");
+  const [contactPhone, setContactPhoneState] = useState<string>("");
   const [schoolLogo, setSchoolLogoState] = useState<string | null>(null);
   const [atRiskThreshold, setAtRiskThresholdState] = useState<number>(50);
   const [commentBank, setCommentBankState] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!session?.user.id) return;
@@ -45,17 +50,18 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
         .eq('id', session.user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // Ignore not found error as trigger should handle it
+      if (error && error.code !== 'PGRST116') {
         console.error('Error fetching profile:', error);
       } else if (data) {
         if (data.grading_scheme) setGradingSchemeState(data.grading_scheme as unknown as GradeSymbol[]);
         if (data.school_name) setSchoolNameState(data.school_name);
         if (data.teacher_name) setTeacherNameState(data.teacher_name);
+        if (data.contact_email) setContactEmailState(data.contact_email);
+        if (data.contact_phone) setContactPhoneState(data.contact_phone);
         if (data.school_logo) setSchoolLogoState(data.school_logo);
         if (data.at_risk_threshold) setAtRiskThresholdState(data.at_risk_threshold);
         if (data.comment_bank) setCommentBankState(data.comment_bank as unknown as string[]);
       }
-      setLoading(false);
     };
 
     fetchSettings();
@@ -95,6 +101,16 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     updateProfile({ teacher_name: name });
   };
 
+  const setContactEmail = (email: string) => {
+    setContactEmailState(email);
+    updateProfile({ contact_email: email });
+  };
+
+  const setContactPhone = (phone: string) => {
+    setContactPhoneState(phone);
+    updateProfile({ contact_phone: phone });
+  };
+
   const setSchoolLogo = (logo: string | null) => {
     setSchoolLogoState(logo);
     updateProfile({ school_logo: logo });
@@ -128,6 +144,10 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
       setSchoolName,
       teacherName,
       setTeacherName,
+      contactEmail,
+      setContactEmail,
+      contactPhone,
+      setContactPhone,
       schoolLogo,
       setSchoolLogo,
       atRiskThreshold,

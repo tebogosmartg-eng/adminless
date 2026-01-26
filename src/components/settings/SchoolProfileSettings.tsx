@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { School, User, AlertCircle, Save, Trash2, ImagePlus } from "lucide-react";
+import { School, User, AlertCircle, Save, Trash2, ImagePlus, Mail, Phone } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -11,23 +11,38 @@ export const SchoolProfileSettings = () => {
   const { 
     schoolName, setSchoolName,
     teacherName, setTeacherName,
+    contactEmail, setContactEmail,
+    contactPhone, setContactPhone,
     schoolLogo, setSchoolLogo,
     atRiskThreshold, setAtRiskThreshold,
   } = useSettings();
 
   const [tempSchoolName, setTempSchoolName] = useState(schoolName);
   const [tempTeacherName, setTempTeacherName] = useState(teacherName);
+  const [tempContactEmail, setTempContactEmail] = useState(contactEmail);
+  const [tempContactPhone, setTempContactPhone] = useState(contactPhone);
   const [tempThreshold, setTempThreshold] = useState(atRiskThreshold.toString());
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Update local state when context updates (e.g. initial load)
+  useEffect(() => {
+    setTempSchoolName(schoolName);
+    setTempTeacherName(teacherName);
+    setTempContactEmail(contactEmail);
+    setTempContactPhone(contactPhone);
+    setTempThreshold(atRiskThreshold.toString());
+  }, [schoolName, teacherName, contactEmail, contactPhone, atRiskThreshold]);
 
   const handleSaveProfile = () => {
     setSchoolName(tempSchoolName);
     setTeacherName(tempTeacherName);
+    setContactEmail(tempContactEmail);
+    setContactPhone(tempContactPhone);
     
     const thresh = parseInt(tempThreshold);
     if (!isNaN(thresh) && thresh >= 0 && thresh <= 100) {
       setAtRiskThreshold(thresh);
-      showSuccess("School profile and thresholds updated.");
+      showSuccess("School profile and settings updated.");
     } else {
       showError("Invalid threshold value. Must be between 0 and 100.");
     }
@@ -135,6 +150,34 @@ export const SchoolProfileSettings = () => {
                   />
                 </div>
               </div>
+
+              <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="contact-email">Contact Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="contact-email"
+                    placeholder="info@school.com"
+                    value={tempContactEmail}
+                    onChange={(e) => setTempContactEmail(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+              <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="contact-phone">Contact Phone</Label>
+                <div className="relative">
+                  <Phone className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="contact-phone"
+                    placeholder="+1 234 567 8900"
+                    value={tempContactPhone}
+                    onChange={(e) => setTempContactPhone(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
                <div className="grid w-full items-center gap-1.5 sm:col-span-2">
                 <Label htmlFor="threshold" className="flex items-center gap-2">
                   At Risk Threshold (%)

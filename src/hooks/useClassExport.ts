@@ -3,6 +3,7 @@ import { getGradeSymbol } from '@/utils/grading';
 import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReportsPDF } from '@/utils/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateClassStats } from '@/utils/stats';
+import { useSettings } from '@/context/SettingsContext';
 
 export const useClassExport = (
   classInfo: ClassInfo | undefined,
@@ -12,6 +13,8 @@ export const useClassExport = (
   teacherName: string,
   schoolLogo: string | null
 ) => {
+  const { contactEmail, contactPhone } = useSettings();
+
   const handleShareSummary = () => {
     if (!classInfo) return;
     const stats = calculateClassStats(learners);
@@ -72,7 +75,7 @@ Lowest Mark: ${stats.lowestMark}%
     if (!classInfo) return;
     try {
       const exportClassInfo = { ...classInfo, learners };
-      generateClassPDF(exportClassInfo, gradingScheme, schoolName, teacherName, schoolLogo);
+      generateClassPDF(exportClassInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone);
       showSuccess("PDF Report generated successfully!");
     } catch (error) {
       console.error(error);
@@ -83,7 +86,7 @@ Lowest Mark: ${stats.lowestMark}%
   const handleExportBulkPdf = () => {
     if (!classInfo) return;
     try {
-      generateBulkLearnerReportsPDF(learners, classInfo, gradingScheme, schoolName, teacherName, schoolLogo);
+      generateBulkLearnerReportsPDF(learners, classInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone);
       showSuccess("Bulk PDF Report generated successfully!");
     } catch (error) {
       console.error(error);
@@ -95,7 +98,7 @@ Lowest Mark: ${stats.lowestMark}%
     if (!classInfo) return;
     try {
       const exportClassInfo = { ...classInfo, learners };
-      generateBlankClassListPDF(exportClassInfo, schoolName, teacherName, schoolLogo);
+      generateBlankClassListPDF(exportClassInfo, schoolName, teacherName, schoolLogo, contactEmail, contactPhone);
       showSuccess("Blank class list generated!");
     } catch (error) {
       console.error(error);
