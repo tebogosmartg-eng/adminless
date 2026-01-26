@@ -49,6 +49,29 @@ export const ClassDialogsManager = ({
   handlers,
   aiFeatures
 }: ClassDialogsManagerProps) => {
+
+  const getCurrentLearnerIndex = () => {
+    if (!dialogs.selectedProfileLearner) return -1;
+    // Find index by reference or name comparison if reference changes
+    return learners.findIndex(l => l.name === dialogs.selectedProfileLearner?.name);
+  };
+
+  const currentIndex = getCurrentLearnerIndex();
+  const hasNext = currentIndex < learners.length - 1 && currentIndex !== -1;
+  const hasPrev = currentIndex > 0 && currentIndex !== -1;
+
+  const handleNextLearner = () => {
+    if (hasNext) {
+      dialogs.setSelectedProfileLearner(learners[currentIndex + 1]);
+    }
+  };
+
+  const handlePrevLearner = () => {
+    if (hasPrev) {
+      dialogs.setSelectedProfileLearner(learners[currentIndex - 1]);
+    }
+  };
+
   return (
     <>
       <ImportMarksDialog 
@@ -110,6 +133,10 @@ export const ClassDialogsManager = ({
         open={!!dialogs.selectedProfileLearner}
         onOpenChange={(open) => !open && dialogs.setSelectedProfileLearner(null)}
         classSubject={classInfo?.subject || ''}
+        onNext={handleNextLearner}
+        onPrev={handlePrevLearner}
+        hasNext={hasNext}
+        hasPrev={hasPrev}
       />
     </>
   );

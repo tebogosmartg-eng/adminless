@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Learner } from '@/lib/types';
 import { ProfileSummaryTab } from '@/components/learner-profile/ProfileSummaryTab';
 import { ProfileAttendanceTab } from '@/components/learner-profile/ProfileAttendanceTab';
@@ -8,15 +9,29 @@ import { useSettings } from '@/context/SettingsContext';
 import { useClasses } from '@/context/ClassesContext';
 import { useLearnerHistory } from '@/hooks/useLearnerHistory';
 import { getGradeSymbol } from '@/utils/grading';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface LearnerProfileDialogProps {
   learner: Learner | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   classSubject: string;
+  onNext?: () => void;
+  onPrev?: () => void;
+  hasNext?: boolean;
+  hasPrev?: boolean;
 }
 
-export const LearnerProfileDialog = ({ learner, open, onOpenChange, classSubject }: LearnerProfileDialogProps) => {
+export const LearnerProfileDialog = ({ 
+  learner, 
+  open, 
+  onOpenChange, 
+  classSubject,
+  onNext,
+  onPrev,
+  hasNext,
+  hasPrev
+}: LearnerProfileDialogProps) => {
   const { gradingScheme } = useSettings();
   const { classes } = useClasses();
   
@@ -30,8 +45,30 @@ export const LearnerProfileDialog = ({ learner, open, onOpenChange, classSubject
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">{learner.name}</DialogTitle>
+        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pr-8">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-8 w-8" 
+              onClick={onPrev} 
+              disabled={!hasPrev}
+              title="Previous Learner"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <DialogTitle className="text-2xl">{learner.name}</DialogTitle>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-8 w-8" 
+              onClick={onNext} 
+              disabled={!hasNext}
+              title="Next Learner"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogHeader>
         
         <Tabs defaultValue="summary" className="flex-1 flex flex-col overflow-hidden">
