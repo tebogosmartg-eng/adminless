@@ -17,6 +17,7 @@ import Papa from "papaparse";
 import { showSuccess, showError } from "@/utils/toast";
 import { ClassInfo } from "@/lib/types";
 import { useNavigate } from "react-router-dom";
+import { useSettings } from "@/context/SettingsContext";
 
 interface CreateClassDialogProps {
   onClassCreate: (classInfo: ClassInfo) => void;
@@ -30,6 +31,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
   const [learners, setLearners] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const { savedSubjects, savedGrades } = useSettings();
 
   const handleSubmit = () => {
     if (grade && subject && className && learners) {
@@ -62,17 +64,12 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
     if (file) {
       Papa.parse(file, {
         complete: (results) => {
-          // Attempt to find names in the CSV
-          // 1. If header "Name" or "Learner Name" exists
-          // 2. Or just take first column
-          
           let names: string[] = [];
           
           if (results.meta.fields && (results.meta.fields.includes("Name") || results.meta.fields.includes("Learner Name"))) {
              const field = results.meta.fields.includes("Name") ? "Name" : "Learner Name";
              names = (results.data as any[]).map(row => row[field]).filter(n => n);
           } else {
-             // Take first column of first 100 rows
              names = (results.data as any[])
                 .map(row => Array.isArray(row) ? row[0] : Object.values(row)[0])
                 .filter(n => n && typeof n === 'string' && n.trim().length > 0) as string[];
@@ -88,7 +85,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
           
           if (fileInputRef.current) fileInputRef.current.value = "";
         },
-        header: true, // Try with header first
+        header: true,
         skipEmptyLines: true
       });
     }
@@ -96,7 +93,6 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
 
   const handleScanNavigate = () => {
     setIsOpen(false);
-    // Pass current state to pre-fill the scan page creation tab
     navigate("/scan", { 
       state: { 
         createMode: true,
@@ -126,13 +122,35 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
             <Label htmlFor="grade" className="text-right">
               Grade
             </Label>
-            <Input id="grade" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="e.g., Grade 10" className="col-span-3" />
+            <div className="col-span-3">
+              <Input 
+                id="grade" 
+                value={grade} 
+                onChange={(e) => setGrade(e.target.value)} 
+                placeholder="e.g., Grade 10" 
+                list="grades-list"
+              />
+              <datalist id="grades-list">
+                {savedGrades.map(g => <option key={g} value={g} />)}
+              </datalist>
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="subject" className="text-right">
               Subject
             </Label>
-            <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Mathematics" className="col-span-3" />
+            <div className="col-span-3">
+              <Input 
+                id="subject" 
+                value={subject} 
+                onChange={(e) => setSubject(e.target.value)} 
+                placeholder="e.g., Mathematics" 
+                list="subjects-list"
+              />
+              <datalist id="subjects-list">
+                {savedSubjects.map(s => <option key={s} value={s} />)}
+              </datalist>
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="className" className="text-right">

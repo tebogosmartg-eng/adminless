@@ -24,6 +24,12 @@ interface SettingsContextType {
   commentBank: string[];
   addToCommentBank: (comment: string) => void;
   removeFromCommentBank: (comment: string) => void;
+  savedSubjects: string[];
+  addSubject: (subject: string) => void;
+  removeSubject: (subject: string) => void;
+  savedGrades: string[];
+  addGrade: (grade: string) => void;
+  removeGrade: (grade: string) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -39,6 +45,8 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [schoolLogo, setSchoolLogoState] = useState<string | null>(null);
   const [atRiskThreshold, setAtRiskThresholdState] = useState<number>(50);
   const [commentBank, setCommentBankState] = useState<string[]>([]);
+  const [savedSubjects, setSavedSubjectsState] = useState<string[]>([]);
+  const [savedGrades, setSavedGradesState] = useState<string[]>([]);
 
   useEffect(() => {
     if (!session?.user.id) return;
@@ -61,6 +69,8 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
         if (data.school_logo) setSchoolLogoState(data.school_logo);
         if (data.at_risk_threshold) setAtRiskThresholdState(data.at_risk_threshold);
         if (data.comment_bank) setCommentBankState(data.comment_bank as unknown as string[]);
+        if (data.subjects) setSavedSubjectsState(data.subjects as unknown as string[]);
+        if (data.grades) setSavedGradesState(data.grades as unknown as string[]);
       }
     };
 
@@ -135,6 +145,37 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     updateProfile({ comment_bank: newBank });
   };
 
+  const addSubject = (subject: string) => {
+    if (!savedSubjects.includes(subject)) {
+      const newList = [...savedSubjects, subject].sort();
+      setSavedSubjectsState(newList);
+      updateProfile({ subjects: newList });
+    }
+  };
+
+  const removeSubject = (subject: string) => {
+    const newList = savedSubjects.filter(s => s !== subject);
+    setSavedSubjectsState(newList);
+    updateProfile({ subjects: newList });
+  };
+
+  const addGrade = (grade: string) => {
+    if (!savedGrades.includes(grade)) {
+      // Try to sort naturally if possible (Grade 9, Grade 10)
+      const newList = [...savedGrades, grade].sort((a, b) => {
+         return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+      });
+      setSavedGradesState(newList);
+      updateProfile({ grades: newList });
+    }
+  };
+
+  const removeGrade = (grade: string) => {
+    const newList = savedGrades.filter(g => g !== grade);
+    setSavedGradesState(newList);
+    updateProfile({ grades: newList });
+  };
+
   return (
     <SettingsContext.Provider value={{ 
       gradingScheme, 
@@ -154,7 +195,13 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
       setAtRiskThreshold,
       commentBank,
       addToCommentBank,
-      removeFromCommentBank
+      removeFromCommentBank,
+      savedSubjects,
+      addSubject,
+      removeSubject,
+      savedGrades,
+      addGrade,
+      removeGrade
     }}>
       {children}
     </SettingsContext.Provider>

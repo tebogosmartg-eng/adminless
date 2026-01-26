@@ -3,6 +3,7 @@ import { SchoolProfileSettings } from "@/components/settings/SchoolProfileSettin
 import { GradingSystemSettings } from "@/components/settings/GradingSystemSettings";
 import { CommentBankSettings } from "@/components/settings/CommentBankSettings";
 import { DataManagementSettings } from "@/components/settings/DataManagementSettings";
+import { StandardListsSettings } from "@/components/settings/StandardListsSettings";
 
 const Settings = () => {
   return (
@@ -16,6 +17,8 @@ const Settings = () => {
 
       <SchoolProfileSettings />
       
+      <StandardListsSettings />
+
       <div className="grid gap-6 md:grid-cols-2">
         <GradingSystemSettings />
         <CommentBankSettings />

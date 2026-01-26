@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { ClassInfo } from "@/lib/types";
 import { useClasses } from "@/context/ClassesContext";
 import { showError } from "@/utils/toast";
+import { useSettings } from "@/context/SettingsContext";
 
 interface EditClassDialogProps {
   open: boolean;
@@ -22,6 +23,7 @@ interface EditClassDialogProps {
 
 export const EditClassDialog = ({ open, onOpenChange, classInfo }: EditClassDialogProps) => {
   const { updateClassDetails } = useClasses();
+  const { savedSubjects, savedGrades } = useSettings();
   const [grade, setGrade] = useState("");
   const [subject, setSubject] = useState("");
   const [className, setClassName] = useState("");
@@ -54,22 +56,42 @@ export const EditClassDialog = ({ open, onOpenChange, classInfo }: EditClassDial
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="grade" className="text-right">
+            <Label htmlFor="edit-grade" className="text-right">
               Grade
             </Label>
-            <Input id="grade" value={grade} onChange={(e) => setGrade(e.target.value)} className="col-span-3" />
+            <div className="col-span-3">
+              <Input 
+                id="edit-grade" 
+                value={grade} 
+                onChange={(e) => setGrade(e.target.value)} 
+                list="edit-grades-list"
+              />
+              <datalist id="edit-grades-list">
+                {savedGrades.map(g => <option key={g} value={g} />)}
+              </datalist>
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="subject" className="text-right">
+            <Label htmlFor="edit-subject" className="text-right">
               Subject
             </Label>
-            <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} className="col-span-3" />
+            <div className="col-span-3">
+              <Input 
+                id="edit-subject" 
+                value={subject} 
+                onChange={(e) => setSubject(e.target.value)} 
+                list="edit-subjects-list"
+              />
+              <datalist id="edit-subjects-list">
+                {savedSubjects.map(s => <option key={s} value={s} />)}
+              </datalist>
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="className" className="text-right">
+            <Label htmlFor="edit-className" className="text-right">
               Class Name
             </Label>
-            <Input id="className" value={className} onChange={(e) => setClassName(e.target.value)} className="col-span-3" />
+            <Input id="edit-className" value={className} onChange={(e) => setClassName(e.target.value)} className="col-span-3" />
           </div>
         </div>
         <DialogFooter>
