@@ -1,13 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
-
-export interface Todo {
-  id: string;
-  title: string;
-  completed: boolean;
-  created_at: string;
-}
+import { Todo } from '@/lib/types';
 
 export const useTodos = () => {
   const [todos, setTodos] = useState<Todo[]>([]);

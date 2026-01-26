@@ -52,3 +52,16 @@ export interface Activity {
   timestamp: string;
   message: string;
 }
+
+export interface Todo {
+  id: string;
+  title: string;
+  completed: boolean;
+  created_at: string;
+}
+
+export interface AggregatedLearner {
+  name: string;
+  marks: { [classId: string]: number | null };
+  finalMark: number;
+}

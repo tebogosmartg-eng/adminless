@@ -1,13 +1,7 @@
 import { useState, useMemo } from 'react';
-import { ClassInfo } from '@/lib/types';
+import { ClassInfo, AggregatedLearner } from '@/lib/types';
 import { calculateClassStats } from '@/utils/stats';
 import { showSuccess, showError } from '@/utils/toast';
-
-export interface AggregatedLearner {
-  name: string;
-  marks: { [classId: string]: number | null };
-  finalMark: number;
-}
 
 export const useReportsData = (classes: ClassInfo[]) => {
   const [selectedGrade, setSelectedGrade] = useState<string>("all");
