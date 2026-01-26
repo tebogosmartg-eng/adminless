@@ -3,6 +3,7 @@ import { ClassInfo, Learner } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
+import { showError } from '@/utils/toast';
 
 interface ClassesContextType {
   classes: ClassInfo[];
@@ -38,31 +39,39 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
           *,
           learners (*)
         `)
-        .eq('user_id', session.user.id);
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
 
       if (classesError) {
         console.error('Error fetching classes:', classesError);
+        showError('Failed to load classes.');
         setLoading(false);
         return;
       }
 
-      const formattedClasses: ClassInfo[] = classesData.map((c: any) => ({
-        id: c.id,
-        grade: c.grade,
-        subject: c.subject,
-        className: c.class_name,
-        archived: c.archived || false,
-        notes: c.notes || '',
-        learners: c.learners.map((l: any) => ({
-          name: l.name,
-          mark: l.mark,
-          comment: l.comment,
-          id: l.id 
-        }))
-      }));
+      try {
+        const formattedClasses: ClassInfo[] = (classesData || []).map((c: any) => ({
+          id: c.id,
+          grade: c.grade,
+          subject: c.subject,
+          className: c.class_name,
+          archived: c.archived || false,
+          notes: c.notes || '',
+          learners: (c.learners || []).map((l: any) => ({
+            name: l.name,
+            mark: l.mark,
+            comment: l.comment,
+            id: l.id 
+          }))
+        }));
 
-      setClasses(formattedClasses);
-      setLoading(false);
+        setClasses(formattedClasses);
+      } catch (err) {
+        console.error('Error formatting classes data:', err);
+        showError('Error processing class data.');
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchData();
@@ -87,6 +96,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
     if (classError || !classData) {
       console.error('Error creating class:', classError);
+      showError('Failed to create class.');
       return;
     }
 
@@ -106,6 +116,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
       if (learnersError) {
         console.error('Error adding learners:', learnersError);
+        showError('Class created, but failed to add learners.');
       }
       
       const createdClass: ClassInfo = {
@@ -123,7 +134,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         })) : []
       };
       
-      setClasses((prev) => [...prev, createdClass]);
+      setClasses((prev) => [createdClass, ...prev]);
     } else {
         const createdClass: ClassInfo = {
             id: classData.id,
@@ -134,7 +145,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             notes: classData.notes || '',
             learners: []
         };
-        setClasses((prev) => [...prev, createdClass]);
+        setClasses((prev) => [createdClass, ...prev]);
     }
 
     logActivity(`Created class: "${newClass.subject} - ${newClass.className}"`);
@@ -158,7 +169,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     if (learnersWithId.length > 0) {
       const updates = learnersWithId.map(l => ({
         id: l.id,
-        class_id: classId, // required for policy checks usually, good practice
+        class_id: classId,
         name: l.name,
         mark: l.mark,
         comment: l.comment
@@ -168,7 +179,10 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         .from('learners')
         .upsert(updates, { onConflict: 'id' });
         
-      if (error) console.error("Error bulk updating learners:", error);
+      if (error) {
+          console.error("Error bulk updating learners:", error);
+          showError("Failed to save some learner updates.");
+      }
     }
 
     // 2. Bulk Insert for new items
@@ -179,7 +193,11 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             mark: l.mark || '',
             comment: l.comment || ''
         }));
-        await supabase.from('learners').insert(toInsert);
+        const { error } = await supabase.from('learners').insert(toInsert);
+        if (error) {
+            console.error("Error inserting new learners:", error);
+            showError("Failed to save new learners.");
+        }
     }
 
     // 3. Deletes
@@ -189,7 +207,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         .filter(id => id && !currentIds.includes(id));
 
     if (idsToDelete.length > 0) {
-        await supabase.from('learners').delete().in('id', idsToDelete);
+        const { error } = await supabase.from('learners').delete().in('id', idsToDelete);
+        if (error) console.error("Error deleting learners:", error);
     }
 
     // 4. Refetch to get IDs for new items and ensure sync
@@ -197,7 +216,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         .from('learners')
         .select('*')
         .eq('class_id', classId)
-        .order('created_at', { ascending: true }); // Keep robust ordering if needed, or sort by name
+        .order('created_at', { ascending: true });
 
     if (refreshedLearners) {
         setClasses(prev => prev.map(c => c.id === classId ? { ...c, learners: refreshedLearners.map((l:any) => ({
@@ -223,7 +242,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     if (details.subject) dbUpdates.subject = details.subject;
     if (details.className) dbUpdates.class_name = details.className;
 
-    await supabase.from('classes').update(dbUpdates).eq('id', classId);
+    const { error } = await supabase.from('classes').update(dbUpdates).eq('id', classId);
+    if (error) showError("Failed to update class details.");
 
     const classInfo = classes.find(c => c.id === classId);
     if (classInfo) {
@@ -238,14 +258,19 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         )
       );
   
-    await supabase.from('classes').update({ notes }).eq('id', classId);
+    const { error } = await supabase.from('classes').update({ notes }).eq('id', classId);
+    if (error) showError("Failed to save notes.");
   };
 
   const deleteClass = async (classId: string) => {
     const classInfo = classes.find(c => c.id === classId);
     setClasses((prevClasses) => prevClasses.filter((c) => c.id !== classId));
 
-    await supabase.from('classes').delete().eq('id', classId);
+    const { error } = await supabase.from('classes').delete().eq('id', classId);
+    if (error) {
+        showError("Failed to delete class.");
+        // Revert state if needed, but for simplicity we rely on refresh or just show error
+    }
 
     if (classInfo) {
       logActivity(`Deleted class: "${classInfo.subject} - ${classInfo.className}"`);
@@ -259,7 +284,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       )
     );
 
-    await supabase.from('classes').update({ archived }).eq('id', classId);
+    const { error } = await supabase.from('classes').update({ archived }).eq('id', classId);
+    if (error) showError("Failed to update archive status.");
 
     const classInfo = classes.find(c => c.id === classId);
     if (classInfo) {
