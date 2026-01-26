@@ -5,8 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, PlusCircle, FileText, Eye } from 'lucide-react';
-import { ClassInfo, ScannedDetails, ScannedLearner } from '@/lib/types';
+import { Save, PlusCircle, FileText, Eye, Target } from 'lucide-react';
+import { ClassInfo, ScannedDetails, ScannedLearner, Assessment } from '@/lib/types';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
 interface ScanReviewSectionProps {
@@ -24,6 +24,9 @@ interface ScanReviewSectionProps {
   onSaveToExisting: () => void;
   onCreateNew: () => void;
   imagePreviews?: string[];
+  availableAssessments?: Assessment[];
+  selectedAssessmentId?: string;
+  setSelectedAssessmentId?: (id: string) => void;
 }
 
 export const ScanReviewSection = ({
@@ -40,7 +43,10 @@ export const ScanReviewSection = ({
   onLearnerChange,
   onSaveToExisting,
   onCreateNew,
-  imagePreviews = []
+  imagePreviews = [],
+  availableAssessments = [],
+  selectedAssessmentId,
+  setSelectedAssessmentId
 }: ScanReviewSectionProps) => {
   return (
     <Card className="h-full flex flex-col">
@@ -114,21 +120,40 @@ export const ScanReviewSection = ({
               </TabsList>
               
               <TabsContent value="update" className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label>Select Class to Update</Label>
-                  <Select onValueChange={setSelectedClassId} value={selectedClassId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a class..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classes.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.subject} - {c.className}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    We will match scanned names with names in the selected class.
-                  </p>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Select Class</Label>
+                        <Select onValueChange={setSelectedClassId} value={selectedClassId}>
+                            <SelectTrigger>
+                            <SelectValue placeholder="Select a class..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {classes.map(c => (
+                                <SelectItem key={c.id} value={c.id}>{c.subject} - {c.className}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    
+                    {setSelectedAssessmentId && (
+                        <div className="space-y-2">
+                            <Label>Target Assessment</Label>
+                            <Select onValueChange={setSelectedAssessmentId} value={selectedAssessmentId} disabled={!selectedClassId}>
+                                <SelectTrigger>
+                                <SelectValue placeholder="New Assessment" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="new" className="text-primary font-medium">
+                                        <PlusCircle className="inline h-3 w-3 mr-2" />
+                                        Create New: "{scannedDetails.testNumber}"
+                                    </SelectItem>
+                                    {availableAssessments.map(a => (
+                                        <SelectItem key={a.id} value={a.id}>{a.title} (Max: {a.max_mark})</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                 </div>
               </TabsContent>
               
@@ -141,7 +166,7 @@ export const ScanReviewSection = ({
                     onChange={(e) => setNewClassName(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    All scanned learners will be added to this new class.
+                    Creates a new class and saves these marks as the initial values.
                   </p>
                 </div>
               </TabsContent>
@@ -184,7 +209,7 @@ export const ScanReviewSection = ({
 
             {activeTab === 'update' ? (
               <Button onClick={onSaveToExisting} disabled={!selectedClassId} className="w-full">
-                <Save className="mr-2 h-4 w-4" /> Save to Existing Class
+                <Save className="mr-2 h-4 w-4" /> Save Marks
               </Button>
             ) : (
               <Button onClick={onCreateNew} disabled={!newClassName} className="w-full">

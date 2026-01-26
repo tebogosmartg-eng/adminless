@@ -18,7 +18,10 @@ const Scan = () => {
     updateScannedLearner,
     handleSaveToExisting,
     handleCreateNewClass,
-    classes
+    classes,
+    availableAssessments,
+    selectedAssessmentId,
+    setSelectedAssessmentId
   } = useScanLogic();
 
   return (
@@ -51,6 +54,9 @@ const Scan = () => {
             onSaveToExisting={handleSaveToExisting}
             onCreateNew={handleCreateNewClass}
             imagePreviews={imagePreviews}
+            availableAssessments={availableAssessments}
+            selectedAssessmentId={selectedAssessmentId}
+            setSelectedAssessmentId={setSelectedAssessmentId}
             />
         </div>
       </div>
