@@ -1,4 +1,4 @@
-import { ClassInfo } from '@/lib/types';
+import { ClassInfo, Learner } from '@/lib/types';
 import { useMarkSheetLogic } from '@/hooks/useMarkSheetLogic';
 import { MarkSheetToolbar } from './MarkSheetToolbar';
 import { MarkSheetTable } from './MarkSheetTable';
@@ -6,9 +6,10 @@ import { MarkSheetDialogs } from './MarkSheetDialogs';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
+  onViewLearnerProfile?: (learner: Learner) => void;
 }
 
-export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
+export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) => {
   const { state, actions } = useMarkSheetLogic(classInfo);
 
   if (!state.currentViewTerm) {
@@ -53,6 +54,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
           currentViewTermName={state.currentViewTerm.name}
           isLocked={state.isLocked}
           isUsingVisibleTotal={state.isUsingVisibleTotal}
+          atRiskThreshold={state.atRiskThreshold}
           setIsAddOpen={actions.setIsAddOpen}
           openAnalytics={actions.openAnalytics}
           deleteAssessment={actions.deleteAssessment}
@@ -60,6 +62,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
           handleMarkChange={actions.handleMarkChange}
           calculateLearnerTotal={actions.calculateLearnerTotal}
           getAssessmentStats={actions.getAssessmentStats}
+          onViewLearnerProfile={onViewLearnerProfile}
        />
 
        <MarkSheetDialogs 

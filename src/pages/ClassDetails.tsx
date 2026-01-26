@@ -5,7 +5,7 @@ import { useSettings } from "@/context/SettingsContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassHeader } from "@/components/ClassHeader";
 import { MarksTab } from "@/components/MarksTab";
-import { MarkSheet } from "@/components/assessments/MarkSheet"; // New Component
+import { MarkSheet } from "@/components/assessments/MarkSheet"; 
 import { AttendanceView } from "@/components/AttendanceView";
 import { ClassDialogsManager } from "@/components/ClassDialogsManager";
 import { useLearnerState } from "@/hooks/useLearnerState";
@@ -107,7 +107,10 @@ const ClassDetails = () => {
         </TabsList>
         
         <TabsContent value="assessments">
-             <MarkSheet classInfo={classInfo} />
+             <MarkSheet 
+               classInfo={classInfo} 
+               onViewLearnerProfile={(l) => dialogs.setSelectedProfileLearner(l)}
+             />
         </TabsContent>
 
         <TabsContent value="legacy">

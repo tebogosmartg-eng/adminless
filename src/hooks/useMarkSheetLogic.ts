@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
+import { useSettings } from '@/context/SettingsContext';
 import { Learner, ClassInfo, Assessment } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -15,6 +16,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     refreshAssessments,
     updateMarks
   } = useAcademic();
+
+  const { atRiskThreshold } = useSettings();
 
   const [viewTermId, setViewTermId] = useState<string | null>(null);
   
@@ -134,6 +137,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const calculateLearnerTotal = (learnerId: string) => {
       let weightedSum = 0;
+      let totalMaxWeight = 0;
+      
       const targetAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
       
       targetAssessments.forEach(ass => {
@@ -142,8 +147,11 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
               const score = parseFloat(val);
               const weighted = (score / ass.max_mark) * ass.weight;
               weightedSum += weighted;
+              totalMaxWeight += ass.weight;
           }
       });
+      
+      // Return raw weighted sum. The UI knows if it's out of 100 or partial.
       return weightedSum.toFixed(1);
   };
 
@@ -240,7 +248,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       marks,
       terms,
       activeTerm,
-      activeYear
+      activeYear,
+      atRiskThreshold // Added this
     },
     actions: {
       setViewTermId,
@@ -252,7 +261,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       setSearchQuery,
       setSelectedAssessment,
       setRecalculateTotal,
-      getMarkValue, // Added here
+      getMarkValue,
       handleMarkChange,
       handleSaveMarks,
       handleBulkImport,

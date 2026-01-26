@@ -3,16 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown } from 'lucide-react';
+import { BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, User, AlertCircle } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MarkSheetTableProps {
-  assessments: Assessment[]; // All assessments to check for empty state
+  assessments: Assessment[]; 
   visibleAssessments: Assessment[];
   filteredLearners: Learner[];
   currentViewTermName: string | undefined;
   isLocked: boolean | undefined;
   isUsingVisibleTotal: boolean;
+  atRiskThreshold: number;
   setIsAddOpen: (open: boolean) => void;
   openAnalytics: (ass: Assessment) => void;
   deleteAssessment: (id: string) => void;
@@ -20,13 +22,14 @@ interface MarkSheetTableProps {
   handleMarkChange: (assId: string, lId: string, val: string) => void;
   calculateLearnerTotal: (lId: string) => string;
   getAssessmentStats: (assId: string) => { avg: string; max: string | number; min: string | number };
+  onViewLearnerProfile?: (learner: Learner) => void;
 }
 
 export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
-  isLocked, isUsingVisibleTotal, setIsAddOpen,
+  isLocked, isUsingVisibleTotal, atRiskThreshold, setIsAddOpen,
   openAnalytics, deleteAssessment, getMarkValue, handleMarkChange,
-  calculateLearnerTotal, getAssessmentStats
+  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile
 }: MarkSheetTableProps) => {
 
   if (assessments.length === 0) {
@@ -93,29 +96,51 @@ export const MarkSheetTable = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredLearners.map(learner => (
-            <TableRow key={learner.id || learner.name}>
-              <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-sm">
-                {learner.name}
-              </TableCell>
-              {visibleAssessments.map(ass => (
-                <TableCell key={ass.id} className="p-1">
-                  <div className="flex justify-center">
-                    <Input
-                      className={`h-8 w-16 text-center ${isLocked ? "bg-muted cursor-not-allowed" : ""}`}
-                      value={getMarkValue(ass.id, learner.id || '')}
-                      onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
-                      disabled={!learner.id || !!isLocked}
-                      placeholder="-"
-                    />
+          {filteredLearners.map(learner => {
+            const total = learner.id ? parseFloat(calculateLearnerTotal(learner.id)) : 0;
+            const isAtRisk = total < atRiskThreshold && total > 0; // Only flag if they have marks
+
+            return (
+              <TableRow key={learner.id || learner.name}>
+                <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <button 
+                      className="hover:underline flex items-center gap-2 text-left"
+                      onClick={() => onViewLearnerProfile && onViewLearnerProfile(learner)}
+                    >
+                      {learner.name}
+                    </button>
+                    {isAtRisk && (
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>At Risk: Term Total below {atRiskThreshold}%</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                 </TableCell>
-              ))}
-              <TableCell className="text-center font-bold bg-muted/30">
-                {learner.id ? calculateLearnerTotal(learner.id) : '-'}
-              </TableCell>
-            </TableRow>
-          ))}
+                {visibleAssessments.map(ass => (
+                  <TableCell key={ass.id} className="p-1">
+                    <div className="flex justify-center">
+                      <Input
+                        className={`h-8 w-16 text-center ${isLocked ? "bg-muted cursor-not-allowed" : ""}`}
+                        value={getMarkValue(ass.id, learner.id || '')}
+                        onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
+                        disabled={!learner.id || !!isLocked}
+                        placeholder="-"
+                      />
+                    </div>
+                  </TableCell>
+                ))}
+                <TableCell className={`text-center font-bold bg-muted/30 ${isAtRisk ? 'text-red-600' : ''}`}>
+                  {learner.id ? total.toFixed(1) : '-'}
+                </TableCell>
+              </TableRow>
+            );
+          })}
 
           <TableRow className="bg-muted/50 border-t-2 border-muted">
             <TableCell className="font-bold sticky left-0 bg-muted/95 z-10 border-r text-muted-foreground">
