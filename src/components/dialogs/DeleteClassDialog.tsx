@@ -13,12 +13,12 @@ import { useClasses } from "@/context/ClassesContext";
 import { showSuccess } from "@/utils/toast";
 
 interface DeleteClassDialogProps {
-  isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   classInfo: ClassInfo | null;
 }
 
-export const DeleteClassDialog = ({ isOpen, onOpenChange, classInfo }: DeleteClassDialogProps) => {
+export const DeleteClassDialog = ({ open, onOpenChange, classInfo }: DeleteClassDialogProps) => {
   const { deleteClass } = useClasses();
 
   const handleDelete = () => {
@@ -30,7 +30,7 @@ export const DeleteClassDialog = ({ isOpen, onOpenChange, classInfo }: DeleteCla
   };
 
   return (
-    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>

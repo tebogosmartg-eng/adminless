@@ -12,14 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClassInfo } from "@/lib/types";
 import { useClasses } from "@/context/ClassesContext";
+import { showError } from "@/utils/toast";
 
 interface EditClassDialogProps {
-  isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   classInfo: ClassInfo | null;
 }
 
-export const EditClassDialog = ({ isOpen, onOpenChange, classInfo }: EditClassDialogProps) => {
+export const EditClassDialog = ({ open, onOpenChange, classInfo }: EditClassDialogProps) => {
   const { updateClassDetails } = useClasses();
   const [grade, setGrade] = useState("");
   const [subject, setSubject] = useState("");
@@ -38,12 +39,12 @@ export const EditClassDialog = ({ isOpen, onOpenChange, classInfo }: EditClassDi
       updateClassDetails(classInfo.id, { grade, subject, className });
       onOpenChange(false);
     } else {
-      alert("Please fill in all fields.");
+      showError("Please fill in all fields.");
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit Class</DialogTitle>

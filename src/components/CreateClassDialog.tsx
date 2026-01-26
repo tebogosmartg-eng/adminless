@@ -51,8 +51,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
       setLearners("");
       setIsOpen(false);
     } else {
-      // Basic validation feedback
-      alert("Please fill in all fields.");
+      showError("Please fill in all fields (Grade, Subject, Class Name, and Learners).");
     }
   };
 

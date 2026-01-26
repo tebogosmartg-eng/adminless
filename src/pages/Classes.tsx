@@ -133,8 +133,8 @@ const Classes = () => {
         )
       )}
 
-      <EditClassDialog isOpen={isEditOpen} onOpenChange={setIsEditOpen} classInfo={selectedClass} />
-      <DeleteClassDialog isOpen={isDeleteOpen} onOpenChange={setIsDeleteOpen} classInfo={selectedClass} />
+      <EditClassDialog open={isEditOpen} onOpenChange={setIsEditOpen} classInfo={selectedClass} />
+      <DeleteClassDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} classInfo={selectedClass} />
     </>
   );
 };
