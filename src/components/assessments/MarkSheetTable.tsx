@@ -2,10 +2,28 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, User, AlertCircle } from 'lucide-react';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuTrigger, 
+  DropdownMenuItem,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
+import { 
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  ContextMenuSeparator
+} from "@/components/ui/context-menu";
+import { 
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare 
+} from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useState } from "react";
 
 interface MarkSheetTableProps {
   assessments: Assessment[]; 
@@ -19,7 +37,9 @@ interface MarkSheetTableProps {
   openAnalytics: (ass: Assessment) => void;
   deleteAssessment: (id: string) => void;
   getMarkValue: (assId: string, lId: string) => string;
+  getMarkComment: (assId: string, lId: string) => string;
   handleMarkChange: (assId: string, lId: string, val: string) => void;
+  handleCommentChange: (assId: string, lId: string, val: string) => void;
   calculateLearnerTotal: (lId: string) => string;
   getAssessmentStats: (assId: string) => { avg: string; max: string | number; min: string | number };
   onViewLearnerProfile?: (learner: Learner) => void;
@@ -28,9 +48,28 @@ interface MarkSheetTableProps {
 export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
   isLocked, isUsingVisibleTotal, atRiskThreshold, setIsAddOpen,
-  openAnalytics, deleteAssessment, getMarkValue, handleMarkChange,
+  openAnalytics, deleteAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange,
   calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile
 }: MarkSheetTableProps) => {
+
+  const [noteDialog, setNoteDialog] = useState<{ open: boolean; assId: string; learnerId: string; learnerName: string; comment: string }>({ 
+    open: false, assId: '', learnerId: '', learnerName: '', comment: '' 
+  });
+
+  const openNoteDialog = (assId: string, learnerId: string, learnerName: string) => {
+    setNoteDialog({ 
+      open: true, 
+      assId, 
+      learnerId, 
+      learnerName, 
+      comment: getMarkComment(assId, learnerId) 
+    });
+  };
+
+  const saveNote = () => {
+    handleCommentChange(noteDialog.assId, noteDialog.learnerId, noteDialog.comment);
+    setNoteDialog(prev => ({ ...prev, open: false }));
+  };
 
   if (assessments.length === 0) {
     return (
@@ -46,130 +85,186 @@ export const MarkSheetTable = ({
   }
 
   return (
-    <div className="border rounded-md overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[200px] sticky left-0 bg-background z-10 shadow-sm">
-              <div className="flex items-center gap-2">
-                Learner
-                <Badge variant="outline" className="ml-2 font-normal text-muted-foreground">
-                  {filteredLearners.length}
-                </Badge>
-              </div>
-            </TableHead>
-            {visibleAssessments.map(ass => (
-              <TableHead key={ass.id} className="text-center min-w-[140px]">
-                <div className="flex flex-col items-center group relative">
-                  <div className="flex items-center gap-1 cursor-pointer hover:bg-muted/50 p-1 rounded" onClick={() => openAnalytics(ass)}>
-                    <span className="font-semibold truncate max-w-[100px]" title={ass.title}>{ass.title}</span>
-                    <BarChart2 className="h-3 w-3 text-muted-foreground opacity-50 group-hover:opacity-100" />
-                  </div>
-                  <span className="text-xs text-muted-foreground font-normal">
-                    {ass.max_mark} marks • {ass.weight}%
-                  </span>
-                  {!isLocked && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 mt-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity absolute -right-2 top-0"
-                        >
-                          <MoreHorizontal className="h-3 w-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => { deleteAssessment(ass.id); }}>
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+    <>
+      <div className="border rounded-md overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[200px] sticky left-0 bg-background z-10 shadow-sm">
+                <div className="flex items-center gap-2">
+                  Learner
+                  <Badge variant="outline" className="ml-2 font-normal text-muted-foreground">
+                    {filteredLearners.length}
+                  </Badge>
                 </div>
               </TableHead>
-            ))}
-            <TableHead className="text-center font-bold bg-muted/30 min-w-[100px]">
-              {isUsingVisibleTotal && <span className="text-[10px] font-normal block text-muted-foreground">(Visible)</span>}
-              Total <br /> %
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredLearners.map(learner => {
-            const total = learner.id ? parseFloat(calculateLearnerTotal(learner.id)) : 0;
-            const isAtRisk = total < atRiskThreshold && total > 0; // Only flag if they have marks
-
-            return (
-              <TableRow key={learner.id || learner.name}>
-                <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <button 
-                      className="hover:underline flex items-center gap-2 text-left"
-                      onClick={() => onViewLearnerProfile && onViewLearnerProfile(learner)}
-                    >
-                      {learner.name}
-                    </button>
-                    {isAtRisk && (
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <AlertCircle className="h-4 w-4 text-red-500" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>At Risk: Term Total below {atRiskThreshold}%</p>
-                        </TooltipContent>
-                      </Tooltip>
+              {visibleAssessments.map(ass => (
+                <TableHead key={ass.id} className="text-center min-w-[140px]">
+                  <div className="flex flex-col items-center group relative">
+                    <div className="flex items-center gap-1 cursor-pointer hover:bg-muted/50 p-1 rounded" onClick={() => openAnalytics(ass)}>
+                      <span className="font-semibold truncate max-w-[100px]" title={ass.title}>{ass.title}</span>
+                      <BarChart2 className="h-3 w-3 text-muted-foreground opacity-50 group-hover:opacity-100" />
+                    </div>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      {ass.max_mark} marks • {ass.weight}%
+                    </span>
+                    {!isLocked && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 mt-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity absolute -right-2 top-0"
+                          >
+                            <MoreHorizontal className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => { deleteAssessment(ass.id); }}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
-                </TableCell>
-                {visibleAssessments.map(ass => (
-                  <TableCell key={ass.id} className="p-1">
-                    <div className="flex justify-center">
-                      <Input
-                        className={`h-8 w-16 text-center ${isLocked ? "bg-muted cursor-not-allowed" : ""}`}
-                        value={getMarkValue(ass.id, learner.id || '')}
-                        onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
-                        disabled={!learner.id || !!isLocked}
-                        placeholder="-"
-                      />
+                </TableHead>
+              ))}
+              <TableHead className="text-center font-bold bg-muted/30 min-w-[100px]">
+                {isUsingVisibleTotal && <span className="text-[10px] font-normal block text-muted-foreground">(Visible)</span>}
+                Total <br /> %
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredLearners.map(learner => {
+              const total = learner.id ? parseFloat(calculateLearnerTotal(learner.id)) : 0;
+              const isAtRisk = total < atRiskThreshold && total > 0;
+
+              return (
+                <TableRow key={learner.id || learner.name}>
+                  <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <button 
+                        className="hover:underline flex items-center gap-2 text-left"
+                        onClick={() => onViewLearnerProfile && onViewLearnerProfile(learner)}
+                      >
+                        {learner.name}
+                      </button>
+                      {isAtRisk && (
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <AlertCircle className="h-4 w-4 text-red-500" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>At Risk: Term Total below {atRiskThreshold}%</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                   </TableCell>
-                ))}
-                <TableCell className={`text-center font-bold bg-muted/30 ${isAtRisk ? 'text-red-600' : ''}`}>
-                  {learner.id ? total.toFixed(1) : '-'}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-
-          <TableRow className="bg-muted/50 border-t-2 border-muted">
-            <TableCell className="font-bold sticky left-0 bg-muted/95 z-10 border-r text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" /> Class Stats
-              </div>
-            </TableCell>
-            {visibleAssessments.map(ass => {
-              const stats = getAssessmentStats(ass.id);
-              return (
-                <TableCell key={ass.id} className="text-center p-2">
-                  <div className="flex flex-col text-xs space-y-1 cursor-pointer hover:bg-muted/80 rounded" onClick={() => openAnalytics(ass)}>
-                    <div className="font-semibold text-foreground">Avg: {stats.avg}</div>
-                    <div className="flex justify-center gap-2 text-muted-foreground text-[10px]">
-                      <span className="flex items-center text-green-600" title="Highest">
-                        <ArrowUp className="h-2 w-2 mr-0.5" />{stats.max}
-                      </span>
-                      <span className="flex items-center text-red-600" title="Lowest">
-                        <ArrowDown className="h-2 w-2 mr-0.5" />{stats.min}
-                      </span>
-                    </div>
-                  </div>
-                </TableCell>
+                  {visibleAssessments.map(ass => {
+                    const comment = learner.id ? getMarkComment(ass.id, learner.id) : "";
+                    
+                    return (
+                      <TableCell key={ass.id} className="p-1">
+                        <ContextMenu>
+                          <ContextMenuTrigger>
+                            <div className="flex justify-center relative group">
+                              <Input
+                                className={`h-8 w-16 text-center ${isLocked ? "bg-muted cursor-not-allowed" : ""} ${comment ? "border-blue-400 border-dashed" : ""}`}
+                                value={getMarkValue(ass.id, learner.id || '')}
+                                onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
+                                disabled={!learner.id || !!isLocked}
+                                placeholder="-"
+                              />
+                              {comment && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="absolute top-0 right-1 w-2 h-2 bg-blue-500 rounded-full" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{comment}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent>
+                            <ContextMenuItem 
+                              onClick={() => learner.id && openNoteDialog(ass.id, learner.id, learner.name)}
+                              disabled={!learner.id || !!isLocked}
+                            >
+                              <MessageSquare className="mr-2 h-4 w-4" /> 
+                              {comment ? "Edit Note" : "Add Note"}
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem 
+                              onClick={() => learner.id && handleMarkChange(ass.id, learner.id, "")}
+                              disabled={!learner.id || !!isLocked}
+                            >
+                              Clear Mark
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell className={`text-center font-bold bg-muted/30 ${isAtRisk ? 'text-red-600' : ''}`}>
+                    {learner.id ? total.toFixed(1) : '-'}
+                  </TableCell>
+                </TableRow>
               );
             })}
-            <TableCell className="bg-muted/30"></TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </div>
+
+            <TableRow className="bg-muted/50 border-t-2 border-muted">
+              <TableCell className="font-bold sticky left-0 bg-muted/95 z-10 border-r text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" /> Class Stats
+                </div>
+              </TableCell>
+              {visibleAssessments.map(ass => {
+                const stats = getAssessmentStats(ass.id);
+                return (
+                  <TableCell key={ass.id} className="text-center p-2">
+                    <div className="flex flex-col text-xs space-y-1 cursor-pointer hover:bg-muted/80 rounded" onClick={() => openAnalytics(ass)}>
+                      <div className="font-semibold text-foreground">Avg: {stats.avg}</div>
+                      <div className="flex justify-center gap-2 text-muted-foreground text-[10px]">
+                        <span className="flex items-center text-green-600" title="Highest">
+                          <ArrowUp className="h-2 w-2 mr-0.5" />{stats.max}
+                        </span>
+                        <span className="flex items-center text-red-600" title="Lowest">
+                          <ArrowDown className="h-2 w-2 mr-0.5" />{stats.min}
+                        </span>
+                      </div>
+                    </div>
+                  </TableCell>
+                );
+              })}
+              <TableCell className="bg-muted/30"></TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={noteDialog.open} onOpenChange={(open) => setNoteDialog(prev => ({ ...prev, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Note for {noteDialog.learnerName}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Note / Comment</Label>
+            <Input 
+              value={noteDialog.comment} 
+              onChange={(e) => setNoteDialog(prev => ({ ...prev, comment: e.target.value }))}
+              placeholder="e.g. Absent, Late, Medical Cert..."
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={saveNote}>Save Note</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

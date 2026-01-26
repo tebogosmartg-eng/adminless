@@ -29,7 +29,11 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   
   // Data States
   const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "" });
+  
+  // Local state for edits
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
+  const [editedComments, setEditedComments] = useState<{ [key: string]: string }>({});
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
   
@@ -39,22 +43,20 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   // --- Effects ---
 
-  // Set default view to active term on mount
   useEffect(() => {
     if (activeTerm && !viewTermId) {
         setViewTermId(activeTerm.id);
     }
   }, [activeTerm]);
 
-  // Fetch data when viewTermId changes
   useEffect(() => {
     if (viewTermId) {
         refreshAssessments(classInfo.id, viewTermId);
         setEditedMarks({}); 
+        setEditedComments({});
     }
   }, [viewTermId, classInfo.id]);
 
-  // Initialize visibility when assessments load
   useEffect(() => {
     setVisibleAssessmentIds(assessments.map(a => a.id));
   }, [assessments]);
@@ -91,21 +93,56 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
      return m?.score?.toString() || "";
   };
 
+  const getMarkComment = (assessmentId: string, learnerId: string) => {
+     const key = `${assessmentId}-${learnerId}`;
+     if (key in editedComments) return editedComments[key];
+     const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+     return m?.comment || "";
+  };
+
   const handleMarkChange = (assessmentId: string, learnerId: string, value: string) => {
      if (isLocked) return;
      setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
   };
 
+  const handleCommentChange = (assessmentId: string, learnerId: string, value: string) => {
+     if (isLocked) return;
+     setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
+  };
+
   const handleSaveMarks = async () => {
-      const updates = Object.entries(editedMarks).map(([key, value]) => {
+      // Consolidate edits from both marks and comments
+      const keys = new Set([...Object.keys(editedMarks), ...Object.keys(editedComments)]);
+      
+      const updates = Array.from(keys).map(key => {
           const [assessmentId, learnerId] = key.split('-');
-          const score = value === "" ? null : parseFloat(value);
-          return { assessment_id: assessmentId, learner_id: learnerId, score };
+          
+          // Get values: prioritize edited, fallback to existing DB, or default
+          let score: number | null = null;
+          if (key in editedMarks) {
+              const val = editedMarks[key];
+              score = val === "" ? null : parseFloat(val);
+          } else {
+              // Not edited locally, fetch current
+              const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+              score = m?.score ?? null;
+          }
+
+          let comment: string = "";
+          if (key in editedComments) {
+              comment = editedComments[key];
+          } else {
+              const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+              comment = m?.comment || "";
+          }
+
+          return { assessment_id: assessmentId, learner_id: learnerId, score, comment };
       });
 
       if (updates.length > 0) {
           await updateMarks(updates);
           setEditedMarks({});
+          setEditedComments({});
           if (viewTermId) refreshAssessments(classInfo.id, viewTermId);
       }
   };
@@ -150,8 +187,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
               totalMaxWeight += ass.weight;
           }
       });
-      
-      // Return raw weighted sum. The UI knows if it's out of 100 or partial.
       return weightedSum.toFixed(1);
   };
 
@@ -233,6 +268,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       analyticsOpen,
       newAss,
       editedMarks,
+      editedComments,
       searchQuery,
       selectedAssessment,
       visibleAssessmentIds,
@@ -249,7 +285,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       terms,
       activeTerm,
       activeYear,
-      atRiskThreshold // Added this
+      atRiskThreshold
     },
     actions: {
       setViewTermId,
@@ -262,7 +298,9 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       setSelectedAssessment,
       setRecalculateTotal,
       getMarkValue,
+      getMarkComment,
       handleMarkChange,
+      handleCommentChange,
       handleSaveMarks,
       handleBulkImport,
       handleAddAssessment,

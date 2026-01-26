@@ -18,7 +18,7 @@ interface AcademicContextType {
   updateTerm: (term: Term) => Promise<void>;
   createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<void>;
   deleteAssessment: (id: string) => Promise<void>;
-  updateMarks: (updates: { assessment_id: string; learner_id: string; score: number | null }[]) => Promise<void>;
+  updateMarks: (updates: { assessment_id: string; learner_id: string; score: number | null; comment?: string }[]) => Promise<void>;
   refreshAssessments: (classId: string, termId?: string) => Promise<void>;
   toggleTermStatus: (termId: string, closed: boolean) => Promise<void>;
   closeYear: (yearId: string) => Promise<void>;
@@ -59,7 +59,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       console.error(error);
     } else {
       setYears(data || []);
-      // Auto-select most recent open year, or just the first one if all closed
       const openYear = data?.find(y => !y.closed) || data?.[0];
       if (openYear) setActiveYear(openYear);
     }
@@ -77,7 +76,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       console.error(error);
     } else {
       setTerms(data || []);
-      // Auto-select current term based on date
       const now = new Date().toISOString();
       const current = data?.find(t => t.start_date && t.end_date && now >= t.start_date && now <= t.end_date) || data?.[0];
       if (current) setActiveTerm(current);
@@ -148,7 +146,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   };
 
   const closeYear = async (yearId: string) => {
-    // 1. Verify all terms are closed
     const { data: openTerms, error: fetchError } = await supabase
         .from('terms')
         .select('id')
@@ -165,7 +162,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         return;
     }
 
-    // 2. Close Year
     const { error } = await supabase
         .from('academic_years')
         .update({ closed: true })
@@ -216,7 +212,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (error) showError("Failed to create assessment.");
     else {
         showSuccess("Assessment created.");
-        // Refresh using the term of the newly created assessment
         refreshAssessments(assessment.class_id, assessment.term_id);
     }
   };
@@ -231,13 +226,14 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       }
   };
 
-  const updateMarks = async (updates: { assessment_id: string; learner_id: string; score: number | null }[]) => {
+  const updateMarks = async (updates: { assessment_id: string; learner_id: string; score: number | null; comment?: string }[]) => {
     if (!session?.user.id) return;
     
     const toUpsert = updates.map(u => ({
         assessment_id: u.assessment_id,
         learner_id: u.learner_id,
         score: u.score,
+        comment: u.comment,
         user_id: session.user.id
     }));
 
@@ -253,13 +249,19 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         toUpsert.forEach(u => {
             const idx = newMarks.findIndex(m => m.assessment_id === u.assessment_id && m.learner_id === u.learner_id);
             if (idx >= 0) {
-                newMarks[idx] = { ...newMarks[idx], score: u.score };
+                // Merge updates
+                newMarks[idx] = { 
+                    ...newMarks[idx], 
+                    score: u.score,
+                    // Only update comment if provided (allow partial updates in theory, though we usually pass both)
+                    ...(u.comment !== undefined ? { comment: u.comment } : {}) 
+                };
             } else {
                 newMarks.push({ id: 'temp-' + Date.now(), ...u } as AssessmentMark);
             }
         });
         setMarks(newMarks);
-        showSuccess("Marks saved.");
+        showSuccess("Saved successfully.");
     }
   };
 

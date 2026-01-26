@@ -118,4 +118,5 @@ export interface AssessmentMark {
   assessment_id: string;
   learner_id: string;
   score: number | null;
+  comment?: string; // Added comment field
 }

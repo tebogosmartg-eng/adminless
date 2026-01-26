@@ -30,7 +30,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           isLocked={state.isLocked}
           searchQuery={state.searchQuery}
           setSearchQuery={actions.setSearchQuery}
-          editedMarksCount={Object.keys(state.editedMarks).length}
+          editedMarksCount={Object.keys(state.editedMarks).length + Object.keys(state.editedComments).length}
           handleSaveMarks={actions.handleSaveMarks}
           handleExportSheet={actions.handleExportSheet}
           isAddOpen={state.isAddOpen}
@@ -59,7 +59,9 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           openAnalytics={actions.openAnalytics}
           deleteAssessment={actions.deleteAssessment}
           getMarkValue={actions.getMarkValue}
+          getMarkComment={actions.getMarkComment}
           handleMarkChange={actions.handleMarkChange}
+          handleCommentChange={actions.handleCommentChange}
           calculateLearnerTotal={actions.calculateLearnerTotal}
           getAssessmentStats={actions.getAssessmentStats}
           onViewLearnerProfile={onViewLearnerProfile}
