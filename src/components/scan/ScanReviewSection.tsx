@@ -5,8 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, PlusCircle, FileText } from 'lucide-react';
+import { Save, PlusCircle, FileText, Eye } from 'lucide-react';
 import { ClassInfo, ScannedDetails, ScannedLearner } from '@/lib/types';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
 interface ScanReviewSectionProps {
   scannedDetails: ScannedDetails | null;
@@ -22,6 +23,7 @@ interface ScanReviewSectionProps {
   onLearnerChange: (index: number, field: keyof ScannedLearner, value: string) => void;
   onSaveToExisting: () => void;
   onCreateNew: () => void;
+  imagePreviews?: string[];
 }
 
 export const ScanReviewSection = ({
@@ -37,17 +39,38 @@ export const ScanReviewSection = ({
   onDetailsChange,
   onLearnerChange,
   onSaveToExisting,
-  onCreateNew
+  onCreateNew,
+  imagePreviews = []
 }: ScanReviewSectionProps) => {
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
-        <CardTitle>2. Review & Save</CardTitle>
-        <CardDescription>Verify the scanned data and save marks.</CardDescription>
+        <div className="flex items-center justify-between">
+            <div>
+                <CardTitle>2. Review & Save</CardTitle>
+                <CardDescription>Verify the scanned data and save marks.</CardDescription>
+            </div>
+            {imagePreviews.length > 0 && (
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                            <Eye className="mr-2 h-4 w-4" /> View Source
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+                         <div className="flex-1 overflow-auto p-4 flex flex-col gap-4 items-center bg-muted/20 rounded-md">
+                            {imagePreviews.map((src, idx) => (
+                                <img key={idx} src={src} alt={`Source ${idx + 1}`} className="max-w-full rounded shadow-sm" />
+                            ))}
+                         </div>
+                    </DialogContent>
+                </Dialog>
+            )}
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col">
         {scannedDetails && scannedLearners.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 flex flex-col">
             <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/20">
                {/* Editable Details */}
               <div>
@@ -124,37 +147,39 @@ export const ScanReviewSection = ({
               </TabsContent>
             </Tabs>
 
-            <div className="max-h-64 overflow-y-auto border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Learner Name</TableHead>
-                    <TableHead className="text-right">Mark</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {scannedLearners.map((learner, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                         <Input
-                          type="text"
-                          value={learner.name}
-                          onChange={(e) => onLearnerChange(index, 'name', e.target.value)}
-                          className="h-8"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                         <Input
-                          type="text"
-                          value={learner.mark}
-                          onChange={(e) => onLearnerChange(index, 'mark', e.target.value)}
-                          className="w-20 text-right ml-auto h-8"
-                        />
-                      </TableCell>
+            <div className="flex-1 min-h-[200px] border rounded-md relative overflow-hidden">
+               <div className="absolute inset-0 overflow-auto">
+                <Table>
+                    <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+                    <TableRow>
+                        <TableHead>Learner Name</TableHead>
+                        <TableHead className="text-right">Mark</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                    </TableHeader>
+                    <TableBody>
+                    {scannedLearners.map((learner, index) => (
+                        <TableRow key={index}>
+                        <TableCell>
+                            <Input
+                            type="text"
+                            value={learner.name}
+                            onChange={(e) => onLearnerChange(index, 'name', e.target.value)}
+                            className="h-8"
+                            />
+                        </TableCell>
+                        <TableCell className="text-right">
+                            <Input
+                            type="text"
+                            value={learner.mark}
+                            onChange={(e) => onLearnerChange(index, 'mark', e.target.value)}
+                            className="w-20 text-right ml-auto h-8"
+                            />
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+               </div>
             </div>
 
             {activeTab === 'update' ? (
