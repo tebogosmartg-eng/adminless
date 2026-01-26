@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,15 +11,15 @@ import { useLearnerState } from "@/hooks/useLearnerState";
 import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
-import { showSuccess } from "@/utils/toast";
 import { Loader2 } from "lucide-react";
 
 const ClassDetails = () => {
-  const { id } = useParams();
+  // Fix: The route is defined as /classes/:classId in App.tsx, so we must destructure 'classId'
+  const { classId } = useParams();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   
-  const classInfo = classes.find((c) => c.id === id);
+  const classInfo = classes.find((c) => c.id === classId);
   
   const {
     learners,
