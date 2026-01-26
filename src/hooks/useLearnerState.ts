@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Learner, ClassInfo } from '@/types';
+import { Learner, ClassInfo } from '@/lib/types';
 import { showSuccess } from '@/utils/toast';
 import confetti from 'canvas-confetti';
 
@@ -11,7 +11,6 @@ export const useLearnerState = (
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [prevGradedCount, setPrevGradedCount] = useState(0);
 
-  // Initialize learners from classInfo
   useEffect(() => {
     if (classInfo) {
       setLearners(classInfo.learners);
@@ -20,7 +19,6 @@ export const useLearnerState = (
     }
   }, [classInfo]);
 
-  // Track changes and trigger confetti
   useEffect(() => {
     if (classInfo) {
       const original = JSON.stringify(classInfo.learners);
@@ -116,7 +114,6 @@ export const useLearnerState = (
     }
   }, []);
 
-  // Direct update from dialogs (e.g. voice/rapid/import)
   const handleUpdateLearners = useCallback((updatedLearners: Learner[]) => {
     setLearners(updatedLearners);
   }, []);

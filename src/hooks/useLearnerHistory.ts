@@ -1,12 +1,11 @@
 import { useMemo } from 'react';
-import { Learner, ClassInfo } from '@/types';
+import { Learner, ClassInfo } from '@/lib/types';
 
 export const useLearnerHistory = (learner: Learner | null, classes: ClassInfo[]) => {
   const history = useMemo(() => {
     if (!learner) return [];
 
     const records = classes.flatMap(c => {
-      // Fuzzy match or exact match on name
       const match = c.learners.find(l => l.name.toLowerCase() === learner.name.toLowerCase());
       if (match && match.mark && !isNaN(parseFloat(match.mark))) {
         return {
@@ -16,13 +15,12 @@ export const useLearnerHistory = (learner: Learner | null, classes: ClassInfo[])
           className: c.className,
           mark: parseFloat(match.mark),
           comment: match.comment,
-          date: c.id // Using ID as proxy for date if it's timestamp-based
+          date: c.id
         };
       }
       return [];
     });
 
-    // Sort by date/ID
     return records.sort((a, b) => a.date.localeCompare(b.date));
   }, [learner, classes]);
 

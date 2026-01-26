@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Learner } from '@/types';
+import { Learner } from '@/lib/types';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -19,10 +19,8 @@ export const useLearnerTable = (learners: Learner[], atRiskThreshold: number) =>
     const filtered = learners
       .map((learner, index) => ({ ...learner, originalIndex: index }))
       .filter(learner => {
-        // Search Filter
         const matchesSearch = learner.name.toLowerCase().includes(searchQuery.toLowerCase());
         
-        // Status Filter
         let matchesStatus = true;
         const markNum = parseFloat(learner.mark);
         const hasMark = !isNaN(markNum);
@@ -54,7 +52,7 @@ export const useLearnerTable = (learners: Learner[], atRiskThreshold: number) =>
           const numB = parseMark(bVal);
           if (numA > numB) comparison = 1;
           else if (numA < numB) comparison = -1;
-        } else { // name or comment
+        } else {
           if (aVal.toString().toLowerCase() > bVal.toString().toLowerCase()) comparison = 1;
           else if (aVal.toString().toLowerCase() < bVal.toString().toLowerCase()) comparison = -1;
         }

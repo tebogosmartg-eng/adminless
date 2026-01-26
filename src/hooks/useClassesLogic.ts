@@ -1,19 +1,17 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClasses } from "@/context/ClassesContext";
-import { ClassInfo } from "@/types";
+import { ClassInfo } from "@/lib/types";
 import { showSuccess } from "@/utils/toast";
 
 export const useClassesLogic = () => {
   const { classes, addClass, toggleClassArchive, deleteClass } = useClasses();
   const navigate = useNavigate();
   
-  // Dialog State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
   
-  // Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGrade, setSelectedGrade] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("active");
@@ -28,8 +26,6 @@ export const useClassesLogic = () => {
     setIsDeleteOpen(true);
   };
 
-  // Wrapper for actual delete context action (if needed directly) or let dialog handle it
-  // In this case, the dialog handles it, but we expose deletion for flexibility
   const handleDeleteConfirm = (id: string) => {
      deleteClass(id);
      setIsDeleteOpen(false);
@@ -44,7 +40,7 @@ export const useClassesLogic = () => {
   const handleDuplicate = (classItem: ClassInfo) => {
     const newClass: ClassInfo = {
       ...classItem,
-      id: new Date().toISOString(), // This ID is temporary, context/DB will assign real one
+      id: new Date().toISOString(),
       className: `${classItem.className} (Copy)`,
       archived: false,
       learners: classItem.learners.map(l => ({
@@ -93,19 +89,16 @@ export const useClassesLogic = () => {
   return {
     classes,
     addClass,
-    // State
     isEditOpen, setIsEditOpen,
     isDeleteOpen, setIsDeleteOpen,
     selectedClass,
     searchQuery, setSearchQuery,
     selectedGrade, setSelectedGrade,
     activeTab, setActiveTab,
-    // Derived
     uniqueGrades,
     activeClasses,
     archivedClasses,
     hasActiveFilters,
-    // Actions
     handleEdit,
     handleDeleteClick,
     handleToggleArchive,

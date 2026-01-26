@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { ClassInfo, Learner } from '@/types';
+import { ClassInfo, Learner } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
@@ -136,7 +136,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     const classInfo = classes.find(c => c.id === classId);
     if (!classInfo) return;
 
-    // Optimistic update
     setClasses((prevClasses) =>
       prevClasses.map((c) =>
         c.id === classId ? { ...c, learners: updatedLearners } : c
@@ -166,7 +165,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         const { data: newLearnersData } = await supabase.from('learners').insert(toInsert).select();
         
         if (newLearnersData) {
-            // Refetch learners for this class to get IDs synced
             const { data: refreshedLearners } = await supabase
                 .from('learners')
                 .select('*')

@@ -1,4 +1,4 @@
-import { ClassInfo, Learner } from '@/types';
+import { ClassInfo, Learner } from '@/lib/types';
 import { GradeSymbol, getGradeSymbol } from '@/utils/grading';
 import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReportsPDF } from '@/utils/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';

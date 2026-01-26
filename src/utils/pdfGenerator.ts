@@ -1,10 +1,9 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { ClassInfo, Learner } from '@/types';
+import { ClassInfo, Learner } from '@/lib/types';
 import { GradeSymbol, getGradeSymbol } from './grading';
 import { format } from 'date-fns';
 
-// Helper to add a single learner report page to a doc
 const addLearnerReportPage = (
   doc: jsPDF,
   learner: Learner,
@@ -17,12 +16,10 @@ const addLearnerReportPage = (
   const pageWidth = doc.internal.pageSize.width;
   const margin = 20;
 
-  // Header Border
   doc.setDrawColor(41, 37, 36);
   doc.setLineWidth(1);
-  doc.rect(margin, margin, pageWidth - (margin * 2), 257); // Page border
+  doc.rect(margin, margin, pageWidth - (margin * 2), 257);
 
-  // Logo if available
   if (schoolLogo) {
      try {
        const logoSize = 30;
@@ -31,7 +28,6 @@ const addLearnerReportPage = (
      } catch (e) {}
   }
 
-  // Header
   const textStartY = schoolLogo ? 70 : 40;
   
   doc.setFontSize(24);
@@ -44,11 +40,9 @@ const addLearnerReportPage = (
   doc.setTextColor(100);
   doc.text("Learner Performance Report", pageWidth / 2, textStartY + 10, { align: 'center' });
 
-  // Divider
   doc.setDrawColor(200);
   doc.line(margin + 20, textStartY + 20, pageWidth - (margin + 20), textStartY + 20);
 
-  // Student Info
   const startY = textStartY + 40;
   doc.setFontSize(12);
   doc.setTextColor(80);
@@ -70,7 +64,6 @@ const addLearnerReportPage = (
     doc.text(teacherName, margin + 60, startY + 40);
   }
 
-  // Result Section
   const resultY = startY + 60;
   doc.setFillColor(245, 245, 245);
   doc.roundedRect(margin + 10, resultY, pageWidth - (margin * 2) - 20, 50, 3, 3, 'F');
@@ -94,7 +87,6 @@ const addLearnerReportPage = (
     doc.text(`Symbol: ${symbolObj.symbol}   |   Level: ${symbolObj.level}`, pageWidth / 2, resultY + 42, { align: 'center' });
   }
 
-  // Comments Section
   const commentY = resultY + 70;
   doc.setFontSize(14);
   doc.setTextColor(41, 37, 36);
@@ -109,12 +101,11 @@ const addLearnerReportPage = (
   const splitComment = doc.splitTextToSize(comment, pageWidth - (margin * 2) - 40);
   doc.text(splitComment, margin + 20, commentY + 10);
 
-  // Footer Signature
   const footerY = 240;
   doc.setDrawColor(150);
   doc.setLineWidth(0.5);
-  doc.line(margin + 20, footerY, margin + 80, footerY); // Signature line
-  doc.line(pageWidth - margin - 80, footerY, pageWidth - margin - 20, footerY); // Date line
+  doc.line(margin + 20, footerY, margin + 80, footerY);
+  doc.line(pageWidth - margin - 80, footerY, pageWidth - margin - 20, footerY);
   
   doc.setFontSize(10);
   doc.setTextColor(100);
@@ -133,12 +124,9 @@ export const generateClassPDF = (
   schoolLogo: string | null = null
 ) => {
   const doc = new jsPDF();
-
-  // Document Configuration
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
 
-  // Logo Logic
   if (schoolLogo) {
     try {
       doc.addImage(schoolLogo, 'PNG', margin, 10, 25, 25);
@@ -147,11 +135,8 @@ export const generateClassPDF = (
     }
   }
   
-  // Header Section
   doc.setFontSize(22);
   doc.setTextColor(40);
-  
-  // Align school name next to logo if exists, else left
   const textX = schoolLogo ? margin + 30 : margin;
   doc.text(schoolName, textX, 22);
 
@@ -168,8 +153,7 @@ export const generateClassPDF = (
     doc.text(`Teacher: ${teacherName}`, pageWidth - margin - doc.getTextWidth(`Teacher: ${teacherName}`), 22);
   }
 
-  // Class Details Box
-  const startY = 48; // Shifted down slightly to accommodate logo area if needed
+  const startY = 48;
   doc.setDrawColor(200);
   doc.setFillColor(245, 247, 250);
   doc.roundedRect(margin, startY, pageWidth - (margin * 2), 24, 2, 2, 'FD');
@@ -189,7 +173,6 @@ export const generateClassPDF = (
   doc.text(classInfo.grade, margin + 95, startY + 8);
   doc.text(classInfo.learners.length.toString(), margin + 110, startY + 16);
 
-  // Stats Calculation
   const marks = classInfo.learners
     .map(l => parseFloat(l.mark))
     .filter(m => !isNaN(m));
@@ -203,7 +186,6 @@ export const generateClassPDF = (
     ? Math.round((passCount / marks.length) * 100) 
     : 0;
 
-  // Stats in Header
   doc.setFontSize(10);
   doc.setTextColor(80);
   doc.setFont("helvetica", "normal");
@@ -216,7 +198,6 @@ export const generateClassPDF = (
   doc.text(`${average}%`, margin + 160, startY + 8);
   doc.text(`${passRate}%`, margin + 160, startY + 16);
 
-  // Table Data
   const tableRows = classInfo.learners.map((learner, index) => {
     const symbolObj = getGradeSymbol(learner.mark, gradingScheme);
     return [
@@ -229,14 +210,13 @@ export const generateClassPDF = (
     ];
   });
 
-  // Generate Table
   autoTable(doc, {
     startY: startY + 30,
     head: [['#', 'Learner Name', 'Mark', 'Symbol', 'Level', 'Comment']],
     body: tableRows,
     theme: 'grid',
     headStyles: {
-      fillColor: [41, 37, 36], // Dark gray (stone-800)
+      fillColor: [41, 37, 36],
       textColor: 255,
       fontSize: 10,
       fontStyle: 'bold',
@@ -256,12 +236,11 @@ export const generateClassPDF = (
       overflow: 'linebreak'
     },
     alternateRowStyles: {
-      fillColor: [250, 250, 249] // Very light gray (stone-50)
+      fillColor: [250, 250, 249]
     },
     margin: { top: 65, right: margin, bottom: 20, left: margin },
   });
 
-  // Footer
   const pageCount = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
@@ -281,7 +260,6 @@ export const generateClassPDF = (
     );
   }
 
-  // Save
   doc.save(`${classInfo.className}_${classInfo.subject}_Report.pdf`);
 };
 
@@ -295,7 +273,6 @@ export const generateBlankClassListPDF = (
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
 
-  // Header Logic with Logo
   const textX = schoolLogo ? margin + 30 : margin;
   if (schoolLogo) {
     try {
@@ -303,7 +280,6 @@ export const generateBlankClassListPDF = (
     } catch (e) {}
   }
 
-  // Header
   doc.setFontSize(18);
   doc.setTextColor(40);
   doc.text("Mark Recording Sheet", textX, 20);
@@ -312,7 +288,6 @@ export const generateBlankClassListPDF = (
   doc.setTextColor(100);
   doc.text(schoolName, textX, 26);
 
-  // Context Info
   const startY = 40;
   doc.setFontSize(11);
   doc.setTextColor(0);
@@ -327,15 +302,13 @@ export const generateBlankClassListPDF = (
   doc.text(`Date: _______________________`, margin + 80, startY + 6);
   doc.text(`Task: _______________________`, margin + 140, startY + 6);
 
-  // Table Data (Just names and empty columns)
   const tableRows = classInfo.learners.map((learner, index) => [
     index + 1,
     learner.name,
-    '', // Mark
-    '', // Comment
+    '',
+    '',
   ]);
 
-  // Generate Table
   autoTable(doc, {
     startY: startY + 15,
     head: [['#', 'Learner Name', 'Mark / Score', 'Notes / Comments']],
@@ -354,7 +327,7 @@ export const generateBlankClassListPDF = (
       cellPadding: 4,
       lineColor: 200,
       lineWidth: 0.1,
-      minCellHeight: 10 // Extra height for writing
+      minCellHeight: 10
     },
     columnStyles: {
       0: { cellWidth: 10 },

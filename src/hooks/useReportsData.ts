@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ClassInfo } from '@/types';
+import { ClassInfo } from '@/lib/types';
 import { calculateClassStats } from '@/utils/stats';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -10,18 +10,14 @@ export interface AggregatedLearner {
 }
 
 export const useReportsData = (classes: ClassInfo[]) => {
-  // Selection Filters
   const [selectedGrade, setSelectedGrade] = useState<string>("all");
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
   
-  // Assessment Selection & Weighting
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [weights, setWeights] = useState<{ [classId: string]: string }>({});
   
-  // Results
   const [aggregatedData, setAggregatedData] = useState<AggregatedLearner[] | null>(null);
 
-  // Filter Logic
   const uniqueGrades = useMemo(() => Array.from(new Set(classes.map(c => c.grade))).sort(), [classes]);
   const uniqueSubjects = useMemo(() => Array.from(new Set(classes.map(c => c.subject))).sort(), [classes]);
 

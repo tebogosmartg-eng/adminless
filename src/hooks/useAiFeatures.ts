@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClassInfo, Learner } from '@/types';
+import { ClassInfo, Learner } from '@/lib/types';
 import { generateClassInsights, generateReportComments, ClassInsight, getMockClassInsights, getMockReportComments } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -14,7 +14,6 @@ export const useAiFeatures = (
   const [showComments, setShowComments] = useState(false);
   const [isGeneratingComments, setIsGeneratingComments] = useState(false);
 
-  // Clear insights when learners change significantly (this logic depends on usage, typically handled in parent if save happens)
   const clearInsights = () => setInsights(null);
 
   const handleGenerateInsights = async () => {

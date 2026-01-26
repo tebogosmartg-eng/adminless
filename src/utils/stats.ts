@@ -1,4 +1,4 @@
-import { Learner } from "@/types";
+import { Learner } from "@/lib/types";
 
 export const calculateClassStats = (learners: Learner[]) => {
   const marks = learners

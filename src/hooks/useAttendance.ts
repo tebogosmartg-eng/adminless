@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
-import { Learner } from '@/types';
+import { Learner } from '@/lib/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -23,7 +23,6 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   const [hasChanges, setHasChanges] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Fetch attendance for selected date
   useEffect(() => {
     const fetchAttendance = async () => {
       setLoading(true);
