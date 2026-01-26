@@ -99,6 +99,7 @@ export interface Term {
   start_date: string | null;
   end_date: string | null;
   closed: boolean;
+  weight: number; // Percentage contribution to year mark
 }
 
 export interface Assessment {

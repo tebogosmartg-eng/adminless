@@ -103,7 +103,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       year_id: year.id,
       name: tName,
       user_id: session.user.id,
-      closed: false
+      closed: false,
+      weight: 25 // Default equal weighting
     }));
 
     const { error: termError } = await supabase
@@ -122,7 +123,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const updateTerm = async (term: Term) => {
      const { error } = await supabase
        .from('terms')
-       .update({ start_date: term.start_date, end_date: term.end_date, closed: term.closed })
+       .update({ 
+         start_date: term.start_date, 
+         end_date: term.end_date, 
+         closed: term.closed,
+         weight: term.weight
+       })
        .eq('id', term.id);
      
      if (error) showError('Failed to update term.');

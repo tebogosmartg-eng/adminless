@@ -8,6 +8,7 @@ import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { useReportsData } from '@/hooks/useReportsData';
 import { useTermReportData } from '@/hooks/useTermReportData';
+import { useYearReportData } from '@/hooks/useYearReportData';
 import { ReportsFilterCard } from '@/components/reports/ReportsFilterCard';
 import { ReportsAssessmentSelector } from '@/components/reports/ReportsAssessmentSelector';
 import { ReportsResults } from '@/components/reports/ReportsResults';
@@ -21,56 +22,66 @@ import { Loader2, FileDown } from 'lucide-react';
 
 const Reports = () => {
   const { classes } = useClasses();
-  const { gradingScheme, schoolName, teacherName } = useSettings();
+  const { gradingScheme, schoolName } = useSettings();
   const { terms, years, activeYear } = useAcademic();
 
-  // Legacy/Manual Aggregation Hook
+  // Hooks
   const manualReports = useReportsData(classes);
+  const { loading: termLoading, reportData: termData, generateTermReport } = useTermReportData();
+  const { loading: yearLoading, yearData, generateYearReport } = useYearReportData();
 
-  // New Term Logic Hook
-  const { loading: termLoading, reportData, generateTermReport } = useTermReportData();
+  // State
   const [termReportGrade, setTermReportGrade] = useState("all");
   const [termReportSubject, setTermReportSubject] = useState("all");
   const [selectedTermId, setSelectedTermId] = useState("");
 
+  const [yearReportGrade, setYearReportGrade] = useState("all");
+  const [yearReportSubject, setYearReportSubject] = useState("all");
+  const [selectedYearId, setSelectedYearId] = useState("");
+
+  // Term PDF Export
   const handleExportTermPDF = () => {
-    if (!reportData || !selectedTermId) return;
-    
+    if (!termData || !selectedTermId) return;
     const termName = terms.find(t => t.id === selectedTermId)?.name || "Term Report";
     const doc = new jsPDF();
-
     doc.setFontSize(18);
     doc.text(`${schoolName} - ${termName} Report`, 14, 20);
     doc.setFontSize(10);
     doc.text(`Grade: ${termReportGrade} | Subject: ${termReportSubject}`, 14, 28);
-    doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 34);
-
-    // Get all unique assessment titles for headers
-    const assessmentTitles = Array.from(new Set(reportData.flatMap(r => Object.keys(r.assessments))));
-
+    const assessmentTitles = Array.from(new Set(termData.flatMap(r => Object.keys(r.assessments))));
     const head = [['Name', 'Class', ...assessmentTitles, 'Final %', 'Sym']];
-    const body = reportData.map(r => {
+    const body = termData.map(r => {
         const symbol = getGradeSymbol(r.termAverage, gradingScheme);
+        return [r.learnerName, r.className, ...assessmentTitles.map(t => r.assessments[t] || '-'), r.termAverage, symbol?.symbol || '-'];
+    });
+    autoTable(doc, { startY: 40, head, body });
+    doc.save(`${termReportGrade}_${termReportSubject}_${termName}.pdf`);
+  };
+
+  // Year PDF Export
+  const handleExportYearPDF = () => {
+    if (!yearData || !selectedYearId) return;
+    const yearName = years.find(y => y.id === selectedYearId)?.name || "Year Report";
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text(`${schoolName} - ${yearName} Final Report`, 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Grade: ${yearReportGrade} | Subject: ${yearReportSubject}`, 14, 28);
+    
+    // Get term names from the first result or a set of all
+    const termNames = Array.from(new Set(yearData.flatMap(r => Object.keys(r.termMarks))));
+    const head = [['Name', ...termNames, 'Final Year %', 'Sym']];
+    const body = yearData.map(r => {
+        const symbol = getGradeSymbol(r.finalYearMark, gradingScheme);
         return [
-            r.learnerName,
-            r.className,
-            ...assessmentTitles.map(t => r.assessments[t] || '-'),
-            r.termAverage,
+            r.learnerName, 
+            ...termNames.map(t => r.termMarks[t] !== null ? r.termMarks[t] : '-'), 
+            r.finalYearMark, 
             symbol?.symbol || '-'
         ];
     });
-
-    autoTable(doc, {
-        startY: 40,
-        head: head,
-        body: body,
-        theme: 'grid',
-        headStyles: { fillColor: [41, 37, 36], fontSize: 8 },
-        styles: { fontSize: 8 },
-        columnStyles: { 0: { fontStyle: 'bold' } }
-    });
-
-    doc.save(`${termReportGrade}_${termReportSubject}_${termName}.pdf`);
+    autoTable(doc, { startY: 40, head, body });
+    doc.save(`${yearReportGrade}_${yearReportSubject}_${yearName}_Final.pdf`);
   };
 
   return (
@@ -82,126 +93,159 @@ const Reports = () => {
 
       <Tabs defaultValue="term" className="w-full">
         <TabsList>
-            <TabsTrigger value="term">Term Reports (New)</TabsTrigger>
+            <TabsTrigger value="term">Term Reports</TabsTrigger>
+            <TabsTrigger value="year">Year End Report</TabsTrigger>
             <TabsTrigger value="manual">Manual Aggregate (Legacy)</TabsTrigger>
         </TabsList>
 
+        {/* Term Report Tab */}
         <TabsContent value="term" className="space-y-6">
             <div className="grid gap-6 md:grid-cols-4">
                 <Card className="md:col-span-1">
-                    <CardHeader>
-                        <CardTitle>Configuration</CardTitle>
-                        <CardDescription>Select parameters for the term report.</CardDescription>
-                    </CardHeader>
+                    <CardHeader><CardTitle>Configuration</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Academic Year</label>
-                            <div className="p-2 border rounded bg-muted/20 text-sm font-medium">
-                                {activeYear ? activeYear.name : "No Active Year"}
-                            </div>
-                        </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Term</label>
                             <Select value={selectedTermId} onValueChange={setSelectedTermId}>
                                 <SelectTrigger><SelectValue placeholder="Select Term" /></SelectTrigger>
-                                <SelectContent>
-                                    {terms.map(t => (
-                                        <SelectItem key={t.id} value={t.id}>{t.name} {t.closed ? "(Closed)" : ""}</SelectItem>
-                                    ))}
-                                </SelectContent>
+                                <SelectContent>{terms.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Grade</label>
                             <Select value={termReportGrade} onValueChange={setTermReportGrade}>
                                 <SelectTrigger><SelectValue placeholder="Select Grade" /></SelectTrigger>
-                                <SelectContent>
-                                    {manualReports.uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                                </SelectContent>
+                                <SelectContent>{manualReports.uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Subject</label>
                             <Select value={termReportSubject} onValueChange={setTermReportSubject}>
                                 <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
-                                <SelectContent>
-                                    {manualReports.uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                                </SelectContent>
+                                <SelectContent>{manualReports.uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                         <Button 
                             className="w-full" 
                             onClick={() => generateTermReport(selectedTermId, termReportGrade, termReportSubject)}
-                            disabled={termLoading || !selectedTermId || termReportGrade === 'all' || termReportSubject === 'all'}
+                            disabled={termLoading || !selectedTermId || termReportGrade === 'all'}
                         >
                             {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Report"}
                         </Button>
                     </CardContent>
                 </Card>
-
                 <Card className="md:col-span-3 min-h-[500px] flex flex-col">
                     <CardHeader className="flex flex-row justify-between items-center">
-                        <div>
-                            <CardTitle>Report Preview</CardTitle>
-                            <CardDescription>
-                                {reportData ? `Results for ${reportData.length} learners` : "Select options to view results."}
-                            </CardDescription>
-                        </div>
-                        {reportData && (
-                            <Button variant="outline" size="sm" onClick={handleExportTermPDF}>
-                                <FileDown className="mr-2 h-4 w-4" /> Export PDF
-                            </Button>
-                        )}
+                        <CardTitle>Preview</CardTitle>
+                        {termData && <Button variant="outline" size="sm" onClick={handleExportTermPDF}><FileDown className="mr-2 h-4 w-4"/> PDF</Button>}
                     </CardHeader>
                     <CardContent className="flex-1 overflow-auto">
-                        {reportData ? (
+                        {termData ? (
                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Learner</TableHead>
                                         <TableHead>Class</TableHead>
-                                        {/* Dynamic Assessment Headers */}
-                                        {Object.keys(reportData[0]?.assessments || {}).map((title, i) => (
-                                            <TableHead key={i} className="text-xs">{title}</TableHead>
-                                        ))}
+                                        {Object.keys(termData[0]?.assessments || {}).map((t,i) => <TableHead key={i} className="text-xs">{t}</TableHead>)}
                                         <TableHead className="text-right font-bold">Term %</TableHead>
-                                        <TableHead className="text-center">Sym</TableHead>
+                                        <TableHead>Sym</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {reportData.map((r, i) => {
-                                        const symbol = getGradeSymbol(r.termAverage, gradingScheme);
-                                        return (
-                                            <TableRow key={i}>
-                                                <TableCell className="font-medium">{r.learnerName}</TableCell>
-                                                <TableCell className="text-xs text-muted-foreground">{r.className}</TableCell>
-                                                {Object.keys(reportData[0]?.assessments || {}).map((title, j) => (
-                                                    <TableCell key={j} className="text-xs">
-                                                        {r.assessments[title]}
-                                                    </TableCell>
-                                                ))}
-                                                <TableCell className="text-right font-bold">{r.termAverage}</TableCell>
-                                                <TableCell className="text-center">
-                                                    {symbol && (
-                                                        <Badge variant="outline" className={symbol.badgeColor}>{symbol.symbol}</Badge>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        )
-                                    })}
+                                    {termData.map((r, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell>{r.learnerName}</TableCell>
+                                            <TableCell className="text-xs text-muted-foreground">{r.className}</TableCell>
+                                            {Object.keys(termData[0]?.assessments || {}).map((t,j) => <TableCell key={j} className="text-xs">{r.assessments[t]}</TableCell>)}
+                                            <TableCell className="text-right font-bold">{r.termAverage}</TableCell>
+                                            <TableCell>{getGradeSymbol(r.termAverage, gradingScheme)?.symbol}</TableCell>
+                                        </TableRow>
+                                    ))}
                                 </TableBody>
                             </Table>
-                        ) : (
-                            <div className="flex items-center justify-center h-full text-muted-foreground">
-                                No report generated yet.
-                            </div>
-                        )}
+                        ) : <div className="text-center text-muted-foreground py-10">No report generated.</div>}
+                    </CardContent>
+                </Card>
+            </div>
+        </TabsContent>
+
+        {/* Year Report Tab */}
+        <TabsContent value="year" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-4">
+                <Card className="md:col-span-1">
+                    <CardHeader><CardTitle>Year Config</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Academic Year</label>
+                            <Select value={selectedYearId} onValueChange={setSelectedYearId}>
+                                <SelectTrigger><SelectValue placeholder="Select Year" /></SelectTrigger>
+                                <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Grade</label>
+                            <Select value={yearReportGrade} onValueChange={setYearReportGrade}>
+                                <SelectTrigger><SelectValue placeholder="Select Grade" /></SelectTrigger>
+                                <SelectContent>{manualReports.uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Subject</label>
+                            <Select value={yearReportSubject} onValueChange={setYearReportSubject}>
+                                <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
+                                <SelectContent>{manualReports.uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <Button 
+                            className="w-full" 
+                            onClick={() => generateYearReport(selectedYearId, yearReportGrade, yearReportSubject)}
+                            disabled={yearLoading || !selectedYearId || yearReportGrade === 'all'}
+                        >
+                            {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Final Report"}
+                        </Button>
+                    </CardContent>
+                </Card>
+                <Card className="md:col-span-3 min-h-[500px] flex flex-col">
+                    <CardHeader className="flex flex-row justify-between items-center">
+                        <CardTitle>Year Summary</CardTitle>
+                        {yearData && <Button variant="outline" size="sm" onClick={handleExportYearPDF}><FileDown className="mr-2 h-4 w-4"/> PDF</Button>}
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-auto">
+                        {yearData ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Learner Name</TableHead>
+                                        {Object.keys(yearData[0]?.termMarks || {}).sort().map(t => <TableHead key={t}>{t}</TableHead>)}
+                                        <TableHead className="text-right font-bold">Final Year %</TableHead>
+                                        <TableHead>Symbol</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {yearData.map((r, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell className="font-medium">{r.learnerName}</TableCell>
+                                            {Object.keys(yearData[0]?.termMarks || {}).sort().map(t => (
+                                                <TableCell key={t}>{r.termMarks[t] !== null ? r.termMarks[t] : '-'}</TableCell>
+                                            ))}
+                                            <TableCell className="text-right font-bold text-lg">{r.finalYearMark}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline">
+                                                    {getGradeSymbol(r.finalYearMark, gradingScheme)?.symbol || '-'}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : <div className="text-center text-muted-foreground py-10">No year report generated.</div>}
                     </CardContent>
                 </Card>
             </div>
         </TabsContent>
 
         <TabsContent value="manual">
+            {/* Legacy Content */}
             <div className="grid gap-6 lg:grid-cols-3">
                 <div className="lg:col-span-1 space-y-6">
                 <ReportsFilterCard 
@@ -212,7 +256,6 @@ const Reports = () => {
                     setSelectedSubject={manualReports.setSelectedSubject}
                     uniqueSubjects={manualReports.uniqueSubjects}
                 />
-
                 <ReportsAssessmentSelector 
                     filteredClasses={manualReports.filteredClasses}
                     selectedClassIds={manualReports.selectedClassIds}
@@ -222,7 +265,6 @@ const Reports = () => {
                     onCalculate={manualReports.calculateResults}
                 />
                 </div>
-
                 <div className="lg:col-span-2 space-y-6">
                 <ReportsResults 
                     aggregatedData={manualReports.aggregatedData}
@@ -231,8 +273,8 @@ const Reports = () => {
                     classes={classes}
                     weights={manualReports.weights}
                     gradingScheme={gradingScheme}
-                    onExportCSV={() => {}} // simplified for manual tab
-                    onExportPDF={() => {}} // simplified for manual tab
+                    onExportCSV={() => {}} 
+                    onExportPDF={() => {}} 
                 />
                 </div>
             </div>
