@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowUpDown, Plus } from 'lucide-react';
+import { ArrowUpDown, Plus, Upload } from 'lucide-react';
 import { Learner, GradeSymbol } from '@/lib/types';
 import { useSettings } from '@/context/SettingsContext';
 import { showSuccess } from '@/utils/toast';
@@ -202,21 +202,32 @@ export const LearnerList = ({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={showComments ? 7 : 6} className="h-24 text-center text-muted-foreground">
-                  {statusFilter !== 'all' || searchQuery 
-                    ? "No learners match your filters." 
-                    : "No learners in this class yet."}
+                <TableCell colSpan={showComments ? 7 : 6} className="h-48 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                     {statusFilter !== 'all' || searchQuery ? (
+                       <p className="text-muted-foreground">No learners match your filters.</p>
+                     ) : (
+                       <>
+                         <p className="text-muted-foreground">This class is empty.</p>
+                         <Button variant="outline" onClick={onAddLearnerClick}>
+                            <Plus className="mr-2 h-4 w-4" /> Add Learners Manually
+                         </Button>
+                       </>
+                     )}
+                  </div>
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
         
-        <div className="pt-4 border-t mt-4 flex justify-center">
-           <Button variant="outline" onClick={onAddLearnerClick} className="w-full sm:w-auto">
-             <Plus className="mr-2 h-4 w-4" /> Add Learner
-           </Button>
-        </div>
+        {sortedAndFilteredLearners.length > 0 && (
+            <div className="pt-4 border-t mt-4 flex justify-center">
+                <Button variant="outline" onClick={onAddLearnerClick} className="w-full sm:w-auto">
+                    <Plus className="mr-2 h-4 w-4" /> Add Learner
+                </Button>
+            </div>
+        )}
       </CardContent>
     </Card>
   );
