@@ -1,5 +1,5 @@
 import ClassSummaryCard from '@/components/ClassSummaryCard';
-import AggregatedPerformanceChart from '@/components/AggregatedPerformanceChart';
+import AggregatedPerformanceChart from '@/components/charts/AggregatedPerformanceChart';
 import { ClassInfo } from '@/components/CreateClassDialog';
 
 interface DashboardGroupedViewProps {

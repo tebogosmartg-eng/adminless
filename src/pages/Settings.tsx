@@ -1,8 +1,8 @@
 import { Separator } from "@/components/ui/separator";
-import { SchoolProfileSettings } from "@/components/SchoolProfileSettings";
-import { GradingSystemSettings } from "@/components/GradingSystemSettings";
-import { CommentBankSettings } from "@/components/CommentBankSettings";
-import { DataManagementSettings } from "@/components/DataManagementSettings";
+import { SchoolProfileSettings } from "@/components/settings/SchoolProfileSettings";
+import { GradingSystemSettings } from "@/components/settings/GradingSystemSettings";
+import { CommentBankSettings } from "@/components/settings/CommentBankSettings";
+import { DataManagementSettings } from "@/components/settings/DataManagementSettings";
 
 const Settings = () => {
   return (
