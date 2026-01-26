@@ -5,11 +5,12 @@ import { Learner } from '@/lib/types';
 import { ProfileSummaryTab } from '@/components/learner-profile/ProfileSummaryTab';
 import { ProfileAttendanceTab } from '@/components/learner-profile/ProfileAttendanceTab';
 import { ProfileHistoryTab } from '@/components/learner-profile/ProfileHistoryTab';
+import { ProfileAcademicTab } from '@/components/learner-profile/ProfileAcademicTab';
 import { useSettings } from '@/context/SettingsContext';
 import { useClasses } from '@/context/ClassesContext';
 import { useLearnerHistory } from '@/hooks/useLearnerHistory';
 import { getGradeSymbol } from '@/utils/grading';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react';
 
 interface LearnerProfileDialogProps {
   learner: Learner | null;
@@ -35,7 +36,7 @@ export const LearnerProfileDialog = ({
   const { gradingScheme } = useSettings();
   const { classes } = useClasses();
   
-  // Hook to get history across all classes based on learner name
+  // Hook to get history across all classes based on learner name (Legacy/Aggregate view)
   const { history, stats, subjects, getSubjectColor } = useLearnerHistory(learner, classes);
 
   if (!learner) return null;
@@ -44,7 +45,7 @@ export const LearnerProfileDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
+      <DialogContent className="max-w-3xl h-[85vh] flex flex-col">
         <DialogHeader className="flex flex-row items-center justify-between space-y-0 pr-8">
           <div className="flex items-center gap-2">
             <Button 
@@ -57,7 +58,10 @@ export const LearnerProfileDialog = ({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <DialogTitle className="text-2xl">{learner.name}</DialogTitle>
+            <div className="flex flex-col">
+                <DialogTitle className="text-xl md:text-2xl">{learner.name}</DialogTitle>
+                <span className="text-xs text-muted-foreground font-normal">{classSubject}</span>
+            </div>
             <Button 
               variant="outline" 
               size="icon" 
@@ -71,13 +75,18 @@ export const LearnerProfileDialog = ({
           </div>
         </DialogHeader>
         
-        <Tabs defaultValue="summary" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="academic" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="academic" className="gap-2"><GraduationCap className="h-4 w-4 hidden sm:block" /> Academic</TabsTrigger>
                 <TabsTrigger value="summary">Summary</TabsTrigger>
-                <TabsTrigger value="history">History & Trends</TabsTrigger>
+                <TabsTrigger value="history">Overall</TabsTrigger>
                 <TabsTrigger value="attendance">Attendance</TabsTrigger>
             </TabsList>
             
+            <TabsContent value="academic" className="flex-1 overflow-auto">
+                <ProfileAcademicTab learnerId={learner.id} />
+            </TabsContent>
+
             <TabsContent value="summary" className="flex-1 overflow-auto">
                 <ProfileSummaryTab 
                     learner={learner} 
