@@ -4,14 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAcademic } from '@/context/AcademicContext';
 import { Learner, ClassInfo, Assessment } from '@/lib/types';
-import { Plus, Trash2, AlertCircle, Save, Eye, Calendar, Search, TrendingUp, ArrowDown, ArrowUp, Upload, BarChart2, FileSpreadsheet } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, Save, Eye, Calendar, Search, TrendingUp, ArrowDown, ArrowUp, Upload, BarChart2, FileSpreadsheet, Settings2, MoreHorizontal, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import { AssessmentImportDialog } from './AssessmentImportDialog';
 import { AssessmentAnalyticsDialog } from './AssessmentAnalyticsDialog';
+import { CopyAssessmentsDialog } from './CopyAssessmentsDialog';
 import { showSuccess, showError } from '@/utils/toast';
 
 interface MarkSheetProps {
@@ -34,9 +37,15 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
   const [viewTermId, setViewTermId] = useState<string | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isCopyOpen, setIsCopyOpen] = useState(false);
+  
   const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "" });
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // View Options State
+  const [visibleAssessmentIds, setVisibleAssessmentIds] = useState<string[]>([]);
+  const [recalculateTotal, setRecalculateTotal] = useState(false);
   
   // Analytics State
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
@@ -57,9 +66,25 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
     }
   }, [viewTermId, classInfo.id]);
 
+  // Initialize visibility when assessments load
+  useEffect(() => {
+    setVisibleAssessmentIds(assessments.map(a => a.id));
+  }, [assessments]);
+
   const currentViewTerm = terms.find(t => t.id === viewTermId);
+  
+  // Determine visible assessments
+  const visibleAssessments = useMemo(() => 
+    assessments.filter(a => visibleAssessmentIds.includes(a.id)), 
+  [assessments, visibleAssessmentIds]);
+
   const totalWeight = useMemo(() => assessments.reduce((acc, curr) => acc + Number(curr.weight), 0), [assessments]);
-  const isWeightValid = totalWeight === 100;
+  const visibleWeight = useMemo(() => visibleAssessments.reduce((acc, curr) => acc + Number(curr.weight), 0), [visibleAssessments]);
+  
+  // Total calculation logic
+  const isUsingVisibleTotal = recalculateTotal && visibleAssessments.length !== assessments.length;
+  const currentTotalWeight = isUsingVisibleTotal ? visibleWeight : totalWeight;
+  const isWeightValid = currentTotalWeight === 100;
   
   const isLocked = currentViewTerm?.closed || activeYear?.closed || (activeTerm && viewTermId !== activeTerm.id);
 
@@ -123,7 +148,9 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
 
   const calculateLearnerTotal = (learnerId: string) => {
       let weightedSum = 0;
-      assessments.forEach(ass => {
+      const targetAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
+      
+      targetAssessments.forEach(ass => {
           const val = getMarkValue(ass.id, learnerId);
           if (val !== "") {
               const score = parseFloat(val);
@@ -163,13 +190,15 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
     }
 
     try {
-        // Headers: Learner Name, [Assessment 1 (Max: 50)], ..., Term Total
-        const assessmentHeaders = assessments.map(a => `"${a.title} (${a.max_mark})"`);
-        const header = ["Learner Name", ...assessmentHeaders, "Term Weighted Total %"].join(",");
+        // Export only visible columns if recalculateTotal is true, otherwise all
+        const exportAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
+        
+        const assessmentHeaders = exportAssessments.map(a => `"${a.title} (${a.max_mark})"`);
+        const header = ["Learner Name", ...assessmentHeaders, `Total (${currentTotalWeight}%)`].join(",");
 
         const rows = classInfo.learners.map(l => {
             if (!l.id) return "";
-            const marksData = assessments.map(a => {
+            const marksData = exportAssessments.map(a => {
                 const m = getMarkValue(a.id, l.id!);
                 return m || "";
             });
@@ -195,15 +224,23 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
     }
   };
 
+  const toggleAssessmentVisibility = (id: string) => {
+    setVisibleAssessmentIds(prev => 
+      prev.includes(id) 
+        ? prev.filter(x => x !== id) 
+        : [...prev, id]
+    );
+  };
+
   if (!currentViewTerm) {
       return <div className="p-8 text-center text-muted-foreground">Please configure an Active Academic Year and Term in Settings.</div>;
   }
 
   return (
     <div className="space-y-4">
-       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
+       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b pb-4">
            <div className="space-y-2">
-               <div className="flex items-center gap-2">
+               <div className="flex flex-wrap items-center gap-2">
                    <Select value={viewTermId || ""} onValueChange={setViewTermId}>
                        <SelectTrigger className="w-[180px] h-9">
                            <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -224,18 +261,22 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                
                <div className="flex items-center gap-2 text-sm">
                    <span className={isWeightValid ? "text-green-600 font-medium" : "text-amber-600 font-medium"}>
-                       Total Weighting: {totalWeight}%
+                       Weighting: {currentTotalWeight}%
                    </span>
                    {!isWeightValid && (
                        <Tooltip>
                            <TooltipTrigger><AlertCircle className="h-4 w-4 text-amber-500" /></TooltipTrigger>
-                           <TooltipContent>Weights must sum to 100% for correct final calculation.</TooltipContent>
+                           <TooltipContent>
+                               {isUsingVisibleTotal 
+                                 ? "Displayed total represents only visible columns." 
+                                 : "Weights must sum to 100% for correct final calculation."}
+                           </TooltipContent>
                        </Tooltip>
                    )}
                </div>
            </div>
 
-           <div className="flex flex-1 justify-end gap-2 w-full md:w-auto">
+           <div className="flex flex-1 flex-wrap justify-end gap-2 w-full xl:w-auto">
                <div className="relative w-full md:w-48">
                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                    <Input 
@@ -246,6 +287,37 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                    />
                </div>
 
+               <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-10">
+                        <Settings2 className="mr-2 h-4 w-4" /> View Options
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>Visible Assessments</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {assessments.map(ass => (
+                        <DropdownMenuCheckboxItem 
+                            key={ass.id} 
+                            checked={visibleAssessmentIds.includes(ass.id)}
+                            onCheckedChange={() => toggleAssessmentVisibility(ass.id)}
+                        >
+                            {ass.title}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                    <div className="p-2 flex items-center justify-between">
+                        <Label htmlFor="recalc-toggle" className="text-xs">Calc. Visible Only</Label>
+                        <Switch 
+                            id="recalc-toggle" 
+                            checked={recalculateTotal} 
+                            onCheckedChange={setRecalculateTotal}
+                            className="scale-75"
+                        />
+                    </div>
+                  </DropdownMenuContent>
+               </DropdownMenu>
+
                <Button onClick={handleSaveMarks} disabled={Object.keys(editedMarks).length === 0 || !!isLocked}>
                    <Save className="mr-2 h-4 w-4" /> Save
                </Button>
@@ -255,17 +327,28 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                </Button>
 
                {!isLocked && (
-                   <Button variant="outline" size="icon" onClick={() => setIsImportOpen(true)} title="Import Marks">
-                       <Upload className="h-4 w-4" />
-                   </Button>
+                   <DropdownMenu>
+                       <DropdownMenuTrigger asChild>
+                           <Button variant="outline">
+                               <Plus className="mr-2 h-4 w-4" /> Add / Import
+                           </Button>
+                       </DropdownMenuTrigger>
+                       <DropdownMenuContent align="end">
+                           <DropdownMenuItem onClick={() => setIsAddOpen(true)}>
+                               <Plus className="mr-2 h-4 w-4" /> New Assessment
+                           </DropdownMenuItem>
+                           <DropdownMenuItem onClick={() => setIsCopyOpen(true)}>
+                               <Copy className="mr-2 h-4 w-4" /> Copy Structure...
+                           </DropdownMenuItem>
+                           <DropdownMenuSeparator />
+                           <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
+                               <Upload className="mr-2 h-4 w-4" /> Import Marks CSV
+                           </DropdownMenuItem>
+                       </DropdownMenuContent>
+                   </DropdownMenu>
                )}
 
                <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                   <DialogTrigger asChild>
-                       <Button variant="outline" disabled={!!isLocked}>
-                           <Plus className="mr-2 h-4 w-4" /> Add
-                       </Button>
-                   </DialogTrigger>
                    <DialogContent>
                        <DialogHeader>
                            <DialogTitle>New Assessment Activity ({currentViewTerm.name})</DialogTitle>
@@ -310,6 +393,11 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
            {assessments.length === 0 ? (
                <div className="p-8 text-center text-muted-foreground bg-muted/10">
                    No assessments found for {currentViewTerm.name}.
+                   {!isLocked && (
+                       <div className="mt-4">
+                           <Button variant="outline" onClick={() => setIsAddOpen(true)}>Create Assessment</Button>
+                       </div>
+                   )}
                </div>
            ) : (
                <Table>
@@ -323,7 +411,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                                     </Badge>
                                 </div>
                            </TableHead>
-                           {assessments.map(ass => (
+                           {visibleAssessments.map(ass => (
                                <TableHead key={ass.id} className="text-center min-w-[140px]">
                                    <div className="flex flex-col items-center group relative">
                                        <div className="flex items-center gap-1 cursor-pointer hover:bg-muted/50 p-1 rounded" onClick={() => openAnalytics(ass)}>
@@ -334,20 +422,29 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                                            {ass.max_mark} marks • {ass.weight}%
                                        </span>
                                        {!isLocked && (
-                                           <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-5 w-5 mt-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity absolute -right-2 top-0" 
-                                            onClick={(e) => { e.stopPropagation(); deleteAssessment(ass.id); }}
-                                           >
-                                               <Trash2 className="h-3 w-3" />
-                                           </Button>
+                                           <DropdownMenu>
+                                               <DropdownMenuTrigger asChild>
+                                                   <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-5 w-5 mt-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity absolute -right-2 top-0" 
+                                                   >
+                                                       <MoreHorizontal className="h-3 w-3" />
+                                                   </Button>
+                                               </DropdownMenuTrigger>
+                                               <DropdownMenuContent>
+                                                   <DropdownMenuItem onClick={() => { deleteAssessment(ass.id); }}>
+                                                       <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                   </DropdownMenuItem>
+                                               </DropdownMenuContent>
+                                           </DropdownMenu>
                                        )}
                                    </div>
                                </TableHead>
                            ))}
                            <TableHead className="text-center font-bold bg-muted/30 min-w-[100px]">
-                               Term Total <br/> %
+                               {isUsingVisibleTotal && <span className="text-[10px] font-normal block text-muted-foreground">(Visible)</span>}
+                               Total <br/> %
                            </TableHead>
                        </TableRow>
                    </TableHeader>
@@ -357,7 +454,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                                <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-sm">
                                    {learner.name}
                                </TableCell>
-                               {assessments.map(ass => (
+                               {visibleAssessments.map(ass => (
                                    <TableCell key={ass.id} className="p-1">
                                        <div className="flex justify-center">
                                            <Input 
@@ -382,7 +479,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                                    <TrendingUp className="h-4 w-4" /> Class Stats
                                </div>
                            </TableCell>
-                           {assessments.map(ass => {
+                           {visibleAssessments.map(ass => {
                                const stats = getAssessmentStats(ass.id);
                                return (
                                    <TableCell key={ass.id} className="text-center p-2">
@@ -422,6 +519,16 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
           marks={marks} 
           learners={classInfo.learners} 
        />
+
+       {viewTermId && (
+         <CopyAssessmentsDialog
+            open={isCopyOpen}
+            onOpenChange={setIsCopyOpen}
+            currentClassId={classInfo.id}
+            currentTermId={viewTermId}
+            onSuccess={() => refreshAssessments(classInfo.id, viewTermId)}
+         />
+       )}
     </div>
   );
 };
