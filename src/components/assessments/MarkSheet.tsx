@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAcademic } from '@/context/AcademicContext';
 import { Learner, ClassInfo } from '@/lib/types';
-import { Plus, Trash2, AlertCircle, Save, Eye, Calendar } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, Save, Eye, Calendar, Search, TrendingUp, ArrowDown, ArrowUp, Upload } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { AssessmentImportDialog } from './AssessmentImportDialog';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
@@ -30,8 +31,10 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
 
   const [viewTermId, setViewTermId] = useState<string | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "" });
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Set default view to active term on mount
   useEffect(() => {
@@ -44,7 +47,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
   useEffect(() => {
     if (viewTermId) {
         refreshAssessments(classInfo.id, viewTermId);
-        setEditedMarks({}); // Clear unsaved edits when switching terms
+        setEditedMarks({}); 
     }
   }, [viewTermId, classInfo.id]);
 
@@ -52,11 +55,14 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
   const totalWeight = useMemo(() => assessments.reduce((acc, curr) => acc + Number(curr.weight), 0), [assessments]);
   const isWeightValid = totalWeight === 100;
   
-  // Lock editing if:
-  // 1. The viewed term is closed
-  // 2. The year is closed
-  // 3. We are viewing a term that is NOT the active working term (historical review)
   const isLocked = currentViewTerm?.closed || activeYear?.closed || (activeTerm && viewTermId !== activeTerm.id);
+
+  // Filter learners
+  const filteredLearners = useMemo(() => {
+    return classInfo.learners.filter(l => 
+        l.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [classInfo.learners, searchQuery]);
 
   const getMarkValue = (assessmentId: string, learnerId: string) => {
      const key = `${assessmentId}-${learnerId}`;
@@ -82,6 +88,16 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
           setEditedMarks({});
           if (viewTermId) refreshAssessments(classInfo.id, viewTermId);
       }
+  };
+
+  const handleBulkImport = async (assessmentId: string, importedMarks: { learnerId: string; score: number }[]) => {
+      const updates = importedMarks.map(m => ({
+          assessment_id: assessmentId,
+          learner_id: m.learnerId,
+          score: m.score
+      }));
+      await updateMarks(updates);
+      if (viewTermId) refreshAssessments(classInfo.id, viewTermId);
   };
 
   const handleAddAssessment = async () => {
@@ -110,6 +126,23 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
           }
       });
       return weightedSum.toFixed(1);
+  };
+
+  const getAssessmentStats = (assessmentId: string) => {
+      const values = classInfo.learners.map(l => {
+          if (!l.id) return null;
+          const val = getMarkValue(assessmentId, l.id);
+          return val !== "" ? parseFloat(val) : null;
+      }).filter(v => v !== null) as number[];
+
+      if (values.length === 0) return { avg: '-', max: '-', min: '-' };
+
+      const sum = values.reduce((a, b) => a + b, 0);
+      const avg = (sum / values.length).toFixed(1);
+      const max = Math.max(...values);
+      const min = Math.min(...values);
+
+      return { avg, max, min };
   };
 
   if (!currentViewTerm) {
@@ -152,14 +185,31 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                </div>
            </div>
 
-           <div className="flex gap-2">
+           <div className="flex flex-1 justify-end gap-2 w-full md:w-auto">
+               <div className="relative w-full md:w-48">
+                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                   <Input 
+                        placeholder="Search learner..." 
+                        className="pl-8" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                   />
+               </div>
+
                <Button onClick={handleSaveMarks} disabled={Object.keys(editedMarks).length === 0 || !!isLocked}>
-                   <Save className="mr-2 h-4 w-4" /> Save Marks
+                   <Save className="mr-2 h-4 w-4" /> Save
                </Button>
+               
+               {!isLocked && (
+                   <Button variant="outline" size="icon" onClick={() => setIsImportOpen(true)} title="Import Marks">
+                       <Upload className="h-4 w-4" />
+                   </Button>
+               )}
+
                <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
                    <DialogTrigger asChild>
                        <Button variant="outline" disabled={!!isLocked}>
-                           <Plus className="mr-2 h-4 w-4" /> Add Assessment
+                           <Plus className="mr-2 h-4 w-4" /> Add
                        </Button>
                    </DialogTrigger>
                    <DialogContent>
@@ -211,16 +261,28 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                <Table>
                    <TableHeader>
                        <TableRow>
-                           <TableHead className="w-[200px] sticky left-0 bg-background z-10 shadow-sm">Learner</TableHead>
+                           <TableHead className="w-[200px] sticky left-0 bg-background z-10 shadow-sm">
+                                <div className="flex items-center gap-2">
+                                    Learner
+                                    <Badge variant="outline" className="ml-2 font-normal text-muted-foreground">
+                                        {filteredLearners.length}
+                                    </Badge>
+                                </div>
+                           </TableHead>
                            {assessments.map(ass => (
                                <TableHead key={ass.id} className="text-center min-w-[120px]">
-                                   <div className="flex flex-col items-center">
-                                       <span className="font-semibold">{ass.title}</span>
+                                   <div className="flex flex-col items-center group relative">
+                                       <span className="font-semibold truncate max-w-[110px]" title={ass.title}>{ass.title}</span>
                                        <span className="text-xs text-muted-foreground font-normal">
                                            {ass.max_mark} marks • {ass.weight}%
                                        </span>
                                        {!isLocked && (
-                                           <Button variant="ghost" size="icon" className="h-5 w-5 mt-1 text-muted-foreground hover:text-destructive" onClick={() => deleteAssessment(ass.id)}>
+                                           <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-5 w-5 mt-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity absolute -right-2 top-0" 
+                                            onClick={() => deleteAssessment(ass.id)}
+                                           >
                                                <Trash2 className="h-3 w-3" />
                                            </Button>
                                        )}
@@ -233,7 +295,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                        </TableRow>
                    </TableHeader>
                    <TableBody>
-                       {classInfo.learners.map(learner => (
+                       {filteredLearners.map(learner => (
                            <TableRow key={learner.id || learner.name}>
                                <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-sm">
                                    {learner.name}
@@ -256,10 +318,45 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                                </TableCell>
                            </TableRow>
                        ))}
+                       
+                       <TableRow className="bg-muted/50 border-t-2 border-muted">
+                           <TableCell className="font-bold sticky left-0 bg-muted/95 z-10 border-r text-muted-foreground">
+                               <div className="flex items-center gap-2">
+                                   <TrendingUp className="h-4 w-4" /> Class Stats
+                               </div>
+                           </TableCell>
+                           {assessments.map(ass => {
+                               const stats = getAssessmentStats(ass.id);
+                               return (
+                                   <TableCell key={ass.id} className="text-center p-2">
+                                       <div className="flex flex-col text-xs space-y-1">
+                                           <div className="font-semibold text-foreground">Avg: {stats.avg}</div>
+                                           <div className="flex justify-center gap-2 text-muted-foreground text-[10px]">
+                                               <span className="flex items-center text-green-600" title="Highest">
+                                                   <ArrowUp className="h-2 w-2 mr-0.5" />{stats.max}
+                                               </span>
+                                               <span className="flex items-center text-red-600" title="Lowest">
+                                                   <ArrowDown className="h-2 w-2 mr-0.5" />{stats.min}
+                                               </span>
+                                           </div>
+                                       </div>
+                                   </TableCell>
+                               );
+                           })}
+                           <TableCell className="bg-muted/30"></TableCell>
+                       </TableRow>
                    </TableBody>
                </Table>
            )}
        </div>
+
+       <AssessmentImportDialog 
+          open={isImportOpen} 
+          onOpenChange={setIsImportOpen} 
+          assessments={assessments} 
+          learners={classInfo.learners} 
+          onImport={handleBulkImport}
+       />
     </div>
   );
 };
