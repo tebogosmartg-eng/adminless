@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useClasses } from '@/context/ClassesContext';
+import { ClassInfo } from '@/lib/types';
 
 export const useDashboardData = () => {
   const { classes } = useClasses();
@@ -12,7 +13,7 @@ export const useDashboardData = () => {
 
   // Group active classes by subject
   const classesBySubject = useMemo(() => {
-    const groups: Record<string, typeof classes> = {};
+    const groups: Record<string, ClassInfo[]> = {};
     activeClasses.forEach(c => {
       if (!groups[c.subject]) groups[c.subject] = [];
       groups[c.subject].push(c);
@@ -22,7 +23,7 @@ export const useDashboardData = () => {
 
   // Group active classes by grade
   const classesByGrade = useMemo(() => {
-    const groups: Record<string, typeof classes> = {};
+    const groups: Record<string, ClassInfo[]> = {};
     activeClasses.forEach(c => {
       if (!groups[c.grade]) groups[c.grade] = [];
       groups[c.grade].push(c);

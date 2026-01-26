@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { Learner } from '@/lib/types';
 
 export interface GeminiScanResult {
   details: {
@@ -55,14 +56,20 @@ export async function processImagesWithGemini(imageDataUrls: string[]): Promise<
   return invokeGeminiFunction<GeminiScanResult>('scan-images', { images });
 }
 
-export async function generateClassInsights(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<ClassInsight> {
-  // Filter empty marks to save tokens
-  const validLearners = learners.filter(l => l.mark && l.mark.trim() !== "");
+export async function generateClassInsights(subject: string, grade: string, learners: Learner[]): Promise<ClassInsight> {
+  // Filter empty marks to save tokens and map to essential fields
+  const validLearners = learners
+    .filter(l => l.mark && l.mark.trim() !== "")
+    .map(l => ({ name: l.name, mark: l.mark }));
+    
   return invokeGeminiFunction<ClassInsight>('generate-insights', { subject, grade, learners: validLearners });
 }
 
-export async function generateReportComments(subject: string, grade: string, learners: {name: string, mark: string}[]): Promise<LearnerComment[]> {
-  const validLearners = learners.filter(l => l.mark && l.mark.trim() !== "");
+export async function generateReportComments(subject: string, grade: string, learners: Learner[]): Promise<LearnerComment[]> {
+  const validLearners = learners
+    .filter(l => l.mark && l.mark.trim() !== "")
+    .map(l => ({ name: l.name, mark: l.mark }));
+
   return invokeGeminiFunction<LearnerComment[]>('generate-comments', { subject, grade, learners: validLearners });
 }
 
@@ -89,7 +96,7 @@ export const getMockClassInsights = (): ClassInsight => {
   };
 };
 
-export const getMockReportComments = (learners: {name: string, mark: string}[]): LearnerComment[] => {
+export const getMockReportComments = (learners: Learner[]): LearnerComment[] => {
   return learners.map(l => {
     const mark = parseFloat(l.mark);
     let comment = "";
