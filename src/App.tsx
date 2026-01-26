@@ -19,6 +19,7 @@ import { ClassesProvider } from "./context/ClassesContext";
 import { ActivityProvider } from "./context/ActivityContext";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { SettingsProvider } from "./context/SettingsContext";
+import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
@@ -50,7 +51,17 @@ const App = () => {
   }, []);
 
   if (loading) {
-    return null; // Or a loading spinner
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4 animate-in fade-in duration-500">
+           <div className="relative">
+             <div className="h-16 w-16 rounded-full border-4 border-primary/30" />
+             <div className="absolute top-0 left-0 h-16 w-16 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+           </div>
+           <p className="text-muted-foreground font-medium animate-pulse">Loading SmaReg...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
