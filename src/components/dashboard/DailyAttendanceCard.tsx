@@ -17,7 +17,7 @@ export const DailyAttendanceCard = () => {
                 <CalendarCheck className="h-5 w-5 text-primary" />
                 Today's Attendance
               </CardTitle>
-              <CardDescription>{format(new Date(), 'EEEE, MMMM do')}</CardDescription>
+              <CardDescription>{format(new Date(), 'EEEE, dd/MM/yyyy')}</CardDescription>
            </div>
            {stats.total > 0 && (
              <Button variant="ghost" size="sm" asChild className="h-8">

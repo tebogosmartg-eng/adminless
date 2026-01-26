@@ -71,7 +71,7 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-[240px] justify-start text-left font-normal", !date && "text-muted-foreground")}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(date, "PPP")}
+                  {format(date, "dd/MM/yyyy")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -124,7 +124,7 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
               </Button>
            </div>
            <CardDescription>
-              Record attendance for {format(date, 'MMMM do')}.
+              Record attendance for {format(date, 'dd/MM/yyyy')}.
            </CardDescription>
         </CardHeader>
         <CardContent>

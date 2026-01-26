@@ -69,7 +69,7 @@ const Reports = () => {
     
     doc.setFontSize(10);
     doc.text(`${schoolName}`, 14, 26);
-    doc.text(`Generated: ${format(new Date(), 'PPP')}`, 14, 32);
+    doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 32);
     if(teacherName) doc.text(`Teacher: ${teacherName}`, 14, 38);
 
     let subHeader = `Included Assessments: `;

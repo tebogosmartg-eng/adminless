@@ -190,7 +190,7 @@ export const generateClassPDF = (
 
   doc.setFontSize(10);
   doc.setTextColor(100);
-  const dateStr = format(new Date(), 'PPP');
+  const dateStr = format(new Date(), 'dd/MM/yyyy');
   doc.text(`Generated on: ${dateStr}`, pageWidth - margin - doc.getTextWidth(`Generated on: ${dateStr}`), 20);
   
   if (teacherName) {
