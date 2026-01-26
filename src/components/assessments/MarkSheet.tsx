@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAcademic } from '@/context/AcademicContext';
 import { Learner, ClassInfo, Assessment } from '@/lib/types';
-import { Plus, Trash2, AlertCircle, Save, Eye, Calendar, Search, TrendingUp, ArrowDown, ArrowUp, Upload, BarChart2 } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, Save, Eye, Calendar, Search, TrendingUp, ArrowDown, ArrowUp, Upload, BarChart2, FileSpreadsheet } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AssessmentImportDialog } from './AssessmentImportDialog';
 import { AssessmentAnalyticsDialog } from './AssessmentAnalyticsDialog';
+import { showSuccess, showError } from '@/utils/toast';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
@@ -155,6 +156,45 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
       setAnalyticsOpen(true);
   };
 
+  const handleExportSheet = () => {
+    if (!classInfo.learners.length) {
+        showError("No learners to export.");
+        return;
+    }
+
+    try {
+        // Headers: Learner Name, [Assessment 1 (Max: 50)], ..., Term Total
+        const assessmentHeaders = assessments.map(a => `"${a.title} (${a.max_mark})"`);
+        const header = ["Learner Name", ...assessmentHeaders, "Term Weighted Total %"].join(",");
+
+        const rows = classInfo.learners.map(l => {
+            if (!l.id) return "";
+            const marksData = assessments.map(a => {
+                const m = getMarkValue(a.id, l.id!);
+                return m || "";
+            });
+            const total = calculateLearnerTotal(l.id);
+            return [`"${l.name}"`, ...marksData, total].join(",");
+        });
+
+        const csvContent = [header, ...rows].join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const filename = `${classInfo.className}_${currentViewTerm?.name}_Marks.csv`.replace(/\s+/g, '_');
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showSuccess("Mark sheet exported to CSV.");
+    } catch (e) {
+        console.error(e);
+        showError("Failed to export mark sheet.");
+    }
+  };
+
   if (!currentViewTerm) {
       return <div className="p-8 text-center text-muted-foreground">Please configure an Active Academic Year and Term in Settings.</div>;
   }
@@ -210,6 +250,10 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                    <Save className="mr-2 h-4 w-4" /> Save
                </Button>
                
+               <Button variant="outline" size="icon" onClick={handleExportSheet} title="Export to CSV">
+                   <FileSpreadsheet className="h-4 w-4" />
+               </Button>
+
                {!isLocked && (
                    <Button variant="outline" size="icon" onClick={() => setIsImportOpen(true)} title="Import Marks">
                        <Upload className="h-4 w-4" />
