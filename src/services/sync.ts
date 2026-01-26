@@ -67,7 +67,7 @@ export const pushChanges = async () => {
 
       let error = null;
 
-      if (action === 'create' || action === 'insert') {
+      if (action === 'create') {
         const { error: e } = await supabase.from(table as any).insert(payload);
         error = e;
       } else if (action === 'update') {
@@ -83,10 +83,6 @@ export const pushChanges = async () => {
 
       if (error) {
         console.error(`Sync error on ${table}:`, error);
-        // If critical error, maybe break? For now, we log and keep trying others or remove if strictly malformed
-        // Ideally we keep it in queue if network error, remove if schema error.
-        // Assuming network is good (since we check online status before calling push), we assume schema error?
-        // Actually, if we are here, we assume online.
         throw error; 
       } else {
         // Success
@@ -94,8 +90,6 @@ export const pushChanges = async () => {
       }
     } catch (err) {
       console.error("Failed to push item", item, err);
-      // Stop processing queue to preserve order dependency? 
-      // Or skip? For simple app, breaking might be safer to avoid data corruption.
       break; 
     }
   }

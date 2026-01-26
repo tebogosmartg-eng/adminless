@@ -32,7 +32,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         .where('user_id')
         .equals(session.user.id)
         .reverse()
-        .sortBy('created_at'); // Assuming created_at field exists in types and is sortable, if not sort in JS
+        .sortBy('created_at'); 
 
     const allLearners = await db.learners.toArray();
 
@@ -56,12 +56,12 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     try {
       // 1. Prepare Local Data
       const classData = {
-        id: newClass.id, // Ensure ID is generated before calling this
+        id: newClass.id, 
         user_id: session.user.id,
         grade: newClass.grade,
         subject: newClass.subject,
-        class_name: newClass.className, // Map front-end prop to DB col
-        className: newClass.className, // Dexie stores what we give it, keeping both for compatibility or clean up types later
+        class_name: newClass.className, 
+        className: newClass.className, 
         archived: false,
         notes: newClass.notes || '',
         created_at: new Date().toISOString()
@@ -71,16 +71,14 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       await db.classes.add(classData);
       
       // 3. Queue Sync
-      // Supabase column is `class_name`
       const syncData = { ...classData };
       delete (syncData as any).className; 
       delete (syncData as any).learners;
       
-      await queueAction('classes', 'insert', syncData);
+      await queueAction('classes', 'create', syncData);
 
       // Learners
       if (newClass.learners.length > 0) {
-        // Generate IDs for learners if missing
         const learnersWithIds = newClass.learners.map(l => ({
             ...l,
             id: l.id || crypto.randomUUID(),
@@ -88,7 +86,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         }));
 
         await db.learners.bulkAdd(learnersWithIds as any);
-        await queueAction('learners', 'insert', learnersWithIds);
+        await queueAction('learners', 'create', learnersWithIds);
       }
 
       logActivity(`Created class: "${newClass.subject} - ${newClass.className}"`);
@@ -103,12 +101,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         const classInfo = classes.find(c => c.id === classId);
         if (!classInfo) return;
 
-        // Process learners: identify updates, inserts, deletes
-        // For simplicity in offline-first, upserting all provided is easiest,
-        // but we need to handle deletes if the list is shorter? 
-        // The current app logic passes the FULL list of desired learners.
-        
-        // 1. Get current DB learners for this class
         const currentDbLearners = await db.learners.where('class_id').equals(classId).toArray();
         const currentIds = new Set(currentDbLearners.map(l => l.id));
         
@@ -127,21 +119,15 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             });
         }
 
-        // Identify deletions
         const toDelete = currentDbLearners.filter(l => !newIds.has(l.id)).map(l => l.id!);
 
-        // Local DB Execute
         if (toDelete.length > 0) await db.learners.bulkDelete(toDelete);
         await db.learners.bulkPut(toUpsert as any);
 
-        // Queue Actions
-        // Ideally we batch these for Supabase efficiency, but simple queueAction works per row or we adapt queueAction to handle arrays (which sync.ts supports if we pass array to insert/upsert)
-        
         if (toUpsert.length > 0) {
             await queueAction('learners', 'upsert', toUpsert);
         }
         if (toDelete.length > 0) {
-            // Queue deletes individually as our sync implementation is simple eq('id', payload.id)
             for (const id of toDelete) {
                 await queueAction('learners', 'delete', { id });
             }
@@ -156,18 +142,16 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const updateClassDetails = async (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => {
     try {
-        // Map details to DB columns
         const updates: any = {};
         if (details.grade) updates.grade = details.grade;
         if (details.subject) updates.subject = details.subject;
         if (details.className) {
-            updates.class_name = details.className; // for Supabase/DB
-            updates.className = details.className; // for Dexie local usage
+            updates.class_name = details.className;
+            updates.className = details.className;
         }
 
         await db.classes.update(classId, updates);
         
-        // Queue (clean up local-only props)
         const syncUpdates = { ...updates, id: classId };
         delete syncUpdates.className;
         await queueAction('classes', 'update', syncUpdates);
@@ -192,11 +176,9 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     try {
         const classInfo = classes.find(c => c.id === classId);
         
-        // Local Delete (Cascade learners manually if needed, Dexie doesn't cascade)
         await db.learners.where('class_id').equals(classId).delete();
         await db.classes.delete(classId);
 
-        // Queue
         await queueAction('classes', 'delete', { id: classId });
         
         if (classInfo) {
@@ -233,7 +215,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       updateLearners, 
       updateClassDetails, 
       deleteClass, 
-      updateClassLearners,
+      updateClassLearners, 
       toggleClassArchive,
       updateClassNotes
     }}>

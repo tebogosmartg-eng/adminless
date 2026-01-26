@@ -32,10 +32,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const [activeYearId, setActiveYearId] = useState<string | null>(null);
   const [activeTermId, setActiveTermId] = useState<string | null>(null);
   
-  // Live Queries
   const years = useLiveQuery(() => db.academic_years.orderBy('name').reverse().toArray()) || [];
   
-  // Derived state for active year
   const activeYear = years.find(y => y.id === activeYearId) || years.find(y => !y.closed) || years[0] || null;
 
   const terms = useLiveQuery(async () => {
@@ -43,7 +41,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return db.terms.where('year_id').equals(activeYear.id).sortBy('name');
   }, [activeYear?.id]) || [];
 
-  // Derived state for active term
   useEffect(() => {
       if (terms.length > 0 && !activeTermId) {
           const now = new Date().toISOString();
@@ -54,7 +51,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const activeTerm = terms.find(t => t.id === activeTermId) || null;
 
-  // Assessments state (still filtered manually for UI performance)
   const [currentClassFilter, setCurrentClassFilter] = useState<{classId: string, termId: string} | null>(null);
   
   const assessments = useLiveQuery(async () => {
@@ -77,7 +73,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     
     const yearData = { id: yearId, name, user_id: session.user.id, closed: false };
     await db.academic_years.add(yearData);
-    await queueAction('academic_years', 'insert', yearData);
+    await queueAction('academic_years', 'create', yearData);
 
     const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map(tName => ({
       id: crypto.randomUUID(),
@@ -89,7 +85,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     }));
 
     await db.terms.bulkAdd(termsToCreate as any);
-    await queueAction('terms', 'insert', termsToCreate);
+    await queueAction('terms', 'create', termsToCreate);
     
     showSuccess(`Academic Year ${name} created.`);
   };
@@ -131,12 +127,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     const data = { ...assessment, id, user_id: session.user.id };
     
     await db.assessments.add(data);
-    await queueAction('assessments', 'insert', data);
+    await queueAction('assessments', 'create', data);
     showSuccess("Assessment created.");
   };
 
   const deleteAssessment = async (id: string) => {
-      await db.assessment_marks.where('assessment_id').equals(id).delete(); // Manual cascade
+      await db.assessment_marks.where('assessment_id').equals(id).delete(); 
       await db.assessments.delete(id);
       await queueAction('assessments', 'delete', { id });
       showSuccess("Assessment deleted.");
@@ -145,19 +141,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const updateMarks = async (updates: { assessment_id: string; learner_id: string; score: number | null; comment?: string }[]) => {
     if (!session?.user.id) return;
     
-    // We must fetch existing marks to preserve IDs if we want strict updating, or rely on composite key upsert
-    // Dexie put() handles upsert by key. `assessment_marks` has composite key [assessment_id+learner_id] defined in schema?
-    // In db.ts I defined: assessment_marks: '[assessment_id+learner_id], assessment_id, learner_id'
-    // So `put` works fine.
-    
     const toUpsert = updates.map(u => ({
         ...u,
         user_id: session.user.id
     }));
 
-    // For sync queue, we need to know if it's insert or update? 
-    // Supabase upsert handles both.
-    
     await db.assessment_marks.bulkPut(toUpsert as any);
     await queueAction('assessment_marks', 'upsert', toUpsert);
     

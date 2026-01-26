@@ -36,6 +36,7 @@ export class SmaRegDB extends Dexie {
 
   constructor() {
     super('SmaRegDB');
+    
     this.version(1).stores({
       classes: 'id, user_id, sync_status',
       learners: 'id, class_id, sync_status', // id is UUID from supabase
@@ -47,6 +48,12 @@ export class SmaRegDB extends Dexie {
       todos: 'id, completed',
       sync_queue: '++id, table, timestamp',
       profiles: 'id'
+    });
+
+    // Version 2: Add missing indexes required for orderBy('name')
+    this.version(2).stores({
+      academic_years: 'id, closed, name',
+      terms: 'id, year_id, name'
     });
   }
 }
