@@ -1,76 +1,82 @@
-import { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { ClassInfo, Learner } from "@/lib/types";
-import { useClasses } from "@/context/ClassesContext";
-import { showSuccess } from "@/utils/toast";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Trash2, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Learner } from '@/lib/types';
 
 interface EditLearnersDialogProps {
-  isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
-  classInfo: ClassInfo | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  learners: Learner[];
+  onUpdateLearners: (learners: Learner[]) => void;
 }
 
-export const EditLearnersDialog = ({ isOpen, onOpenChange, classInfo }: EditLearnersDialogProps) => {
-  const { updateClassLearners } = useClasses();
-  const [learnersText, setLearnersText] = useState("");
+export const EditLearnersDialog = ({ open, onOpenChange, learners, onUpdateLearners }: EditLearnersDialogProps) => {
+  const [editedLearners, setEditedLearners] = useState<Learner[]>([]);
 
   useEffect(() => {
-    if (classInfo) {
-      const text = classInfo.learners.map(l => l.name).join('\n');
-      setLearnersText(text);
+    if (open) {
+      setEditedLearners([...learners]);
     }
-  }, [classInfo]);
+  }, [open, learners]);
 
-  const handleSubmit = () => {
-    if (!classInfo) return;
+  const handleNameChange = (index: number, name: string) => {
+    const updated = [...editedLearners];
+    updated[index] = { ...updated[index], name };
+    setEditedLearners(updated);
+  };
 
-    const newLearnerNames = learnersText.split('\n').map(name => name.trim()).filter(name => name !== '');
-    
-    const updatedLearners: Learner[] = newLearnerNames.map(newName => {
-      const existingLearner = classInfo.learners.find(oldLearner => oldLearner.name.toLowerCase() === newName.toLowerCase());
-      return {
-        name: newName,
-        mark: existingLearner ? existingLearner.mark : '',
-      };
-    });
+  const handleRemove = (index: number) => {
+    setEditedLearners(prev => prev.filter((_, i) => i !== index));
+  };
 
-    updateClassLearners(classInfo.id, updatedLearners);
-    showSuccess("Learner list has been updated successfully.");
+  const handleAdd = () => {
+    setEditedLearners(prev => [...prev, { name: "", mark: "" }]);
+  };
+
+  const handleSave = () => {
+    onUpdateLearners(editedLearners.filter(l => l.name.trim() !== ""));
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Manage Learners</DialogTitle>
+          <DialogTitle>Edit Class List</DialogTitle>
           <DialogDescription>
-            Add, edit, or remove learners from this class. One name per line.
+            Add, remove, or rename learners.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <Label htmlFor="learners-list">Learner Names</Label>
-          <Textarea
-            id="learners-list"
-            value={learnersText}
-            onChange={(e) => setLearnersText(e.target.value)}
-            placeholder="Enter one learner name per line..."
-            rows={10}
-          />
+        
+        <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-2">
+                {editedLearners.map((learner, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                        <Input 
+                            value={learner.name}
+                            onChange={(e) => handleNameChange(index, e.target.value)}
+                            placeholder="Learner Name"
+                        />
+                        <Button variant="ghost" size="icon" onClick={() => handleRemove(index)}>
+                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                    </div>
+                ))}
+            </div>
+        </ScrollArea>
+
+        <div className="flex flex-col gap-2 pt-4">
+            <Button variant="outline" onClick={handleAdd} className="w-full">
+                <Plus className="mr-2 h-4 w-4" /> Add Row
+            </Button>
+            <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button onClick={handleSave}>Save Changes</Button>
+            </div>
         </div>
-        <DialogFooter>
-          <Button type="submit" onClick={handleSubmit}>Save Changes</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

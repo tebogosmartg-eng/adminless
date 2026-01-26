@@ -1,64 +1,47 @@
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 interface AddLearnerDialogProps {
-  isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
-  onAdd: (names: string[]) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAddLearners: (names: string[]) => void;
 }
 
-export const AddLearnerDialog = ({ isOpen, onOpenChange, onAdd }: AddLearnerDialogProps) => {
-  const [learnerNames, setLearnerNames] = useState("");
+export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearnerDialogProps) => {
+  const [text, setText] = useState('');
 
-  const handleAddLearner = () => {
-    const names = learnerNames
-      .split('\n')
-      .map(name => name.trim())
-      .filter(name => name !== "");
-
+  const handleAdd = () => {
+    const names = text.split('\n').map(n => n.trim()).filter(n => n !== '');
     if (names.length > 0) {
-      onAdd(names);
-      setLearnerNames("");
+      onAddLearners(names);
+      setText('');
       onOpenChange(false);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Add Learners</DialogTitle>
           <DialogDescription>
-            Enter full names to add to this class. Put each name on a new line.
+            Enter learner names, one per line.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="names">Learner Names</Label>
-            <Textarea 
-              id="names" 
-              placeholder="e.g.&#10;John Doe&#10;Jane Smith&#10;Bob Wilson" 
-              value={learnerNames}
-              onChange={(e) => setLearnerNames(e.target.value)}
-              className="min-h-[150px]"
-            />
+        <div className="space-y-4">
+          <Textarea 
+            placeholder="John Doe&#10;Jane Smith" 
+            className="min-h-[150px]"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button onClick={handleAdd} disabled={!text.trim()}>Add</Button>
           </div>
         </div>
-        <DialogFooter>
-          <Button type="submit" onClick={handleAddLearner} disabled={!learnerNames.trim()}>
-            Add {learnerNames.split('\n').filter(n => n.trim()).length > 1 ? 'Learners' : 'Learner'}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

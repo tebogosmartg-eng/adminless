@@ -65,3 +65,20 @@ export interface AggregatedLearner {
   marks: { [classId: string]: number | null };
   finalMark: number;
 }
+
+export interface ClassInsight {
+  summary: string;
+  strengths: string[];
+  areasForImprovement: string[];
+  recommendations: string[];
+}
+
+export interface LearnerComment {
+  name: string;
+  comment: string;
+}
+
+export interface GeminiScanResult {
+  details: ScannedDetails | null;
+  learners: ScannedLearner[];
+}

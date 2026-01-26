@@ -1,115 +1,174 @@
-import { supabase } from '@/integrations/supabase/client';
-import { Learner } from '@/lib/types';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Learner, ClassInsight, LearnerComment, GeminiScanResult } from "@/lib/types";
 
-export interface GeminiScanResult {
-  details: {
-    subject: string;
-    grade: string;
-    testNumber: string;
-    date: string;
-  };
-  learners: {
-    name: string;
-    mark: string;
-  }[];
-}
+// In a real app, use an env variable or backend proxy
+// For this demo, we might be using a client-side key or a Supabase Edge Function
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ""; 
 
-export interface ClassInsight {
-  summary: string;
-  strengths: string[];
-  weaknesses: string[];
-  recommendations: string[];
-}
+const genAI = new GoogleGenerativeAI(apiKey);
 
-export interface LearnerComment {
-  name: string;
-  comment: string;
-}
-
-// Helper to invoke edge function
-async function invokeGeminiFunction<T>(action: string, payload: any): Promise<T> {
-  const { data, error } = await supabase.functions.invoke('gemini-ai', {
-    body: { action, payload },
-  });
-
-  if (error) {
-    console.error(`Error invoking gemini-ai for ${action}:`, error);
-    throw new Error(error.message || 'Failed to process AI request');
+export const processImagesWithGemini = async (imageUrls: string[]): Promise<GeminiScanResult> => {
+  if (!apiKey) {
+    throw new Error("Gemini API Key is missing. Please configure it in settings or .env");
   }
 
-  return data as T;
-}
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-export async function processImagesWithGemini(imageDataUrls: string[]): Promise<GeminiScanResult> {
-  // Extract base64 data and mime type for the edge function
-  const images = imageDataUrls.map((url) => {
-    const matches = url.match(/^data:(.+);base64,(.+)$/);
-    if (!matches || matches.length < 3) {
-      throw new Error("Invalid image format.");
-    }
-    return {
-      mimeType: matches[1],
-      data: matches[2],
-    };
-  });
+    const prompt = `
+      Analyze these images of a handwritten or printed class list with marks.
+      Extract:
+      1. The Subject, Grade, Test Name/Number, and Date (if visible).
+      2. A list of all learners and their marks.
+      
+      Return ONLY valid JSON in this specific format:
+      {
+        "details": {
+          "subject": "string",
+          "grade": "string",
+          "testNumber": "string",
+          "date": "YYYY-MM-DD"
+        },
+        "learners": [
+          { "name": "string", "mark": "string" }
+        ]
+      }
+      If a specific detail is not found, use an empty string.
+      For marks, keep them exactly as written (e.g. "25/30" or "85%").
+    `;
 
-  return invokeGeminiFunction<GeminiScanResult>('scan-images', { images });
-}
+    // Convert base64 data URLs to parts
+    const imageParts = imageUrls.map(url => {
+      const base64Data = url.split(',')[1];
+      const mimeType = url.split(':')[1].split(';')[0];
+      return {
+        inlineData: {
+          data: base64Data,
+          mimeType
+        }
+      };
+    });
 
-export async function generateClassInsights(subject: string, grade: string, learners: Learner[]): Promise<ClassInsight> {
-  // Filter empty marks to save tokens and map to essential fields
-  const validLearners = learners
-    .filter(l => l.mark && l.mark.trim() !== "")
-    .map(l => ({ name: l.name, mark: l.mark }));
+    const result = await model.generateContent([prompt, ...imageParts]);
+    const response = await result.response;
+    const text = response.text();
+
+    // Clean markdown code blocks if present
+    const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     
-  return invokeGeminiFunction<ClassInsight>('generate-insights', { subject, grade, learners: validLearners });
-}
+    const parsedData = JSON.parse(cleanedText) as GeminiScanResult;
+    return parsedData;
 
-export async function generateReportComments(subject: string, grade: string, learners: Learner[]): Promise<LearnerComment[]> {
-  const validLearners = learners
-    .filter(l => l.mark && l.mark.trim() !== "")
-    .map(l => ({ name: l.name, mark: l.mark }));
-
-  return invokeGeminiFunction<LearnerComment[]>('generate-comments', { subject, grade, learners: validLearners });
-}
-
-// --- MOCK DATA FUNCTIONS (Keep these for demo mode) ---
-
-export const getMockClassInsights = (): ClassInsight => {
-  return {
-    summary: "The class has performed reasonably well overall, with a strong pass rate of 75%. However, the top-end achievement is lower than expected, with few distinctions.",
-    strengths: [
-      "High pass rate indicates good grasp of fundamental concepts.",
-      "Most learners completed the assessment, showing good participation.",
-      "Learners in the middle range (50-60%) are very consistent."
-    ],
-    weaknesses: [
-      "Lack of distinctions (80%+) suggests a struggle with complex problem-solving.",
-      "A small group of learners is significantly behind the rest of the cohort.",
-      "Marks for Question 3 (Hypothetical) seem universally low based on aggregate trends."
-    ],
-    recommendations: [
-      "Review complex problem-solving strategies in the next lesson.",
-      "Organize a remedial session for the 5 learners scoring below 40%.",
-      "Provide extension activities to push the 70% earners into the distinction bracket."
-    ]
-  };
+  } catch (error) {
+    console.error("Gemini Vision Error:", error);
+    throw new Error("Failed to process images. Ensure the image is clear and contains a list.");
+  }
 };
+
+export const generateClassInsights = async (subject: string, grade: string, learners: Learner[]): Promise<ClassInsight> => {
+  if (!apiKey) {
+     // Return mock data if no API key for demo purposes
+     return getMockClassInsights();
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    // Anonymize data slightly for prompt
+    const marksList = learners.map(l => l.mark).join(', ');
+    
+    const prompt = `
+      Act as a senior educational analyst.
+      Analyze the performance of a ${grade} ${subject} class based on these marks: [${marksList}].
+      
+      Provide a concise JSON analysis with:
+      1. summary: A 2-sentence overview of the class performance.
+      2. strengths: Array of 3 key strengths observed.
+      3. areasForImprovement: Array of 3 specific areas to focus on.
+      4. recommendations: Array of 3 actionable teaching strategies.
+      
+      Return ONLY valid JSON.
+    `;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    return JSON.parse(cleanedText) as ClassInsight;
+
+  } catch (error) {
+    console.error("Gemini Insights Error:", error);
+    throw new Error("Failed to generate insights.");
+  }
+};
+
+export const generateReportComments = async (subject: string, grade: string, learners: Learner[]): Promise<LearnerComment[]> => {
+  if (!apiKey) {
+     return getMockReportComments(learners);
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const learnersData = learners.map(l => `${l.name}: ${l.mark}`).join('\n');
+
+    const prompt = `
+      Generate unique, constructive 1-sentence report card comments for these ${grade} ${subject} learners based on their marks.
+      Tone: Professional, encouraging, and specific.
+      
+      Learners:
+      ${learnersData}
+      
+      Return ONLY valid JSON as an array of objects:
+      [ { "name": "Student Name", "comment": "The comment." } ]
+    `;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    return JSON.parse(cleanedText) as LearnerComment[];
+
+  } catch (error) {
+    console.error("Gemini Comments Error:", error);
+    throw new Error("Failed to generate comments.");
+  }
+};
+
+// MOCK DATA GENERATORS (Fallback)
+
+export const getMockClassInsights = (): ClassInsight => ({
+  summary: "The class shows a bimodal distribution with a strong top-performing group but a concerning tail of learners struggling with core concepts. Overall engagement appears high, though consistency is an issue.",
+  strengths: [
+    "High distinction rate (25%) indicates strong grasp of advanced topics.",
+    "Top learners demonstrate excellent problem-solving skills.",
+    "General improvement trend compared to typical term averages."
+  ],
+  areasForImprovement: [
+    "A significant portion (30%) failed to meet the passing threshold.",
+    "Basic terminology retention seems weak among lower performers.",
+    "Gap between top and bottom performers is widening."
+  ],
+  recommendations: [
+    "Implement peer-tutoring pairing high achievers with struggling learners.",
+    "Devote 10 minutes of each lesson to vocabulary drilling.",
+    "Offer remedial after-school sessions focusing on foundational concepts."
+  ]
+});
 
 export const getMockReportComments = (learners: Learner[]): LearnerComment[] => {
   return learners.map(l => {
     const mark = parseFloat(l.mark);
     let comment = "";
     
-    if (isNaN(mark)) comment = "Please ensure all assessments are submitted.";
-    else if (mark >= 80) comment = `Excellent work, ${l.name}! Your mastery of the content is impressive. Keep aiming high.`;
-    else if (mark >= 60) comment = `Good effort, ${l.name}. You are consistent, but focusing on the harder questions will boost your mark.`;
-    else if (mark >= 50) comment = `${l.name} has achieved a passing grade but should focus on revision to improve understanding.`;
-    else comment = `${l.name} is struggling with the core concepts. Extra assistance and daily revision are highly recommended.`;
-    
-    return {
-      name: l.name,
-      comment
-    };
+    if (isNaN(mark)) comment = "Mark missing, unable to comment on performance.";
+    else if (mark >= 80) comment = "Outstanding performance; consistently demonstrates deep understanding of the subject matter.";
+    else if (mark >= 70) comment = "Very good effort; shows strong grasp of concepts with only minor errors.";
+    else if (mark >= 60) comment = "Good progress; understanding is solid but requires more consistent application.";
+    else if (mark >= 50) comment = "Satisfactory effort; meets basic requirements but should aim for higher precision.";
+    else if (mark >= 40) comment = "Struggling to grasp key concepts; increased focus and remedial work recommended.";
+    else comment = "Urgent intervention required; fundamental gaps in knowledge must be addressed immediately.";
+
+    return { name: l.name, comment };
   });
 };

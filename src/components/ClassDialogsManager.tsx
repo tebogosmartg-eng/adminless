@@ -1,123 +1,115 @@
+import { ImportMarksDialog } from '@/components/dialogs/ImportMarksDialog';
 import { VoiceEntryDialog } from '@/components/dialogs/VoiceEntryDialog';
 import { RapidEntryDialog } from '@/components/dialogs/RapidEntryDialog';
-import { ImportMarksDialog } from '@/components/dialogs/ImportMarksDialog';
 import { EditLearnersDialog } from '@/components/dialogs/EditLearnersDialog';
 import { AiInsightsDialog } from '@/components/dialogs/AiInsightsDialog';
-import { AddLearnerDialog } from '@/components/dialogs/AddLearnerDialog';
 import { ModerationToolsDialog } from '@/components/dialogs/ModerationToolsDialog';
 import { LearnerProfileDialog } from '@/components/dialogs/LearnerProfileDialog';
-import { Learner, ClassInfo } from '@/lib/types';
-import { ClassInsight } from '@/services/gemini';
+import { AddLearnerDialog } from '@/components/dialogs/AddLearnerDialog';
+import { ClassInfo, Learner, ClassInsight } from '@/lib/types';
 
 interface ClassDialogsManagerProps {
-  classInfo: ClassInfo;
+  dialogs: {
+    isVoiceEntryOpen: boolean;
+    setIsVoiceEntryOpen: (open: boolean) => void;
+    isRapidEntryOpen: boolean;
+    setIsRapidEntryOpen: (open: boolean) => void;
+    isImportOpen: boolean;
+    setIsImportOpen: (open: boolean) => void;
+    isEditLearnersOpen: boolean;
+    setIsEditLearnersOpen: (open: boolean) => void;
+    isAiInsightsOpen: boolean;
+    setIsAiInsightsOpen: (open: boolean) => void;
+    isAddLearnerOpen: boolean;
+    setIsAddLearnerOpen: (open: boolean) => void;
+    isModerationOpen: boolean;
+    setIsModerationOpen: (open: boolean) => void;
+    selectedProfileLearner: Learner | null;
+    setSelectedProfileLearner: (learner: Learner | null) => void;
+  };
+  classInfo: ClassInfo | undefined;
   learners: Learner[];
-  classAverage: number;
-  
-  // Dialog States
-  isVoiceEntryOpen: boolean;
-  setIsVoiceEntryOpen: (open: boolean) => void;
-  isRapidEntryOpen: boolean;
-  setIsRapidEntryOpen: (open: boolean) => void;
-  isImportOpen: boolean;
-  setIsImportOpen: (open: boolean) => void;
-  isEditLearnersOpen: boolean;
-  setIsEditLearnersOpen: (open: boolean) => void;
-  isAiInsightsOpen: boolean;
-  setIsAiInsightsOpen: (open: boolean) => void;
-  isAddLearnerOpen: boolean;
-  setIsAddLearnerOpen: (open: boolean) => void;
-  isModerationOpen: boolean;
-  setIsModerationOpen: (open: boolean) => void;
-  selectedProfileLearner: Learner | null;
-  setSelectedProfileLearner: (learner: Learner | null) => void;
-
-  // AI Data
-  isGeneratingInsights: boolean;
-  insights: ClassInsight | null;
-
-  // Handlers
-  onUpdateLearners: (learners: Learner[]) => void;
-  onAddLearners: (names: string[]) => void;
-  onGenerateInsights: () => void;
-  onSimulateInsights: () => void;
+  handlers: {
+    handleAddLearners: (names: string[]) => void;
+    handleUpdateLearners: (learners: Learner[]) => void;
+    handleMarkChange: (index: number, mark: string) => void;
+  };
+  aiFeatures: {
+    isGeneratingInsights: boolean;
+    insights: ClassInsight | null;
+    handleGenerateInsights: () => void;
+    handleSimulateInsights: () => void;
+  };
 }
 
 export const ClassDialogsManager = ({
+  dialogs,
   classInfo,
   learners,
-  classAverage,
-  isVoiceEntryOpen, setIsVoiceEntryOpen,
-  isRapidEntryOpen, setIsRapidEntryOpen,
-  isImportOpen, setIsImportOpen,
-  isEditLearnersOpen, setIsEditLearnersOpen,
-  isAiInsightsOpen, setIsAiInsightsOpen,
-  isAddLearnerOpen, setIsAddLearnerOpen,
-  isModerationOpen, setIsModerationOpen,
-  selectedProfileLearner, setSelectedProfileLearner,
-  isGeneratingInsights,
-  insights,
-  onUpdateLearners,
-  onAddLearners,
-  onGenerateInsights,
-  onSimulateInsights
+  handlers,
+  aiFeatures
 }: ClassDialogsManagerProps) => {
   return (
     <>
-      <AddLearnerDialog 
-        isOpen={isAddLearnerOpen}
-        onOpenChange={setIsAddLearnerOpen}
-        onAdd={onAddLearners}
+      <ImportMarksDialog 
+        open={dialogs.isImportOpen} 
+        onOpenChange={dialogs.setIsImportOpen}
+        onImport={(importedLearners) => {
+          handlers.handleUpdateLearners([...learners, ...importedLearners]);
+          dialogs.setIsImportOpen(false);
+        }}
       />
       
       <VoiceEntryDialog 
-        isOpen={isVoiceEntryOpen}
-        onOpenChange={setIsVoiceEntryOpen}
+        open={dialogs.isVoiceEntryOpen} 
+        onOpenChange={dialogs.setIsVoiceEntryOpen}
         learners={learners}
-        onComplete={onUpdateLearners}
-      />
-      
-      <RapidEntryDialog 
-        isOpen={isRapidEntryOpen}
-        onOpenChange={setIsRapidEntryOpen}
-        learners={learners}
-        onComplete={onUpdateLearners}
+        onUpdateMark={(index, mark) => handlers.handleMarkChange(index, mark)}
       />
 
-      <ImportMarksDialog
-        isOpen={isImportOpen}
-        onOpenChange={setIsImportOpen}
-        classInfo={classInfo}
-        onImportComplete={onUpdateLearners}
-      />
-      
-      <EditLearnersDialog
-        isOpen={isEditLearnersOpen}
-        onOpenChange={setIsEditLearnersOpen}
-        classInfo={classInfo}
-      />
-      
-      <AiInsightsDialog
-        isOpen={isAiInsightsOpen}
-        onOpenChange={setIsAiInsightsOpen}
-        isLoading={isGeneratingInsights}
-        insights={insights}
-        onGenerate={onGenerateInsights}
-        onSimulate={onSimulateInsights}
-      />
-      
-      <ModerationToolsDialog 
-        isOpen={isModerationOpen}
-        onOpenChange={setIsModerationOpen}
+      <RapidEntryDialog
+        open={dialogs.isRapidEntryOpen}
+        onOpenChange={dialogs.setIsRapidEntryOpen}
         learners={learners}
-        classAverage={classAverage}
+        onUpdateMark={(index, mark) => handlers.handleMarkChange(index, mark)}
       />
-      
-      <LearnerProfileDialog
-        isOpen={!!selectedProfileLearner}
-        onOpenChange={(open) => !open && setSelectedProfileLearner(null)}
-        learner={selectedProfileLearner}
-        classSubject={`${classInfo.grade} ${classInfo.subject}`}
+
+      <EditLearnersDialog 
+        open={dialogs.isEditLearnersOpen} 
+        onOpenChange={dialogs.setIsEditLearnersOpen}
+        learners={learners}
+        onUpdateLearners={handlers.handleUpdateLearners}
+      />
+
+      <AiInsightsDialog
+        open={dialogs.isAiInsightsOpen}
+        onOpenChange={dialogs.setIsAiInsightsOpen}
+        classInfo={classInfo}
+        learners={learners}
+        insights={aiFeatures.insights}
+        isLoading={aiFeatures.isGeneratingInsights}
+        onGenerate={aiFeatures.handleGenerateInsights}
+        onSimulate={aiFeatures.handleSimulateInsights}
+      />
+
+      <AddLearnerDialog
+        open={dialogs.isAddLearnerOpen}
+        onOpenChange={dialogs.setIsAddLearnerOpen}
+        onAddLearners={handlers.handleAddLearners}
+      />
+
+      <ModerationToolsDialog
+        open={dialogs.isModerationOpen}
+        onOpenChange={dialogs.setIsModerationOpen}
+        learners={learners}
+        onUpdateLearners={handlers.handleUpdateLearners}
+      />
+
+      <LearnerProfileDialog 
+        learner={dialogs.selectedProfileLearner} 
+        open={!!dialogs.selectedProfileLearner}
+        onOpenChange={(open) => !open && dialogs.setSelectedProfileLearner(null)}
+        classSubject={classInfo?.subject || ''}
       />
     </>
   );

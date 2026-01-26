@@ -1,178 +1,132 @@
-import { Link } from 'react-router-dom';
+import { ArrowLeft, Save, MoreVertical, FileDown, Mic, Zap, Users, Brain, Sliders, Upload, Share2, FileText, Download, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, Save, Mic, Upload, Users, MoreHorizontal, BrainCircuit, MessageSquare, Plus, FileText, Eraser, File, CheckCircle2, Share2, Zap, Ruler, Files } from 'lucide-react';
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { GradingLegend } from './GradingLegend';
+import { ClassInfo } from '@/lib/types';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface ClassHeaderProps {
-  classNameStr: string;
-  subject: string;
-  grade: string;
-  learnerCount: number;
-  gradedCount: number;
-  hasUnsavedChanges: boolean;
-  showComments: boolean;
-  onToggleComments: () => void;
+  classInfo: ClassInfo;
+  onBack: () => void;
+  onEdit: (details: Partial<ClassInfo>) => void;
   onSave: () => void;
-  onOpenAiInsights: () => void;
-  onOpenVoiceEntry: () => void;
-  onOpenRapidEntry: () => void;
-  onOpenAddLearner: () => void;
-  onOpenEditLearners: () => void;
-  onOpenImport: () => void;
-  onExportCsv: () => void;
-  onExportPdf: () => void;
-  onExportBlankPdf: () => void;
-  onExportBulkReports: () => void;
-  onClearMarks: () => void;
-  onShare: () => void;
-  onOpenModeration: () => void;
+  onExport: {
+    csv: () => void;
+    pdf: () => void;
+    bulkPdf: () => void;
+    blankList: () => void;
+    share: () => void;
+  };
+  onDialogs: {
+    import: () => void;
+    voice: () => void;
+    rapid: () => void;
+    editLearners: () => void;
+    aiInsights: () => void;
+    moderation: () => void;
+  };
 }
 
 export const ClassHeader = ({
-  classNameStr,
-  subject,
-  grade,
-  learnerCount,
-  gradedCount,
-  hasUnsavedChanges,
-  showComments,
-  onToggleComments,
+  classInfo,
+  onBack,
+  onEdit,
   onSave,
-  onOpenAiInsights,
-  onOpenVoiceEntry,
-  onOpenRapidEntry,
-  onOpenAddLearner,
-  onOpenEditLearners,
-  onOpenImport,
-  onExportCsv,
-  onExportPdf,
-  onExportBlankPdf,
-  onExportBulkReports,
-  onClearMarks,
-  onShare,
-  onOpenModeration
+  onExport,
+  onDialogs
 }: ClassHeaderProps) => {
-  const completionPercentage = learnerCount > 0 ? Math.round((gradedCount / learnerCount) * 100) : 0;
-
   return (
-    <div className="flex flex-col gap-6 mb-6">
-      {/* Top Row: Back link and Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-card p-4 rounded-lg border shadow-sm">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={onBack}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
         <div>
-          <Link to="/classes" className="flex items-center text-sm text-muted-foreground hover:text-primary mb-2">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Classes
-          </Link>
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-3xl font-bold">{subject}</h1>
-            <Badge variant="outline" className="text-base font-normal">{classNameStr}</Badge>
-            <span className="text-muted-foreground">{grade}</span>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">{classInfo.className}</h1>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit({})}>
+               <Edit className="h-3 w-3 text-muted-foreground" />
+            </Button>
           </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={onShare} title="Share Summary">
-            <Share2 className="mr-2 h-4 w-4" /> Share
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={onOpenModeration}
-            title="Moderation Check"
-          >
-            <Ruler className="mr-2 h-4 w-4" /> Moderation
-          </Button>
-          <Button 
-            variant="outline" 
-            className="border-primary/20 text-primary hover:bg-primary/5"
-            onClick={onOpenAiInsights}
-          >
-            <BrainCircuit className="mr-2 h-4 w-4" /> Insights
-          </Button>
-          <Button 
-            variant="outline" 
-            className={showComments ? "bg-muted" : ""}
-            onClick={onToggleComments}
-          >
-            <MessageSquare className="mr-2 h-4 w-4" /> {showComments ? 'Hide Comments' : 'Comments'}
-          </Button>
-          <Button onClick={onSave} disabled={!hasUnsavedChanges} className={hasUnsavedChanges ? "animate-pulse" : ""}>
-            <Save className="mr-2 h-4 w-4" />
-            {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
-          </Button>
-          
-          <div className="flex items-center rounded-md border bg-background">
-             <Button variant="ghost" className="rounded-r-none border-r px-3" onClick={onOpenRapidEntry} title="Rapid Type Mode">
-                <Zap className="mr-2 h-4 w-4" /> Rapid
-             </Button>
-             <Button variant="ghost" className="rounded-l-none px-3" onClick={onOpenVoiceEntry} title="Voice Entry Mode">
-                <Mic className="h-4 w-4" />
-             </Button>
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onOpenAddLearner}>
-                <Plus className="mr-2 h-4 w-4" />
-                <span>Add Learners</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onOpenEditLearners}>
-                <Users className="mr-2 h-4 w-4" />
-                <span>Bulk Manage List</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onOpenImport}>
-                <Upload className="mr-2 h-4 w-4" />
-                <span>Import CSV</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onClearMarks} className="text-orange-600 focus:text-orange-700">
-                <Eraser className="mr-2 h-4 w-4" />
-                <span>Clear All Marks</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onExportCsv}>
-                <Download className="mr-2 h-4 w-4" />
-                <span>Export CSV Data</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onExportPdf}>
-                <FileText className="mr-2 h-4 w-4" />
-                <span>Export Class Report</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onExportBulkReports}>
-                <Files className="mr-2 h-4 w-4" />
-                <span>Export All Learner Reports</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onExportBlankPdf}>
-                <File className="mr-2 h-4 w-4" />
-                <span>Export Blank Sheet</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <p className="text-sm text-muted-foreground">
+            {classInfo.grade} • {classInfo.subject}
+          </p>
         </div>
       </div>
 
-      {/* Progress Bar Row */}
-      <div className="flex items-center gap-4 bg-muted/20 p-3 rounded-lg border">
-        <div className="flex items-center gap-2 min-w-[140px]">
-           <CheckCircle2 className={`h-5 w-5 ${completionPercentage === 100 ? 'text-green-500' : 'text-muted-foreground'}`} />
-           <span className="text-sm font-medium">Grading Progress</span>
-        </div>
-        <div className="flex-1">
-          <Progress value={completionPercentage} className="h-2" />
-        </div>
-        <div className="flex items-center gap-4">
-           <div className="min-w-[80px] text-right text-sm text-muted-foreground">
-             {gradedCount} / {learnerCount} ({completionPercentage}%)
-           </div>
-           <GradingLegend />
-        </div>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={onSave}>
+            <Save className="mr-2 h-4 w-4" />
+            Save
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <FileDown className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onExport.pdf}>
+                <FileText className="mr-2 h-4 w-4" /> Class Report (PDF)
+            </DropdownMenuItem>
+             <DropdownMenuItem onClick={onExport.bulkPdf}>
+                <Download className="mr-2 h-4 w-4" /> Bulk Learner Reports
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onExport.csv}>
+                <FileText className="mr-2 h-4 w-4" /> CSV Data
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onExport.blankList}>
+                <FileText className="mr-2 h-4 w-4" /> Blank List
+            </DropdownMenuItem>
+             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onExport.share}>
+                <Share2 className="mr-2 h-4 w-4" /> Share Summary
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Tools</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onDialogs.import}>
+                <Upload className="mr-2 h-4 w-4" /> Import Learners
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDialogs.editLearners}>
+                <Users className="mr-2 h-4 w-4" /> Edit Class List
+            </DropdownMenuItem>
+             <DropdownMenuSeparator />
+            <DropdownMenuLabel>Input Methods</DropdownMenuLabel>
+            <DropdownMenuItem onClick={onDialogs.voice}>
+                <Mic className="mr-2 h-4 w-4" /> Voice Entry
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDialogs.rapid}>
+                <Zap className="mr-2 h-4 w-4" /> Rapid Entry
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Analysis</DropdownMenuLabel>
+            <DropdownMenuItem onClick={onDialogs.aiInsights}>
+                <Brain className="mr-2 h-4 w-4" /> AI Insights
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDialogs.moderation}>
+                <Sliders className="mr-2 h-4 w-4" /> Moderation
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

@@ -1,184 +1,96 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { Learner } from "@/lib/types";
-import { ChevronLeft, ChevronRight, Check, Calculator } from "lucide-react";
-import { showSuccess } from "@/utils/toast";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useState, useEffect } from 'react';
+import { Learner } from '@/lib/types';
+import { ArrowRight, Check } from 'lucide-react';
 
 interface RapidEntryDialogProps {
-  isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   learners: Learner[];
-  onComplete: (updatedLearners: Learner[]) => void;
+  onUpdateMark: (index: number, mark: string) => void;
 }
 
-export const RapidEntryDialog = ({
-  isOpen,
-  onOpenChange,
-  learners,
-  onComplete,
-}: RapidEntryDialogProps) => {
+export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }: RapidEntryDialogProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [localLearners, setLocalLearners] = useState<Learner[]>([]);
-  const markInputRef = useRef<HTMLInputElement>(null);
+  const [currentMark, setCurrentMark] = useState('');
 
   useEffect(() => {
-    if (isOpen) {
-      setLocalLearners(JSON.parse(JSON.stringify(learners)));
-      // Find first learner without a mark to start there, otherwise 0
-      const firstUngraded = learners.findIndex((l) => !l.mark);
-      setCurrentIndex(firstUngraded !== -1 ? firstUngraded : 0);
+    if (open) {
+      setCurrentIndex(0);
+      setCurrentMark(learners[0]?.mark || '');
     }
-  }, [isOpen, learners]);
+  }, [open, learners]);
 
-  // Focus management
   useEffect(() => {
-    if (isOpen && markInputRef.current) {
-        // Small timeout to ensure dialog animation is done and DOM is ready
-        setTimeout(() => {
-            markInputRef.current?.focus();
-            markInputRef.current?.select();
-        }, 50);
+    if (learners[currentIndex]) {
+        setCurrentMark(learners[currentIndex].mark || '');
     }
-  }, [currentIndex, isOpen]);
-
-  const currentLearner = localLearners[currentIndex];
+  }, [currentIndex, learners]);
 
   const handleNext = () => {
-    if (currentIndex < localLearners.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+    onUpdateMark(currentIndex, currentMark);
+    if (currentIndex < learners.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+    } else {
+      onOpenChange(false);
     }
-  };
-
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
-
-  const handleChange = (field: 'mark' | 'comment', value: string) => {
-    const updated = [...localLearners];
-    updated[currentIndex] = { ...updated[currentIndex], [field]: value };
-    
-    // Auto-calculate logic for marks (e.g. 15/20 -> 75)
-    if (field === 'mark') {
-        const fractionMatch = value.match(/^(\d+(\.\d+)?)\s*\/\s*(\d+(\.\d+)?)$/);
-        if (fractionMatch) {
-            const num = parseFloat(fractionMatch[1]);
-            const den = parseFloat(fractionMatch[3]);
-            if (den !== 0) {
-                updated[currentIndex].mark = ((num / den) * 100).toFixed(1).replace(/\.0$/, '');
-            }
-        }
-    }
-    
-    setLocalLearners(updated);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-        e.preventDefault();
-        if (currentIndex < localLearners.length - 1) {
-            handleNext();
-        } else {
-            // Optional: Auto-save on last enter? For now, let user click Done.
-            // Or loop back?
-            // Let's just focus save button or do nothing
-        }
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        handlePrev();
-    } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        handleNext();
+      handleNext();
     }
   };
 
-  const handleSaveAndClose = () => {
-    onComplete(localLearners);
-    onOpenChange(false);
-    showSuccess("Rapid entry data saved.");
-  };
-
-  if (!currentLearner) return null;
-
-  const progress = Math.round(((currentIndex + 1) / localLearners.length) * 100);
+  const progress = Math.round(((currentIndex + 1) / learners.length) * 100);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex justify-between items-center">
-            <span>Rapid Entry Mode</span>
-            <span className="text-sm font-normal text-muted-foreground">
-                {currentIndex + 1} / {localLearners.length}
-            </span>
-          </DialogTitle>
+          <DialogTitle>Rapid Mark Entry</DialogTitle>
           <DialogDescription>
-            Type mark (e.g. "85" or "15/20"). Press Enter for next.
+            Quickly enter marks one by one. Press Enter to save and go to next.
           </DialogDescription>
         </DialogHeader>
         
-        <div className="py-4 space-y-6">
-            <Progress value={progress} className="h-2" />
-            
-            <div className="text-center space-y-1">
-                <h3 className="text-2xl font-bold truncate">{currentLearner.name}</h3>
-                <p className="text-sm text-muted-foreground">Enter mark below</p>
+        <div className="py-4 space-y-4">
+            <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                <div className="bg-primary h-full transition-all duration-300" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="text-xs text-right text-muted-foreground">
+                {currentIndex + 1} of {learners.length}
+            </p>
+
+            <div className="flex flex-col items-center justify-center space-y-4 py-4">
+                <h3 className="text-2xl font-bold">{learners[currentIndex]?.name}</h3>
+                <div className="flex items-center gap-2">
+                    <Label htmlFor="rapid-mark" className="sr-only">Mark</Label>
+                    <Input 
+                        id="rapid-mark"
+                        value={currentMark}
+                        onChange={(e) => setCurrentMark(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="text-center text-lg w-32 h-12"
+                        placeholder="%"
+                        autoFocus
+                    />
+                </div>
             </div>
 
-            <div className="space-y-4">
-                <div className="flex flex-col items-center relative">
-                    <Input 
-                        ref={markInputRef}
-                        value={currentLearner.mark}
-                        onChange={(e) => handleChange('mark', e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        className="text-center text-3xl h-16 w-40 font-bold tracking-wider"
-                        placeholder="%"
-                    />
-                    <div className="absolute right-12 top-5 opacity-20 pointer-events-none">
-                        <Calculator className="h-6 w-6" />
-                    </div>
-                </div>
-                
-                <div className="px-4">
-                    <Label htmlFor="comment" className="text-xs text-muted-foreground">Comment (Optional)</Label>
-                    <Input 
-                        id="comment"
-                        value={currentLearner.comment || ""}
-                        onChange={(e) => handleChange('comment', e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="e.g. Good effort..."
-                        className="mt-1"
-                    />
-                </div>
+            <div className="flex justify-end">
+                <Button onClick={handleNext}>
+                    {currentIndex === learners.length - 1 ? (
+                        <>Finish <Check className="ml-2 h-4 w-4" /></>
+                    ) : (
+                        <>Next <ArrowRight className="ml-2 h-4 w-4" /></>
+                    )}
+                </Button>
             </div>
         </div>
-
-        <DialogFooter className="flex justify-between sm:justify-between items-center w-full">
-            <div className="flex gap-2">
-                <Button variant="outline" size="icon" onClick={handlePrev} disabled={currentIndex === 0}>
-                    <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={handleNext} disabled={currentIndex === localLearners.length - 1}>
-                    <ChevronRight className="h-4 w-4" />
-                </Button>
-            </div>
-            <Button onClick={handleSaveAndClose}>
-                Done <Check className="ml-2 h-4 w-4" />
-            </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

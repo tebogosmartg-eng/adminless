@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ClassInfo, Learner } from '@/lib/types';
-import { generateClassInsights, generateReportComments, ClassInsight, getMockClassInsights, getMockReportComments } from '@/services/gemini';
+import { ClassInfo, Learner, ClassInsight } from '@/lib/types';
+import { generateClassInsights, generateReportComments, getMockClassInsights, getMockReportComments } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 
 export const useAiFeatures = (

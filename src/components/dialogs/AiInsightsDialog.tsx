@@ -1,142 +1,155 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ClassInsight } from "@/services/gemini";
-import { BrainCircuit, CheckCircle2, AlertTriangle, Lightbulb, PlayCircle, Copy } from "lucide-react";
-import { Loader2 } from "lucide-react";
-import { showSuccess } from "@/utils/toast";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Brain, Sparkles, TrendingUp, AlertTriangle, Lightbulb, Copy, Check, Loader2 } from 'lucide-react';
+import { ClassInfo, ClassInsight, Learner } from '@/lib/types';
+import { useState } from 'react';
+import { showSuccess } from '@/utils/toast';
 
 interface AiInsightsDialogProps {
-  isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
-  isLoading: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  classInfo: ClassInfo | undefined;
+  learners: Learner[];
   insights: ClassInsight | null;
+  isLoading: boolean;
   onGenerate: () => void;
   onSimulate: () => void;
 }
 
-export const AiInsightsDialog = ({ isOpen, onOpenChange, isLoading, insights, onGenerate, onSimulate }: AiInsightsDialogProps) => {
-  
-  const handleCopy = (text: string) => {
+export const AiInsightsDialog = ({
+  open,
+  onOpenChange,
+  classInfo,
+  learners,
+  insights,
+  isLoading,
+  onGenerate,
+  onSimulate
+}: AiInsightsDialogProps) => {
+  const [copiedSection, setCopiedSection] = useState<string | null>(null);
+
+  const handleCopy = (text: string, section: string) => {
     navigator.clipboard.writeText(text);
-    showSuccess("Copied to clipboard!");
+    setCopiedSection(section);
+    showSuccess(`${section} copied to clipboard!`);
+    setTimeout(() => setCopiedSection(null), 2000);
   };
 
-  const handleCopyList = (items: string[]) => {
-    navigator.clipboard.writeText(items.map(i => `• ${i}`).join('\n'));
-    showSuccess("List copied to clipboard!");
-  };
+  const formatListForCopy = (list: string[]) => list.map(item => `• ${item}`).join('\n');
+
+  if (!classInfo) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <BrainCircuit className="h-5 w-5 text-primary" />
-            AI Class Insights
+          <DialogTitle className="flex items-center gap-2 text-xl text-primary">
+            <Sparkles className="h-6 w-6" />
+            AI Class Analysis
           </DialogTitle>
           <DialogDescription>
-            AI-powered analysis of your class performance and recommendations.
+            AI-generated performance insights for {classInfo.grade} {classInfo.subject}.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden p-1">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center h-64 space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-muted-foreground animate-pulse">Analyzing marks and generating insights...</p>
-            </div>
-          ) : !insights ? (
-            <div className="flex flex-col items-center justify-center h-64 space-y-4 text-center">
-              <BrainCircuit className="h-12 w-12 text-muted-foreground/30" />
-              <p className="text-muted-foreground max-w-xs">
-                Click the button below to generate a detailed analysis of this class's performance.
-              </p>
-              <div className="flex gap-2">
-                <Button onClick={onGenerate}>Generate Insights</Button>
-                <Button variant="outline" onClick={onSimulate}>
-                  <PlayCircle className="mr-2 h-4 w-4" /> Demo Mode
-                </Button>
+        <ScrollArea className="flex-1 pr-4">
+          {!insights ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center">
+              <div className="bg-primary/10 p-4 rounded-full">
+                <Brain className="h-12 w-12 text-primary" />
+              </div>
+              <div className="space-y-2 max-w-md">
+                <h3 className="font-semibold text-lg">Generate Insights</h3>
+                <p className="text-sm text-muted-foreground">
+                  Analyze learner performance to identify trends, strengths, and areas for intervention using AI.
+                </p>
+              </div>
+              <div className="flex gap-2 mt-4">
+                 <Button onClick={onGenerate} disabled={isLoading} className="min-w-[140px]">
+                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                   Generate Analysis
+                 </Button>
+                 <Button variant="outline" onClick={onSimulate} disabled={isLoading}>
+                    Demo Mode
+                 </Button>
               </div>
             </div>
           ) : (
-            <ScrollArea className="h-[500px] pr-4">
-              <div className="space-y-6">
-                <div className="bg-muted/30 p-4 rounded-lg border group relative">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold">Summary</h3>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleCopy(insights.summary)}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {insights.summary}
-                  </p>
+            <div className="space-y-6 py-2">
+              <div className="p-4 bg-muted/40 rounded-lg border relative group">
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(insights.summary, 'Summary')}>
+                      {copiedSection === 'Summary' ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                   </Button>
                 </div>
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-purple-600" /> Executive Summary
+                </h4>
+                <p className="text-sm leading-relaxed text-muted-foreground">{insights.summary}</p>
+              </div>
 
-                <div className="group relative">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="flex items-center gap-2 font-semibold text-green-600 dark:text-green-400">
-                      <CheckCircle2 className="h-4 w-4" /> Strengths
-                    </h3>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleCopyList(insights.strengths)}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-3 relative group">
+                  <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(formatListForCopy(insights.strengths), 'Strengths')}>
+                        {copiedSection === 'Strengths' ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                     </Button>
                   </div>
+                  <h4 className="font-semibold text-sm flex items-center gap-2 text-green-700">
+                    <TrendingUp className="h-4 w-4" /> Key Strengths
+                  </h4>
                   <ul className="space-y-2">
-                    {insights.strengths.map((item, index) => (
-                      <li key={index} className="text-sm bg-green-50 dark:bg-green-950/20 p-3 rounded-md border border-green-100 dark:border-green-900/50">
+                    {insights.strengths.map((item, i) => (
+                      <li key={i} className="text-sm bg-green-50 text-green-900 px-3 py-2 rounded-md border border-green-100">
                         {item}
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="group relative">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400">
-                      <AlertTriangle className="h-4 w-4" /> Areas for Improvement
-                    </h3>
-                     <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleCopyList(insights.weaknesses)}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
+                <div className="space-y-3 relative group">
+                  <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(formatListForCopy(insights.areasForImprovement), 'Areas')}>
+                        {copiedSection === 'Areas' ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                     </Button>
                   </div>
+                  <h4 className="font-semibold text-sm flex items-center gap-2 text-orange-700">
+                    <AlertTriangle className="h-4 w-4" /> Areas for Improvement
+                  </h4>
                   <ul className="space-y-2">
-                    {insights.weaknesses.map((item, index) => (
-                      <li key={index} className="text-sm bg-amber-50 dark:bg-amber-950/20 p-3 rounded-md border border-amber-100 dark:border-amber-900/50">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="group relative">
-                   <div className="flex justify-between items-center mb-3">
-                    <h3 className="flex items-center gap-2 font-semibold text-blue-600 dark:text-blue-400">
-                      <Lightbulb className="h-4 w-4" /> Recommendations
-                    </h3>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleCopyList(insights.recommendations)}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <ul className="space-y-2">
-                    {insights.recommendations.map((item, index) => (
-                      <li key={index} className="text-sm bg-blue-50 dark:bg-blue-950/20 p-3 rounded-md border border-blue-100 dark:border-blue-900/50">
+                    {insights.areasForImprovement.map((item, i) => (
+                      <li key={i} className="text-sm bg-orange-50 text-orange-900 px-3 py-2 rounded-md border border-orange-100">
                         {item}
                       </li>
                     ))}
                   </ul>
                 </div>
               </div>
-            </ScrollArea>
+
+              <div className="space-y-3 relative group">
+                 <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(formatListForCopy(insights.recommendations), 'Recommendations')}>
+                        {copiedSection === 'Recommendations' ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                     </Button>
+                  </div>
+                <h4 className="font-semibold text-sm flex items-center gap-2 text-blue-700">
+                  <Lightbulb className="h-4 w-4" /> Recommendations & Strategies
+                </h4>
+                <div className="grid gap-2">
+                  {insights.recommendations.map((item, i) => (
+                    <div key={i} className="flex gap-3 items-start p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                      <div className="mt-0.5 bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                        {i + 1}
+                      </div>
+                      <p className="text-sm text-blue-900">{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
