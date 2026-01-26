@@ -1,4 +1,4 @@
-import { ArrowLeft, Save, MoreVertical, FileDown, Mic, Zap, Users, Brain, Sliders, Upload, Share2, FileText, Download, Edit } from 'lucide-react';
+import { ArrowLeft, Save, MoreVertical, FileDown, Mic, Zap, Users, Brain, Sliders, Upload, Share2, FileText, Download, Edit, Dices } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClassInfo } from '@/lib/types';
 import {
@@ -29,6 +29,7 @@ interface ClassHeaderProps {
     editLearners: () => void;
     aiInsights: () => void;
     moderation: () => void;
+    classroomTools: () => void;
   };
 }
 
@@ -102,6 +103,10 @@ export const ClassHeader = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Tools</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onDialogs.classroomTools}>
+                <Dices className="mr-2 h-4 w-4" /> Classroom Tools
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onDialogs.import}>
                 <Upload className="mr-2 h-4 w-4" /> Import Learners

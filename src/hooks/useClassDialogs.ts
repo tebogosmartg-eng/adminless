@@ -9,6 +9,7 @@ export const useClassDialogs = () => {
   const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
   const [isAddLearnerOpen, setIsAddLearnerOpen] = useState(false);
   const [isModerationOpen, setIsModerationOpen] = useState(false);
+  const [isClassroomToolsOpen, setIsClassroomToolsOpen] = useState(false);
   const [selectedProfileLearner, setSelectedProfileLearner] = useState<Learner | null>(null);
 
   return {
@@ -19,6 +20,7 @@ export const useClassDialogs = () => {
     isAiInsightsOpen, setIsAiInsightsOpen,
     isAddLearnerOpen, setIsAddLearnerOpen,
     isModerationOpen, setIsModerationOpen,
+    isClassroomToolsOpen, setIsClassroomToolsOpen,
     selectedProfileLearner, setSelectedProfileLearner
   };
 };

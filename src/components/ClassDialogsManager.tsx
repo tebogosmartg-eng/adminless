@@ -6,6 +6,7 @@ import { AiInsightsDialog } from '@/components/dialogs/AiInsightsDialog';
 import { ModerationToolsDialog } from '@/components/dialogs/ModerationToolsDialog';
 import { LearnerProfileDialog } from '@/components/dialogs/LearnerProfileDialog';
 import { AddLearnerDialog } from '@/components/dialogs/AddLearnerDialog';
+import { ClassroomToolsDialog } from '@/components/dialogs/ClassroomToolsDialog';
 import { ClassInfo, Learner, ClassInsight } from '@/lib/types';
 
 interface ClassDialogsManagerProps {
@@ -24,6 +25,8 @@ interface ClassDialogsManagerProps {
     setIsAddLearnerOpen: (open: boolean) => void;
     isModerationOpen: boolean;
     setIsModerationOpen: (open: boolean) => void;
+    isClassroomToolsOpen: boolean;
+    setIsClassroomToolsOpen: (open: boolean) => void;
     selectedProfileLearner: Learner | null;
     setSelectedProfileLearner: (learner: Learner | null) => void;
   };
@@ -52,7 +55,6 @@ export const ClassDialogsManager = ({
 
   const getCurrentLearnerIndex = () => {
     if (!dialogs.selectedProfileLearner) return -1;
-    // Find index by reference or name comparison if reference changes
     return learners.findIndex(l => l.name === dialogs.selectedProfileLearner?.name);
   };
 
@@ -126,6 +128,12 @@ export const ClassDialogsManager = ({
         onOpenChange={dialogs.setIsModerationOpen}
         learners={learners}
         onUpdateLearners={handlers.handleUpdateLearners}
+      />
+
+      <ClassroomToolsDialog
+        open={dialogs.isClassroomToolsOpen}
+        onOpenChange={dialogs.setIsClassroomToolsOpen}
+        learners={learners}
       />
 
       <LearnerProfileDialog 

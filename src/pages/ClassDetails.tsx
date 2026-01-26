@@ -95,7 +95,8 @@ const ClassDetails = () => {
             rapid: () => dialogs.setIsRapidEntryOpen(true),
             editLearners: () => dialogs.setIsEditLearnersOpen(true),
             aiInsights: () => dialogs.setIsAiInsightsOpen(true),
-            moderation: () => dialogs.setIsModerationOpen(true)
+            moderation: () => dialogs.setIsModerationOpen(true),
+            classroomTools: () => dialogs.setIsClassroomToolsOpen(true)
         }}
       />
 
