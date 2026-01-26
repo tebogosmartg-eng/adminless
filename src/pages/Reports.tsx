@@ -1,155 +1,243 @@
+import { useState } from 'react';
 import { useClasses } from '@/context/ClassesContext';
 import { useSettings } from '@/context/SettingsContext';
+import { useAcademic } from '@/context/AcademicContext';
 import { getGradeSymbol } from '@/utils/grading';
 import autoTable from 'jspdf-autotable';
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { useReportsData } from '@/hooks/useReportsData';
+import { useTermReportData } from '@/hooks/useTermReportData';
 import { ReportsFilterCard } from '@/components/reports/ReportsFilterCard';
 import { ReportsAssessmentSelector } from '@/components/reports/ReportsAssessmentSelector';
 import { ReportsResults } from '@/components/reports/ReportsResults';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, FileDown } from 'lucide-react';
 
 const Reports = () => {
   const { classes } = useClasses();
   const { gradingScheme, schoolName, teacherName } = useSettings();
+  const { terms, years, activeYear } = useAcademic();
 
-  const {
-    selectedGrade, setSelectedGrade,
-    selectedSubject, setSelectedSubject,
-    uniqueGrades, uniqueSubjects,
-    filteredClasses,
-    selectedClassIds,
-    weights,
-    handleClassToggle,
-    handleWeightChange,
-    calculateResults,
-    aggregatedData,
-    setAggregatedData,
-    trendData
-  } = useReportsData(classes);
+  // Legacy/Manual Aggregation Hook
+  const manualReports = useReportsData(classes);
 
-  const handleExportCSV = () => {
-    if (!aggregatedData) return;
+  // New Term Logic Hook
+  const { loading: termLoading, reportData, generateTermReport } = useTermReportData();
+  const [termReportGrade, setTermReportGrade] = useState("all");
+  const [termReportSubject, setTermReportSubject] = useState("all");
+  const [selectedTermId, setSelectedTermId] = useState("");
 
-    const selectedClassInfos = selectedClassIds.map(id => classes.find(c => c.id === id)!);
+  const handleExportTermPDF = () => {
+    if (!reportData || !selectedTermId) return;
     
-    let csvContent = "Learner Name";
-    selectedClassInfos.forEach(c => {
-      csvContent += `,${c.className} (${c.subject}) [${weights[c.id]}%]`;
-    });
-    csvContent += ",Final Mark,Symbol,Level\n";
-
-    aggregatedData.forEach(l => {
-      let row = `"${l.name}"`;
-      selectedClassInfos.forEach(c => {
-        const m = l.marks[c.id];
-        row += `,${m !== null ? m : ''}`;
-      });
-      
-      const symbol = getGradeSymbol(l.finalMark, gradingScheme);
-      row += `,${l.finalMark},${symbol?.symbol || '-'},${symbol?.level || '-'}\n`;
-      csvContent += row;
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.download = `Aggregated_Report_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-  };
-
-  const handleExportPDF = () => {
-    if (!aggregatedData) return;
+    const termName = terms.find(t => t.id === selectedTermId)?.name || "Term Report";
     const doc = new jsPDF();
-    const selectedClassInfos = selectedClassIds.map(id => classes.find(c => c.id === id)!);
 
     doc.setFontSize(18);
-    doc.text("Aggregated Performance Report", 14, 20);
-    
+    doc.text(`${schoolName} - ${termName} Report`, 14, 20);
     doc.setFontSize(10);
-    doc.text(`${schoolName}`, 14, 26);
-    doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 32);
-    if(teacherName) doc.text(`Teacher: ${teacherName}`, 14, 38);
+    doc.text(`Grade: ${termReportGrade} | Subject: ${termReportSubject}`, 14, 28);
+    doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 34);
 
-    let subHeader = `Included Assessments: `;
-    selectedClassInfos.forEach((c, i) => {
-        if(i > 0) subHeader += ", ";
-        subHeader += `${c.className} (${weights[c.id]}%)`;
-    });
-    const splitSub = doc.splitTextToSize(subHeader, 180);
-    doc.text(splitSub, 14, 46);
+    // Get all unique assessment titles for headers
+    const assessmentTitles = Array.from(new Set(reportData.flatMap(r => Object.keys(r.assessments))));
 
-    const head = [['Name', ...selectedClassInfos.map(c => c.className), 'Final %', 'Sym', 'Lvl']];
-    const body = aggregatedData.map(l => {
-        const marks = selectedClassInfos.map(c => l.marks[c.id] !== null ? l.marks[c.id] : '-');
-        const symbol = getGradeSymbol(l.finalMark, gradingScheme);
+    const head = [['Name', 'Class', ...assessmentTitles, 'Final %', 'Sym']];
+    const body = reportData.map(r => {
+        const symbol = getGradeSymbol(r.termAverage, gradingScheme);
         return [
-            l.name,
-            ...marks,
-            l.finalMark,
-            symbol?.symbol || '-',
-            symbol?.level || '-'
+            r.learnerName,
+            r.className,
+            ...assessmentTitles.map(t => r.assessments[t] || '-'),
+            r.termAverage,
+            symbol?.symbol || '-'
         ];
     });
 
     autoTable(doc, {
-        startY: 55 + (splitSub.length * 5),
+        startY: 40,
         head: head,
         body: body,
         theme: 'grid',
-        headStyles: { fillColor: [41, 37, 36] },
-        styles: { fontSize: 8 }
+        headStyles: { fillColor: [41, 37, 36], fontSize: 8 },
+        styles: { fontSize: 8 },
+        columnStyles: { 0: { fontStyle: 'bold' } }
     });
 
-    doc.save(`Aggregated_Report.pdf`);
+    doc.save(`${termReportGrade}_${termReportSubject}_${termName}.pdf`);
   };
-
-  // Clear data when filters change (wrapper)
-  const handleGradeChange = (v: string) => { setSelectedGrade(v); setAggregatedData(null); };
-  const handleSubjectChange = (v: string) => { setSelectedSubject(v); setAggregatedData(null); };
 
   return (
     <div className="space-y-6 pb-10">
       <div>
-        <h1 className="text-3xl font-bold">Aggregate Reports</h1>
-        <p className="text-muted-foreground">Combine multiple assessments into a final term or year mark.</p>
+        <h1 className="text-3xl font-bold">Reports</h1>
+        <p className="text-muted-foreground">Generate comprehensive performance reports.</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1 space-y-6">
-          <ReportsFilterCard 
-            selectedGrade={selectedGrade}
-            setSelectedGrade={handleGradeChange}
-            uniqueGrades={uniqueGrades}
-            selectedSubject={selectedSubject}
-            setSelectedSubject={handleSubjectChange}
-            uniqueSubjects={uniqueSubjects}
-          />
+      <Tabs defaultValue="term" className="w-full">
+        <TabsList>
+            <TabsTrigger value="term">Term Reports (New)</TabsTrigger>
+            <TabsTrigger value="manual">Manual Aggregate (Legacy)</TabsTrigger>
+        </TabsList>
 
-          <ReportsAssessmentSelector 
-            filteredClasses={filteredClasses}
-            selectedClassIds={selectedClassIds}
-            weights={weights}
-            onToggleClass={handleClassToggle}
-            onWeightChange={handleWeightChange}
-            onCalculate={calculateResults}
-          />
-        </div>
+        <TabsContent value="term" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-4">
+                <Card className="md:col-span-1">
+                    <CardHeader>
+                        <CardTitle>Configuration</CardTitle>
+                        <CardDescription>Select parameters for the term report.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Academic Year</label>
+                            <div className="p-2 border rounded bg-muted/20 text-sm font-medium">
+                                {activeYear ? activeYear.name : "No Active Year"}
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Term</label>
+                            <Select value={selectedTermId} onValueChange={setSelectedTermId}>
+                                <SelectTrigger><SelectValue placeholder="Select Term" /></SelectTrigger>
+                                <SelectContent>
+                                    {terms.map(t => (
+                                        <SelectItem key={t.id} value={t.id}>{t.name} {t.closed ? "(Closed)" : ""}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Grade</label>
+                            <Select value={termReportGrade} onValueChange={setTermReportGrade}>
+                                <SelectTrigger><SelectValue placeholder="Select Grade" /></SelectTrigger>
+                                <SelectContent>
+                                    {manualReports.uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Subject</label>
+                            <Select value={termReportSubject} onValueChange={setTermReportSubject}>
+                                <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
+                                <SelectContent>
+                                    {manualReports.uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button 
+                            className="w-full" 
+                            onClick={() => generateTermReport(selectedTermId, termReportGrade, termReportSubject)}
+                            disabled={termLoading || !selectedTermId || termReportGrade === 'all' || termReportSubject === 'all'}
+                        >
+                            {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Report"}
+                        </Button>
+                    </CardContent>
+                </Card>
 
-        <div className="lg:col-span-2 space-y-6">
-           <ReportsResults 
-             aggregatedData={aggregatedData}
-             trendData={trendData}
-             selectedClassIds={selectedClassIds}
-             classes={classes}
-             weights={weights}
-             gradingScheme={gradingScheme}
-             onExportCSV={handleExportCSV}
-             onExportPDF={handleExportPDF}
-           />
-        </div>
-      </div>
+                <Card className="md:col-span-3 min-h-[500px] flex flex-col">
+                    <CardHeader className="flex flex-row justify-between items-center">
+                        <div>
+                            <CardTitle>Report Preview</CardTitle>
+                            <CardDescription>
+                                {reportData ? `Results for ${reportData.length} learners` : "Select options to view results."}
+                            </CardDescription>
+                        </div>
+                        {reportData && (
+                            <Button variant="outline" size="sm" onClick={handleExportTermPDF}>
+                                <FileDown className="mr-2 h-4 w-4" /> Export PDF
+                            </Button>
+                        )}
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-auto">
+                        {reportData ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Learner</TableHead>
+                                        <TableHead>Class</TableHead>
+                                        {/* Dynamic Assessment Headers */}
+                                        {Object.keys(reportData[0]?.assessments || {}).map((title, i) => (
+                                            <TableHead key={i} className="text-xs">{title}</TableHead>
+                                        ))}
+                                        <TableHead className="text-right font-bold">Term %</TableHead>
+                                        <TableHead className="text-center">Sym</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {reportData.map((r, i) => {
+                                        const symbol = getGradeSymbol(r.termAverage, gradingScheme);
+                                        return (
+                                            <TableRow key={i}>
+                                                <TableCell className="font-medium">{r.learnerName}</TableCell>
+                                                <TableCell className="text-xs text-muted-foreground">{r.className}</TableCell>
+                                                {Object.keys(reportData[0]?.assessments || {}).map((title, j) => (
+                                                    <TableCell key={j} className="text-xs">
+                                                        {r.assessments[title]}
+                                                    </TableCell>
+                                                ))}
+                                                <TableCell className="text-right font-bold">{r.termAverage}</TableCell>
+                                                <TableCell className="text-center">
+                                                    {symbol && (
+                                                        <Badge variant="outline" className={symbol.badgeColor}>{symbol.symbol}</Badge>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                                No report generated yet.
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        </TabsContent>
+
+        <TabsContent value="manual">
+            <div className="grid gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-1 space-y-6">
+                <ReportsFilterCard 
+                    selectedGrade={manualReports.selectedGrade}
+                    setSelectedGrade={manualReports.setSelectedGrade}
+                    uniqueGrades={manualReports.uniqueGrades}
+                    selectedSubject={manualReports.selectedSubject}
+                    setSelectedSubject={manualReports.setSelectedSubject}
+                    uniqueSubjects={manualReports.uniqueSubjects}
+                />
+
+                <ReportsAssessmentSelector 
+                    filteredClasses={manualReports.filteredClasses}
+                    selectedClassIds={manualReports.selectedClassIds}
+                    weights={manualReports.weights}
+                    onToggleClass={manualReports.handleClassToggle}
+                    onWeightChange={manualReports.handleWeightChange}
+                    onCalculate={manualReports.calculateResults}
+                />
+                </div>
+
+                <div className="lg:col-span-2 space-y-6">
+                <ReportsResults 
+                    aggregatedData={manualReports.aggregatedData}
+                    trendData={manualReports.trendData}
+                    selectedClassIds={manualReports.selectedClassIds}
+                    classes={classes}
+                    weights={manualReports.weights}
+                    gradingScheme={gradingScheme}
+                    onExportCSV={() => {}} // simplified for manual tab
+                    onExportPDF={() => {}} // simplified for manual tab
+                />
+                </div>
+            </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

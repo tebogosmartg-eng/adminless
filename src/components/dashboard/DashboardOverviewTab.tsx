@@ -10,6 +10,7 @@ import AtRiskLearners from './AtRiskLearners';
 import { DailyAttendanceCard } from './DailyAttendanceCard';
 import { TodoList } from './TodoList';
 import { PendingActions } from './PendingActions';
+import { ActiveTermStats } from './ActiveTermStats';
 import { ClassInfo, Learner } from '@/lib/types';
 
 interface DashboardOverviewTabProps {
@@ -22,6 +23,10 @@ export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalCl
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2 space-y-6">
+        
+        {/* New Term Stats Widget */}
+        <ActiveTermStats />
+
         {/* Priority Actions Section */}
         {activeClasses.length > 0 && (
            <PendingActions classes={activeClasses} />
