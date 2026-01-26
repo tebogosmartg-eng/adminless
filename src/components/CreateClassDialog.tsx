@@ -96,7 +96,15 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
 
   const handleScanNavigate = () => {
     setIsOpen(false);
-    navigate("/scan");
+    // Pass current state to pre-fill the scan page creation tab
+    navigate("/scan", { 
+      state: { 
+        createMode: true,
+        initialGrade: grade,
+        initialSubject: subject,
+        initialClassName: className
+      } 
+    });
   };
 
   return (

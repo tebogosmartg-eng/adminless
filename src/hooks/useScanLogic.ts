@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useClasses } from '@/context/ClassesContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
@@ -22,11 +22,34 @@ export const useScanLogic = () => {
   const [newClassName, setNewClassName] = useState("");
   const [activeTab, setActiveTab] = useState("update");
 
+  // Initial values from navigation state
+  const initialValuesRef = useRef<{
+    grade?: string;
+    subject?: string;
+    className?: string;
+  }>({});
+
   useEffect(() => {
-    // If navigating from another page with classId in state, pre-select it
-    if (location.state && location.state.classId) {
-        setSelectedClassId(location.state.classId);
-        setActiveTab("update");
+    // If navigating from another page...
+    if (location.state) {
+        // ...with classId, pre-select it (Update mode)
+        if (location.state.classId) {
+            setSelectedClassId(location.state.classId);
+            setActiveTab("update");
+        }
+        
+        // ...with createMode, setup creation defaults
+        if (location.state.createMode) {
+            setActiveTab("create");
+            initialValuesRef.current = {
+                grade: location.state.initialGrade,
+                subject: location.state.initialSubject,
+                className: location.state.initialClassName
+            };
+            if (location.state.initialClassName) {
+                setNewClassName(location.state.initialClassName);
+            }
+        }
     }
   }, [location.state]);
 
@@ -63,11 +86,20 @@ export const useScanLogic = () => {
     try {
       const result = await processImagesWithGemini(imagePreviews);
       
-      setScannedDetails(result.details);
+      // Merge AI result with initial values if available
+      const mergedDetails = { ...result.details };
+      if (initialValuesRef.current.grade) mergedDetails.grade = initialValuesRef.current.grade;
+      if (initialValuesRef.current.subject) mergedDetails.subject = initialValuesRef.current.subject;
+
+      setScannedDetails(mergedDetails as ScannedDetails);
       setScannedLearners(result.learners);
       
-      // Auto-populate new class name if detected
-      if (result.details) {
+      // Determine new class name logic
+      // 1. If user typed one in CreateClassDialog, keep it.
+      // 2. Else use AI guess.
+      if (initialValuesRef.current.className) {
+        setNewClassName(initialValuesRef.current.className);
+      } else if (result.details) {
         setNewClassName(`${result.details.grade} - ${result.details.testNumber || 'Test'}`);
       }
       
@@ -86,8 +118,8 @@ export const useScanLogic = () => {
     // Simulate a delay to feel real
     setTimeout(() => {
       const mockDetails: ScannedDetails = {
-        subject: "Physical Sciences",
-        grade: "Grade 11",
+        subject: initialValuesRef.current.subject || "Physical Sciences",
+        grade: initialValuesRef.current.grade || "Grade 11",
         testNumber: "Term 3 Control Test",
         date: new Date().toISOString().split('T')[0]
       };
@@ -102,7 +134,13 @@ export const useScanLogic = () => {
 
       setScannedDetails(mockDetails);
       setScannedLearners(mockLearners);
-      setNewClassName(`${mockDetails.grade} - ${mockDetails.testNumber}`);
+      
+      if (initialValuesRef.current.className) {
+        setNewClassName(initialValuesRef.current.className);
+      } else {
+        setNewClassName(`${mockDetails.grade} - ${mockDetails.testNumber}`);
+      }
+      
       setIsProcessing(false);
       showSuccess("Simulated scan complete!");
     }, 1500);
@@ -181,9 +219,7 @@ export const useScanLogic = () => {
             // Add new learner
             let percentage = "";
             if (sl.mark && sl.mark.trim() !== '') {
-                 // Same parsing logic...
                  const markStr = sl.mark.trim();
-                 // ... simplifed for brevity
                  if (markStr.includes("%")) percentage = markStr.replace("%", "");
                  else percentage = markStr;
             }
@@ -198,7 +234,6 @@ export const useScanLogic = () => {
     updateLearners(selectedClassId, finalLearners);
     showSuccess(`Saved to ${targetClass.className}. Updated ${updatedCount}, Added ${addedCount} new learners.`);
     
-    // Cleanup & Navigate
     resetState();
     navigate(`/classes/${selectedClassId}`);
   };
@@ -243,7 +278,6 @@ export const useScanLogic = () => {
     addClass(newClass);
     showSuccess(`Created new class "${newClassName}" with ${newLearners.length} learners.`);
     
-    // Cleanup & Navigate
     resetState();
     navigate(`/classes/${newClass.id}`); 
   };
@@ -254,6 +288,7 @@ export const useScanLogic = () => {
     setScannedDetails(null);
     setNewClassName("");
     setSelectedClassId(undefined);
+    initialValuesRef.current = {};
   };
 
   return {
