@@ -1,5 +1,5 @@
-import { ClassInfo, Learner } from '@/lib/types';
-import { GradeSymbol, getGradeSymbol } from '@/utils/grading';
+import { ClassInfo, Learner, GradeSymbol } from '@/lib/types';
+import { getGradeSymbol } from '@/utils/grading';
 import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReportsPDF } from '@/utils/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateClassStats } from '@/utils/stats';

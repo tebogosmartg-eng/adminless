@@ -1,12 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
-
-export interface Activity {
-  id: string;
-  timestamp: string;
-  message: string;
-}
+import { Activity } from '@/lib/types';
 
 interface ActivityContextType {
   activities: Activity[];

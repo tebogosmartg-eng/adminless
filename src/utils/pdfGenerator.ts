@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { ClassInfo, Learner } from '@/lib/types';
-import { GradeSymbol, getGradeSymbol } from './grading';
+import { ClassInfo, Learner, GradeSymbol } from '@/lib/types';
+import { getGradeSymbol } from './grading';
 import { format } from 'date-fns';
 
 const addLearnerReportPage = (

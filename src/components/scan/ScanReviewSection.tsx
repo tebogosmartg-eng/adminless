@@ -6,8 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save, PlusCircle, FileText } from 'lucide-react';
-import { ClassInfo } from '@/lib/types';
-import { ScannedDetails, ScannedLearner } from '@/hooks/useScanLogic';
+import { ClassInfo, ScannedDetails, ScannedLearner } from '@/lib/types';
 
 interface ScanReviewSectionProps {
   scannedDetails: ScannedDetails | null;

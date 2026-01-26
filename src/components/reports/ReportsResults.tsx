@@ -4,9 +4,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Filter, Download, FileSpreadsheet, LineChart as LineChartIcon } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { ClassInfo } from '@/lib/types';
+import { ClassInfo, GradeSymbol } from '@/lib/types';
 import { AggregatedLearner } from '@/hooks/useReportsData';
-import { getGradeSymbol, GradeSymbol } from '@/utils/grading';
+import { getGradeSymbol } from '@/utils/grading';
 
 interface ReportsResultsProps {
   aggregatedData: AggregatedLearner[] | null;

@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X, Clock, AlertCircle, Save, Loader2, Download, FileSpreadsheet, FileText } from 'lucide-react';
-import { Learner } from '@/lib/types';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X, Clock, AlertCircle, Save, Loader2, Download, FileSpreadsheet, FileText, LucideIcon } from 'lucide-react';
+import { Learner, AttendanceStatus } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,14 @@ import { useAttendance } from '@/hooks/useAttendance';
 interface AttendanceViewProps {
   classId: string;
   learners: Learner[];
+}
+
+interface StatusButtonProps {
+  lId?: string;
+  status: AttendanceStatus;
+  icon: LucideIcon;
+  colorClass: string;
+  label: string;
 }
 
 export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
@@ -31,8 +39,8 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
     handleExportReport
   } = useAttendance(classId, learners);
 
-  const StatusButton = ({ lId, status, icon: Icon, colorClass, label }: any) => {
-    const isSelected = attendanceData[lId]?.status === status;
+  const StatusButton = ({ lId, status, icon: Icon, colorClass, label }: StatusButtonProps) => {
+    const isSelected = lId ? attendanceData[lId]?.status === status : false;
     return (
       <Button
         variant={isSelected ? "default" : "outline"}

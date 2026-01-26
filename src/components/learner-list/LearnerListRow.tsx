@@ -6,8 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, AlertCircle, AlertOctagon, Calculator, BookText } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Learner } from '@/lib/types';
-import { GradeSymbol, getGradeSymbol } from '@/utils/grading';
+import { Learner, GradeSymbol } from '@/lib/types';
+import { getGradeSymbol } from '@/utils/grading';
 import { cn } from '@/lib/utils';
 import { useSettings } from '@/context/SettingsContext';
 import {

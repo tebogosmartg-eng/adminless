@@ -1,12 +1,4 @@
-export interface GradeSymbol {
-  id: string;
-  min: number;
-  max: number;
-  symbol: string;
-  level: number;
-  color: string; // Tailwind color class for text
-  badgeColor: string; // Tailwind color class for badge background
-}
+import { GradeSymbol } from "@/lib/types";
 
 export const defaultGradingScheme: GradeSymbol[] = [
   { id: '1', min: 80, max: 100, symbol: 'A', level: 7, color: 'text-green-700', badgeColor: 'bg-green-100 text-green-700 hover:bg-green-100/80' },
@@ -25,6 +17,6 @@ export const getGradeSymbol = (mark: string | number, scheme: GradeSymbol[] = de
   
   if (isNaN(numMark)) return null;
 
-  // Sort scheme by min value descending to check higher ranges first (though find works if ranges don't overlap)
+  // Sort scheme by min value descending to check higher ranges first
   return scheme.find(g => numMark >= g.min && numMark <= g.max) || null;
 };

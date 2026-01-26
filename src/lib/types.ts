@@ -24,3 +24,31 @@ export interface AttendanceRecord {
   date?: string;
   user_id?: string;
 }
+
+export interface GradeSymbol {
+  id: string;
+  min: number;
+  max: number;
+  symbol: string;
+  level: number;
+  color: string; // Tailwind color class for text
+  badgeColor: string; // Tailwind color class for badge background
+}
+
+export interface ScannedLearner {
+  name: string;
+  mark: string;
+}
+
+export interface ScannedDetails {
+  subject: string;
+  testNumber: string;
+  grade: string;
+  date: string;
+}
+
+export interface Activity {
+  id: string;
+  timestamp: string;
+  message: string;
+}

@@ -3,18 +3,7 @@ import { useClasses } from '@/context/ClassesContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
-
-export interface ScannedLearner {
-  name: string;
-  mark: string;
-}
-
-export interface ScannedDetails {
-  subject: string;
-  testNumber: string;
-  grade: string;
-  date: string;
-}
+import { ScannedDetails, ScannedLearner } from '@/lib/types';
 
 export const useScanLogic = () => {
   const { classes, updateLearners, addClass } = useClasses();

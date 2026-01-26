@@ -1,5 +1,4 @@
-import { Learner } from "@/lib/types";
-import { GradeSymbol } from "@/utils/grading";
+import { Learner, GradeSymbol } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Quote } from "lucide-react";
 

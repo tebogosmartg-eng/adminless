@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Plus, RotateCcw, Save } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
-import { GradeSymbol } from "@/utils/grading";
+import { GradeSymbol } from "@/lib/types";
 import { showSuccess, showError } from "@/utils/toast";
 
 export const GradingSystemSettings = () => {

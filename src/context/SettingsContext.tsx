@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { GradeSymbol, defaultGradingScheme } from '@/utils/grading';
+import { defaultGradingScheme } from '@/utils/grading';
+import { GradeSymbol } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
