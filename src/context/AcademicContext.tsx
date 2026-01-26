@@ -19,7 +19,7 @@ interface AcademicContextType {
   createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<void>;
   deleteAssessment: (id: string) => Promise<void>;
   updateMarks: (updates: { assessment_id: string; learner_id: string; score: number | null }[]) => Promise<void>;
-  refreshAssessments: (classId: string) => Promise<void>;
+  refreshAssessments: (classId: string, termId?: string) => Promise<void>;
   toggleTermStatus: (termId: string, closed: boolean) => Promise<void>;
   closeYear: (yearId: string) => Promise<void>;
 }
@@ -180,14 +180,15 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     }
   };
 
-  const refreshAssessments = async (classId: string) => {
-    if (!activeTerm) return;
+  const refreshAssessments = async (classId: string, termId?: string) => {
+    const targetTermId = termId || activeTerm?.id;
+    if (!targetTermId) return;
 
     const { data: assData, error: assError } = await supabase
       .from('assessments')
       .select('*')
       .eq('class_id', classId)
-      .eq('term_id', activeTerm.id);
+      .eq('term_id', targetTermId);
 
     if (assError) console.error(assError);
     else setAssessments(assData || []);
@@ -215,7 +216,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (error) showError("Failed to create assessment.");
     else {
         showSuccess("Assessment created.");
-        refreshAssessments(assessment.class_id);
+        // Refresh using the term of the newly created assessment
+        refreshAssessments(assessment.class_id, assessment.term_id);
     }
   };
 
@@ -225,7 +227,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       if(error) showError("Failed to delete.");
       else {
           showSuccess("Assessment deleted.");
-          if(ass) refreshAssessments(ass.class_id);
+          if(ass) refreshAssessments(ass.class_id, ass.term_id);
       }
   };
 

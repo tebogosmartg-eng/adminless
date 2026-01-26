@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAcademic } from '@/context/AcademicContext';
 import { Learner, ClassInfo } from '@/lib/types';
-import { Plus, Trash2, AlertCircle, Save } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, Save, Eye, Calendar } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,6 +17,7 @@ interface MarkSheetProps {
 
 export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
   const { 
+    terms,
     activeTerm, 
     activeYear,
     assessments, 
@@ -27,29 +28,39 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
     updateMarks
   } = useAcademic();
 
+  const [viewTermId, setViewTermId] = useState<string | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "" });
-  
-  // Local state for edits before save
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
 
+  // Set default view to active term on mount
   useEffect(() => {
-    if (activeTerm) {
-        refreshAssessments(classInfo.id);
+    if (activeTerm && !viewTermId) {
+        setViewTermId(activeTerm.id);
     }
-  }, [activeTerm, classInfo.id]);
+  }, [activeTerm]);
 
+  // Fetch data when viewTermId changes
+  useEffect(() => {
+    if (viewTermId) {
+        refreshAssessments(classInfo.id, viewTermId);
+        setEditedMarks({}); // Clear unsaved edits when switching terms
+    }
+  }, [viewTermId, classInfo.id]);
+
+  const currentViewTerm = terms.find(t => t.id === viewTermId);
   const totalWeight = useMemo(() => assessments.reduce((acc, curr) => acc + Number(curr.weight), 0), [assessments]);
   const isWeightValid = totalWeight === 100;
   
-  const isLocked = activeTerm?.closed || activeYear?.closed;
+  // Lock editing if:
+  // 1. The viewed term is closed
+  // 2. The year is closed
+  // 3. We are viewing a term that is NOT the active working term (historical review)
+  const isLocked = currentViewTerm?.closed || activeYear?.closed || (activeTerm && viewTermId !== activeTerm.id);
 
   const getMarkValue = (assessmentId: string, learnerId: string) => {
-     // Check local edits first
      const key = `${assessmentId}-${learnerId}`;
      if (key in editedMarks) return editedMarks[key];
-
-     // Fallback to saved marks
      const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
      return m?.score?.toString() || "";
   };
@@ -69,15 +80,15 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
       if (updates.length > 0) {
           await updateMarks(updates);
           setEditedMarks({});
-          refreshAssessments(classInfo.id);
+          if (viewTermId) refreshAssessments(classInfo.id, viewTermId);
       }
   };
 
   const handleAddAssessment = async () => {
-     if (!activeTerm) return;
+     if (!viewTermId) return;
      await createAssessment({
          class_id: classInfo.id,
-         term_id: activeTerm.id,
+         term_id: viewTermId,
          title: newAss.title,
          type: newAss.type,
          max_mark: Number(newAss.max),
@@ -88,40 +99,47 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
      setNewAss({ title: "", type: "Test", max: 50, weight: 10, date: "" });
   };
 
-  // Logic: Calculate Term Mark
   const calculateLearnerTotal = (learnerId: string) => {
       let weightedSum = 0;
-      let totalWeightSoFar = 0;
-
       assessments.forEach(ass => {
           const val = getMarkValue(ass.id, learnerId);
           if (val !== "") {
               const score = parseFloat(val);
               const weighted = (score / ass.max_mark) * ass.weight;
               weightedSum += weighted;
-              totalWeightSoFar += ass.weight;
           }
       });
-      
-      // If weights don't sum to 100 yet, this is a running total.
-      // Final mark is just the sum of weighted parts.
       return weightedSum.toFixed(1);
   };
 
-  if (!activeTerm) {
+  if (!currentViewTerm) {
       return <div className="p-8 text-center text-muted-foreground">Please configure an Active Academic Year and Term in Settings.</div>;
   }
 
   return (
     <div className="space-y-4">
        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
-           <div>
-               <h3 className="text-lg font-semibold flex items-center gap-2">
-                   {activeTerm.name} Assessment Plan
-                   {activeTerm.closed && <Badge variant="secondary">Term Closed</Badge>}
+           <div className="space-y-2">
+               <div className="flex items-center gap-2">
+                   <Select value={viewTermId || ""} onValueChange={setViewTermId}>
+                       <SelectTrigger className="w-[180px] h-9">
+                           <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                           <SelectValue placeholder="Select Term" />
+                       </SelectTrigger>
+                       <SelectContent>
+                           {terms.map(t => (
+                               <SelectItem key={t.id} value={t.id}>
+                                   {t.name} {t.id === activeTerm?.id ? "(Active)" : ""}
+                               </SelectItem>
+                           ))}
+                       </SelectContent>
+                   </Select>
+                   
+                   {currentViewTerm.closed && <Badge variant="secondary"><Eye className="mr-1 h-3 w-3" /> Read Only</Badge>}
                    {activeYear?.closed && <Badge variant="destructive">Year Finalized</Badge>}
-               </h3>
-               <div className="flex items-center gap-2 text-sm mt-1">
+               </div>
+               
+               <div className="flex items-center gap-2 text-sm">
                    <span className={isWeightValid ? "text-green-600 font-medium" : "text-amber-600 font-medium"}>
                        Total Weighting: {totalWeight}%
                    </span>
@@ -133,6 +151,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                    )}
                </div>
            </div>
+
            <div className="flex gap-2">
                <Button onClick={handleSaveMarks} disabled={Object.keys(editedMarks).length === 0 || !!isLocked}>
                    <Save className="mr-2 h-4 w-4" /> Save Marks
@@ -145,7 +164,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                    </DialogTrigger>
                    <DialogContent>
                        <DialogHeader>
-                           <DialogTitle>New Assessment Activity</DialogTitle>
+                           <DialogTitle>New Assessment Activity ({currentViewTerm.name})</DialogTitle>
                        </DialogHeader>
                        <div className="grid gap-4 py-4">
                            <div className="grid grid-cols-4 items-center gap-4">
@@ -184,56 +203,62 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
        </div>
 
        <div className="border rounded-md overflow-x-auto">
-           <Table>
-               <TableHeader>
-                   <TableRow>
-                       <TableHead className="w-[200px] sticky left-0 bg-background z-10">Learner</TableHead>
-                       {assessments.map(ass => (
-                           <TableHead key={ass.id} className="text-center min-w-[120px]">
-                               <div className="flex flex-col items-center">
-                                   <span className="font-semibold">{ass.title}</span>
-                                   <span className="text-xs text-muted-foreground font-normal">
-                                       {ass.max_mark} marks • {ass.weight}%
-                                   </span>
-                                   {!isLocked && (
-                                       <Button variant="ghost" size="icon" className="h-5 w-5 mt-1 text-muted-foreground hover:text-destructive" onClick={() => deleteAssessment(ass.id)}>
-                                           <Trash2 className="h-3 w-3" />
-                                       </Button>
-                                   )}
-                               </div>
-                           </TableHead>
-                       ))}
-                       <TableHead className="text-center font-bold bg-muted/30 min-w-[100px]">
-                           Term Total <br/> %
-                       </TableHead>
-                   </TableRow>
-               </TableHeader>
-               <TableBody>
-                   {classInfo.learners.map(learner => (
-                       <TableRow key={learner.id || learner.name}>
-                           <TableCell className="font-medium sticky left-0 bg-background z-10 border-r">
-                               {learner.name}
-                           </TableCell>
+           {assessments.length === 0 ? (
+               <div className="p-8 text-center text-muted-foreground bg-muted/10">
+                   No assessments found for {currentViewTerm.name}.
+               </div>
+           ) : (
+               <Table>
+                   <TableHeader>
+                       <TableRow>
+                           <TableHead className="w-[200px] sticky left-0 bg-background z-10 shadow-sm">Learner</TableHead>
                            {assessments.map(ass => (
-                               <TableCell key={ass.id} className="p-1">
-                                   <div className="flex justify-center">
-                                       <Input 
-                                           className={`h-8 w-16 text-center ${isLocked ? "bg-muted" : ""}`}
-                                           value={getMarkValue(ass.id, learner.id || '')}
-                                           onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
-                                           disabled={!learner.id || !!isLocked}
-                                           placeholder="-"
-                                       />
+                               <TableHead key={ass.id} className="text-center min-w-[120px]">
+                                   <div className="flex flex-col items-center">
+                                       <span className="font-semibold">{ass.title}</span>
+                                       <span className="text-xs text-muted-foreground font-normal">
+                                           {ass.max_mark} marks • {ass.weight}%
+                                       </span>
+                                       {!isLocked && (
+                                           <Button variant="ghost" size="icon" className="h-5 w-5 mt-1 text-muted-foreground hover:text-destructive" onClick={() => deleteAssessment(ass.id)}>
+                                               <Trash2 className="h-3 w-3" />
+                                           </Button>
+                                       )}
                                    </div>
-                               </TableCell>
+                               </TableHead>
                            ))}
-                           <TableCell className="text-center font-bold bg-muted/30">
-                               {learner.id ? calculateLearnerTotal(learner.id) : '-'}
-                           </TableCell>
+                           <TableHead className="text-center font-bold bg-muted/30 min-w-[100px]">
+                               Term Total <br/> %
+                           </TableHead>
                        </TableRow>
-                   ))}
-               </TableBody>
-           </Table>
+                   </TableHeader>
+                   <TableBody>
+                       {classInfo.learners.map(learner => (
+                           <TableRow key={learner.id || learner.name}>
+                               <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-sm">
+                                   {learner.name}
+                               </TableCell>
+                               {assessments.map(ass => (
+                                   <TableCell key={ass.id} className="p-1">
+                                       <div className="flex justify-center">
+                                           <Input 
+                                               className={`h-8 w-16 text-center ${isLocked ? "bg-muted cursor-not-allowed" : ""}`}
+                                               value={getMarkValue(ass.id, learner.id || '')}
+                                               onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
+                                               disabled={!learner.id || !!isLocked}
+                                               placeholder="-"
+                                           />
+                                       </div>
+                                   </TableCell>
+                               ))}
+                               <TableCell className="text-center font-bold bg-muted/30">
+                                   {learner.id ? calculateLearnerTotal(learner.id) : '-'}
+                               </TableCell>
+                           </TableRow>
+                       ))}
+                   </TableBody>
+               </Table>
+           )}
        </div>
     </div>
   );
