@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Learner, ClassInfo } from '@/lib/types';
 import { showSuccess } from '@/utils/toast';
 import confetti from 'canvas-confetti';
@@ -10,12 +10,21 @@ export const useLearnerState = (
   const [learners, setLearners] = useState<Learner[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [prevGradedCount, setPrevGradedCount] = useState(0);
+  
+  // Ref to track the last learners array from context that we synced with
+  const lastSyncedLearnersRef = useRef<Learner[] | null>(null);
 
   useEffect(() => {
     if (classInfo) {
-      setLearners(classInfo.learners);
-      const count = classInfo.learners.filter(l => l.mark && l.mark.trim() !== '').length;
-      setPrevGradedCount(count);
+      // Only update local state if the learners array reference has changed
+      // This prevents overwriting local edits when classInfo updates for other reasons (e.g. renaming class)
+      if (classInfo.learners !== lastSyncedLearnersRef.current) {
+        setLearners(classInfo.learners);
+        lastSyncedLearnersRef.current = classInfo.learners;
+        
+        const count = classInfo.learners.filter(l => l.mark && l.mark.trim() !== '').length;
+        setPrevGradedCount(count);
+      }
     }
   }, [classInfo]);
 
