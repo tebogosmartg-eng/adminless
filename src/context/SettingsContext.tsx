@@ -2,8 +2,10 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import { defaultGradingScheme } from '@/utils/grading';
 import { GradeSymbol } from '@/lib/types';
 import { useActivity } from './ActivityContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
+import { db } from '@/db';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { queueAction } from '@/services/sync';
 
 interface SettingsContextType {
   gradingScheme: GradeSymbol[];
@@ -37,6 +39,13 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export const SettingsProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
   
+  // Live Query for Profile
+  const profile = useLiveQuery(
+    () => session?.user.id ? db.profiles.get(session.user.id) : undefined,
+    [session?.user.id]
+  );
+
+  // Local state initialized with defaults, updated when profile loads
   const [gradingScheme, setGradingSchemeState] = useState<GradeSymbol[]>(defaultGradingScheme);
   const [schoolName, setSchoolNameState] = useState<string>("My School");
   const [teacherName, setTeacherNameState] = useState<string>("");
@@ -49,44 +58,31 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!session?.user.id) return;
-
-    const fetchSettings = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
-      } else if (data) {
-        if (data.grading_scheme) setGradingSchemeState(data.grading_scheme as unknown as GradeSymbol[]);
-        if (data.school_name) setSchoolNameState(data.school_name);
-        if (data.teacher_name) setTeacherNameState(data.teacher_name);
-        if (data.contact_email) setContactEmailState(data.contact_email);
-        if (data.contact_phone) setContactPhoneState(data.contact_phone);
-        if (data.school_logo) setSchoolLogoState(data.school_logo);
-        if (data.at_risk_threshold) setAtRiskThresholdState(data.at_risk_threshold);
-        if (data.comment_bank) setCommentBankState(data.comment_bank as unknown as string[]);
-        if (data.subjects) setSavedSubjectsState(data.subjects as unknown as string[]);
-        if (data.grades) setSavedGradesState(data.grades as unknown as string[]);
-      }
-    };
-
-    fetchSettings();
-  }, [session?.user.id]);
+    if (profile) {
+        if (profile.grading_scheme) setGradingSchemeState(profile.grading_scheme);
+        if (profile.school_name) setSchoolNameState(profile.school_name);
+        if (profile.teacher_name) setTeacherNameState(profile.teacher_name);
+        if (profile.contact_email) setContactEmailState(profile.contact_email);
+        if (profile.contact_phone) setContactPhoneState(profile.contact_phone);
+        if (profile.school_logo) setSchoolLogoState(profile.school_logo);
+        if (profile.at_risk_threshold) setAtRiskThresholdState(profile.at_risk_threshold);
+        if (profile.comment_bank) setCommentBankState(profile.comment_bank);
+        if (profile.subjects) setSavedSubjectsState(profile.subjects);
+        if (profile.grades) setSavedGradesState(profile.grades);
+    }
+  }, [profile]);
 
   const updateProfile = async (updates: any) => {
     if (!session?.user.id) return;
 
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({ id: session.user.id, ...updates, updated_at: new Date().toISOString() });
+    // 1. Update Local DB (Upsert)
+    const current = await db.profiles.get(session.user.id) || { id: session.user.id };
+    const updated = { ...current, ...updates, updated_at: new Date().toISOString() };
+    
+    await db.profiles.put(updated);
 
-    if (error) {
-      console.error('Error updating profile:', error);
-    }
+    // 2. Queue Sync
+    await queueAction('profiles', 'upsert', updated);
   };
 
   const updateGradingScheme = (newScheme: GradeSymbol[]) => {
@@ -161,7 +157,6 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   const addGrade = (grade: string) => {
     if (!savedGrades.includes(grade)) {
-      // Try to sort naturally if possible (Grade 9, Grade 10)
       const newList = [...savedGrades, grade].sort((a, b) => {
          return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
       });

@@ -22,6 +22,7 @@ import { SettingsProvider } from "./context/SettingsContext";
 import { AcademicProvider } from "./context/AcademicContext";
 import { SyncProvider } from "./context/SyncContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
+import { ReloadPrompt } from "./components/ReloadPrompt";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,7 @@ const App = () => {
                     <AcademicProvider session={session}>
                     <ClassesProvider session={session}>
                         <OfflineIndicator />
+                        <ReloadPrompt />
                         <Routes>
                         <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
                         <Route
