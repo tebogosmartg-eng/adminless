@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { AttendanceStatus } from '@/lib/types';
+
+interface DailyStats {
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
+  total: number;
+}
 
 export const useDailyAttendance = () => {
-  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, total: 0 });
+  const [stats, setStats] = useState<DailyStats>({ present: 0, absent: 0, late: 0, excused: 0, total: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,8 +27,11 @@ export const useDailyAttendance = () => {
           .eq('user_id', user.id);
           
         if (data) {
-          const counts = data.reduce((acc: any, curr: any) => {
-            acc[curr.status] = (acc[curr.status] || 0) + 1;
+          const counts = data.reduce((acc: DailyStats, curr: { status: string }) => {
+            const status = curr.status as AttendanceStatus;
+            if (acc[status] !== undefined) {
+                acc[status]++;
+            }
             acc.total++;
             return acc;
           }, { present: 0, absent: 0, late: 0, excused: 0, total: 0 });

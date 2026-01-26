@@ -2,18 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
-import { Learner } from '@/lib/types';
+import { Learner, AttendanceRecord, AttendanceStatus } from '@/lib/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-
-type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
-
-export interface AttendanceRecord {
-  id?: string;
-  learner_id: string;
-  status: AttendanceStatus;
-  date?: string;
-}
 
 export const useAttendance = (classId: string, learners: Learner[]) => {
   const [date, setDate] = useState<Date>(new Date());
@@ -40,7 +31,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
       } else {
         const map: Record<string, AttendanceRecord> = {};
         data?.forEach((record: any) => {
-          map[record.learner_id] = record;
+          map[record.learner_id] = record as AttendanceRecord;
         });
         setAttendanceData(map);
         setHasChanges(false);

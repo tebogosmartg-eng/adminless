@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
 import { Loader2, Clock, Check, X, AlertCircle } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
+import { AttendanceStatus } from "@/lib/types";
 
 interface ProfileAttendanceTabProps {
   learnerId?: string;
 }
 
+interface AttendanceStats {
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
+  total: number;
+}
+
 export const ProfileAttendanceTab = ({ learnerId }: ProfileAttendanceTabProps) => {
-  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, excused: 0, total: 0 });
+  const [stats, setStats] = useState<AttendanceStats>({ present: 0, absent: 0, late: 0, excused: 0, total: 0 });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -20,8 +29,11 @@ export const ProfileAttendanceTab = ({ learnerId }: ProfileAttendanceTabProps) =
           .eq('learner_id', learnerId);
         
         if (data) {
-          const newStats = data.reduce((acc: any, curr: any) => {
-            acc[curr.status] = (acc[curr.status] || 0) + 1;
+          const newStats = data.reduce((acc: AttendanceStats, curr: { status: string }) => {
+            const status = curr.status as AttendanceStatus;
+            if (acc[status] !== undefined) {
+                acc[status]++;
+            }
             acc.total++;
             return acc;
           }, { present: 0, absent: 0, late: 0, excused: 0, total: 0 });
