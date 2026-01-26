@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, FileText, Loader2, PlayCircle } from 'lucide-react';
+import { Upload, FileText, Loader2, PlayCircle, Camera } from 'lucide-react';
 
 interface ScanUploadSectionProps {
   imagePreviews: string[];
@@ -21,25 +21,35 @@ export const ScanUploadSection = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>1. Upload Scripts</CardTitle>
-        <CardDescription>Choose one or more images of scripts to scan.</CardDescription>
+        <CardTitle>1. Upload Scripts or Lists</CardTitle>
+        <CardDescription>Upload images of mark sheets, tests, or class lists.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col items-center justify-center w-full min-h-64 p-2 border-2 border-dashed rounded-lg">
+        <div className="flex flex-col items-center justify-center w-full min-h-64 p-2 border-2 border-dashed rounded-lg bg-muted/5">
           {imagePreviews.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 w-full">
               {imagePreviews.map((src, index) => (
-                <img key={index} src={src} alt={`Script preview ${index + 1}`} className="max-h-full max-w-full object-contain rounded-md" />
+                <img key={index} src={src} alt={`Script preview ${index + 1}`} className="max-h-40 w-full object-cover rounded-md border" />
               ))}
             </div>
           ) : (
-            <div className="text-center">
-              <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
-              <p className="mt-2 text-sm text-muted-foreground">Drag & drop or click to upload</p>
+            <div className="text-center py-8">
+              <Camera className="mx-auto h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+              <h3 className="text-lg font-medium">Take a photo</h3>
+              <p className="text-sm text-muted-foreground mb-4">or select images from your device</p>
             </div>
           )}
         </div>
-        <Input type="file" accept="image/*" onChange={onFileChange} className="mt-4" multiple />
+        
+        <Input 
+            type="file" 
+            accept="image/*" 
+            onChange={onFileChange} 
+            className="mt-4" 
+            multiple 
+            // @ts-ignore
+            capture="environment"
+        />
         
         <div className="flex flex-col gap-2 mt-4">
           <Button onClick={onProcess} disabled={isProcessing || imagePreviews.length === 0} className="w-full">
@@ -57,7 +67,7 @@ export const ScanUploadSection = ({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground text-center mt-2">
-          Tip: Use "Simulate" to test functionality quickly.
+          Tip: Ensure the list/script is well-lit and text is legible.
         </p>
       </CardContent>
     </Card>

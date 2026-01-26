@@ -4,6 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 import { Learner } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
+import { Camera } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface ImportMarksDialogProps {
   open: boolean;
@@ -13,6 +15,8 @@ interface ImportMarksDialogProps {
 
 export const ImportMarksDialog = ({ open, onOpenChange, onImport }: ImportMarksDialogProps) => {
   const [text, setText] = useState('');
+  const navigate = useNavigate();
+  const { classId } = useParams();
 
   const handleImport = () => {
     if (!text.trim()) return;
@@ -40,13 +44,18 @@ export const ImportMarksDialog = ({ open, onOpenChange, onImport }: ImportMarksD
     }
   };
 
+  const handleScanNavigate = () => {
+    onOpenChange(false);
+    navigate("/scan", { state: { classId } });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Import Learners</DialogTitle>
           <DialogDescription>
-            Paste learner names (one per line). Optionally add marks separated by a comma.
+            Paste learner names (one per line) or use the camera to scan a list.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -56,9 +65,14 @@ export const ImportMarksDialog = ({ open, onOpenChange, onImport }: ImportMarksD
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleImport}>Import</Button>
+          <div className="flex justify-between gap-2">
+            <Button variant="outline" onClick={handleScanNavigate}>
+                <Camera className="mr-2 h-4 w-4" /> Scan Image (AI)
+            </Button>
+            <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button onClick={handleImport}>Import Text</Button>
+            </div>
           </div>
         </div>
       </DialogContent>

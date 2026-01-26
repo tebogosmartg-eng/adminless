@@ -58,6 +58,8 @@ serve(async (req) => {
             Analyze these images of student test scripts, mark sheets, or class lists.
             Extract the assessment details (subject, grade, test name, date) and the list of student names and their marks.
             
+            If this is just a class list without marks, extract the names and leave the marks as empty strings.
+            
             Output JSON only with this exact schema:
             {
                 "details": { 
@@ -74,6 +76,7 @@ serve(async (req) => {
             - If "25/30", keep "25/30". 
             - If "85%", keep "85%".
             - If just a number "85", keep "85".
+            - If no mark is found for a name, use "".
             - Ignore rows that look like headers or totals.
         `;
 

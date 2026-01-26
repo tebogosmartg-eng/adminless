@@ -12,10 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Upload } from "lucide-react";
+import { PlusCircle, Upload, Camera } from "lucide-react";
 import Papa from "papaparse";
 import { showSuccess, showError } from "@/utils/toast";
 import { ClassInfo } from "@/lib/types";
+import { useNavigate } from "react-router-dom";
 
 interface CreateClassDialogProps {
   onClassCreate: (classInfo: ClassInfo) => void;
@@ -28,6 +29,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
   const [className, setClassName] = useState("");
   const [learners, setLearners] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
   const handleSubmit = () => {
     if (grade && subject && className && learners) {
@@ -92,6 +94,11 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
     }
   };
 
+  const handleScanNavigate = () => {
+    setIsOpen(false);
+    navigate("/scan");
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -99,7 +106,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
           <PlusCircle className="mr-2 h-4 w-4" /> Create Class
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create a New Class</DialogTitle>
           <DialogDescription>
@@ -138,10 +145,13 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
                 className="w-full"
                 rows={6}
                 />
-                <div className="flex justify-end">
-                   <Button variant="outline" size="sm" type="button" onClick={() => fileInputRef.current?.click()}>
-                     <Upload className="mr-2 h-3 w-3" /> Import CSV List
-                   </Button>
+                <div className="flex justify-between items-center gap-2">
+                    <Button variant="outline" size="sm" type="button" onClick={handleScanNavigate} className="flex-1">
+                        <Camera className="mr-2 h-3 w-3" /> Scan from Image (AI)
+                    </Button>
+                    <Button variant="outline" size="sm" type="button" onClick={() => fileInputRef.current?.click()} className="flex-1">
+                        <Upload className="mr-2 h-3 w-3" /> Import CSV List
+                    </Button>
                    <input 
                       type="file" 
                       ref={fileInputRef} 
