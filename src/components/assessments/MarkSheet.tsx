@@ -3,14 +3,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAcademic } from '@/context/AcademicContext';
-import { Learner, ClassInfo } from '@/lib/types';
-import { Plus, Trash2, AlertCircle, Save, Eye, Calendar, Search, TrendingUp, ArrowDown, ArrowUp, Upload } from 'lucide-react';
+import { Learner, ClassInfo, Assessment } from '@/lib/types';
+import { Plus, Trash2, AlertCircle, Save, Eye, Calendar, Search, TrendingUp, ArrowDown, ArrowUp, Upload, BarChart2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AssessmentImportDialog } from './AssessmentImportDialog';
+import { AssessmentAnalyticsDialog } from './AssessmentAnalyticsDialog';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
@@ -35,6 +36,10 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
   const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "" });
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Analytics State
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
 
   // Set default view to active term on mount
   useEffect(() => {
@@ -143,6 +148,11 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
       const min = Math.min(...values);
 
       return { avg, max, min };
+  };
+
+  const openAnalytics = (ass: Assessment) => {
+      setSelectedAssessment(ass);
+      setAnalyticsOpen(true);
   };
 
   if (!currentViewTerm) {
@@ -270,9 +280,12 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                                 </div>
                            </TableHead>
                            {assessments.map(ass => (
-                               <TableHead key={ass.id} className="text-center min-w-[120px]">
+                               <TableHead key={ass.id} className="text-center min-w-[140px]">
                                    <div className="flex flex-col items-center group relative">
-                                       <span className="font-semibold truncate max-w-[110px]" title={ass.title}>{ass.title}</span>
+                                       <div className="flex items-center gap-1 cursor-pointer hover:bg-muted/50 p-1 rounded" onClick={() => openAnalytics(ass)}>
+                                           <span className="font-semibold truncate max-w-[100px]" title={ass.title}>{ass.title}</span>
+                                           <BarChart2 className="h-3 w-3 text-muted-foreground opacity-50 group-hover:opacity-100" />
+                                       </div>
                                        <span className="text-xs text-muted-foreground font-normal">
                                            {ass.max_mark} marks • {ass.weight}%
                                        </span>
@@ -281,7 +294,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                                             variant="ghost" 
                                             size="icon" 
                                             className="h-5 w-5 mt-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity absolute -right-2 top-0" 
-                                            onClick={() => deleteAssessment(ass.id)}
+                                            onClick={(e) => { e.stopPropagation(); deleteAssessment(ass.id); }}
                                            >
                                                <Trash2 className="h-3 w-3" />
                                            </Button>
@@ -329,7 +342,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                                const stats = getAssessmentStats(ass.id);
                                return (
                                    <TableCell key={ass.id} className="text-center p-2">
-                                       <div className="flex flex-col text-xs space-y-1">
+                                       <div className="flex flex-col text-xs space-y-1 cursor-pointer hover:bg-muted/80 rounded" onClick={() => openAnalytics(ass)}>
                                            <div className="font-semibold text-foreground">Avg: {stats.avg}</div>
                                            <div className="flex justify-center gap-2 text-muted-foreground text-[10px]">
                                                <span className="flex items-center text-green-600" title="Highest">
@@ -356,6 +369,14 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
           assessments={assessments} 
           learners={classInfo.learners} 
           onImport={handleBulkImport}
+       />
+
+       <AssessmentAnalyticsDialog 
+          open={analyticsOpen} 
+          onOpenChange={setAnalyticsOpen} 
+          assessment={selectedAssessment} 
+          marks={marks} 
+          learners={classInfo.learners} 
        />
     </div>
   );
