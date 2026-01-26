@@ -5,6 +5,7 @@ import { useSettings } from "@/context/SettingsContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassHeader } from "@/components/ClassHeader";
 import { MarksTab } from "@/components/MarksTab";
+import { MarkSheet } from "@/components/assessments/MarkSheet"; // New Component
 import { AttendanceView } from "@/components/AttendanceView";
 import { ClassDialogsManager } from "@/components/ClassDialogsManager";
 import { useLearnerState } from "@/hooks/useLearnerState";
@@ -14,7 +15,6 @@ import { useClassDialogs } from "@/hooks/useClassDialogs";
 import { Loader2 } from "lucide-react";
 
 const ClassDetails = () => {
-  // Fix: The route is defined as /classes/:classId in App.tsx, so we must destructure 'classId'
   const { classId } = useParams();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
@@ -56,7 +56,6 @@ const ClassDetails = () => {
     handleExportBlankPdf
   } = useClassExport(classInfo, learners, gradingScheme, schoolName, teacherName, schoolLogo);
 
-  // Sync title
   useEffect(() => {
     if (classInfo) {
       document.title = `${classInfo.className} - ${classInfo.subject} | SmaReg`;
@@ -100,13 +99,18 @@ const ClassDetails = () => {
         }}
       />
 
-      <Tabs defaultValue="marks" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-          <TabsTrigger value="marks">Marks & Reports</TabsTrigger>
+      <Tabs defaultValue="assessments" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
+          <TabsTrigger value="assessments">Term Assessments (New)</TabsTrigger>
+          <TabsTrigger value="legacy">Legacy Marks</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="marks">
+        <TabsContent value="assessments">
+             <MarkSheet classInfo={classInfo} />
+        </TabsContent>
+
+        <TabsContent value="legacy">
            <MarksTab 
              learners={learners}
              showComments={showComments}

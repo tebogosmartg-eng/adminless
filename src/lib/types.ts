@@ -1,8 +1,8 @@
 export interface Learner {
   name: string;
-  mark: string;
+  mark: string; // Legacy/Current Aggregate
   comment?: string;
-  id?: string; // Optional ID for database tracking
+  id?: string; 
 }
 
 export interface ClassInfo {
@@ -13,6 +13,7 @@ export interface ClassInfo {
   learners: Learner[];
   archived?: boolean;
   notes?: string;
+  user_id?: string;
 }
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
@@ -31,8 +32,8 @@ export interface GradeSymbol {
   max: number;
   symbol: string;
   level: number;
-  color: string; // Tailwind color class for text
-  badgeColor: string; // Tailwind color class for badge background
+  color: string; 
+  badgeColor: string; 
 }
 
 export interface ScannedLearner {
@@ -81,4 +82,39 @@ export interface LearnerComment {
 export interface GeminiScanResult {
   details: ScannedDetails | null;
   learners: ScannedLearner[];
+}
+
+// --- NEW TERM BASED TYPES ---
+
+export interface AcademicYear {
+  id: string;
+  name: string; // "2024"
+  closed: boolean;
+}
+
+export interface Term {
+  id: string;
+  year_id: string;
+  name: string; // "Term 1"
+  start_date: string | null;
+  end_date: string | null;
+  closed: boolean;
+}
+
+export interface Assessment {
+  id: string;
+  class_id: string;
+  term_id: string;
+  title: string;
+  type: string; // "Test", "Exam", "Project", "Assignment"
+  max_mark: number;
+  weight: number;
+  date: string | null;
+}
+
+export interface AssessmentMark {
+  id: string;
+  assessment_id: string;
+  learner_id: string;
+  score: number | null;
 }

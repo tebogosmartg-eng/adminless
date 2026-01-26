@@ -4,6 +4,7 @@ import { GradingSystemSettings } from "@/components/settings/GradingSystemSettin
 import { CommentBankSettings } from "@/components/settings/CommentBankSettings";
 import { DataManagementSettings } from "@/components/settings/DataManagementSettings";
 import { StandardListsSettings } from "@/components/settings/StandardListsSettings";
+import { AcademicYearSettings } from "@/components/settings/AcademicYearSettings";
 
 const Settings = () => {
   return (
@@ -14,6 +15,8 @@ const Settings = () => {
       </div>
       
       <Separator />
+
+      <AcademicYearSettings />
 
       <SchoolProfileSettings />
       
