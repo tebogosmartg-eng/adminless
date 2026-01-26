@@ -21,6 +21,7 @@ interface AcademicContextType {
   updateMarks: (updates: { assessment_id: string; learner_id: string; score: number | null }[]) => Promise<void>;
   refreshAssessments: (classId: string) => Promise<void>;
   toggleTermStatus: (termId: string, closed: boolean) => Promise<void>;
+  closeYear: (yearId: string) => Promise<void>;
 }
 
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
@@ -58,7 +59,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       console.error(error);
     } else {
       setYears(data || []);
-      // Auto-select most recent open year
+      // Auto-select most recent open year, or just the first one if all closed
       const openYear = data?.find(y => !y.closed) || data?.[0];
       if (openYear) setActiveYear(openYear);
     }
@@ -76,7 +77,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       console.error(error);
     } else {
       setTerms(data || []);
-      // Auto-select current term based on date, or just Term 1
+      // Auto-select current term based on date
       const now = new Date().toISOString();
       const current = data?.find(t => t.start_date && t.end_date && now >= t.start_date && now <= t.end_date) || data?.[0];
       if (current) setActiveTerm(current);
@@ -86,7 +87,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const createYear = async (name: string) => {
     if (!session?.user.id) return;
     
-    // 1. Create Year
     const { data: year, error } = await supabase
       .from('academic_years')
       .insert([{ name, user_id: session.user.id, closed: false }])
@@ -98,13 +98,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return;
     }
 
-    // 2. Create Default Terms (1-4)
     const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map(tName => ({
       year_id: year.id,
       name: tName,
       user_id: session.user.id,
       closed: false,
-      weight: 25 // Default equal weighting
+      weight: 25
     }));
 
     const { error: termError } = await supabase
@@ -139,10 +138,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   };
   
   const toggleTermStatus = async (termId: string, closed: boolean) => {
-      // Validate assessments before closing
-      if (closed) {
-          // Logic usually handled in UI, but safe to update status here
-      }
       const { error } = await supabase.from('terms').update({ closed }).eq('id', termId);
       if(error) showError("Failed to update status");
       else {
@@ -152,10 +147,42 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       }
   };
 
+  const closeYear = async (yearId: string) => {
+    // 1. Verify all terms are closed
+    const { data: openTerms, error: fetchError } = await supabase
+        .from('terms')
+        .select('id')
+        .eq('year_id', yearId)
+        .eq('closed', false);
+    
+    if (fetchError) {
+        showError("Failed to verify terms.");
+        return;
+    }
+
+    if (openTerms && openTerms.length > 0) {
+        showError(`Cannot close year. ${openTerms.length} terms are still open.`);
+        return;
+    }
+
+    // 2. Close Year
+    const { error } = await supabase
+        .from('academic_years')
+        .update({ closed: true })
+        .eq('id', yearId);
+
+    if (error) {
+        showError("Failed to close year.");
+    } else {
+        setYears(prev => prev.map(y => y.id === yearId ? { ...y, closed: true } : y));
+        if (activeYear?.id === yearId) setActiveYear(prev => prev ? { ...prev, closed: true } : null);
+        showSuccess("Academic Year finalized and closed.");
+    }
+  };
+
   const refreshAssessments = async (classId: string) => {
     if (!activeTerm) return;
 
-    // Fetch Assessments
     const { data: assData, error: assError } = await supabase
       .from('assessments')
       .select('*')
@@ -165,7 +192,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (assError) console.error(assError);
     else setAssessments(assData || []);
 
-    // Fetch Marks for these assessments
     if (assData && assData.length > 0) {
         const assIds = assData.map((a: any) => a.id);
         const { data: marksData, error: marksError } = await supabase
@@ -206,7 +232,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const updateMarks = async (updates: { assessment_id: string; learner_id: string; score: number | null }[]) => {
     if (!session?.user.id) return;
     
-    // Using upsert for batch updates
     const toUpsert = updates.map(u => ({
         assessment_id: u.assessment_id,
         learner_id: u.learner_id,
@@ -222,8 +247,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         console.error(error);
         showError("Failed to save marks.");
     } else {
-        // Update local state optimistically or re-fetch
-        // Let's manually update local state to avoid full re-fetch lag
         const newMarks = [...marks];
         toUpsert.forEach(u => {
             const idx = newMarks.findIndex(m => m.assessment_id === u.assessment_id && m.learner_id === u.learner_id);
@@ -255,7 +278,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       deleteAssessment,
       updateMarks,
       refreshAssessments,
-      toggleTermStatus
+      toggleTermStatus,
+      closeYear
     }}>
       {children}
     </AcademicContext.Provider>

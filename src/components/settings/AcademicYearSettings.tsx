@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Lock, Unlock, Plus, AlertCircle, Loader2 } from "lucide-react";
+import { CalendarIcon, Lock, Unlock, Plus, AlertCircle, Loader2, Archive } from "lucide-react";
 import { useAcademic } from '@/context/AcademicContext';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -16,7 +16,7 @@ import { useTermValidation, ValidationError } from '@/hooks/useTermValidation';
 import { TermClosureDialog } from '@/components/dialogs/TermClosureDialog';
 
 export const AcademicYearSettings = () => {
-  const { years, terms, activeYear, setActiveYear, createYear, updateTerm, toggleTermStatus } = useAcademic();
+  const { years, terms, activeYear, setActiveYear, createYear, updateTerm, toggleTermStatus, closeYear } = useAcademic();
   const [newYearName, setNewYearName] = useState("");
   
   // Validation State
@@ -36,6 +36,11 @@ export const AcademicYearSettings = () => {
   const handleTermAction = async (termId: string, currentStatus: boolean) => {
     if (currentStatus) {
         // If currently CLOSED, simple re-open (usually allowed only for admins, but allowed here)
+        // Prevent re-opening terms if year is closed
+        if (activeYear?.closed) {
+            alert("Cannot re-open term because the academic year is closed.");
+            return;
+        }
         await toggleTermStatus(termId, false);
     } else {
         // If currently OPEN, verify before closing
@@ -54,12 +59,27 @@ export const AcademicYearSettings = () => {
       }
   };
 
-  const DatePicker = ({ date, onSelect }: { date: string | null, onSelect: (d: Date | undefined) => void }) => (
+  const handleFinalizeYear = async () => {
+      if (!activeYear) return;
+      
+      const allTermsClosed = terms.every(t => t.closed);
+      if (!allTermsClosed) {
+          alert("All terms must be closed before finalizing the year.");
+          return;
+      }
+
+      if (confirm(`Are you sure you want to close ${activeYear.name}? This action is permanent.`)) {
+          await closeYear(activeYear.id);
+      }
+  };
+
+  const DatePicker = ({ date, onSelect, disabled }: { date: string | null, onSelect: (d: Date | undefined) => void, disabled: boolean }) => (
     <Popover>
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
           size="sm"
+          disabled={disabled}
           className={cn(
             "w-[130px] justify-start text-left font-normal h-8",
             !date && "text-muted-foreground"
@@ -82,15 +102,36 @@ export const AcademicYearSettings = () => {
 
   const totalWeight = useMemo(() => terms.reduce((acc, t) => acc + Number(t.weight), 0), [terms]);
   const isWeightValid = totalWeight === 100;
+  const allTermsClosed = terms.length > 0 && terms.every(t => t.closed);
 
   return (
     <div className="grid gap-6 md:grid-cols-1">
       <Card>
         <CardHeader>
-          <CardTitle>Academic Years</CardTitle>
-          <CardDescription>
-            Create and manage school years. Ensure term weights sum to 100% for correct year-end reporting.
-          </CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+                <CardTitle>Academic Years</CardTitle>
+                <CardDescription>
+                    Create and manage school years. Ensure term weights sum to 100% for correct year-end reporting.
+                </CardDescription>
+            </div>
+            {activeYear && !activeYear.closed && (
+                <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={handleFinalizeYear} 
+                    disabled={!allTermsClosed || !isWeightValid}
+                    title={!allTermsClosed ? "Close all terms first" : "Finalize Year"}
+                >
+                    <Archive className="mr-2 h-4 w-4" /> Finalize Year
+                </Button>
+            )}
+            {activeYear?.closed && (
+                <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 px-3 py-1">
+                    <Lock className="h-3 w-3 mr-2" /> Year Closed
+                </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
@@ -138,12 +179,14 @@ export const AcademicYearSettings = () => {
                                 <TableCell>
                                     <DatePicker 
                                         date={term.start_date} 
+                                        disabled={term.closed || !!activeYear.closed}
                                         onSelect={(d) => d && updateTerm({ ...term, start_date: d.toISOString() })} 
                                     />
                                 </TableCell>
                                 <TableCell>
                                     <DatePicker 
                                         date={term.end_date} 
+                                        disabled={term.closed || !!activeYear.closed}
                                         onSelect={(d) => d && updateTerm({ ...term, end_date: d.toISOString() })} 
                                     />
                                 </TableCell>
@@ -152,6 +195,7 @@ export const AcademicYearSettings = () => {
                                         type="number" 
                                         className="w-20 h-8"
                                         value={term.weight}
+                                        disabled={term.closed || !!activeYear.closed}
                                         onChange={(e) => updateTerm({ ...term, weight: parseFloat(e.target.value) })}
                                     />
                                 </TableCell>
@@ -164,7 +208,7 @@ export const AcademicYearSettings = () => {
                                     <Button 
                                       variant="ghost" 
                                       size="sm"
-                                      disabled={validating && selectedTermId === term.id}
+                                      disabled={(validating && selectedTermId === term.id) || !!activeYear.closed}
                                       onClick={() => handleTermAction(term.id, term.closed)}
                                     >
                                         {validating && selectedTermId === term.id ? (

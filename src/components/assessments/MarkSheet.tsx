@@ -18,6 +18,7 @@ interface MarkSheetProps {
 export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
   const { 
     activeTerm, 
+    activeYear,
     assessments, 
     marks, 
     createAssessment, 
@@ -40,6 +41,8 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
 
   const totalWeight = useMemo(() => assessments.reduce((acc, curr) => acc + Number(curr.weight), 0), [assessments]);
   const isWeightValid = totalWeight === 100;
+  
+  const isLocked = activeTerm?.closed || activeYear?.closed;
 
   const getMarkValue = (assessmentId: string, learnerId: string) => {
      // Check local edits first
@@ -52,7 +55,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
   };
 
   const handleMarkChange = (assessmentId: string, learnerId: string, value: string) => {
-     if (activeTerm?.closed) return;
+     if (isLocked) return;
      setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
   };
 
@@ -115,7 +118,8 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
            <div>
                <h3 className="text-lg font-semibold flex items-center gap-2">
                    {activeTerm.name} Assessment Plan
-                   {activeTerm.closed && <Badge variant="secondary">Closed</Badge>}
+                   {activeTerm.closed && <Badge variant="secondary">Term Closed</Badge>}
+                   {activeYear?.closed && <Badge variant="destructive">Year Finalized</Badge>}
                </h3>
                <div className="flex items-center gap-2 text-sm mt-1">
                    <span className={isWeightValid ? "text-green-600 font-medium" : "text-amber-600 font-medium"}>
@@ -130,12 +134,12 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                </div>
            </div>
            <div className="flex gap-2">
-               <Button onClick={handleSaveMarks} disabled={Object.keys(editedMarks).length === 0 || activeTerm.closed}>
+               <Button onClick={handleSaveMarks} disabled={Object.keys(editedMarks).length === 0 || !!isLocked}>
                    <Save className="mr-2 h-4 w-4" /> Save Marks
                </Button>
                <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
                    <DialogTrigger asChild>
-                       <Button variant="outline" disabled={activeTerm.closed}>
+                       <Button variant="outline" disabled={!!isLocked}>
                            <Plus className="mr-2 h-4 w-4" /> Add Assessment
                        </Button>
                    </DialogTrigger>
@@ -191,7 +195,7 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                                    <span className="text-xs text-muted-foreground font-normal">
                                        {ass.max_mark} marks • {ass.weight}%
                                    </span>
-                                   {!activeTerm.closed && (
+                                   {!isLocked && (
                                        <Button variant="ghost" size="icon" className="h-5 w-5 mt-1 text-muted-foreground hover:text-destructive" onClick={() => deleteAssessment(ass.id)}>
                                            <Trash2 className="h-3 w-3" />
                                        </Button>
@@ -214,10 +218,10 @@ export const MarkSheet = ({ classInfo }: MarkSheetProps) => {
                                <TableCell key={ass.id} className="p-1">
                                    <div className="flex justify-center">
                                        <Input 
-                                           className={`h-8 w-16 text-center ${activeTerm.closed ? "bg-muted" : ""}`}
+                                           className={`h-8 w-16 text-center ${isLocked ? "bg-muted" : ""}`}
                                            value={getMarkValue(ass.id, learner.id || '')}
                                            onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
-                                           disabled={!learner.id || activeTerm.closed}
+                                           disabled={!learner.id || !!isLocked}
                                            placeholder="-"
                                        />
                                    </div>
