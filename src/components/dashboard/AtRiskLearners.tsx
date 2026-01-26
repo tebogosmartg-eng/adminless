@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSettings } from '@/context/SettingsContext';
+import { Learner } from '@/lib/types';
 
 const AtRiskLearners = () => {
   const { classes } = useClasses();
@@ -14,11 +15,11 @@ const AtRiskLearners = () => {
   // Filter for those with marks < threshold
   const atRiskList = classes.flatMap(classInfo => {
     return classInfo.learners
-      .filter(l => {
+      .filter((l: Learner) => {
         const markNum = parseFloat(l.mark);
         return !isNaN(markNum) && markNum < atRiskThreshold;
       })
-      .map(l => ({
+      .map((l: Learner) => ({
         ...l,
         classId: classInfo.id,
         className: classInfo.className,
