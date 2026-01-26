@@ -5,23 +5,53 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Lock, Unlock, Plus, AlertCircle } from "lucide-react";
+import { CalendarIcon, Lock, Unlock, Plus, AlertCircle, Loader2 } from "lucide-react";
 import { useAcademic } from '@/context/AcademicContext';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTermValidation, ValidationError } from '@/hooks/useTermValidation';
+import { TermClosureDialog } from '@/components/dialogs/TermClosureDialog';
 
 export const AcademicYearSettings = () => {
   const { years, terms, activeYear, setActiveYear, createYear, updateTerm, toggleTermStatus } = useAcademic();
   const [newYearName, setNewYearName] = useState("");
+  
+  // Validation State
+  const { validateTerm, validating } = useTermValidation();
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [selectedTermId, setSelectedTermId] = useState<string | null>(null);
+  const [isValidToClose, setIsValidToClose] = useState(false);
 
   const handleCreateYear = async () => {
     if (newYearName.trim()) {
       await createYear(newYearName.trim());
       setNewYearName("");
     }
+  };
+
+  const handleTermAction = async (termId: string, currentStatus: boolean) => {
+    if (currentStatus) {
+        // If currently CLOSED, simple re-open (usually allowed only for admins, but allowed here)
+        await toggleTermStatus(termId, false);
+    } else {
+        // If currently OPEN, verify before closing
+        setSelectedTermId(termId);
+        const { isValid, errors } = await validateTerm(termId);
+        setIsValidToClose(isValid);
+        setValidationErrors(errors);
+        setValidationDialogOpen(true);
+    }
+  };
+
+  const confirmClosure = async () => {
+      if (selectedTermId) {
+          await toggleTermStatus(selectedTermId, true);
+          setValidationDialogOpen(false);
+      }
   };
 
   const DatePicker = ({ date, onSelect }: { date: string | null, onSelect: (d: Date | undefined) => void }) => (
@@ -134,9 +164,14 @@ export const AcademicYearSettings = () => {
                                     <Button 
                                       variant="ghost" 
                                       size="sm"
-                                      onClick={() => toggleTermStatus(term.id, !term.closed)}
+                                      disabled={validating && selectedTermId === term.id}
+                                      onClick={() => handleTermAction(term.id, term.closed)}
                                     >
-                                        {term.closed ? <Unlock className="h-4 w-4 mr-1" /> : <Lock className="h-4 w-4 mr-1" />}
+                                        {validating && selectedTermId === term.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            term.closed ? <Unlock className="h-4 w-4 mr-1" /> : <Lock className="h-4 w-4 mr-1" />
+                                        )}
                                         {term.closed ? "Re-open" : "Close"}
                                     </Button>
                                 </TableCell>
@@ -160,6 +195,15 @@ export const AcademicYearSettings = () => {
           )}
         </CardContent>
       </Card>
+
+      <TermClosureDialog 
+        open={validationDialogOpen}
+        onOpenChange={setValidationDialogOpen}
+        termName={terms.find(t => t.id === selectedTermId)?.name || "Term"}
+        errors={validationErrors}
+        isValid={isValidToClose}
+        onConfirm={confirmClosure}
+      />
     </div>
   );
 };
