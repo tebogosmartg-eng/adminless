@@ -1,8 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { AcademicYear, Term, Assessment, AssessmentMark } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
+import { db } from '@/db';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { queueAction } from '@/services/sync';
 
 interface AcademicContextType {
   years: AcademicYear[];
@@ -27,242 +29,139 @@ interface AcademicContextType {
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
 
 export const AcademicProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
-  const [years, setYears] = useState<AcademicYear[]>([]);
-  const [terms, setTerms] = useState<Term[]>([]);
-  const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [marks, setMarks] = useState<AssessmentMark[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [activeYearId, setActiveYearId] = useState<string | null>(null);
+  const [activeTermId, setActiveTermId] = useState<string | null>(null);
   
-  const [activeYear, setActiveYear] = useState<AcademicYear | null>(null);
-  const [activeTerm, setActiveTerm] = useState<Term | null>(null);
+  // Live Queries
+  const years = useLiveQuery(() => db.academic_years.orderBy('name').reverse().toArray()) || [];
+  
+  // Derived state for active year
+  const activeYear = years.find(y => y.id === activeYearId) || years.find(y => !y.closed) || years[0] || null;
 
+  const terms = useLiveQuery(async () => {
+      if (!activeYear) return [];
+      return db.terms.where('year_id').equals(activeYear.id).sortBy('name');
+  }, [activeYear?.id]) || [];
+
+  // Derived state for active term
   useEffect(() => {
-    if (session?.user.id) {
-      fetchYears();
-    }
-  }, [session?.user.id]);
+      if (terms.length > 0 && !activeTermId) {
+          const now = new Date().toISOString();
+          const current = terms.find(t => t.start_date && t.end_date && now >= t.start_date && now <= t.end_date) || terms[0];
+          setActiveTermId(current.id);
+      }
+  }, [terms, activeTermId]);
 
-  useEffect(() => {
-    if (activeYear) {
-      fetchTerms(activeYear.id);
-    }
-  }, [activeYear]);
+  const activeTerm = terms.find(t => t.id === activeTermId) || null;
 
-  const fetchYears = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('academic_years')
-      .select('*')
-      .order('name', { ascending: false });
-    
-    if (error) {
-      console.error(error);
-    } else {
-      setYears(data || []);
-      const openYear = data?.find(y => !y.closed) || data?.[0];
-      if (openYear) setActiveYear(openYear);
-    }
-    setLoading(false);
-  };
+  // Assessments state (still filtered manually for UI performance)
+  const [currentClassFilter, setCurrentClassFilter] = useState<{classId: string, termId: string} | null>(null);
+  
+  const assessments = useLiveQuery(async () => {
+      if (!currentClassFilter) return [];
+      return db.assessments
+        .where('[class_id+term_id]')
+        .equals([currentClassFilter.classId, currentClassFilter.termId])
+        .toArray();
+  }, [currentClassFilter]) || [];
 
-  const fetchTerms = async (yearId: string) => {
-    const { data, error } = await supabase
-      .from('terms')
-      .select('*')
-      .eq('year_id', yearId)
-      .order('name', { ascending: true });
-
-    if (error) {
-      console.error(error);
-    } else {
-      setTerms(data || []);
-      const now = new Date().toISOString();
-      const current = data?.find(t => t.start_date && t.end_date && now >= t.start_date && now <= t.end_date) || data?.[0];
-      if (current) setActiveTerm(current);
-    }
-  };
+  const marks = useLiveQuery(async () => {
+      if (assessments.length === 0) return [];
+      const ids = assessments.map(a => a.id);
+      return db.assessment_marks.where('assessment_id').anyOf(ids).toArray();
+  }, [assessments]) || [];
 
   const createYear = async (name: string) => {
     if (!session?.user.id) return;
+    const yearId = crypto.randomUUID();
     
-    const { data: year, error } = await supabase
-      .from('academic_years')
-      .insert([{ name, user_id: session.user.id, closed: false }])
-      .select()
-      .single();
-
-    if (error) {
-      showError('Failed to create year.');
-      return;
-    }
+    const yearData = { id: yearId, name, user_id: session.user.id, closed: false };
+    await db.academic_years.add(yearData);
+    await queueAction('academic_years', 'insert', yearData);
 
     const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map(tName => ({
-      year_id: year.id,
+      id: crypto.randomUUID(),
+      year_id: yearId,
       name: tName,
       user_id: session.user.id,
       closed: false,
       weight: 25
     }));
 
-    const { error: termError } = await supabase
-      .from('terms')
-      .insert(termsToCreate);
-
-    if (termError) {
-      console.error(termError);
-      showError('Year created but failed to create terms.');
-    } else {
-      showSuccess(`Academic Year ${name} created.`);
-      fetchYears();
-    }
+    await db.terms.bulkAdd(termsToCreate as any);
+    await queueAction('terms', 'insert', termsToCreate);
+    
+    showSuccess(`Academic Year ${name} created.`);
   };
 
   const updateTerm = async (term: Term) => {
-     const { error } = await supabase
-       .from('terms')
-       .update({ 
-         start_date: term.start_date, 
-         end_date: term.end_date, 
-         closed: term.closed,
-         weight: term.weight
-       })
-       .eq('id', term.id);
-     
-     if (error) showError('Failed to update term.');
-     else {
-        setTerms(prev => prev.map(t => t.id === term.id ? term : t));
-        showSuccess('Term updated.');
-     }
+     await db.terms.put(term);
+     await queueAction('terms', 'update', term);
+     showSuccess('Term updated.');
   };
   
   const toggleTermStatus = async (termId: string, closed: boolean) => {
-      const { error } = await supabase.from('terms').update({ closed }).eq('id', termId);
-      if(error) showError("Failed to update status");
-      else {
-          setTerms(prev => prev.map(t => t.id === termId ? { ...t, closed } : t));
-          if(activeTerm?.id === termId) setActiveTerm(prev => prev ? { ...prev, closed } : null);
-          showSuccess(`Term ${closed ? 'closed' : 're-opened'}.`);
-      }
+      await db.terms.update(termId, { closed });
+      await queueAction('terms', 'update', { id: termId, closed });
+      showSuccess(`Term ${closed ? 'closed' : 're-opened'}.`);
   };
 
   const closeYear = async (yearId: string) => {
-    const { data: openTerms, error: fetchError } = await supabase
-        .from('terms')
-        .select('id')
-        .eq('year_id', yearId)
-        .eq('closed', false);
+    const openTerms = await db.terms.where('year_id').equals(yearId).filter(t => !t.closed).count();
     
-    if (fetchError) {
-        showError("Failed to verify terms.");
+    if (openTerms > 0) {
+        showError(`Cannot close year. ${openTerms} terms are still open.`);
         return;
     }
 
-    if (openTerms && openTerms.length > 0) {
-        showError(`Cannot close year. ${openTerms.length} terms are still open.`);
-        return;
-    }
-
-    const { error } = await supabase
-        .from('academic_years')
-        .update({ closed: true })
-        .eq('id', yearId);
-
-    if (error) {
-        showError("Failed to close year.");
-    } else {
-        setYears(prev => prev.map(y => y.id === yearId ? { ...y, closed: true } : y));
-        if (activeYear?.id === yearId) setActiveYear(prev => prev ? { ...prev, closed: true } : null);
-        showSuccess("Academic Year finalized and closed.");
-    }
+    await db.academic_years.update(yearId, { closed: true });
+    await queueAction('academic_years', 'update', { id: yearId, closed: true });
+    showSuccess("Academic Year finalized and closed.");
   };
 
   const refreshAssessments = async (classId: string, termId?: string) => {
     const targetTermId = termId || activeTerm?.id;
     if (!targetTermId) return;
-
-    const { data: assData, error: assError } = await supabase
-      .from('assessments')
-      .select('*')
-      .eq('class_id', classId)
-      .eq('term_id', targetTermId);
-
-    if (assError) console.error(assError);
-    else setAssessments(assData || []);
-
-    if (assData && assData.length > 0) {
-        const assIds = assData.map((a: any) => a.id);
-        const { data: marksData, error: marksError } = await supabase
-            .from('assessment_marks')
-            .select('*')
-            .in('assessment_id', assIds);
-        
-        if (marksError) console.error(marksError);
-        else setMarks(marksData || []);
-    } else {
-        setMarks([]);
-    }
+    setCurrentClassFilter({ classId, termId: targetTermId });
   };
 
   const createAssessment = async (assessment: Omit<Assessment, 'id'>) => {
     if (!session?.user.id) return;
-    const { error } = await supabase
-        .from('assessments')
-        .insert([{ ...assessment, user_id: session.user.id }]);
+    const id = crypto.randomUUID();
+    const data = { ...assessment, id, user_id: session.user.id };
     
-    if (error) showError("Failed to create assessment.");
-    else {
-        showSuccess("Assessment created.");
-        refreshAssessments(assessment.class_id, assessment.term_id);
-    }
+    await db.assessments.add(data);
+    await queueAction('assessments', 'insert', data);
+    showSuccess("Assessment created.");
   };
 
   const deleteAssessment = async (id: string) => {
-      const ass = assessments.find(a => a.id === id);
-      const { error } = await supabase.from('assessments').delete().eq('id', id);
-      if(error) showError("Failed to delete.");
-      else {
-          showSuccess("Assessment deleted.");
-          if(ass) refreshAssessments(ass.class_id, ass.term_id);
-      }
+      await db.assessment_marks.where('assessment_id').equals(id).delete(); // Manual cascade
+      await db.assessments.delete(id);
+      await queueAction('assessments', 'delete', { id });
+      showSuccess("Assessment deleted.");
   };
 
   const updateMarks = async (updates: { assessment_id: string; learner_id: string; score: number | null; comment?: string }[]) => {
     if (!session?.user.id) return;
     
+    // We must fetch existing marks to preserve IDs if we want strict updating, or rely on composite key upsert
+    // Dexie put() handles upsert by key. `assessment_marks` has composite key [assessment_id+learner_id] defined in schema?
+    // In db.ts I defined: assessment_marks: '[assessment_id+learner_id], assessment_id, learner_id'
+    // So `put` works fine.
+    
     const toUpsert = updates.map(u => ({
-        assessment_id: u.assessment_id,
-        learner_id: u.learner_id,
-        score: u.score,
-        comment: u.comment,
+        ...u,
         user_id: session.user.id
     }));
 
-    const { error } = await supabase
-        .from('assessment_marks')
-        .upsert(toUpsert, { onConflict: 'assessment_id,learner_id' });
-
-    if (error) {
-        console.error(error);
-        showError("Failed to save marks.");
-    } else {
-        const newMarks = [...marks];
-        toUpsert.forEach(u => {
-            const idx = newMarks.findIndex(m => m.assessment_id === u.assessment_id && m.learner_id === u.learner_id);
-            if (idx >= 0) {
-                // Merge updates
-                newMarks[idx] = { 
-                    ...newMarks[idx], 
-                    score: u.score,
-                    // Only update comment if provided (allow partial updates in theory, though we usually pass both)
-                    ...(u.comment !== undefined ? { comment: u.comment } : {}) 
-                };
-            } else {
-                newMarks.push({ id: 'temp-' + Date.now(), ...u } as AssessmentMark);
-            }
-        });
-        setMarks(newMarks);
-        showSuccess("Saved successfully.");
-    }
+    // For sync queue, we need to know if it's insert or update? 
+    // Supabase upsert handles both.
+    
+    await db.assessment_marks.bulkPut(toUpsert as any);
+    await queueAction('assessment_marks', 'upsert', toUpsert);
+    
+    showSuccess("Saved successfully.");
   };
 
   return (
@@ -271,11 +170,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       terms,
       assessments,
       marks,
-      loading,
+      loading: !years,
       activeYear,
       activeTerm,
-      setActiveYear,
-      setActiveTerm,
+      setActiveYear: (y) => setActiveYearId(y?.id || null),
+      setActiveTerm: (t) => setActiveTermId(t?.id || null),
       createYear,
       updateTerm,
       createAssessment,

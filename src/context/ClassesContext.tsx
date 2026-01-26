@@ -1,9 +1,11 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
 import { ClassInfo, Learner } from '@/lib/types';
 import { useActivity } from './ActivityContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { showError } from '@/utils/toast';
+import { db } from '@/db';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { queueAction } from '@/services/sync';
 
 interface ClassesContextType {
   classes: ClassInfo[];
@@ -21,276 +23,201 @@ const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
 
 export const ClassesProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
-  const [classes, setClasses] = useState<ClassInfo[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  // Fetch classes and learners on mount
-  useEffect(() => {
-    if (!session?.user.id) {
-        setLoading(false);
-        return;
-    }
+  // Read from Local DB
+  const classes = useLiveQuery(async () => {
+    if (!session?.user.id) return [];
+    
+    const allClasses = await db.classes
+        .where('user_id')
+        .equals(session.user.id)
+        .reverse()
+        .sortBy('created_at'); // Assuming created_at field exists in types and is sortable, if not sort in JS
 
-    const fetchData = async () => {
-      setLoading(true);
-      const { data: classesData, error: classesError } = await supabase
-        .from('classes')
-        .select(`
-          *,
-          learners (*)
-        `)
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
+    const allLearners = await db.learners.toArray();
 
-      if (classesError) {
-        console.error('Error fetching classes:', classesError);
-        showError('Failed to load classes.');
-        setLoading(false);
-        return;
-      }
+    // Join manually
+    return allClasses.map(c => ({
+        id: c.id,
+        grade: c.grade,
+        subject: c.subject,
+        className: c.className,
+        archived: !!c.archived,
+        notes: c.notes || '',
+        learners: allLearners.filter(l => l.class_id === c.id)
+    })) as ClassInfo[];
+  }, [session?.user.id]) || [];
 
-      try {
-        const formattedClasses: ClassInfo[] = (classesData || []).map((c: any) => ({
-          id: c.id,
-          grade: c.grade,
-          subject: c.subject,
-          className: c.class_name,
-          archived: c.archived || false,
-          notes: c.notes || '',
-          learners: (c.learners || []).map((l: any) => ({
-            name: l.name,
-            mark: l.mark,
-            comment: l.comment,
-            id: l.id 
-          }))
-        }));
-
-        setClasses(formattedClasses);
-      } catch (err) {
-        console.error('Error formatting classes data:', err);
-        showError('Error processing class data.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [session?.user.id]);
+  const loading = !classes && !!session?.user.id;
 
   const addClass = async (newClass: ClassInfo) => {
     if (!session?.user.id) return;
 
-    // 1. Insert Class
-    const { data: classData, error: classError } = await supabase
-      .from('classes')
-      .insert([{
+    try {
+      // 1. Prepare Local Data
+      const classData = {
+        id: newClass.id, // Ensure ID is generated before calling this
         user_id: session.user.id,
         grade: newClass.grade,
         subject: newClass.subject,
-        class_name: newClass.className,
+        class_name: newClass.className, // Map front-end prop to DB col
+        className: newClass.className, // Dexie stores what we give it, keeping both for compatibility or clean up types later
         archived: false,
-        notes: newClass.notes || ''
-      }])
-      .select()
-      .single();
-
-    if (classError || !classData) {
-      console.error('Error creating class:', classError);
-      showError('Failed to create class.');
-      return;
-    }
-
-    // 2. Insert Learners
-    if (newClass.learners.length > 0) {
-      const learnersToInsert = newClass.learners.map(l => ({
-        class_id: classData.id,
-        name: l.name,
-        mark: l.mark || '',
-        comment: l.comment || ''
-      }));
-
-      const { data: learnersData, error: learnersError } = await supabase
-        .from('learners')
-        .insert(learnersToInsert)
-        .select();
-
-      if (learnersError) {
-        console.error('Error adding learners:', learnersError);
-        showError('Class created, but failed to add learners.');
-      }
-      
-      const createdClass: ClassInfo = {
-        id: classData.id,
-        grade: classData.grade,
-        subject: classData.subject,
-        className: classData.class_name,
-        archived: false,
-        notes: classData.notes || '',
-        learners: learnersData ? learnersData.map((l: any) => ({
-            name: l.name,
-            mark: l.mark,
-            comment: l.comment,
-            id: l.id
-        })) : []
+        notes: newClass.notes || '',
+        created_at: new Date().toISOString()
       };
-      
-      setClasses((prev) => [createdClass, ...prev]);
-    } else {
-        const createdClass: ClassInfo = {
-            id: classData.id,
-            grade: classData.grade,
-            subject: classData.subject,
-            className: classData.class_name,
-            archived: false,
-            notes: classData.notes || '',
-            learners: []
-        };
-        setClasses((prev) => [createdClass, ...prev]);
-    }
 
-    logActivity(`Created class: "${newClass.subject} - ${newClass.className}"`);
+      // 2. Write to Local DB
+      await db.classes.add(classData);
+      
+      // 3. Queue Sync
+      // Supabase column is `class_name`
+      const syncData = { ...classData };
+      delete (syncData as any).className; 
+      delete (syncData as any).learners;
+      
+      await queueAction('classes', 'insert', syncData);
+
+      // Learners
+      if (newClass.learners.length > 0) {
+        // Generate IDs for learners if missing
+        const learnersWithIds = newClass.learners.map(l => ({
+            ...l,
+            id: l.id || crypto.randomUUID(),
+            class_id: newClass.id
+        }));
+
+        await db.learners.bulkAdd(learnersWithIds as any);
+        await queueAction('learners', 'insert', learnersWithIds);
+      }
+
+      logActivity(`Created class: "${newClass.subject} - ${newClass.className}"`);
+    } catch (e) {
+      console.error(e);
+      showError("Failed to create class locally.");
+    }
   };
 
   const updateLearners = async (classId: string, updatedLearners: Learner[]) => {
-    const classInfo = classes.find(c => c.id === classId);
-    if (!classInfo) return;
+    try {
+        const classInfo = classes.find(c => c.id === classId);
+        if (!classInfo) return;
 
-    // Optimistic UI update
-    setClasses((prevClasses) =>
-      prevClasses.map((c) =>
-        c.id === classId ? { ...c, learners: updatedLearners } : c
-      )
-    );
-
-    const learnersWithId = updatedLearners.filter((l: any) => l.id);
-    const learnersWithoutId = updatedLearners.filter((l: any) => !l.id);
-
-    // 1. Bulk Update (Upsert) for existing items
-    if (learnersWithId.length > 0) {
-      const updates = learnersWithId.map(l => ({
-        id: l.id,
-        class_id: classId,
-        name: l.name,
-        mark: l.mark,
-        comment: l.comment
-      }));
-      
-      const { error } = await supabase
-        .from('learners')
-        .upsert(updates, { onConflict: 'id' });
+        // Process learners: identify updates, inserts, deletes
+        // For simplicity in offline-first, upserting all provided is easiest,
+        // but we need to handle deletes if the list is shorter? 
+        // The current app logic passes the FULL list of desired learners.
         
-      if (error) {
-          console.error("Error bulk updating learners:", error);
-          showError("Failed to save some learner updates.");
-      }
-    }
+        // 1. Get current DB learners for this class
+        const currentDbLearners = await db.learners.where('class_id').equals(classId).toArray();
+        const currentIds = new Set(currentDbLearners.map(l => l.id));
+        
+        const toUpsert = [];
+        const newIds = new Set();
 
-    // 2. Bulk Insert for new items
-    if (learnersWithoutId.length > 0) {
-        const toInsert = learnersWithoutId.map(l => ({
-            class_id: classId,
-            name: l.name,
-            mark: l.mark || '',
-            comment: l.comment || ''
-        }));
-        const { error } = await supabase.from('learners').insert(toInsert);
-        if (error) {
-            console.error("Error inserting new learners:", error);
-            showError("Failed to save new learners.");
+        for (const l of updatedLearners) {
+            const id = l.id || crypto.randomUUID();
+            newIds.add(id);
+            toUpsert.push({
+                id,
+                class_id: classId,
+                name: l.name,
+                mark: l.mark,
+                comment: l.comment
+            });
         }
+
+        // Identify deletions
+        const toDelete = currentDbLearners.filter(l => !newIds.has(l.id)).map(l => l.id!);
+
+        // Local DB Execute
+        if (toDelete.length > 0) await db.learners.bulkDelete(toDelete);
+        await db.learners.bulkPut(toUpsert as any);
+
+        // Queue Actions
+        // Ideally we batch these for Supabase efficiency, but simple queueAction works per row or we adapt queueAction to handle arrays (which sync.ts supports if we pass array to insert/upsert)
+        
+        if (toUpsert.length > 0) {
+            await queueAction('learners', 'upsert', toUpsert);
+        }
+        if (toDelete.length > 0) {
+            // Queue deletes individually as our sync implementation is simple eq('id', payload.id)
+            for (const id of toDelete) {
+                await queueAction('learners', 'delete', { id });
+            }
+        }
+
+        logActivity(`Updated marks for: "${classInfo.subject} - ${classInfo.className}"`);
+    } catch (e) {
+        console.error(e);
+        showError("Failed to save updates locally.");
     }
-
-    // 3. Deletes
-    const currentIds = learnersWithId.map((l:any) => l.id);
-    const idsToDelete = classInfo.learners
-        .map((l:any) => l.id)
-        .filter(id => id && !currentIds.includes(id));
-
-    if (idsToDelete.length > 0) {
-        const { error } = await supabase.from('learners').delete().in('id', idsToDelete);
-        if (error) console.error("Error deleting learners:", error);
-    }
-
-    // 4. Refetch to get IDs for new items and ensure sync
-    const { data: refreshedLearners } = await supabase
-        .from('learners')
-        .select('*')
-        .eq('class_id', classId)
-        .order('created_at', { ascending: true });
-
-    if (refreshedLearners) {
-        setClasses(prev => prev.map(c => c.id === classId ? { ...c, learners: refreshedLearners.map((l:any) => ({
-            name: l.name,
-            mark: l.mark,
-            comment: l.comment,
-            id: l.id
-        })) } : c));
-    }
-
-    logActivity(`Updated marks for: "${classInfo.subject} - ${classInfo.className}"`);
   };
 
   const updateClassDetails = async (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => {
-    setClasses((prevClasses) =>
-      prevClasses.map((c) =>
-        c.id === classId ? { ...c, ...details } : c
-      )
-    );
+    try {
+        // Map details to DB columns
+        const updates: any = {};
+        if (details.grade) updates.grade = details.grade;
+        if (details.subject) updates.subject = details.subject;
+        if (details.className) {
+            updates.class_name = details.className; // for Supabase/DB
+            updates.className = details.className; // for Dexie local usage
+        }
 
-    const dbUpdates: any = {};
-    if (details.grade) dbUpdates.grade = details.grade;
-    if (details.subject) dbUpdates.subject = details.subject;
-    if (details.className) dbUpdates.class_name = details.className;
+        await db.classes.update(classId, updates);
+        
+        // Queue (clean up local-only props)
+        const syncUpdates = { ...updates, id: classId };
+        delete syncUpdates.className;
+        await queueAction('classes', 'update', syncUpdates);
 
-    const { error } = await supabase.from('classes').update(dbUpdates).eq('id', classId);
-    if (error) showError("Failed to update class details.");
-
-    const classInfo = classes.find(c => c.id === classId);
-    if (classInfo) {
-      logActivity(`Edited details for class: "${classInfo.subject} - ${classInfo.className}"`);
+        logActivity("Class details updated.");
+    } catch (e) {
+        console.error(e);
+        showError("Update failed.");
     }
   };
 
   const updateClassNotes = async (classId: string, notes: string) => {
-    setClasses((prevClasses) =>
-        prevClasses.map((c) =>
-          c.id === classId ? { ...c, notes } : c
-        )
-      );
-  
-    const { error } = await supabase.from('classes').update({ notes }).eq('id', classId);
-    if (error) showError("Failed to save notes.");
+    try {
+        await db.classes.update(classId, { notes });
+        await queueAction('classes', 'update', { id: classId, notes });
+    } catch (e) {
+        showError("Failed to save notes.");
+    }
   };
 
   const deleteClass = async (classId: string) => {
-    const classInfo = classes.find(c => c.id === classId);
-    setClasses((prevClasses) => prevClasses.filter((c) => c.id !== classId));
+    try {
+        const classInfo = classes.find(c => c.id === classId);
+        
+        // Local Delete (Cascade learners manually if needed, Dexie doesn't cascade)
+        await db.learners.where('class_id').equals(classId).delete();
+        await db.classes.delete(classId);
 
-    const { error } = await supabase.from('classes').delete().eq('id', classId);
-    if (error) {
+        // Queue
+        await queueAction('classes', 'delete', { id: classId });
+        
+        if (classInfo) {
+            logActivity(`Deleted class: "${classInfo.subject} - ${classInfo.className}"`);
+        }
+    } catch (e) {
         showError("Failed to delete class.");
-        // Revert state if needed, but for simplicity we rely on refresh or just show error
-    }
-
-    if (classInfo) {
-      logActivity(`Deleted class: "${classInfo.subject} - ${classInfo.className}"`);
     }
   };
 
   const toggleClassArchive = async (classId: string, archived: boolean) => {
-    setClasses((prevClasses) =>
-      prevClasses.map((c) =>
-        c.id === classId ? { ...c, archived } : c
-      )
-    );
-
-    const { error } = await supabase.from('classes').update({ archived }).eq('id', classId);
-    if (error) showError("Failed to update archive status.");
-
-    const classInfo = classes.find(c => c.id === classId);
-    if (classInfo) {
-        const action = archived ? "Archived" : "Restored";
-        logActivity(`${action} class: "${classInfo.subject} - ${classInfo.className}"`);
+    try {
+        await db.classes.update(classId, { archived });
+        await queueAction('classes', 'update', { id: classId, archived });
+        
+        const classInfo = classes.find(c => c.id === classId);
+        if (classInfo) {
+            logActivity(`${archived ? "Archived" : "Restored"} class: "${classInfo.subject} - ${classInfo.className}"`);
+        }
+    } catch (e) {
+        showError("Failed to update status.");
     }
   };
 

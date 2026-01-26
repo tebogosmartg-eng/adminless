@@ -20,6 +20,8 @@ import { ActivityProvider } from "./context/ActivityContext";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { SettingsProvider } from "./context/SettingsContext";
 import { AcademicProvider } from "./context/AcademicContext";
+import { SyncProvider } from "./context/SyncContext";
+import { OfflineIndicator } from "./components/OfflineIndicator";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -71,34 +73,37 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <ActivityProvider session={session}>
-              <SettingsProvider session={session}>
-                <AcademicProvider session={session}>
-                  <ClassesProvider session={session}>
-                    <Routes>
-                      <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
-                      <Route
-                        element={
-                          <ProtectedRoute session={session}>
-                            <Layout />
-                          </ProtectedRoute>
-                        }
-                      >
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/classes" element={<Classes />} />
-                        <Route path="/classes/:classId" element={<ClassDetails />} />
-                        <Route path="/scan" element={<Scan />} />
-                        <Route path="/reports" element={<Reports />} />
-                        <Route path="/settings" element={<Settings />} />
-                      </Route>
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </ClassesProvider>
-                </AcademicProvider>
-              </SettingsProvider>
-            </ActivityProvider>
-          </BrowserRouter>
+          <SyncProvider>
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <ActivityProvider session={session}>
+                <SettingsProvider session={session}>
+                    <AcademicProvider session={session}>
+                    <ClassesProvider session={session}>
+                        <OfflineIndicator />
+                        <Routes>
+                        <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
+                        <Route
+                            element={
+                            <ProtectedRoute session={session}>
+                                <Layout />
+                            </ProtectedRoute>
+                            }
+                        >
+                            <Route path="/" element={<Dashboard />} />
+                            <Route path="/classes" element={<Classes />} />
+                            <Route path="/classes/:classId" element={<ClassDetails />} />
+                            <Route path="/scan" element={<Scan />} />
+                            <Route path="/reports" element={<Reports />} />
+                            <Route path="/settings" element={<Settings />} />
+                        </Route>
+                        <Route path="*" element={<NotFound />} />
+                        </Routes>
+                    </ClassesProvider>
+                    </AcademicProvider>
+                </SettingsProvider>
+                </ActivityProvider>
+            </BrowserRouter>
+          </SyncProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
