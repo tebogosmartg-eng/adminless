@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useClasses } from '../context/ClassesContext';
 import { Button } from '@/components/ui/button';
-import { Learner } from '@/types';
+import { Learner } from '@/lib/types';
 import { showSuccess } from '@/utils/toast';
 import { useSettings } from '@/context/SettingsContext';
 import { ClassHeader } from '@/components/ClassHeader';

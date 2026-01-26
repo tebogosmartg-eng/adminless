@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Learner } from '@/types';
+import { Learner } from '@/lib/types';
 import { useSettings } from '@/context/SettingsContext';
 import { getGradeSymbol } from '@/utils/grading';
 

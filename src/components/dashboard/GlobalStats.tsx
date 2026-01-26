@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClassInfo } from "@/types";
+import { ClassInfo } from "@/lib/types";
 import { useMemo } from "react";
 import { Users, Percent, TrendingUp, TrendingDown, BookOpen } from "lucide-react";
 

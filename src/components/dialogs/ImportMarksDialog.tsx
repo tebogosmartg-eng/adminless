@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ClassInfo, Learner } from '@/types';
+import { ClassInfo, Learner } from '@/lib/types';
 import { showError, showSuccess } from '@/utils/toast';
 import { Download } from 'lucide-react';
 

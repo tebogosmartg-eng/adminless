@@ -9,7 +9,7 @@ import RecentActivity from './RecentActivity';
 import AtRiskLearners from './AtRiskLearners';
 import { DailyAttendanceCard } from './DailyAttendanceCard';
 import { TodoList } from './TodoList';
-import { ClassInfo, Learner } from '@/types';
+import { ClassInfo, Learner } from '@/lib/types';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];

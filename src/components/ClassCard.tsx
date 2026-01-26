@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Users, MoreVertical, Copy, Archive, ArchiveRestore } from "lucide-react";
-import { ClassInfo } from "@/types";
+import { ClassInfo } from "@/lib/types";
 
 interface ClassCardProps {
   classItem: ClassInfo;

@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle, Upload } from "lucide-react";
 import Papa from "papaparse";
 import { showSuccess, showError } from "@/utils/toast";
-import { ClassInfo } from "@/types";
+import { ClassInfo } from "@/lib/types";
 
 interface CreateClassDialogProps {
   onClassCreate: (classInfo: ClassInfo) => void;

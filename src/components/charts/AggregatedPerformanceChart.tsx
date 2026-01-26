@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ClassInfo } from '@/types';
+import { ClassInfo } from '@/lib/types';
 import { calculateClassStats } from '@/utils/stats';
 
 type GroupBy = 'subject' | 'grade';

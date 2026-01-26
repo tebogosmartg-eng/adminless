@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Filter, Download, FileSpreadsheet, LineChart as LineChartIcon } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { ClassInfo } from '@/types';
+import { ClassInfo } from '@/lib/types';
 import { AggregatedLearner } from '@/hooks/useReportsData';
 import { getGradeSymbol, GradeSymbol } from '@/utils/grading';
 
