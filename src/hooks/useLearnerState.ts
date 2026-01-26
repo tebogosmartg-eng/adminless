@@ -110,10 +110,17 @@ export const useLearnerState = (
     showSuccess(`Cleared marks for ${indices.length} learners.`);
   }, []);
 
-  const handleAddLearners = useCallback((names: string[]) => {
-    const newLearners = names.map(name => ({ name, mark: "" }));
+  const handleAddLearners = useCallback((input: string[] | Learner[]) => {
+    let newLearners: Learner[] = [];
+    
+    if (input.length > 0 && typeof input[0] === 'string') {
+        newLearners = (input as string[]).map(name => ({ name, mark: "" }));
+    } else {
+        newLearners = input as Learner[];
+    }
+    
     setLearners(prev => [...prev, ...newLearners]);
-    showSuccess(`Added ${names.length} learner(s). Remember to save changes.`);
+    showSuccess(`Added ${newLearners.length} learner(s). Remember to save changes.`);
   }, []);
 
   const handleClearMarks = useCallback(() => {

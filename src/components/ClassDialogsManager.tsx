@@ -30,7 +30,7 @@ interface ClassDialogsManagerProps {
   classInfo: ClassInfo | undefined;
   learners: Learner[];
   handlers: {
-    handleAddLearners: (names: string[]) => void;
+    handleAddLearners: (learners: Learner[]) => void;
     handleUpdateLearners: (learners: Learner[]) => void;
     handleMarkChange: (index: number, mark: string) => void;
   };
