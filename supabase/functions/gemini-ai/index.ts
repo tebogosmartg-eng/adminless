@@ -15,10 +15,12 @@ serve(async (req) => {
 
   try {
     const { action, payload } = await req.json()
-    const apiKey = Deno.env.get('GEMINI_API_KEY')
+    
+    // Use environment variable, fallback to provided key if missing
+    const apiKey = Deno.env.get('GEMINI_API_KEY') || "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8"
     
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY not set in Edge Function environment variables.')
+      throw new Error('GEMINI_API_KEY not set.')
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
