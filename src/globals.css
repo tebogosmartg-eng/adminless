@@ -99,3 +99,38 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  /* Hide UI elements */
+  header, aside, .no-print, button, input, .fixed {
+    display: none !important;
+  }
+
+  /* Reset layout for print */
+  body, main, div {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Ensure tables print nicely */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  
+  th, td {
+    border: 1px solid #ddd !important;
+    padding: 8px !important;
+  }
+
+  /* Specific component overrides */
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+  }
+}

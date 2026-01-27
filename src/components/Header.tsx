@@ -4,6 +4,7 @@ import MobileSidebar from "./MobileSidebar";
 import { useSettings } from "@/context/SettingsContext";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
+import { HelpDialog } from "./HelpDialog";
 
 const Header = () => {
   const { teacherName } = useSettings();
@@ -17,7 +18,7 @@ const Header = () => {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:justify-end md:px-6">
+    <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:justify-end md:px-6 no-print">
       <div className="flex items-center gap-4 md:hidden">
         <MobileSidebar />
       </div>
@@ -38,7 +39,8 @@ const Header = () => {
         </Button>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
+        <HelpDialog />
         <ThemeToggle />
         <div className="flex items-center gap-2">
           {teacherName && (
