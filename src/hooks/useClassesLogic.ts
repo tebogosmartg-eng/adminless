@@ -59,7 +59,7 @@ export const useClassesLogic = () => {
   };
 
   const uniqueGrades = useMemo(() => {
-    const grades = new Set(classes.map(c => c.grade));
+    const grades = new Set(classes.map(c => c.grade).filter(Boolean));
     return Array.from(grades).sort();
   }, [classes]);
 
@@ -67,8 +67,8 @@ export const useClassesLogic = () => {
     return classes.filter(c => {
       const matchesArchive = !!c.archived === isArchived;
       const matchesSearch = 
-        c.className.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.subject.toLowerCase().includes(searchQuery.toLowerCase());
+        (c.className || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (c.subject || "").toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesGrade = selectedGrade === "all" || c.grade === selectedGrade;
       
