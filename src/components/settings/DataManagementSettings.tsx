@@ -16,9 +16,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { db } from "@/db";
+import { queueAction } from "@/services/sync";
+import { useSync } from "@/context/SyncContext";
 
 export const DataManagementSettings = () => {
   const { addClass } = useClasses();
+  const { isOnline } = useSync();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -29,17 +33,28 @@ export const DataManagementSettings = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Fetch all relevant data
-      const { data: classes } = await supabase.from('classes').select('*, learners(*)').eq('user_id', user.id);
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      const { data: todos } = await supabase.from('todos').select('*').eq('user_id', user.id);
-      const { data: activities } = await supabase.from('activities').select('*').eq('user_id', user.id);
+      // Export from Local DB to ensure we have latest offline changes too
+      
+      const classes = await db.classes.where('user_id').equals(user.id).toArray();
+      // Need learners for these classes
+      const classIds = classes.map(c => c.id);
+      const learners = await db.learners.where('class_id').anyOf(classIds).toArray();
+      
+      // We need to reconstruct the class structure expected by the backup format
+      const classesWithLearners = classes.map(c => ({
+          ...c,
+          learners: learners.filter(l => l.class_id === c.id)
+      }));
+
+      const profile = await db.profiles.get(user.id);
+      const todos = await db.todos.where('user_id').equals(user.id).toArray();
+      const activities = await db.activities.where('user_id').equals(user.id).toArray();
 
       const backupData = {
-        version: '2.0',
+        version: '2.1', // Bump version for local-first structure
         timestamp: new Date().toISOString(),
         profile,
-        classes,
+        classes: classesWithLearners,
         todos,
         activities
       };
@@ -75,65 +90,79 @@ export const DataManagementSettings = () => {
         
         if (!user) throw new Error("User not authenticated");
 
-        // 1. Restore Profile Settings (if present)
+        // 1. Restore Profile Settings
         if (data.profile) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({ 
+          const profileData = { 
               id: user.id, 
               ...data.profile,
               updated_at: new Date().toISOString()
-            });
-          if (profileError) console.error("Profile restore error", profileError);
+          };
+          
+          await db.profiles.put(profileData);
+          await queueAction('profiles', 'upsert', profileData);
         }
 
         // 2. Restore Classes & Learners
         if (data.classes && Array.isArray(data.classes)) {
           let restoredCount = 0;
           for (const cls of data.classes) {
-            // Create class first
-            const { data: newClass, error: classError } = await supabase
-              .from('classes')
-              .insert({
+            
+            const existing = await db.classes.get(cls.id);
+            const classId = existing ? cls.id : (cls.id || crypto.randomUUID());
+            
+            const classData = {
+                id: classId,
                 user_id: user.id,
                 grade: cls.grade,
                 subject: cls.subject,
-                class_name: cls.class_name,
+                className: cls.className || cls.class_name, // Handle both versions
+                class_name: cls.className || cls.class_name, // DB expects class_name often for Supabase sync
                 archived: cls.archived || false,
-                notes: cls.notes || ''
-              })
-              .select()
-              .single();
+                notes: cls.notes || '',
+                created_at: cls.created_at || new Date().toISOString()
+            };
 
-            if (!classError && newClass && cls.learners && cls.learners.length > 0) {
-              // Create learners for this class
+            await db.classes.put(classData);
+            
+            // Clean payload for sync
+            const syncClass = { ...classData };
+            delete (syncClass as any).className;
+            await queueAction('classes', 'upsert', syncClass);
+
+            if (cls.learners && cls.learners.length > 0) {
               const learnersToInsert = cls.learners.map((l: any) => ({
-                class_id: newClass.id,
+                id: l.id || crypto.randomUUID(),
+                class_id: classId,
                 name: l.name,
                 mark: l.mark,
                 comment: l.comment
               }));
               
-              await supabase.from('learners').insert(learnersToInsert);
-              restoredCount++;
+              await db.learners.bulkPut(learnersToInsert);
+              await queueAction('learners', 'upsert', learnersToInsert);
             }
+            restoredCount++;
           }
-          showSuccess(`Restored ${restoredCount} classes.`);
+          showSuccess(`Restored ${restoredCount} classes locally.`);
         }
 
-        // 3. Restore Todos (optional)
+        // 3. Restore Todos
         if (data.todos && Array.isArray(data.todos)) {
           const todosToInsert = data.todos.map((t: any) => ({
+             id: t.id || crypto.randomUUID(),
              user_id: user.id,
              title: t.title,
-             completed: t.completed || false
+             completed: t.completed || false,
+             created_at: t.created_at || new Date().toISOString()
           }));
+          
           if (todosToInsert.length > 0) {
-            await supabase.from('todos').insert(todosToInsert);
+            await db.todos.bulkPut(todosToInsert);
+            await queueAction('todos', 'upsert', todosToInsert);
           }
         }
         
-        showSuccess("Data import complete. Refreshing...");
+        showSuccess("Data import complete.");
         setTimeout(() => window.location.reload(), 1500);
 
       } catch (err) {
@@ -153,21 +182,41 @@ export const DataManagementSettings = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Delete in order to respect potential foreign keys (though cascade should handle it, explicit is safer)
-      await supabase.from('learners').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Hacky 'delete all' that works with RLS usually requiring a filter
-      // Actually, standard delete needs a WHERE clause.
-      // Better: Delete classes, let cascade handle learners/attendance
-      
-      const { error: classError } = await supabase.from('classes').delete().eq('user_id', user.id);
-      if (classError) throw classError;
+      // Clear Local DB
+      // Pass tables as an array to avoid Dexie transaction argument limit
+      await db.transaction('rw', [
+        db.classes, 
+        db.learners, 
+        db.todos, 
+        db.activities, 
+        db.sync_queue, 
+        db.attendance, 
+        db.assessments, 
+        db.assessment_marks
+      ], async () => {
+          await db.learners.clear();
+          await db.classes.clear();
+          await db.todos.clear();
+          await db.activities.clear();
+          await db.attendance.clear();
+          await db.assessments.clear();
+          await db.assessment_marks.clear();
+          
+          // Clear sync queue to prevent re-pushing old actions
+          await db.sync_queue.clear();
+      });
 
-      const { error: todoError } = await supabase.from('todos').delete().eq('user_id', user.id);
-      if (todoError) throw todoError;
+      // If Online, also clear Server
+      if (isOnline) {
+          await supabase.from('classes').delete().eq('user_id', user.id);
+          await supabase.from('todos').delete().eq('user_id', user.id);
+          await supabase.from('activities').delete().eq('user_id', user.id);
+          // Other tables cascade
+          showSuccess("Application data reset locally and on server.");
+      } else {
+          showSuccess("Application data reset locally. Server data remains until manual cleanup.");
+      }
 
-      const { error: activityError } = await supabase.from('activities').delete().eq('user_id', user.id);
-      if (activityError) throw activityError;
-
-      showSuccess("All application data cleared.");
       setTimeout(() => window.location.reload(), 1000);
     } catch (error: any) {
       showError("Failed to clear data: " + error.message);
@@ -178,7 +227,7 @@ export const DataManagementSettings = () => {
 
   const handleGenerateDemoData = () => {
     const demoClass = {
-      id: new Date().toISOString(), // Temporary ID, will be replaced by DB
+      id: crypto.randomUUID(),
       grade: "Grade 10",
       subject: "Mathematics",
       className: "10-Demo",
@@ -233,7 +282,7 @@ export const DataManagementSettings = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
           <div>
             <h3 className="font-semibold mb-1">Restore Data</h3>
-            <p className="text-sm text-muted-foreground">Upload a backup file to restore your data. Existing data will be preserved, new data appended.</p>
+            <p className="text-sm text-muted-foreground">Upload a backup file to restore your data. Works offline.</p>
           </div>
           <div className="relative">
             <Button variant="outline" className="relative cursor-pointer" disabled={isImporting}>
@@ -265,7 +314,7 @@ export const DataManagementSettings = () => {
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete all your classes, learners, and activity history from the database.
+                  This action cannot be undone. This will permanently delete all your classes, learners, and activity history.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

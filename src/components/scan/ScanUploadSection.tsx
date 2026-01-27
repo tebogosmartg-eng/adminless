@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, FileText, Loader2, PlayCircle, Camera } from 'lucide-react';
+import { Upload, FileText, Loader2, PlayCircle, Camera, WifiOff } from 'lucide-react';
+import { useSync } from '@/context/SyncContext';
 
 interface ScanUploadSectionProps {
   imagePreviews: string[];
@@ -18,6 +19,8 @@ export const ScanUploadSection = ({
   onProcess,
   onSimulate
 }: ScanUploadSectionProps) => {
+  const { isOnline } = useSync();
+
   return (
     <Card>
       <CardHeader>
@@ -52,7 +55,14 @@ export const ScanUploadSection = ({
         />
         
         <div className="flex flex-col gap-2 mt-4">
-          <Button onClick={onProcess} disabled={isProcessing || imagePreviews.length === 0} className="w-full">
+          {!isOnline && (
+            <div className="flex items-center gap-2 p-2 bg-amber-50 text-amber-800 text-xs rounded border border-amber-100">
+               <WifiOff className="h-4 w-4" />
+               AI Scanning is unavailable while offline.
+            </div>
+          )}
+          
+          <Button onClick={onProcess} disabled={isProcessing || imagePreviews.length === 0 || !isOnline} className="w-full">
             {isProcessing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing with Gemini AI...

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useClasses } from '@/context/ClassesContext';
 import { useAcademic } from '@/context/AcademicContext';
+import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -10,6 +11,7 @@ import { db } from '@/db';
 export const useScanLogic = () => {
   const { classes, updateLearners, addClass } = useClasses();
   const { activeTerm, createAssessment, updateMarks } = useAcademic();
+  const { isOnline } = useSync();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -94,6 +96,11 @@ export const useScanLogic = () => {
   const handleProcessImage = async () => {
     if (imagePreviews.length === 0) {
       showError("Please upload one or more images first.");
+      return;
+    }
+
+    if (!isOnline) {
+      showError("You are offline. AI scanning requires an internet connection.");
       return;
     }
     
