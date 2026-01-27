@@ -18,7 +18,7 @@ interface AcademicContextType {
   setActiveTerm: (term: Term | null) => void;
   createYear: (name: string) => Promise<void>;
   updateTerm: (term: Term) => Promise<void>;
-  createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<void>;
+  createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<string>;
   deleteAssessment: (id: string) => Promise<void>;
   updateMarks: (updates: { assessment_id: string; learner_id: string; score: number | null; comment?: string }[]) => Promise<void>;
   refreshAssessments: (classId: string, termId?: string) => Promise<void>;
@@ -121,14 +121,16 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     setCurrentClassFilter({ classId, termId: targetTermId });
   };
 
-  const createAssessment = async (assessment: Omit<Assessment, 'id'>) => {
-    if (!session?.user.id) return;
+  const createAssessment = async (assessment: Omit<Assessment, 'id'>): Promise<string> => {
     const id = crypto.randomUUID();
+    if (!session?.user.id) return id; // Should not happen in auth guard
+    
     const data = { ...assessment, id, user_id: session.user.id };
     
     await db.assessments.add(data);
     await queueAction('assessments', 'create', data);
     showSuccess("Assessment created.");
+    return id;
   };
 
   const deleteAssessment = async (id: string) => {

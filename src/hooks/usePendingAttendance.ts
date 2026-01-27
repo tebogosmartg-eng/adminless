@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/db';
 import { ClassInfo } from '@/lib/types';
 import { format } from 'date-fns';
 
@@ -26,20 +26,14 @@ export const usePendingAttendance = (classes: ClassInfo[]) => {
       const today = format(new Date(), 'yyyy-MM-dd');
       const classIds = activeClasses.map(c => c.id);
 
-      const { data: attendanceRecords, error } = await supabase
-        .from('attendance')
-        .select('class_id')
-        .eq('date', today)
-        .in('class_id', classIds);
+      // Query local DB
+      const attendanceRecords = await db.attendance
+        .where('date').equals(today)
+        .filter(r => r.class_id ? classIds.includes(r.class_id) : false)
+        .toArray();
 
-      if (error) {
-        console.error('Error checking pending attendance:', error);
-        setLoading(false);
-        return;
-      }
-
-      // Get IDs of classes that HAVE attendance
-      const markedClassIds = new Set(attendanceRecords?.map((r: any) => r.class_id));
+      // Get IDs of classes that HAVE attendance for today
+      const markedClassIds = new Set(attendanceRecords.map(r => r.class_id));
 
       // Filter classes that don't have attendance
       const missing = activeClasses.filter(c => !markedClassIds.has(c.id));

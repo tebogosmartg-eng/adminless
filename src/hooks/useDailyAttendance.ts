@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/db';
 import { AttendanceStatus } from '@/lib/types';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { format } from 'date-fns';
 
 interface DailyStats {
   present: number;
@@ -11,38 +13,25 @@ interface DailyStats {
 }
 
 export const useDailyAttendance = () => {
-  const [stats, setStats] = useState<DailyStats>({ present: 0, absent: 0, late: 0, excused: 0, total: 0 });
-  const [loading, setLoading] = useState(true);
+  const today = format(new Date(), 'yyyy-MM-dd');
 
-  useEffect(() => {
-    const fetchTodayAttendance = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        const { data } = await supabase
-          .from('attendance')
-          .select('status')
-          .eq('date', today)
-          .eq('user_id', user.id);
-          
-        if (data) {
-          const counts = data.reduce((acc: DailyStats, curr: { status: string }) => {
-            const status = curr.status as AttendanceStatus;
-            if (acc[status] !== undefined) {
-                acc[status]++;
-            }
-            acc.total++;
-            return acc;
-          }, { present: 0, absent: 0, late: 0, excused: 0, total: 0 });
-          setStats(counts);
-        }
+  // Live Query from Dexie
+  const attendanceRecords = useLiveQuery(
+    () => db.attendance.where('date').equals(today).toArray(),
+    [today]
+  );
+
+  const stats: DailyStats = { present: 0, absent: 0, late: 0, excused: 0, total: 0 };
+
+  if (attendanceRecords) {
+    attendanceRecords.forEach(record => {
+      const status = record.status as AttendanceStatus;
+      if (stats[status] !== undefined) {
+          stats[status]++;
       }
-      setLoading(false);
-    };
+      stats.total++;
+    });
+  }
 
-    fetchTodayAttendance();
-  }, []);
-
-  return { stats, loading };
+  return { stats, loading: !attendanceRecords };
 };

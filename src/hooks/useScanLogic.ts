@@ -5,11 +5,11 @@ import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ScannedDetails, ScannedLearner, Assessment } from '@/lib/types';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/db';
 
 export const useScanLogic = () => {
   const { classes, updateLearners, addClass } = useClasses();
-  const { activeTerm, createAssessment, updateMarks, refreshAssessments } = useAcademic();
+  const { activeTerm, createAssessment, updateMarks } = useAcademic();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -54,19 +54,17 @@ export const useScanLogic = () => {
     }
   }, [location.state]);
 
-  // Fetch assessments when class is selected
+  // Fetch assessments locally when class is selected
   useEffect(() => {
     const fetchClassAssessments = async () => {
       if (!selectedClassId || !activeTerm) return;
       
-      const { data } = await supabase
-        .from('assessments')
-        .select('*')
-        .eq('class_id', selectedClassId)
-        .eq('term_id', activeTerm.id);
+      const data = await db.assessments
+        .where('[class_id+term_id]')
+        .equals([selectedClassId, activeTerm.id])
+        .toArray();
       
       setAvailableAssessments(data || []);
-      // Default to "new" unless we want to auto-select
       setSelectedAssessmentId("new");
     };
 
@@ -193,25 +191,17 @@ export const useScanLogic = () => {
     
     if (selectedAssessmentId === 'new') {
         const title = scannedDetails?.testNumber || "Scanned Assessment";
-        const { data: newAss, error } = await supabase
-            .from('assessments')
-            .insert([{
-                class_id: selectedClassId,
-                term_id: activeTerm.id,
-                title: title,
-                type: 'Test',
-                max_mark: 100, // Default to percentage, user can edit later
-                weight: 0,
-                date: scannedDetails?.date || new Date().toISOString()
-            }])
-            .select()
-            .single();
         
-        if (error || !newAss) {
-            showError("Failed to create new assessment.");
-            return;
-        }
-        targetAssessmentId = newAss.id;
+        // Use Offline-friendly createAssessment
+        targetAssessmentId = await createAssessment({
+            class_id: selectedClassId,
+            term_id: activeTerm.id,
+            title: title,
+            type: 'Test',
+            max_mark: 100, 
+            weight: 0,
+            date: scannedDetails?.date || new Date().toISOString()
+        });
     }
 
     // 2. Map Learners & Update/Create
@@ -219,54 +209,37 @@ export const useScanLogic = () => {
     const newLearnersToAdd: any[] = [];
     const markUpdates: { assessment_id: string; learner_id: string; score: number }[] = [];
 
+    // Pre-process to identify new learners
     scannedLearners.forEach(sl => {
         const slNameLower = sl.name.toLowerCase();
-        let learnerId = '';
-
+        
         // Try match
         let matchedKey = Array.from(learnersMap.keys()).find(key => 
             key.includes(slNameLower) || slNameLower.includes(key)
         );
 
-        if (matchedKey) {
-            learnerId = learnersMap.get(matchedKey)!.id!;
-        } else {
-            // Will need to create learner first? 
-            // For simplicity in this flow, we will create NEW learners immediately in the DB if not found
-            // This requires a synchronous approach or batched insert first
-            // Let's defer marks for new learners? Or better, handle it properly.
-            // Current `updateLearners` logic in ClassesContext handles creation.
-            // But we need IDs for the Marks table.
+        if (!matchedKey) {
+            // Create ID immediately for offline use
+            const newId = crypto.randomUUID();
+            const newLearner = { id: newId, name: sl.name, mark: "", comment: "" };
             
-            // NOTE: To properly support "Create Learner AND Add Mark" in one go for relational tables,
-            // we should ideally update the class roster first.
-            newLearnersToAdd.push({ name: sl.name, mark: "", comment: "" });
+            newLearnersToAdd.push(newLearner);
+            learnersMap.set(slNameLower, newLearner as any);
         }
     });
 
-    // 2a. Add new learners to class first if any
+    // 2a. Save new learners to DB via Context (Offline friendly)
     if (newLearnersToAdd.length > 0) {
-        // We use the existing context method which handles IDs
-        // But it's async and we need IDs *now*.
-        // Workaround: We'll create them directly via Supabase here to get IDs.
-        const { data: createdLearners } = await supabase
-            .from('learners')
-            .insert(newLearnersToAdd.map(l => ({ class_id: selectedClassId, name: l.name })))
-            .select();
-            
-        if (createdLearners) {
-            createdLearners.forEach((l: any) => learnersMap.set(l.name.toLowerCase(), l));
-            // Update context state
-            const updatedRoster = [...targetClass.learners, ...createdLearners.map((l: any) => ({ name: l.name, mark: "", id: l.id }))];
-            updateLearners(selectedClassId, updatedRoster);
-        }
+        // Construct the full updated list for the context
+        const fullRoster = [...targetClass.learners, ...newLearnersToAdd];
+        await updateLearners(selectedClassId, fullRoster);
     }
 
     // 3. Prepare Mark Updates
     let count = 0;
     scannedLearners.forEach(sl => {
-        // Re-match now that new learners are added
         const slNameLower = sl.name.toLowerCase();
+        // Re-match to find (including newly added)
         const matchedKey = Array.from(learnersMap.keys()).find(key => 
             key.includes(slNameLower) || slNameLower.includes(key)
         );
@@ -280,18 +253,14 @@ export const useScanLogic = () => {
                 if (sl.mark.includes('/')) {
                     const parts = sl.mark.split('/');
                     if (parts.length === 2) {
-                        // If user selected "new" assessment (max 100 default), we store %. 
-                        // If existing, we should check max_mark but for now let's just store the number found or %
-                        // Simple logic: Store raw number if no /, calculate % if / exists?
-                        // Let's assume standard input is raw score.
                         score = parseFloat(parts[0]);
                     }
                 }
                 
-                if (!isNaN(score)) {
+                if (!isNaN(score) && learner.id) {
                     markUpdates.push({
                         assessment_id: targetAssessmentId,
-                        learner_id: learner.id!,
+                        learner_id: learner.id,
                         score: score
                     });
                     count++;
@@ -310,8 +279,6 @@ export const useScanLogic = () => {
   };
 
   const handleCreateNewClass = () => {
-    // This remains mostly the same, creating a class with legacy marks initially
-    // Or we could create a default assessment?
     if (!scannedDetails || !newClassName) {
       showError("Please ensure all class details are filled out.");
       return;
@@ -323,7 +290,7 @@ export const useScanLogic = () => {
     }));
 
     addClass({
-      id: new Date().toISOString(),
+      id: crypto.randomUUID(),
       grade: scannedDetails.grade,
       subject: scannedDetails.subject,
       className: newClassName,
@@ -332,9 +299,6 @@ export const useScanLogic = () => {
 
     showSuccess(`Created new class "${newClassName}".`);
     resetState();
-    // We redirect to home or classes as we don't have the ID immediately if addClass is async without return
-    // But addClass in context generates ID locally. 
-    // Let's just go to classes list.
     navigate('/classes');
   };
 
