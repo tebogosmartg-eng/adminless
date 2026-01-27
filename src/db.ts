@@ -60,6 +60,11 @@ export class SmaRegDB extends Dexie {
     this.version(3).stores({
       attendance: '[learner_id+date], class_id, date'
     });
+
+    // Version 4: Add compound index for assessments to fix "KeyPath not indexed" error
+    this.version(4).stores({
+      assessments: 'id, class_id, term_id, [class_id+term_id]'
+    });
   }
 }
 
