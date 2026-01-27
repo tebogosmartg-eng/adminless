@@ -13,6 +13,7 @@ import { PendingActions } from './PendingActions';
 import { ActiveTermStats } from './ActiveTermStats';
 import { UpcomingAssessments } from './UpcomingAssessments';
 import { YearPerformanceTrend } from './YearPerformanceTrend';
+import { TopLearnersPerGrade } from './TopLearnersPerGrade';
 import { ClassInfo, Learner } from '@/lib/types';
 
 interface DashboardOverviewTabProps {
@@ -87,6 +88,7 @@ export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalCl
       <div className="lg:col-span-1 space-y-6">
         <UpcomingAssessments />
         <DailyAttendanceCard />
+        <TopLearnersPerGrade classes={activeClasses} />
         <TodoList />
         <AtRiskLearners />
         <RecentActivity />
