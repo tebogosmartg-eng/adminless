@@ -1,98 +1,117 @@
 import { useState } from 'react';
-import { ClassInfo, Learner, ClassInsight } from '@/lib/types';
-import { generateClassInsights, generateReportComments, getMockClassInsights, getMockReportComments } from '@/services/gemini';
-import { showSuccess, showError } from '@/utils/toast';
+import { generateLearnerReport, generateClassInsights, generateLearnerComment } from '@/services/gemini';
+import { useToast } from '@/components/ui/use-toast';
+import { Learner, ClassInfo, ClassInsight } from '@/lib/types';
+import { db } from '@/db';
 
 export const useAiFeatures = (
-  classInfo: ClassInfo | undefined,
+  classInfo: ClassInfo,
   learners: Learner[],
-  setLearners: React.Dispatch<React.SetStateAction<Learner[]>>
+  setLearners?: React.Dispatch<React.SetStateAction<Learner[]>>
 ) => {
+  const [loading, setLoading] = useState(false);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [insights, setInsights] = useState<ClassInsight | null>(null);
-  
   const [showComments, setShowComments] = useState(false);
   const [isGeneratingComments, setIsGeneratingComments] = useState(false);
+  const { toast } = useToast();
 
-  const clearInsights = () => setInsights(null);
+  const handleGenerateReport = async (
+    learner: Learner, 
+    cls: ClassInfo, 
+    assessmentData: any
+  ): Promise<string> => {
+    if (!navigator.onLine) {
+        toast({
+            title: "Offline",
+            description: "AI report generation requires an active internet connection.",
+            variant: "destructive"
+        });
+        return "Offline: Cannot generate report.";
+    }
+
+    setLoading(true);
+    try {
+      const report = await generateLearnerReport(learner, cls, assessmentData);
+      return report;
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Generation Failed",
+        description: "Could not generate report.",
+        variant: "destructive",
+      });
+      return "Error generating report.";
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGenerateInsights = async () => {
-    if (!classInfo) return;
-    if (!learners.some(l => l.mark && l.mark.trim() !== "")) {
-      showError("Please enter some marks before generating insights.");
-      return;
+    if (!navigator.onLine) {
+        toast({ title: "Offline", description: "Insights unavailable offline.", variant: "destructive" });
+        return;
     }
+
     setIsGeneratingInsights(true);
     try {
-      const result = await generateClassInsights(classInfo.subject, classInfo.grade, learners);
+      const assessments = await db.assessments.where('class_id').equals(classInfo.id).toArray();
+      const assessmentIds = assessments.map(a => a.id);
+      const marks = await db.assessment_marks.where('assessment_id').anyOf(assessmentIds).toArray();
+      
+      const assessmentData = { assessments, marks };
+
+      const result = await generateClassInsights(classInfo, learners, assessmentData);
       setInsights(result);
     } catch (error) {
       console.error(error);
-      showError("Failed to generate insights.");
+      toast({ title: "Error", description: "Failed to generate insights.", variant: "destructive" });
     } finally {
       setIsGeneratingInsights(false);
     }
   };
 
   const handleSimulateInsights = () => {
-    setIsGeneratingInsights(true);
-    setTimeout(() => {
-      setInsights(getMockClassInsights());
-      setIsGeneratingInsights(false);
-      showSuccess("Demo insights generated successfully!");
-    }, 1000);
+    setInsights({
+      summary: "This is a simulated AI insight generated for demonstration purposes.",
+      strengths: ["High attendance rates", "Strong performance in practicals"],
+      areasForImprovement: ["Theoretical concepts", "Homework submission"],
+      recommendations: ["Schedule extra workshop sessions", "Review basic concepts"]
+    });
   };
 
-  const handleGenerateComments = async () => {
-    if (!classInfo) return;
-    if (!learners.some(l => l.mark && l.mark.trim() !== "")) {
-      showError("Enter marks before generating comments.");
-      return;
+  const handleGenerateComments = async (tone: string = "Professional") => {
+    if (!setLearners) return;
+    if (!navigator.onLine) {
+        toast({ title: "Offline", description: "Cannot generate comments offline.", variant: "destructive" });
+        return;
     }
+
     setIsGeneratingComments(true);
-    setShowComments(true);
     try {
-      const comments = await generateReportComments(classInfo.subject, classInfo.grade, learners);
-      const updated = learners.map(l => {
-        const gen = comments.find(c => c.name === l.name);
-        return gen ? { ...l, comment: gen.comment } : l;
-      });
-      setLearners(updated);
-      showSuccess(`Generated comments for ${comments.length} learners.`);
-    } catch (error) {
-      console.error(error);
-      showError("Failed to generate comments.");
+      const updatedLearners = await Promise.all(learners.map(async (l) => {
+          const comment = await generateLearnerComment(l, tone);
+          return { ...l, comment };
+      }));
+      setLearners(updatedLearners);
+      toast({ title: "Comments Generated", description: `Generated comments for ${learners.length} learners.` });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to generate comments.", variant: "destructive" });
     } finally {
       setIsGeneratingComments(false);
     }
   };
 
-  const handleSimulateComments = () => {
-     setIsGeneratingComments(true);
-     setShowComments(true);
-     setTimeout(() => {
-        const mockComments = getMockReportComments(learners);
-        const updatedLearners = learners.map(learner => {
-          const generated = mockComments.find(c => c.name === learner.name);
-          return generated ? { ...learner, comment: generated.comment } : learner;
-        });
-        setLearners(updatedLearners);
-        setIsGeneratingComments(false);
-        showSuccess("Demo comments generated!");
-     }, 1000);
-  };
-
   return {
+    loading,
     isGeneratingInsights,
     insights,
-    setInsights,
-    clearInsights,
-    handleGenerateInsights,
-    handleSimulateInsights,
     showComments,
     setShowComments,
     isGeneratingComments,
-    handleGenerateComments,
-    handleSimulateComments
+    handleGenerateReport,
+    handleGenerateInsights,
+    handleSimulateInsights,
+    handleGenerateComments
   };
 };
