@@ -42,12 +42,19 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return db.terms.where('year_id').equals(activeYear.id).sortBy('name');
   }, [activeYear?.id]) || [];
 
-  // Logic to determine active term: Manual selection -> Date based -> First Term -> Null
+  // Logic to determine active term
   useEffect(() => {
-      if (terms.length > 0 && !activeTermId) {
+      if (terms.length === 0) return;
+
+      // Check if current selection is valid for this list
+      const isValidSelection = activeTermId && terms.some(t => t.id === activeTermId);
+
+      if (!isValidSelection) {
           const now = new Date().toISOString();
-          const current = terms.find(t => t.start_date && t.end_date && now >= t.start_date && now <= t.end_date) || terms[0];
-          setActiveTermId(current.id);
+          // Find term containing 'now'
+          const current = terms.find(t => t.start_date && t.end_date && now >= t.start_date && now <= t.end_date);
+          // Fallback to first term if no date match
+          setActiveTermId(current?.id || terms[0].id);
       }
   }, [terms, activeTermId]);
 

@@ -15,6 +15,7 @@ import { UpcomingAssessments } from './UpcomingAssessments';
 import { YearPerformanceTrend } from './YearPerformanceTrend';
 import { TopLearnersPerGrade } from './TopLearnersPerGrade';
 import { TimetableWidget } from './TimetableWidget';
+import { TermProgressWidget } from './TermProgressWidget';
 import { ClassInfo, Learner } from '@/lib/types';
 
 interface DashboardOverviewTabProps {
@@ -87,6 +88,7 @@ export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalCl
         </Card>
       </div>
       <div className="lg:col-span-1 space-y-6">
+        <TermProgressWidget />
         <TimetableWidget />
         <UpcomingAssessments />
         <DailyAttendanceCard />

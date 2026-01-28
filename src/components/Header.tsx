@@ -4,13 +4,23 @@ import MobileSidebar from "./MobileSidebar";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { Button } from "@/components/ui/button";
-import { Search, CalendarDays } from "lucide-react";
+import { Search, CalendarDays, ChevronDown, Check } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
-import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent
+} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
   const { teacherName } = useSettings();
-  const { activeYear, activeTerm } = useAcademic();
+  const { years, activeYear, setActiveYear, terms, activeTerm, setActiveTerm } = useAcademic();
 
   const initials = teacherName
     ? teacherName.split(' ').map((n) => n[0]).join('').toUpperCase().substring(0, 2)
@@ -43,12 +53,39 @@ const Header = () => {
 
         {activeYear && (
             <div className="hidden lg:flex items-center gap-2">
-                <Badge variant="outline" className="h-9 px-3 gap-2 bg-background font-normal text-muted-foreground border-dashed">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    <span>{activeYear.name}</span>
-                    <span className="w-px h-3 bg-border mx-1"></span>
-                    <span className="text-foreground font-medium">{activeTerm?.name || "No Term"}</span>
-                </Badge>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-9 px-3 gap-2 bg-background font-normal text-muted-foreground border-dashed hover:text-foreground">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      <span>{activeYear.name}</span>
+                      <span className="w-px h-3 bg-border mx-1"></span>
+                      <span className="text-foreground font-medium">{activeTerm?.name || "No Term"}</span>
+                      <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuLabel>Active Term</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {terms.map(term => (
+                      <DropdownMenuItem key={term.id} onClick={() => setActiveTerm(term)} className="justify-between">
+                        {term.name}
+                        {activeTerm?.id === term.id && <Check className="h-4 w-4" />}
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>Switch Year</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {years.map(year => (
+                          <DropdownMenuItem key={year.id} onClick={() => setActiveYear(year)} className="justify-between">
+                            {year.name} {year.closed && "(Closed)"}
+                            {activeYear.id === year.id && <Check className="h-4 w-4" />}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         )}
       </div>
