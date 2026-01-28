@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { 
-  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry 
+  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote
 } from '@/lib/types';
 
 // Extend types for DB storage (flattened structures where necessary)
@@ -35,6 +35,7 @@ export class SmaRegDB extends Dexie {
   sync_queue!: Table<DBSyncItem>;
   profiles!: Table<any>;
   timetable!: Table<TimetableEntry>;
+  learner_notes!: Table<LearnerNote>;
 
   constructor() {
     super('SmaRegDB');
@@ -70,6 +71,11 @@ export class SmaRegDB extends Dexie {
     // Version 5: Add timetable
     this.version(5).stores({
       timetable: 'id, user_id, [day+period]'
+    });
+
+    // Version 6: Add learner notes
+    this.version(6).stores({
+      learner_notes: 'id, learner_id, date'
     });
   }
 }

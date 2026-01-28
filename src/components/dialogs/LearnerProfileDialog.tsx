@@ -6,11 +6,12 @@ import { ProfileSummaryTab } from '@/components/learner-profile/ProfileSummaryTa
 import { ProfileAttendanceTab } from '@/components/learner-profile/ProfileAttendanceTab';
 import { ProfileHistoryTab } from '@/components/learner-profile/ProfileHistoryTab';
 import { ProfileAcademicTab } from '@/components/learner-profile/ProfileAcademicTab';
+import { ProfileNotesTab } from '@/components/learner-profile/ProfileNotesTab';
 import { useSettings } from '@/context/SettingsContext';
 import { useClasses } from '@/context/ClassesContext';
 import { useLearnerHistory } from '@/hooks/useLearnerHistory';
 import { getGradeSymbol } from '@/utils/grading';
-import { ChevronLeft, ChevronRight, GraduationCap, Share2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Share2, Book } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 interface LearnerProfileDialogProps {
@@ -95,11 +96,12 @@ ${currentSymbol ? `🏷️ Symbol: ${currentSymbol.symbol} (Level ${currentSymbo
         </DialogHeader>
         
         <Tabs defaultValue="academic" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="academic" className="gap-2"><GraduationCap className="h-4 w-4 hidden sm:block" /> Academic</TabsTrigger>
                 <TabsTrigger value="summary">Summary</TabsTrigger>
                 <TabsTrigger value="history">Overall</TabsTrigger>
                 <TabsTrigger value="attendance">Attendance</TabsTrigger>
+                <TabsTrigger value="notes"><Book className="h-4 w-4 hidden sm:block" /> Journal</TabsTrigger>
             </TabsList>
             
             <TabsContent value="academic" className="flex-1 overflow-auto">
@@ -125,6 +127,10 @@ ${currentSymbol ? `🏷️ Symbol: ${currentSymbol.symbol} (Level ${currentSymbo
             
             <TabsContent value="attendance" className="flex-1 overflow-auto">
                 <ProfileAttendanceTab learnerId={learner.id} />
+            </TabsContent>
+
+            <TabsContent value="notes" className="flex-1 overflow-hidden h-full">
+                <ProfileNotesTab learnerId={learner.id} />
             </TabsContent>
         </Tabs>
       </DialogContent>

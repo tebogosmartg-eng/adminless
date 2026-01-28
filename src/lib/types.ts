@@ -146,3 +146,13 @@ export interface AssessmentResult {
   percentage: number | null;
   classAverage: number | null;
 }
+
+export interface LearnerNote {
+  id: string;
+  learner_id: string;
+  user_id?: string;
+  content: string;
+  category: 'behavior' | 'academic' | 'parent' | 'general' | 'positive';
+  date: string;
+  created_at?: string;
+}

@@ -13,7 +13,16 @@ export const pullData = async (userId: string) => {
     
     if (classIds.length > 0) {
         const { data: learners } = await supabase.from('learners').select('*').in('class_id', classIds);
-        if (learners) await db.learners.bulkPut(learners);
+        if (learners) {
+            await db.learners.bulkPut(learners);
+            const learnerIds = learners.map(l => l.id);
+
+            // 9. Learner Notes (New) - Only for learners we have
+            if (learnerIds.length > 0) {
+                const { data: notes } = await supabase.from('learner_notes').select('*').in('learner_id', learnerIds);
+                if (notes) await db.learner_notes.bulkPut(notes);
+            }
+        }
         
         // 3. Assessments
         const { data: assessments } = await supabase.from('assessments').select('*').in('class_id', classIds);
@@ -28,7 +37,7 @@ export const pullData = async (userId: string) => {
             }
         }
 
-        // 5. Attendance (New)
+        // 5. Attendance
         const { data: attendance } = await supabase.from('attendance').select('*').in('class_id', classIds);
         if (attendance) await db.attendance.bulkPut(attendance);
     }
