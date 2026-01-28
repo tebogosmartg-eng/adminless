@@ -3,13 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X, Clock, AlertCircle, Save, Loader2, Download, FileSpreadsheet, FileText, LucideIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X, Clock, AlertCircle, Save, Loader2, Download, FileSpreadsheet, FileText, LucideIcon, LayoutGrid, ListChecks } from 'lucide-react';
 import { Learner, AttendanceStatus } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAttendance } from '@/hooks/useAttendance';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MonthlyAttendanceGrid } from './MonthlyAttendanceGrid';
 
 interface AttendanceViewProps {
   classId: string;
@@ -115,71 +117,103 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-           <div className="flex justify-between items-center">
-              <CardTitle>Daily Register</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => handleMarkAll('present')}>
-                 Mark All Present
-              </Button>
-           </div>
-           <CardDescription>
-              Record attendance for {format(date, 'dd/MM/yyyy')}.
-           </CardDescription>
-        </CardHeader>
-        <CardContent>
-           {loading ? (
-             <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-           ) : (
-             <div className="border rounded-md">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[50px]">#</TableHead>
-                            <TableHead>Learner Name</TableHead>
-                            <TableHead className="text-center w-[200px]">Status</TableHead>
-                            <TableHead className="text-right">Current State</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {learners.map((learner, index) => (
-                            <TableRow key={learner.id || index}>
-                                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                                <TableCell className="font-medium">
-                                   {learner.name}
-                                   {!learner.id && <span className="ml-2 text-xs text-red-500">(Unsaved)</span>}
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex justify-center gap-1">
-                                        <StatusButton lId={learner.id} status="present" icon={Check} colorClass="bg-green-600 hover:bg-green-700" label="Present" />
-                                        <StatusButton lId={learner.id} status="absent" icon={X} colorClass="bg-red-600 hover:bg-red-700" label="Absent" />
-                                        <StatusButton lId={learner.id} status="late" icon={Clock} colorClass="bg-orange-500 hover:bg-orange-600" label="Late" />
-                                        <StatusButton lId={learner.id} status="excused" icon={AlertCircle} colorClass="bg-blue-500 hover:bg-blue-600" label="Excused" />
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    {learner.id && attendanceData[learner.id] ? (
-                                        <Badge variant="outline" className={cn(
-                                            "capitalize",
-                                            attendanceData[learner.id].status === 'present' && "border-green-200 bg-green-50 text-green-700",
-                                            attendanceData[learner.id].status === 'absent' && "border-red-200 bg-red-50 text-red-700",
-                                            attendanceData[learner.id].status === 'late' && "border-orange-200 bg-orange-50 text-orange-700",
-                                            attendanceData[learner.id].status === 'excused' && "border-blue-200 bg-blue-50 text-blue-700",
-                                        )}>
-                                            {attendanceData[learner.id].status}
-                                        </Badge>
-                                    ) : (
-                                        <span className="text-muted-foreground text-xs italic">Unmarked</span>
-                                    )}
-                                </TableCell>
+      <Tabs defaultValue="daily" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+          <TabsTrigger value="daily" className="flex items-center gap-2">
+            <ListChecks className="h-4 w-4" /> Daily Register
+          </TabsTrigger>
+          <TabsTrigger value="monthly" className="flex items-center gap-2">
+            <LayoutGrid className="h-4 w-4" /> Monthly Grid
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="daily" className="mt-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-center">
+                  <CardTitle>Daily Register</CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => handleMarkAll('present')}>
+                    Mark All Present
+                  </Button>
+              </div>
+              <CardDescription>
+                  Record attendance for {format(date, 'EEEE, dd MMMM yyyy')}.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+              ) : (
+                <div className="border rounded-md">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[50px]">#</TableHead>
+                                <TableHead>Learner Name</TableHead>
+                                <TableHead className="text-center w-[200px]">Status</TableHead>
+                                <TableHead className="text-right">Current State</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-             </div>
-           )}
-        </CardContent>
-      </Card>
+                        </TableHeader>
+                        <TableBody>
+                            {learners.map((learner, index) => (
+                                <TableRow key={learner.id || index}>
+                                    <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                                    <TableCell className="font-medium">
+                                      {learner.name}
+                                      {!learner.id && <span className="ml-2 text-xs text-red-500">(Unsaved)</span>}
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex justify-center gap-1">
+                                            <StatusButton lId={learner.id} status="present" icon={Check} colorClass="bg-green-600 hover:bg-green-700" label="Present" />
+                                            <StatusButton lId={learner.id} status="absent" icon={X} colorClass="bg-red-600 hover:bg-red-700" label="Absent" />
+                                            <StatusButton lId={learner.id} status="late" icon={Clock} colorClass="bg-orange-500 hover:bg-orange-600" label="Late" />
+                                            <StatusButton lId={learner.id} status="excused" icon={AlertCircle} colorClass="bg-blue-500 hover:bg-blue-600" label="Excused" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        {learner.id && attendanceData[learner.id] ? (
+                                            <Badge variant="outline" className={cn(
+                                                "capitalize",
+                                                attendanceData[learner.id].status === 'present' && "border-green-200 bg-green-50 text-green-700",
+                                                attendanceData[learner.id].status === 'absent' && "border-red-200 bg-red-50 text-red-700",
+                                                attendanceData[learner.id].status === 'late' && "border-orange-200 bg-orange-50 text-orange-700",
+                                                attendanceData[learner.id].status === 'excused' && "border-blue-200 bg-blue-50 text-blue-700",
+                                            )}>
+                                                {attendanceData[learner.id].status}
+                                            </Badge>
+                                        ) : (
+                                            <span className="text-muted-foreground text-xs italic">Unmarked</span>
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="monthly" className="mt-4">
+           <Card>
+              <CardHeader className="pb-2">
+                 <CardTitle>Monthly Overview</CardTitle>
+                 <CardDescription>
+                    Viewing attendance records for {format(date, 'MMMM yyyy')}. Click a column header to switch to that day.
+                 </CardDescription>
+              </CardHeader>
+              <CardContent>
+                 <MonthlyAttendanceGrid 
+                    classId={classId} 
+                    learners={learners} 
+                    currentDate={date} 
+                    onDayClick={setDate}
+                 />
+              </CardContent>
+           </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
