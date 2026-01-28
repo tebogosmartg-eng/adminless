@@ -27,6 +27,9 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const [isCopyOpen, setIsCopyOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   
+  // Tool States (Rapid / Voice)
+  const [activeTool, setActiveTool] = useState<{ type: 'rapid' | 'voice' | null, assessmentId: string | null }>({ type: null, assessmentId: null });
+
   // Data States
   const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "" });
   
@@ -60,21 +63,17 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     }
   }, [viewTermId, classInfo.id]);
 
-  // When adding an assessment, set smart defaults based on the VIEWED term
   useEffect(() => {
       if (isAddOpen && viewTermId) {
           const currentTerm = terms.find(t => t.id === viewTermId);
           let defaultDate = new Date().toISOString().split('T')[0];
           
-          // If viewing a past/future term, try to use its end date or start date as default
-          // instead of "today" which might be wildly incorrect for that term
           if (currentTerm) {
               const now = new Date();
               const start = currentTerm.start_date ? new Date(currentTerm.start_date) : null;
               const end = currentTerm.end_date ? new Date(currentTerm.end_date) : null;
               
               if (start && end) {
-                  // If today is outside the range, default to end date
                   if (now < start || now > end) {
                       defaultDate = end.toISOString().split('T')[0];
                   }
@@ -89,7 +88,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     setVisibleAssessmentIds(assessments.map(a => a.id));
   }, [assessments]);
 
-  // --- Helpers (Hoisted for use in memo) ---
+  // --- Helpers ---
 
   const getMarkValue = useCallback((assessmentId: string, learnerId: string) => {
      const key = `${assessmentId}-${learnerId}`;
@@ -120,13 +119,10 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const currentTotalWeight = isUsingVisibleTotal ? visibleWeight : totalWeight;
   const isWeightValid = currentTotalWeight === 100;
   
-  // Logic: Locked if the TERM itself is closed, or the YEAR is closed.
-  // Relaxed logic: You CAN edit a term that isn't "active" (current date), as long as it's Open.
   const isLocked = currentViewTerm?.closed || activeYear?.closed;
 
   const calculateLearnerTotal = useCallback((learnerId: string) => {
       let weightedSum = 0;
-      
       const targetAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
       
       targetAssessments.forEach(ass => {
@@ -141,12 +137,10 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   }, [isUsingVisibleTotal, visibleAssessments, assessments, getMarkValue]);
 
   const sortedAndFilteredLearners = useMemo(() => {
-    // 1. Filter
     const filtered = classInfo.learners.filter(l => 
         l.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // 2. Sort
     return filtered.sort((a, b) => {
         let valA: string | number = '';
         let valB: string | number = '';
@@ -158,7 +152,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
             valA = a.id ? parseFloat(calculateLearnerTotal(a.id)) : -1;
             valB = b.id ? parseFloat(calculateLearnerTotal(b.id)) : -1;
         } else {
-            // Sort by specific assessment
             const rawA = a.id ? getMarkValue(sortConfig.key, a.id) : '';
             const rawB = b.id ? getMarkValue(sortConfig.key, b.id) : '';
             valA = rawA === '' ? -Infinity : parseFloat(rawA);
@@ -170,6 +163,15 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
         return 0;
     });
   }, [classInfo.learners, searchQuery, sortConfig, calculateLearnerTotal, getMarkValue]);
+
+  // Derived state for tools (Rapid/Voice)
+  const learnersForTools = useMemo(() => {
+      if (!activeTool.assessmentId) return [];
+      return sortedAndFilteredLearners.map(l => ({
+          ...l,
+          mark: l.id ? getMarkValue(activeTool.assessmentId!, l.id) : ""
+      }));
+  }, [sortedAndFilteredLearners, activeTool.assessmentId, getMarkValue]);
 
   // --- Actions ---
 
@@ -193,13 +195,9 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const handleBulkColumnUpdate = (assessmentId: string, value: string) => {
       if (isLocked) return;
       const updates = { ...editedMarks };
-      
       classInfo.learners.forEach(l => {
-          if (l.id) {
-              updates[`${assessmentId}-${l.id}`] = value;
-          }
+          if (l.id) updates[`${assessmentId}-${l.id}`] = value;
       });
-      
       setEditedMarks(updates);
       showSuccess(`Updated column with "${value || 'Cleared'}"`);
   };
@@ -209,7 +207,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       
       const updates = Array.from(keys).map(key => {
           const [assessmentId, learnerId] = key.split('-');
-          
           let score: number | null = null;
           if (key in editedMarks) {
               const val = editedMarks[key];
@@ -298,7 +295,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
         showError("No learners to export.");
         return;
     }
-
     try {
         const exportAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
         const assessmentHeaders = exportAssessments.map(a => `"${a.title} (${a.max_mark})"`);
@@ -334,10 +330,25 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const toggleAssessmentVisibility = (id: string) => {
     setVisibleAssessmentIds(prev => 
-      prev.includes(id) 
-        ? prev.filter(x => x !== id) 
-        : [...prev, id]
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
+  };
+
+  // Tool Handlers
+  const openTool = (type: 'rapid' | 'voice', assessmentId: string) => {
+      setActiveTool({ type, assessmentId });
+  };
+
+  const closeTool = () => {
+      setActiveTool({ type: null, assessmentId: null });
+  };
+
+  const handleToolUpdate = (index: number, value: string) => {
+      if (!activeTool.assessmentId) return;
+      const learner = learnersForTools[index];
+      if (learner && learner.id) {
+          handleMarkChange(activeTool.assessmentId, learner.id, value);
+      }
   };
 
   return {
@@ -367,7 +378,9 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       activeTerm,
       activeYear,
       atRiskThreshold,
-      sortConfig
+      sortConfig,
+      activeTool,
+      learnersForTools
     },
     actions: {
       setViewTermId,
@@ -394,7 +407,10 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       toggleAssessmentVisibility,
       deleteAssessment,
       refreshAssessments,
-      handleSort
+      handleSort,
+      openTool,
+      closeTool,
+      handleToolUpdate
     }
   };
 };

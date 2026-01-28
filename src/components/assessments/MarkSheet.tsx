@@ -6,6 +6,8 @@ import { MarkSheetDialogs } from './MarkSheetDialogs';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
 import { CalendarClock } from 'lucide-react';
+import { RapidEntryDialog } from '@/components/dialogs/RapidEntryDialog';
+import { VoiceEntryDialog } from '@/components/dialogs/VoiceEntryDialog';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
@@ -80,6 +82,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           getAssessmentStats={actions.getAssessmentStats}
           onViewLearnerProfile={onViewLearnerProfile}
           onSort={actions.handleSort}
+          onOpenTool={actions.openTool}
        />
 
        <MarkSheetDialogs 
@@ -97,6 +100,24 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           viewTermId={state.viewTermId}
           refreshAssessments={actions.refreshAssessments}
        />
+
+       {state.activeTool.type === 'rapid' && (
+           <RapidEntryDialog 
+              open={state.activeTool.type === 'rapid'}
+              onOpenChange={() => actions.closeTool()}
+              learners={state.learnersForTools}
+              onUpdateMark={actions.handleToolUpdate}
+           />
+       )}
+
+       {state.activeTool.type === 'voice' && (
+           <VoiceEntryDialog 
+              open={state.activeTool.type === 'voice'}
+              onOpenChange={() => actions.closeTool()}
+              learners={state.learnersForTools}
+              onUpdateMark={actions.handleToolUpdate}
+           />
+       )}
     </div>
   );
 };

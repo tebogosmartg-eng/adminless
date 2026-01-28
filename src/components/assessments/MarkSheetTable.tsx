@@ -17,7 +17,7 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -48,13 +48,14 @@ interface MarkSheetTableProps {
   getAssessmentStats: (assId: string) => { avg: string; max: string | number; min: string | number };
   onViewLearnerProfile?: (learner: Learner) => void;
   onSort?: (key: string) => void;
+  onOpenTool?: (type: 'rapid' | 'voice', assId: string) => void;
 }
 
 export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
   isLocked, isUsingVisibleTotal, atRiskThreshold, sortConfig, setIsAddOpen,
   openAnalytics, deleteAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
-  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort
+  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool
 }: MarkSheetTableProps) => {
 
   const [noteDialog, setNoteDialog] = useState<{ open: boolean; assId: string; learnerId: string; learnerName: string; comment: string }>({ 
@@ -193,6 +194,17 @@ export const MarkSheetTable = ({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
+                          {onOpenTool && (
+                            <>
+                                <DropdownMenuItem onClick={() => onOpenTool('rapid', ass.id)}>
+                                    <Zap className="mr-2 h-4 w-4 text-orange-500" /> Rapid Entry
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onOpenTool('voice', ass.id)}>
+                                    <Mic className="mr-2 h-4 w-4 text-blue-500" /> Voice Entry
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                            </>
+                          )}
                           <DropdownMenuItem onClick={() => { deleteAssessment(ass.id); }}>
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
