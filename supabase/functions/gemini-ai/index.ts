@@ -21,7 +21,8 @@ serve(async (req) => {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const modelName = Deno.env.get('GEMINI_MODEL_NAME') || "gemini-1.5-flash"
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const cleanJson = (text: string) => {
         let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "");
@@ -88,7 +89,7 @@ serve(async (req) => {
             const data = JSON.parse(jsonStr);
             return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         } catch (e) {
-            console.error("JSON Parse Error:", e, jsonStr);
+            console.error("[gemini-ai] JSON Parse Error:", e, jsonStr);
             throw new Error("Failed to parse AI response as JSON.");
         }
     }
@@ -200,7 +201,7 @@ serve(async (req) => {
     throw new Error(`Unknown action: ${action}`);
 
   } catch (error) {
-    console.error("[Gemini AI Function Error]:", error)
+    console.error("[gemini-ai] Error:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
