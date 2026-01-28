@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, TrendingUp, Calendar, FileText } from 'lucide-react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Legend } from 'recharts';
 import { format } from 'date-fns';
 
 interface ProfileAcademicTabProps {
@@ -58,22 +58,38 @@ export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
                     return (
                       <div className="bg-popover border rounded-md p-2 shadow-md text-xs">
                         <p className="font-bold mb-1">{data.assessmentTitle}</p>
-                        <p className="text-primary font-bold text-lg">{data.percentage}%</p>
-                        <p className="text-muted-foreground">{data.assessmentType} • {format(new Date(data.date), 'MMM d')}</p>
+                        <div className="space-y-1">
+                            <p className="text-primary font-bold">Learner: {data.percentage}%</p>
+                            {data.classAverage && <p className="text-muted-foreground">Class Avg: {data.classAverage}%</p>}
+                        </div>
+                        <p className="text-muted-foreground mt-1 text-[10px]">{format(new Date(data.date), 'MMM d')}</p>
                       </div>
                     );
                   }
                   return null;
                 }}
               />
+              <Legend verticalAlign="top" height={36} iconType="plainline"/>
               <ReferenceLine y={50} stroke="red" strokeDasharray="3 3" opacity={0.3} />
+              
               <Line 
                 type="monotone" 
                 dataKey="percentage" 
+                name="Learner"
                 stroke="hsl(var(--primary))" 
                 strokeWidth={2} 
                 dot={{ r: 4, fill: "hsl(var(--background))", strokeWidth: 2 }}
                 activeDot={{ r: 6 }} 
+              />
+              
+              <Line 
+                type="monotone" 
+                dataKey="classAverage" 
+                name="Class Avg"
+                stroke="#94a3b8" 
+                strokeDasharray="5 5"
+                strokeWidth={2}
+                dot={false}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -101,15 +117,17 @@ export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
                          <span>W: {item.weight}%</span>
                       </div>
                    </div>
-                   <div className="text-right flex-shrink-0">
+                   <div className="flex flex-col items-end gap-1">
                       {item.percentage !== null ? (
                         <>
                           <div className={`text-lg font-bold ${item.percentage >= 50 ? 'text-green-600' : 'text-red-600'}`}>
                             {item.percentage}%
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {item.score} / {item.max}
-                          </div>
+                          {item.classAverage && (
+                             <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                Avg: {item.classAverage}%
+                             </span>
+                          )}
                         </>
                       ) : (
                         <span className="text-sm text-muted-foreground italic">Pending</span>

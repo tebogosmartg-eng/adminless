@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Brain, Sparkles, TrendingUp, AlertTriangle, Lightbulb, Copy, Check, Loader2 } from 'lucide-react';
+import { Brain, Sparkles, TrendingUp, AlertTriangle, Lightbulb, Copy, Check, Loader2, Download } from 'lucide-react';
 import { ClassInfo, ClassInsight, Learner } from '@/lib/types';
 import { useState } from 'react';
 import { showSuccess } from '@/utils/toast';
@@ -36,6 +36,38 @@ export const AiInsightsDialog = ({
     setTimeout(() => setCopiedSection(null), 2000);
   };
 
+  const handleDownload = () => {
+    if (!insights || !classInfo) return;
+    
+    const content = `
+AI Class Analysis Report
+Class: ${classInfo.className} (${classInfo.grade} ${classInfo.subject})
+Date: ${new Date().toLocaleDateString()}
+
+EXECUTIVE SUMMARY
+${insights.summary}
+
+KEY STRENGTHS
+${insights.strengths.map(s => `- ${s}`).join('\n')}
+
+AREAS FOR IMPROVEMENT
+${insights.areasForImprovement.map(s => `- ${s}`).join('\n')}
+
+RECOMMENDATIONS & STRATEGIES
+${insights.recommendations.map(s => `- ${s}`).join('\n')}
+    `.trim();
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Insights_${classInfo.className.replace(/\s+/g, '_')}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showSuccess("Insights downloaded as text file.");
+  };
+
   const formatListForCopy = (list: string[]) => list.map(item => `• ${item}`).join('\n');
 
   if (!classInfo) return null;
@@ -44,13 +76,22 @@ export const AiInsightsDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl text-primary">
-            <Sparkles className="h-6 w-6" />
-            AI Class Analysis
-          </DialogTitle>
-          <DialogDescription>
-            AI-generated performance insights for {classInfo.grade} {classInfo.subject}.
-          </DialogDescription>
+          <div className="flex items-center justify-between pr-8">
+             <div>
+                <DialogTitle className="flex items-center gap-2 text-xl text-primary">
+                    <Sparkles className="h-6 w-6" />
+                    AI Class Analysis
+                </DialogTitle>
+                <DialogDescription>
+                    AI-generated performance insights for {classInfo.grade} {classInfo.subject}.
+                </DialogDescription>
+             </div>
+             {insights && (
+                 <Button variant="outline" size="sm" onClick={handleDownload}>
+                    <Download className="mr-2 h-4 w-4" /> Save
+                 </Button>
+             )}
+          </div>
         </DialogHeader>
 
         <ScrollArea className="flex-1 pr-4">

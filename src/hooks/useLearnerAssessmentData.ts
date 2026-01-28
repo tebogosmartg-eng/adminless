@@ -2,9 +2,6 @@ import { useState, useEffect } from 'react';
 import { db } from '@/db';
 import { AssessmentResult } from '@/lib/types';
 
-// We need to extend the type because our local join manual construction might look slightly different
-// but the interface for the component remains the same.
-
 export { type AssessmentResult };
 
 export const useLearnerAssessmentData = (learnerId: string | undefined) => {
@@ -48,11 +45,30 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
             .toArray();
         const termMap = new Map(terms.map(t => [t.id, t.name]));
 
+        // NEW: Calculate Class Averages
+        // Fetch all marks for these assessments (not just for this learner)
+        const allMarksForAssessments = await db.assessment_marks
+            .where('assessment_id')
+            .anyOf(assessmentIds)
+            .toArray();
+
+        const assessmentAverages = new Map<string, number>();
+        
+        assessments.forEach(ass => {
+            const marksForAss = allMarksForAssessments.filter(m => m.assessment_id === ass.id && m.score !== null);
+            if (marksForAss.length > 0) {
+                const totalScore = marksForAss.reduce((sum, m) => sum + Number(m.score), 0);
+                const avgScore = totalScore / marksForAss.length;
+                const avgPercent = (avgScore / ass.max_mark) * 100;
+                assessmentAverages.set(ass.id, avgPercent);
+            }
+        });
+
         // 4. Format data
         const formatted: AssessmentResult[] = marks.map((m) => {
           const ass = assessments.find(a => a.id === m.assessment_id);
           
-          if (!ass) return null; // Should not happen if data integrity is good
+          if (!ass) return null;
 
           const score = m.score ? Number(m.score) : null;
           const percentage = score !== null ? (score / ass.max_mark) * 100 : null;
@@ -67,7 +83,9 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
             max: ass.max_mark,
             weight: ass.weight,
             percentage: percentage ? parseFloat(percentage.toFixed(1)) : null,
-            classAverage: null 
+            classAverage: assessmentAverages.get(ass.id) !== undefined 
+                ? parseFloat(assessmentAverages.get(ass.id)!.toFixed(1)) 
+                : null
           };
         }).filter(item => item !== null) as AssessmentResult[];
 
