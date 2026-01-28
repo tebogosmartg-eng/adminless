@@ -121,3 +121,15 @@ export interface AssessmentMark {
   score: number | null;
   comment?: string; // Added comment field
 }
+
+export interface TimetableEntry {
+  id: string;
+  user_id?: string;
+  day: string; // "Monday", "Tuesday"...
+  period: number; // 1, 2, 3...
+  subject: string;
+  class_name: string;
+  class_id?: string | null; // Link to actual ClassInfo if available
+  start_time?: string;
+  end_time?: string;
+}

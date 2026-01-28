@@ -5,6 +5,7 @@ import { CommentBankSettings } from "@/components/settings/CommentBankSettings";
 import { DataManagementSettings } from "@/components/settings/DataManagementSettings";
 import { StandardListsSettings } from "@/components/settings/StandardListsSettings";
 import { AcademicYearSettings } from "@/components/settings/AcademicYearSettings";
+import { TimetableSettings } from "@/components/settings/TimetableSettings";
 
 const Settings = () => {
   return (
@@ -17,6 +18,8 @@ const Settings = () => {
       <Separator />
 
       <AcademicYearSettings />
+
+      <TimetableSettings />
 
       <SchoolProfileSettings />
       

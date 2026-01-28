@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { 
-  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord 
+  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry 
 } from '@/lib/types';
 
 // Extend types for DB storage (flattened structures where necessary)
@@ -34,6 +34,7 @@ export class SmaRegDB extends Dexie {
   attendance!: Table<AttendanceRecord>;
   sync_queue!: Table<DBSyncItem>;
   profiles!: Table<any>;
+  timetable!: Table<TimetableEntry>;
 
   constructor() {
     super('SmaRegDB');
@@ -64,6 +65,11 @@ export class SmaRegDB extends Dexie {
     // Version 4: Add compound index for assessments to fix "KeyPath not indexed" error
     this.version(4).stores({
       assessments: 'id, class_id, term_id, [class_id+term_id]'
+    });
+
+    // Version 5: Add timetable
+    this.version(5).stores({
+      timetable: 'id, user_id, [day+period]'
     });
   }
 }

@@ -29,9 +29,6 @@ export const pullData = async (userId: string) => {
         }
 
         // 5. Attendance (New)
-        // Fetching all attendance history might be heavy. For now, fetch recent? 
-        // Or fetch all to ensure full offline capability. Let's fetch all for user's classes.
-        // We can optimize with 'updated_at' later.
         const { data: attendance } = await supabase.from('attendance').select('*').in('class_id', classIds);
         if (attendance) await db.attendance.bulkPut(attendance);
     }
@@ -49,6 +46,10 @@ export const pullData = async (userId: string) => {
 
     const { data: todos } = await supabase.from('todos').select('*').eq('user_id', userId);
     if (todos) await db.todos.bulkPut(todos);
+
+    // 8. Timetable
+    const { data: timetable } = await supabase.from('timetable').select('*').eq('user_id', userId);
+    if (timetable) await db.timetable.bulkPut(timetable);
 
     console.log("Data pull complete");
   } catch (error) {
@@ -79,7 +80,6 @@ export const pushChanges = async () => {
         const { error: e } = await supabase.from(table as any).update(payload).eq('id', payload.id);
         error = e;
       } else if (action === 'upsert') {
-        // Handle attendance specifically? Supabase upsert works with unique constraints.
         const { error: e } = await supabase.from(table as any).upsert(payload);
         error = e;
       } else if (action === 'delete') {
