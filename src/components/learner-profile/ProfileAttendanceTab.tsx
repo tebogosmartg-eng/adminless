@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { Loader2, Clock, Check, X, AlertCircle } from "lucide-react";
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/db';
 import { AttendanceStatus } from "@/lib/types";
+import { useMemo } from "react";
 
 interface ProfileAttendanceTabProps {
   learnerId?: string;
@@ -16,36 +17,28 @@ interface AttendanceStats {
 }
 
 export const ProfileAttendanceTab = ({ learnerId }: ProfileAttendanceTabProps) => {
-  const [stats, setStats] = useState<AttendanceStats>({ present: 0, absent: 0, late: 0, excused: 0, total: 0 });
-  const [loading, setLoading] = useState(false);
+  
+  const records = useLiveQuery(
+    () => learnerId ? db.attendance.where('learner_id').equals(learnerId).toArray() : [],
+    [learnerId]
+  );
 
-  useEffect(() => {
-    if (learnerId) {
-      const fetchAttendance = async () => {
-        setLoading(true);
-        const { data } = await supabase
-          .from('attendance')
-          .select('status')
-          .eq('learner_id', learnerId);
-        
-        if (data) {
-          const newStats = data.reduce((acc: AttendanceStats, curr: { status: string }) => {
-            const status = curr.status as AttendanceStatus;
-            if (acc[status] !== undefined) {
-                acc[status]++;
-            }
-            acc.total++;
-            return acc;
-          }, { present: 0, absent: 0, late: 0, excused: 0, total: 0 });
-          setStats(newStats);
-        }
-        setLoading(false);
-      };
-      fetchAttendance();
-    }
-  }, [learnerId]);
+  const stats = useMemo(() => {
+    const initial: AttendanceStats = { present: 0, absent: 0, late: 0, excused: 0, total: 0 };
+    
+    if (!records) return initial;
 
-  if (loading) {
+    return records.reduce((acc, curr) => {
+      const status = curr.status as AttendanceStatus;
+      if (acc[status] !== undefined) {
+          acc[status]++;
+      }
+      acc.total++;
+      return acc;
+    }, initial);
+  }, [records]);
+
+  if (!records) {
     return <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 

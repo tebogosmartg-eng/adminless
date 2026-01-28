@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useClasses } from '@/context/ClassesContext';
 import { useAcademic } from '@/context/AcademicContext';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/db';
 import { showSuccess, showError } from '@/utils/toast';
 import { Assessment } from '@/lib/types';
 import { Loader2, Copy } from 'lucide-react';
@@ -28,7 +28,7 @@ export const CopyAssessmentsDialog = ({
   onSuccess 
 }: CopyAssessmentsDialogProps) => {
   const { classes } = useClasses();
-  const { activeYear, createAssessment } = useAcademic();
+  const { createAssessment } = useAcademic();
   
   const [selectedSourceClassId, setSelectedSourceClassId] = useState<string>("");
   const [loadingAssessments, setLoadingAssessments] = useState(false);
@@ -48,16 +48,13 @@ export const CopyAssessmentsDialog = ({
     setSelectedAssessmentIds([]);
 
     try {
-      // Fetch assessments for the selected class and current term (or all terms if we want to be flexible, but let's stick to current active term/year context)
-      // Actually, we usually want to copy from the SAME term in another class.
-      
-      const { data, error } = await supabase
-        .from('assessments')
-        .select('*')
-        .eq('class_id', classId)
-        .eq('term_id', currentTermId);
+      // Query Local DB instead of Supabase
+      const data = await db.assessments
+        .where('class_id')
+        .equals(classId)
+        .filter(a => a.term_id === currentTermId)
+        .toArray();
 
-      if (error) throw error;
       setSourceAssessments(data || []);
       // Auto-select all by default
       if (data) setSelectedAssessmentIds(data.map(a => a.id));
