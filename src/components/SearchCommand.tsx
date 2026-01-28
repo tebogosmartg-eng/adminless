@@ -41,7 +41,7 @@ export function SearchCommand() {
     command();
   };
 
-  // Flatten learners for search, filtering out duplicates if any (though unlikely here)
+  // Flatten learners for search
   const allLearners = useMemo(() => classes.flatMap(c => 
     c.learners.map(l => ({ 
       ...l, 
@@ -91,7 +91,10 @@ export function SearchCommand() {
         <CommandSeparator />
         <CommandGroup heading="Learners">
            {allLearners.map((l) => (
-             <CommandItem key={l.key} onSelect={() => runCommand(() => navigate(`/classes/${l.classId}`))}>
+             <CommandItem 
+                key={l.key} 
+                onSelect={() => runCommand(() => navigate(`/classes/${l.classId}`, { state: { openLearnerId: l.id || l.name } }))}
+             >
                <User className="mr-2 h-4 w-4" />
                <div className="flex flex-col">
                  <span>{l.name}</span>

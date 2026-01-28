@@ -17,6 +17,20 @@ interface MarkSheetProps {
 export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) => {
   const { state, actions } = useMarkSheetLogic(classInfo);
 
+  const handleProfileClick = (learner: Learner) => {
+      if (!onViewLearnerProfile) return;
+      if (learner.id) {
+          const calculatedTotal = actions.calculateLearnerTotal(learner.id);
+          // Pass a temporary learner object with the calculated mark for the current term context
+          onViewLearnerProfile({
+              ...learner,
+              mark: calculatedTotal
+          });
+      } else {
+          onViewLearnerProfile(learner);
+      }
+  };
+
   if (!state.currentViewTerm) {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground bg-muted/10 border rounded-lg border-dashed">
@@ -80,7 +94,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           handleBulkColumnUpdate={actions.handleBulkColumnUpdate}
           calculateLearnerTotal={actions.calculateLearnerTotal}
           getAssessmentStats={actions.getAssessmentStats}
-          onViewLearnerProfile={onViewLearnerProfile}
+          onViewLearnerProfile={handleProfileClick}
           onSort={actions.handleSort}
           onOpenTool={actions.openTool}
        />

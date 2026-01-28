@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
@@ -16,6 +16,7 @@ import { Loader2 } from "lucide-react";
 
 const ClassDetails = () => {
   const { classId } = useParams();
+  const location = useLocation();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   
@@ -62,6 +63,22 @@ const ClassDetails = () => {
     }
   }, [classInfo]);
 
+  // Deep linking for learner profile
+  useEffect(() => {
+    if (location.state?.openLearnerId && learners.length > 0) {
+        const targetId = location.state.openLearnerId;
+        const learner = learners.find(l => l.id === targetId || l.name === targetId);
+        if (learner) {
+            dialogs.setSelectedProfileLearner(learner);
+            // Clear state so it doesn't reopen on refresh/navigation? 
+            // React Router location state persists on refresh, so we might want to clear it.
+            // But replacing history inside useEffect might trigger re-renders. 
+            // For now, it's acceptable behavior or we can manually clear it.
+            window.history.replaceState({}, document.title);
+        }
+    }
+  }, [location.state, learners]);
+
   if (classesLoading) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
@@ -101,7 +118,7 @@ const ClassDetails = () => {
 
       <Tabs defaultValue="assessments" className="w-full">
         <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
-          <TabsTrigger value="assessments">Term Assessments (New)</TabsTrigger>
+          <TabsTrigger value="assessments">Term Assessments</TabsTrigger>
           <TabsTrigger value="legacy">Legacy Marks</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
         </TabsList>
