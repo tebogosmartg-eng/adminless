@@ -42,93 +42,94 @@ export const ClassHeader = ({
   onDialogs
 }: ClassHeaderProps) => {
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-card p-4 rounded-lg border shadow-sm">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack}>
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white dark:bg-card p-6 rounded-lg border shadow-sm transition-all duration-300">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} className="h-10 w-10 hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">{classInfo.className}</h1>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit({})}>
-               <Edit className="h-3 w-3 text-muted-foreground" />
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground/90">{classInfo.className}</h1>
+            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-20 hover:opacity-100" onClick={() => onEdit({})}>
+               <Edit className="h-4 w-4" />
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {classInfo.grade} • {classInfo.subject}
-          </p>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <span>{classInfo.grade}</span>
+            <span className="h-1 w-1 bg-muted-foreground/30 rounded-full" />
+            <span>{classInfo.subject}</span>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={onSave}>
+      <div className="flex items-center flex-wrap gap-2 pt-2 md:pt-0">
+        <Button onClick={onSave} className="px-5 shadow-sm active:scale-95 transition-transform">
             <Save className="mr-2 h-4 w-4" />
-            Save
+            Save Changes
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <FileDown className="mr-2 h-4 w-4" />
+            <Button variant="outline" className="gap-2">
+              <FileDown className="h-4 w-4 text-muted-foreground" />
               Export
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Reports & Data</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onExport.pdf}>
-                <FileText className="mr-2 h-4 w-4" /> Class Report (PDF)
+            <DropdownMenuItem onClick={onExport.pdf} className="py-2.5">
+                <FileText className="mr-2 h-4 w-4 text-blue-500" /> Class Marksheet (PDF)
             </DropdownMenuItem>
-             <DropdownMenuItem onClick={onExport.bulkPdf}>
-                <Download className="mr-2 h-4 w-4" /> Bulk Learner Reports
+             <DropdownMenuItem onClick={onExport.bulkPdf} className="py-2.5">
+                <Download className="mr-2 h-4 w-4 text-green-500" /> Learner Report Cards (PDF)
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExport.csv}>
-                <FileText className="mr-2 h-4 w-4" /> CSV Data
+            <DropdownMenuItem onClick={onExport.csv} className="py-2.5">
+                <FileText className="mr-2 h-4 w-4 text-slate-500" /> Export Data (CSV)
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExport.blankList}>
-                <FileText className="mr-2 h-4 w-4" /> Blank List
+            <DropdownMenuItem onClick={onExport.blankList} className="py-2.5">
+                <FileText className="mr-2 h-4 w-4 text-orange-500" /> Blank List (PDF)
             </DropdownMenuItem>
              <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onExport.share}>
-                <Share2 className="mr-2 h-4 w-4" /> Share Summary
+            <DropdownMenuItem onClick={onExport.share} className="py-2.5">
+                <Share2 className="mr-2 h-4 w-4 text-indigo-500" /> Share Summary
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" className="h-10 w-10">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Tools</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Classroom Tools</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDialogs.classroomTools}>
-                <Dices className="mr-2 h-4 w-4" /> Classroom Tools
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDialogs.import}>
-                <Upload className="mr-2 h-4 w-4" /> Import Learners
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDialogs.editLearners}>
-                <Users className="mr-2 h-4 w-4" /> Edit Class List
-            </DropdownMenuItem>
-             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Input Methods</DropdownMenuLabel>
-            <DropdownMenuItem onClick={onDialogs.voice}>
-                <Mic className="mr-2 h-4 w-4" /> Voice Entry
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDialogs.rapid}>
-                <Zap className="mr-2 h-4 w-4" /> Rapid Entry
+            <DropdownMenuItem onClick={onDialogs.classroomTools} className="py-2.5">
+                <Dices className="mr-2 h-4 w-4 text-purple-500" /> Class Management Tools
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Analysis</DropdownMenuLabel>
-            <DropdownMenuItem onClick={onDialogs.aiInsights}>
-                <Brain className="mr-2 h-4 w-4" /> AI Insights
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Roster & Entry</DropdownMenuLabel>
+            <DropdownMenuItem onClick={onDialogs.import} className="py-2.5">
+                <Upload className="mr-2 h-4 w-4" /> Bulk Import Names
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDialogs.moderation}>
-                <Sliders className="mr-2 h-4 w-4" /> Moderation
+            <DropdownMenuItem onClick={onDialogs.editLearners} className="py-2.5">
+                <Users className="mr-2 h-4 w-4" /> Update Class Roster
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDialogs.voice} className="py-2.5 font-medium">
+                <Mic className="mr-2 h-4 w-4 text-red-500" /> Voice Entry Mode
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDialogs.rapid} className="py-2.5 font-medium">
+                <Zap className="mr-2 h-4 w-4 text-amber-500" /> Rapid Input Mode
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Advanced Analysis</DropdownMenuLabel>
+            <DropdownMenuItem onClick={onDialogs.aiInsights} className="py-2.5">
+                <Brain className="mr-2 h-4 w-4 text-primary" /> Generate AI Insights
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDialogs.moderation} className="py-2.5">
+                <Sliders className="mr-2 h-4 w-4" /> Moderation Adjustments
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -31,53 +31,54 @@ const Header = () => {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:justify-end md:px-6 no-print">
+    <header className="flex h-16 items-center justify-between border-b bg-white dark:bg-card px-4 md:px-8 no-print shadow-sm z-30 transition-all duration-300">
       <div className="flex items-center gap-4 md:hidden">
         <MobileSidebar />
       </div>
       
-      {/* Global Search Trigger */}
-      <div className="flex-1 flex justify-center md:justify-start px-4 items-center gap-4">
-        <Button 
-          variant="outline" 
-          className="relative h-9 w-full md:w-64 justify-start text-sm text-muted-foreground sm:pr-12 bg-muted/50 hover:bg-muted"
-          onClick={triggerSearch}
-        >
-          <Search className="mr-2 h-4 w-4" />
-          <span className="hidden lg:inline-flex">Search students...</span>
-          <span className="inline-flex lg:hidden">Search...</span>
-          <kbd className="pointer-events-none absolute right-1.5 top-1.5 hidden h-6 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
-            <span className="text-xs">⌘</span>K
-          </kbd>
-        </Button>
+      <div className="flex-1 flex justify-center md:justify-start items-center gap-4">
+        <div className="relative group">
+            <Button 
+            variant="outline" 
+            className="h-9 w-full md:w-72 justify-start text-xs text-muted-foreground bg-muted/40 hover:bg-muted border-none group-hover:bg-muted/60 transition-all"
+            onClick={triggerSearch}
+            >
+            <Search className="mr-2 h-3.5 w-3.5" />
+            <span className="hidden lg:inline-flex">Find a learner...</span>
+            <span className="inline-flex lg:hidden">Search...</span>
+            <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border bg-background px-1.5 font-mono text-[9px] font-medium opacity-50 sm:flex">
+                <span className="text-[10px]">⌘</span>K
+            </kbd>
+            </Button>
+        </div>
 
         {activeYear && (
             <div className="hidden lg:flex items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-9 px-3 gap-2 bg-background font-normal text-muted-foreground border-dashed hover:text-foreground">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      <span>{activeYear.name}</span>
+                    <Button variant="ghost" className="h-9 px-3 gap-2 font-normal text-muted-foreground hover:bg-muted/40">
+                      <CalendarDays className="h-4 w-4" />
+                      <span className="text-xs uppercase tracking-wider font-bold text-foreground/80">{activeYear.name}</span>
                       <span className="w-px h-3 bg-border mx-1"></span>
-                      <span className="text-foreground font-medium">{activeTerm?.name || "No Term"}</span>
-                      <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+                      <span className="text-xs font-medium text-foreground">{activeTerm?.name || "No Term"}</span>
+                      <ChevronDown className="h-3 w-3 opacity-40" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-56">
-                    <DropdownMenuLabel>Active Term</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Active Term</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {terms.map(term => (
-                      <DropdownMenuItem key={term.id} onClick={() => setActiveTerm(term)} className="justify-between">
+                      <DropdownMenuItem key={term.id} onClick={() => setActiveTerm(term)} className="justify-between text-sm py-2">
                         {term.name}
-                        {activeTerm?.id === term.id && <Check className="h-4 w-4" />}
+                        {activeTerm?.id === term.id && <Check className="h-4 w-4 text-primary" />}
                       </DropdownMenuItem>
                     ))}
                     <DropdownMenuSeparator />
                     <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>Switch Year</DropdownMenuSubTrigger>
+                      <DropdownMenuSubTrigger className="text-sm py-2">Switch Academic Year</DropdownMenuSubTrigger>
                       <DropdownMenuSubContent>
                         {years.map(year => (
-                          <DropdownMenuItem key={year.id} onClick={() => setActiveYear(year)} className="justify-between">
+                          <DropdownMenuItem key={year.id} onClick={() => setActiveYear(year)} className="justify-between text-sm py-2">
                             {year.name} {year.closed && "(Closed)"}
                             {activeYear.id === year.id && <Check className="h-4 w-4" />}
                           </DropdownMenuItem>
@@ -90,18 +91,18 @@ const Header = () => {
         )}
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-3">
         <HelpDialog />
         <ThemeToggle />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 pl-2 border-l ml-1">
           {teacherName && (
-            <span className="text-sm font-medium hidden md:block text-muted-foreground">
+            <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-foreground/70">
               {teacherName}
             </span>
           )}
-          <Avatar className="h-9 w-9">
+          <Avatar className="h-8 w-8 ring-2 ring-primary/10">
             <AvatarImage src="" alt={teacherName || "Teacher"} />
-            <AvatarFallback>{initials}</AvatarFallback>
+            <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{initials}</AvatarFallback>
           </Avatar>
         </div>
       </div>

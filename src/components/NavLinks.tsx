@@ -12,7 +12,7 @@ export const NavLinks = () => {
   ];
 
   return (
-    <>
+    <div className="space-y-1">
       {links.map((link) => (
         <NavLink
           key={link.to}
@@ -20,8 +20,10 @@ export const NavLinks = () => {
           end={link.end}
           className={({ isActive }) =>
             cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-              isActive && "bg-muted text-primary"
+              "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200",
+              isActive 
+                ? "bg-white/10 text-white font-medium shadow-sm" 
+                : "text-white/60 hover:bg-white/5 hover:text-white"
             )
           }
         >
@@ -29,6 +31,6 @@ export const NavLinks = () => {
           {link.label}
         </NavLink>
       ))}
-    </>
+    </div>
   );
 };

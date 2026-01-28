@@ -54,7 +54,9 @@ export const LearnerListRow = ({
   
   const gradeSymbol = getGradeSymbol(learner.mark, gradingScheme);
   const markNum = parseFloat(learner.mark);
-  const isAtRisk = !isNaN(markNum) && markNum < atRiskThreshold;
+  
+  // Use Amber for attention as per Calm Classroom principles
+  const isAtRisk = !isNaN(markNum) && markNum < atRiskThreshold && markNum > 0;
   const isInvalid = !isNaN(markNum) && (markNum < 0 || markNum > 100);
   const isCalculated = learner.mark.includes('.') && !learner.mark.endsWith('.0');
 
@@ -67,21 +69,22 @@ export const LearnerListRow = ({
   return (
     <TableRow 
       className={cn(
-        isAtRisk && "bg-red-50 hover:bg-red-100/80 dark:bg-red-950/20 dark:hover:bg-red-950/30",
-        isSelected && "bg-muted/50"
+        "group transition-colors",
+        isAtRisk && "bg-amber-50/50 hover:bg-amber-100/50 dark:bg-amber-900/10 dark:hover:bg-amber-900/20",
+        isSelected && "bg-muted/80"
       )}
     >
-      <TableCell>
+      <TableCell className="py-2 px-4">
         <Checkbox 
           checked={isSelected}
           onCheckedChange={(checked) => onSelect(!!checked)}
         />
       </TableCell>
-      <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-      <TableCell>
+      <TableCell className="text-[10px] font-mono text-muted-foreground opacity-50 py-2 px-2">{index + 1}</TableCell>
+      <TableCell className="py-2">
          <div className="flex items-center gap-2">
            <button 
-            className="font-medium hover:underline text-left"
+            className="text-sm font-medium hover:underline text-left text-foreground/90 truncate max-w-[180px]"
             onClick={() => onProfileClick(learner)}
            >
             {learner.name}
@@ -89,81 +92,81 @@ export const LearnerListRow = ({
            {isAtRisk && (
              <Tooltip>
                <TooltipTrigger>
-                 <AlertCircle className="h-4 w-4 text-red-500" />
+                 <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
                </TooltipTrigger>
                <TooltipContent>
-                 <p>At Risk: Mark below {atRiskThreshold}%</p>
+                 <p className="text-xs">Needs attention: Mark below {atRiskThreshold}%</p>
                </TooltipContent>
              </Tooltip>
            )}
            {isInvalid && (
              <Tooltip>
                <TooltipTrigger>
-                 <AlertOctagon className="h-4 w-4 text-orange-500" />
+                 <AlertOctagon className="h-3.5 w-3.5 text-red-500" />
                </TooltipTrigger>
                <TooltipContent>
-                 <p>Warning: Mark appears to be outside 0-100 range.</p>
+                 <p className="text-xs">Invalid entry: Mark outside 0-100% range.</p>
                </TooltipContent>
              </Tooltip>
            )}
          </div>
       </TableCell>
-      <TableCell>
-        <div className="relative">
+      <TableCell className="py-2">
+        <div className="relative flex items-center">
           <Input
             id={`mark-input-${index}`}
             type="text" 
             inputMode="decimal"
-            placeholder="%"
+            placeholder="-"
             value={learner.mark}
             onChange={(e) => onMarkChange(learner.originalIndex, e.target.value)}
             onBlur={(e) => onMarkBlur(learner.originalIndex, e.target.value)}
             onKeyDown={(e) => onKeyDown(e, index, learner.originalIndex, learner.mark)}
             className={cn(
-              "pr-8", 
-              isAtRisk && "border-red-300 focus-visible:ring-red-500",
-              isInvalid && "border-orange-300 focus-visible:ring-orange-500"
+              "h-8 w-20 text-center font-medium pr-6 bg-transparent", 
+              isAtRisk && "border-amber-200 focus-visible:ring-amber-400",
+              isInvalid && "border-red-300 focus-visible:ring-red-500"
             )}
           />
            {isCalculated && (
-             <div className="absolute right-2 top-2.5 pointer-events-none opacity-50">
+             <div className="absolute right-1.5 opacity-30">
                <Calculator className="h-3 w-3" />
              </div>
            )}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="py-2">
         {gradeSymbol && (
-          <Badge variant="outline" className={gradeSymbol.badgeColor}>
+          <Badge variant="outline" className={cn("text-[10px] font-semibold tracking-tighter px-1.5 py-0 h-5", gradeSymbol.badgeColor)}>
             {gradeSymbol.symbol} (L{gradeSymbol.level})
           </Badge>
         )}
       </TableCell>
       {showComments && (
-        <TableCell>
-           <div className="relative flex gap-1">
+        <TableCell className="py-2 min-w-[200px]">
+           <div className="relative flex gap-1 items-center">
               <Textarea
                 value={learner.comment || ''}
                 onChange={(e) => onCommentChange(learner.originalIndex, e.target.value)}
-                placeholder="Enter comment..."
-                className="min-h-[60px] resize-none flex-1 text-xs"
+                placeholder="Teacher observation..."
+                className="min-h-[50px] resize-none flex-1 text-xs bg-muted/20 border-muted focus:bg-background transition-all"
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 self-start mt-1">
-                    <BookText className="h-4 w-4 text-muted-foreground" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <BookText className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[300px]">
-                  <DropdownMenuLabel>Comment Bank</DropdownMenuLabel>
+                <DropdownMenuContent align="end" className="w-[280px]">
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Observation Bank</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {commentBank.length === 0 ? (
-                    <div className="p-2 text-xs text-muted-foreground">
-                      No saved comments. Add them in Settings.
+                    <div className="p-4 text-xs text-muted-foreground text-center">
+                      No saved observations. Add them in Settings.
                     </div>
                   ) : (
                     commentBank.map((comment, i) => (
-                      <DropdownMenuItem key={i} onClick={() => insertComment(comment)}>
+                      <DropdownMenuItem key={i} onClick={() => insertComment(comment)} className="text-xs">
                         <span className="truncate">{comment}</span>
                       </DropdownMenuItem>
                     ))
@@ -173,14 +176,14 @@ export const LearnerListRow = ({
            </div>
         </TableCell>
       )}
-      <TableCell>
+      <TableCell className="py-2 text-right">
          <Button 
           variant="ghost" 
           size="icon" 
-          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={() => onRemoveLearner(learner.originalIndex)}
          >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
          </Button>
       </TableCell>
     </TableRow>
