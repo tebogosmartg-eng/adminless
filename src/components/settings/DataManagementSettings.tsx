@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileJson, Database, Download, Upload, AlertTriangle, Loader2 } from "lucide-react";
+import { FileJson, Database, Download, Upload, AlertTriangle, Loader2, RefreshCw, Calculator } from "lucide-react";
 import { useClasses } from "@/context/ClassesContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,15 +19,23 @@ import {
 import { db } from "@/db";
 import { queueAction } from "@/services/sync";
 import { useSync } from "@/context/SyncContext";
+import { useAcademic } from "@/context/AcademicContext";
 import { subDays, format } from "date-fns";
 
 export const DataManagementSettings = () => {
-  const { addClass } = useClasses();
-  const { isOnline } = useSync();
+  const { isOnline, forceSync, isSyncing } = useSync();
+  const { recalculateAllActiveAverages } = useAcademic();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRepairing, setIsRepairing] = useState(false);
+
+  const handleRecalculate = async () => {
+      setIsRepairing(true);
+      await recalculateAllActiveAverages();
+      setIsRepairing(false);
+  };
 
   const handleExportData = async () => {
     setIsExporting(true);
@@ -35,44 +43,28 @@ export const DataManagementSettings = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Fetch all data from Local DB
       const profile = await db.profiles.get(user.id);
-      
       const classes = await db.classes.where('user_id').equals(user.id).toArray();
       const classIds = classes.map(c => c.id);
-      
       const learners = await db.learners.where('class_id').anyOf(classIds).toArray();
       const learnerIds = learners.map(l => l.id!);
-
       const academic_years = await db.academic_years.where('user_id').equals(user.id).toArray();
       const terms = await db.terms.where('user_id').equals(user.id).toArray();
-      
       const assessments = await db.assessments.where('user_id').equals(user.id).toArray();
       const assessmentIds = assessments.map(a => a.id);
       const assessment_marks = await db.assessment_marks.where('assessment_id').anyOf(assessmentIds).toArray();
-      
       const attendance = await db.attendance.where('class_id').anyOf(classIds).toArray();
       const timetable = await db.timetable.where('user_id').equals(user.id).toArray();
       const learner_notes = await db.learner_notes.where('learner_id').anyOf(learnerIds).toArray();
-      
       const todos = await db.todos.where('user_id').equals(user.id).toArray();
       const activities = await db.activities.where('user_id').equals(user.id).toArray();
 
       const backupData = {
         version: '3.0',
         timestamp: new Date().toISOString(),
-        profile,
-        classes,
-        learners,
-        academic_years,
-        terms,
-        assessments,
-        assessment_marks,
-        attendance,
-        timetable,
-        learner_notes,
-        todos,
-        activities
+        profile, classes, learners, academic_years, terms,
+        assessments, assessment_marks, attendance, timetable,
+        learner_notes, todos, activities
       };
       
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -86,7 +78,6 @@ export const DataManagementSettings = () => {
       showSuccess("Full backup downloaded successfully.");
     } catch (error: any) {
       showError(error.message || "Failed to export data.");
-      console.error(error);
     } finally {
       setIsExporting(false);
     }
@@ -103,56 +94,38 @@ export const DataManagementSettings = () => {
         const content = e.target?.result as string;
         const data = JSON.parse(content);
         const { data: { user } } = await supabase.auth.getUser();
-        
         if (!user) throw new Error("User not authenticated");
 
-        // Helper to process a table
         const restoreTable = async (tableName: string, items: any[]) => {
             if (!items || !Array.isArray(items) || items.length === 0) return 0;
-            
-            // Map items to current user ID to prevent ownership issues on restore
-            const safeItems = items.map(item => ({
-                ...item,
-                user_id: item.user_id ? user.id : undefined // Only override if field exists
-            }));
-
+            const safeItems = items.map(item => ({ ...item, user_id: item.user_id ? user.id : undefined }));
             // @ts-ignore
             await db[tableName].bulkPut(safeItems);
-            // Queue sync for each item (bulk would be better but sync service takes array)
             await queueAction(tableName, 'upsert', safeItems);
             return safeItems.length;
         };
 
-        // 1. Profile
         if (data.profile) {
           const profileData = { id: user.id, ...data.profile, updated_at: new Date().toISOString() };
           await db.profiles.put(profileData);
           await queueAction('profiles', 'upsert', profileData);
         }
 
-        // 2. Classes (Legacy structure support: classes might contain learners in v2.1)
         if (data.classes) {
-            // Check if v2.1 structure (learners nested)
             if (data.classes.some((c: any) => c.learners)) {
-                // Flatten logic
                 const flattenedClasses = data.classes.map((c: any) => {
                     const { learners, ...cls } = c;
                     return { ...cls, user_id: user.id };
                 });
                 await restoreTable('classes', flattenedClasses);
-
-                const flattenedLearners = data.classes.flatMap((c: any) => 
-                    (c.learners || []).map((l: any) => ({ ...l, class_id: c.id }))
-                );
+                const flattenedLearners = data.classes.flatMap((c: any) => (c.learners || []).map((l: any) => ({ ...l, class_id: c.id })));
                 await restoreTable('learners', flattenedLearners);
             } else {
-                // v3.0 Flat structure
                 await restoreTable('classes', data.classes);
             }
         }
 
-        // 3. Other Tables (v3.0)
-        await restoreTable('learners', data.learners); // Will run if flat learners array exists
+        await restoreTable('learners', data.learners);
         await restoreTable('academic_years', data.academic_years);
         await restoreTable('terms', data.terms);
         await restoreTable('assessments', data.assessments);
@@ -164,10 +137,8 @@ export const DataManagementSettings = () => {
         
         showSuccess("Data import complete. Reloading...");
         setTimeout(() => window.location.reload(), 1500);
-
       } catch (err) {
-        showError("Failed to parse backup file or import data.");
-        console.error(err);
+        showError("Failed to import data.");
       } finally {
         setIsImporting(false);
       }
@@ -181,227 +152,28 @@ export const DataManagementSettings = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      // Clear Local DB
       await db.transaction('rw', [
-        db.classes, 
-        db.learners, 
-        db.todos, 
-        db.activities, 
-        db.sync_queue, 
-        db.attendance, 
-        db.assessments, 
-        db.assessment_marks,
-        db.academic_years,
-        db.terms,
-        db.timetable,
-        db.learner_notes
+        db.classes, db.learners, db.todos, db.activities, db.sync_queue, 
+        db.attendance, db.assessments, db.assessment_marks, db.academic_years, 
+        db.terms, db.timetable, db.learner_notes
       ], async () => {
-          await db.learners.clear();
-          await db.classes.clear();
-          await db.todos.clear();
-          await db.activities.clear();
-          await db.attendance.clear();
-          await db.assessments.clear();
-          await db.assessment_marks.clear();
-          await db.academic_years.clear();
-          await db.terms.clear();
-          await db.timetable.clear();
-          await db.learner_notes.clear();
-          
-          await db.sync_queue.clear();
+          await db.learners.clear(); await db.classes.clear(); await db.todos.clear(); 
+          await db.activities.clear(); await db.attendance.clear(); await db.assessments.clear(); 
+          await db.assessment_marks.clear(); await db.academic_years.clear(); await db.terms.clear(); 
+          await db.timetable.clear(); await db.learner_notes.clear(); await db.sync_queue.clear();
       });
-
       if (isOnline) {
-          // Cascading deletes on server usually handle most, but explicit safety:
           await supabase.from('classes').delete().eq('user_id', user.id);
           await supabase.from('academic_years').delete().eq('user_id', user.id);
           await supabase.from('todos').delete().eq('user_id', user.id);
           await supabase.from('timetable').delete().eq('user_id', user.id);
-          showSuccess("Application data reset locally and on server.");
-      } else {
-          showSuccess("Application data reset locally.");
       }
-
+      showSuccess("Application data reset.");
       setTimeout(() => window.location.reload(), 1000);
     } catch (error: any) {
-      showError("Failed to clear data: " + error.message);
+      showError("Failed to clear data.");
     } finally {
       setIsClearing(false);
-    }
-  };
-
-  const handleGenerateDemoData = async () => {
-    setIsGenerating(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-          showError("Please log in to generate demo data.");
-          return;
-      }
-
-      const userId = user.id;
-      const today = new Date().toISOString();
-      const todayShort = today.split('T')[0];
-
-      // 1. Create Academic Year if needed
-      const existingYear = await db.academic_years.where('user_id').equals(userId).first();
-      let yearId = existingYear?.id;
-      let termId = "";
-
-      if (!existingYear) {
-          yearId = crypto.randomUUID();
-          const yearData = { id: yearId, name: "2024 (Demo)", user_id: userId, closed: false };
-          await db.academic_years.add(yearData);
-          await queueAction('academic_years', 'create', yearData);
-
-          const terms = ["Term 1", "Term 2", "Term 3", "Term 4"].map(name => ({
-              id: crypto.randomUUID(),
-              year_id: yearId!,
-              name,
-              user_id: userId,
-              closed: false,
-              weight: 25,
-              start_date: today,
-              end_date: today
-          }));
-          await db.terms.bulkAdd(terms as any);
-          await queueAction('terms', 'create', terms);
-          termId = terms[0].id;
-      } else {
-          const term = await db.terms.where('year_id').equals(yearId!).first();
-          if (term) termId = term.id;
-      }
-
-      // 2. Create Class
-      const classId = crypto.randomUUID();
-      const demoClass = {
-        id: classId,
-        user_id: userId,
-        grade: "Grade 10",
-        subject: "Mathematics",
-        className: "10-Demo",
-        archived: false,
-        created_at: today,
-        notes: "Focus on algebra basics for upcoming exam."
-      };
-      
-      // Store locally manually to ensure IDs match for subsequent inserts
-      await db.classes.add(demoClass as any);
-      await queueAction('classes', 'create', demoClass);
-
-      // 3. Create Learners
-      const learnersData = [
-        { name: "Alice Smith", mark: "85", comment: "Excellent work, keep it up!" },
-        { name: "Bob Johnson", mark: "42", comment: "Needs to focus more on algebra." },
-        { name: "Charlie Brown", mark: "65", comment: "Good improvement this term." },
-        { name: "David Wilson", mark: "32", comment: "Struggling with basics. Needs tutoring." },
-        { name: "Eve Davis", mark: "91", comment: "Outstanding performance." },
-      ];
-
-      const learnerIds: string[] = [];
-      const learners = learnersData.map(l => {
-          const id = crypto.randomUUID();
-          learnerIds.push(id);
-          return { id, class_id: classId, ...l };
-      });
-
-      await db.learners.bulkAdd(learners as any);
-      await queueAction('learners', 'create', learners);
-
-      // 4. Create Assessments (Term 1)
-      if (termId) {
-          const ass1Id = crypto.randomUUID();
-          const ass2Id = crypto.randomUUID();
-          
-          const assessments = [
-              { id: ass1Id, class_id: classId, term_id: termId, title: "Algebra Test", type: "Test", max_mark: 50, weight: 30, date: today, user_id: userId },
-              { id: ass2Id, class_id: classId, term_id: termId, title: "Geometry Project", type: "Project", max_mark: 100, weight: 70, date: today, user_id: userId }
-          ];
-          
-          await db.assessments.bulkAdd(assessments);
-          await queueAction('assessments', 'create', assessments);
-
-          // 5. Create Marks
-          const marks = [
-              // Alice
-              { assessment_id: ass1Id, learner_id: learnerIds[0], score: 42, comment: "Great job", user_id: userId },
-              { assessment_id: ass2Id, learner_id: learnerIds[0], score: 90, user_id: userId },
-              // Bob
-              { assessment_id: ass1Id, learner_id: learnerIds[1], score: 18, user_id: userId },
-              { assessment_id: ass2Id, learner_id: learnerIds[1], score: 45, comment: "Late submission", user_id: userId },
-              // Charlie
-              { assessment_id: ass1Id, learner_id: learnerIds[2], score: 30, user_id: userId },
-              { assessment_id: ass2Id, learner_id: learnerIds[2], score: 70, user_id: userId },
-              // David
-              { assessment_id: ass1Id, learner_id: learnerIds[3], score: 12, user_id: userId },
-              { assessment_id: ass2Id, learner_id: learnerIds[3], score: 35, comment: "Incomplete", user_id: userId },
-              // Eve
-              { assessment_id: ass1Id, learner_id: learnerIds[4], score: 48, user_id: userId },
-              { assessment_id: ass2Id, learner_id: learnerIds[4], score: 98, user_id: userId },
-          ];
-          
-          // Add random ID to marks for Dexie compatibility if composite key issues arise, but our schema uses composite [ass+learner]
-          await db.assessment_marks.bulkPut(marks as any);
-          await queueAction('assessment_marks', 'upsert', marks);
-      }
-
-      // 6. Create Attendance (Last 5 days)
-      const attendance = [];
-      for (let i = 0; i < 5; i++) {
-          const dateStr = format(subDays(new Date(), i), 'yyyy-MM-dd');
-          learners.forEach((l, idx) => {
-              // Simulate some absentees
-              let status = 'present';
-              if (idx === 1 && i === 1) status = 'absent'; // Bob absent yesterday
-              if (idx === 3 && i === 0) status = 'late'; // David late today
-              
-              attendance.push({
-                  learner_id: l.id,
-                  class_id: classId,
-                  date: dateStr,
-                  status,
-                  user_id: userId
-              });
-          });
-      }
-      await db.attendance.bulkPut(attendance as any);
-      await queueAction('attendance', 'upsert', attendance);
-
-      // 7. Create Learner Notes
-      const notes = [
-          { id: crypto.randomUUID(), learner_id: learnerIds[1], user_id: userId, content: "Forgot textbook again.", category: "behavior", date: todayShort, created_at: today },
-          { id: crypto.randomUUID(), learner_id: learnerIds[4], user_id: userId, content: "Helped peers with difficult questions.", category: "positive", date: todayShort, created_at: today },
-      ];
-      await db.learner_notes.bulkAdd(notes as any);
-      await queueAction('learner_notes', 'create', notes);
-
-      // 8. Create Timetable Entries (Today + Tomorrow)
-      const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-      const currentDay = format(new Date(), 'EEEE');
-      const timetable = [
-          { id: crypto.randomUUID(), user_id: userId, day: currentDay, period: 1, subject: "Mathematics", class_name: "10-Demo", class_id: classId },
-          { id: crypto.randomUUID(), user_id: userId, day: currentDay, period: 3, subject: "Prep", class_name: "Free", class_id: null },
-      ];
-      await db.timetable.bulkPut(timetable as any);
-      await queueAction('timetable', 'upsert', timetable);
-
-      // 9. Todos
-      const todos = [
-          { id: crypto.randomUUID(), user_id: userId, title: "Mark 10-Demo Algebra Tests", completed: false, created_at: today },
-          { id: crypto.randomUUID(), user_id: userId, title: "Prepare Term 2 Schedule", completed: true, created_at: today }
-      ];
-      await db.todos.bulkAdd(todos);
-      await queueAction('todos', 'create', todos);
-
-      showSuccess("Full Demo Suite Generated! Redirecting to Dashboard...");
-      setTimeout(() => window.location.href = "/", 1500);
-
-    } catch (e: any) {
-        console.error(e);
-        showError("Failed to generate demo data: " + e.message);
-    } finally {
-        setIsGenerating(false);
     }
   };
 
@@ -409,23 +181,37 @@ export const DataManagementSettings = () => {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <FileJson className="h-5 w-5 text-primary" />
-          <CardTitle>Data Management</CardTitle>
+          <Database className="h-5 w-5 text-primary" />
+          <CardTitle>Data & System Health</CardTitle>
         </div>
         <CardDescription>
-          Backup your data to a file or restore from a previous backup.
+          Maintain data integrity and manage backups.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
-          <div>
-            <h3 className="font-semibold mb-1">Generate Demo Data</h3>
-            <p className="text-sm text-muted-foreground">Populate the app with a sample class, assessments, attendance, and notes.</p>
-          </div>
-          <Button onClick={handleGenerateDemoData} disabled={isGenerating} variant="outline" className="text-primary hover:text-primary">
-            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
-            Generate Full Demo
-          </Button>
+        
+        <div className="grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/20">
+                <div>
+                    <h3 className="font-semibold text-sm mb-1">Repair Averages</h3>
+                    <p className="text-xs text-muted-foreground">Recalculates dashboard summary marks for all students based on detailed assessment history.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleRecalculate} disabled={isRepairing} className="w-full mt-auto">
+                    {isRepairing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Calculator className="h-4 w-4 mr-2" />}
+                    Recalculate All
+                </Button>
+            </div>
+
+            <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/20">
+                <div>
+                    <h3 className="font-semibold text-sm mb-1">Force Sync</h3>
+                    <p className="text-xs text-muted-foreground">Manually push all pending changes to the server and pull latest data.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={forceSync} disabled={isSyncing || !isOnline} className="w-full mt-auto">
+                    {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                    Sync Now
+                </Button>
+            </div>
         </div>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
@@ -435,19 +221,19 @@ export const DataManagementSettings = () => {
           </div>
           <Button onClick={handleExportData} variant="outline" disabled={isExporting}>
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-            Export Full Backup
+            Export Backup
           </Button>
         </div>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
           <div>
             <h3 className="font-semibold mb-1">Restore Data</h3>
-            <p className="text-sm text-muted-foreground">Upload a backup file to restore your data. <span className="text-amber-600 font-medium">Overwrites existing IDs.</span></p>
+            <p className="text-sm text-muted-foreground">Upload a backup file to restore your data.</p>
           </div>
           <div className="relative">
             <Button variant="outline" className="relative cursor-pointer" disabled={isImporting}>
                {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-               Import from File
+               Import File
                <input 
                 type="file" 
                 accept=".json" 
@@ -462,25 +248,25 @@ export const DataManagementSettings = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border border-destructive/20 rounded-lg bg-red-50 dark:bg-red-950/10">
           <div>
             <h3 className="font-semibold mb-1 text-destructive">Danger Zone</h3>
-            <p className="text-sm text-muted-foreground">Permanently remove all classes, assessments, and settings.</p>
+            <p className="text-sm text-muted-foreground">Permanently remove all classes and settings.</p>
           </div>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" disabled={isClearing}>
-                <AlertTriangle className="mr-2 h-4 w-4" /> Clear All Data
+                <AlertTriangle className="mr-2 h-4 w-4" /> Reset App
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete <strong>ALL</strong> data including classes, learners, assessments, marks, and settings.
+                  This action cannot be undone. This will permanently delete <strong>ALL</strong> data locally and on the server.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleClearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  {isClearing ? "Clearing..." : "Yes, Clear Everything"}
+                  {isClearing ? "Clearing..." : "Yes, Reset App"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
