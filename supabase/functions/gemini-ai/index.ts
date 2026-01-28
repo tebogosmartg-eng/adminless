@@ -8,7 +8,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -16,28 +15,21 @@ serve(async (req) => {
   try {
     const { action, payload } = await req.json()
     
-    // Use environment variable, fallback to provided key if missing
-    const apiKey = Deno.env.get('GEMINI_API_KEY') || "AIzaSyBNc6VQDlTP_Fw2Af1kb78sTnVN1QB2kG8"
-    
+    const apiKey = Deno.env.get('GEMINI_API_KEY')
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY not set.')
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    // Use flash model for speed and cost effectiveness
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // Helper to extract JSON from Markdown code blocks
     const cleanJson = (text: string) => {
         let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "");
-        // Find the first '{' or '['
         const firstCurly = clean.indexOf('{');
         const firstSquare = clean.indexOf('[');
-        
         let startIndex = -1;
         let endIndex = -1;
 
-        // Determine if we are looking for an object or array
         if (firstCurly !== -1 && (firstSquare === -1 || firstCurly < firstSquare)) {
             startIndex = firstCurly;
             endIndex = clean.lastIndexOf('}');
@@ -49,12 +41,11 @@ serve(async (req) => {
         if (startIndex !== -1 && endIndex !== -1) {
             return clean.substring(startIndex, endIndex + 1);
         }
-        
         return clean.trim();
     };
 
     if (action === 'scan-images') {
-        const { images } = payload; // Array of { mimeType, data }
+        const { images } = payload;
         
         const prompt = `
             Analyze these images of student test scripts, mark sheets, or class lists.
@@ -84,8 +75,8 @@ serve(async (req) => {
 
         const imageParts = images.map((img: any) => ({
             inlineData: {
-                data: img.data,
-                mimeType: img.mimeType
+                data: img.split(',')[1] || img, // Handle base64 prefix if present
+                mimeType: "image/jpeg" // Assuming jpeg or png, api is flexible usually
             }
         }));
 
@@ -109,7 +100,7 @@ serve(async (req) => {
             Analyze the performance of the following class:
             Subject: ${subject}
             Grade: ${grade}
-            Learner Data (Marks): ${JSON.stringify(learners)}
+            Learner Data (Names and Marks): ${JSON.stringify(learners.map(l => ({ name: l.name, mark: l.mark })))}
 
             Output JSON only:
             {
@@ -127,17 +118,43 @@ serve(async (req) => {
         return new Response(jsonStr, { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    if (action === 'generate-comments') {
-        const { subject, grade, learners } = payload;
-
+    if (action === 'generate-report') {
+        const { learner, classInfo, assessmentData } = payload;
+        
         const prompt = `
-            Generate a unique, professional report card comment (1 sentence) for each student based on their mark.
-            Subject: ${subject}
-            Grade: ${grade}
-            Learner Data: ${JSON.stringify(learners)}
+            Write a formal school report card comment for:
+            Student: ${learner.name}
+            Class: ${classInfo.grade} ${classInfo.subject}
+            Overall Mark: ${learner.mark || 'N/A'}%
+            Teacher's Existing Note: ${learner.comment || 'None'}
+            
+            Detailed Assessment History: ${JSON.stringify(assessmentData)}
+            
+            The tone should be professional and constructive.
+            Focus on their strengths and specific areas where they can improve based on the assessment history provided.
+            
+            Output JSON only:
+            { "report": "The generated paragraph text..." }
+        `;
 
-            Output JSON array only:
-            [ { "name": "Student Name", "comment": "The comment." } ]
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const jsonStr = cleanJson(response.text());
+        
+        return new Response(jsonStr, { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    if (action === 'generate-single-comment') {
+        const { learner, tone } = payload;
+        
+        const prompt = `
+            Write a short, single-sentence report card comment for:
+            Student: ${learner.name}
+            Mark: ${learner.mark}%
+            Tone: ${tone || 'Professional'}
+            
+            Output JSON only:
+            { "comment": "The comment text." }
         `;
 
         const result = await model.generateContent(prompt);

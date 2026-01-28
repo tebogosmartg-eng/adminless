@@ -1,4 +1,4 @@
-import { ClassInfo, Learner, ClassInsight, ScannedDetails, ScannedLearner } from "@/lib/types";
+import { ClassInfo, Learner, ClassInsight } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 
 // Helper to handle offline/error states gracefully
@@ -9,23 +9,28 @@ const mockInsights: ClassInsight = {
   recommendations: ["Incorporate more timed practice sessions", "Use peer-review for complex problems"]
 };
 
+// Unified helper for calling the monolith edge function
+const invokeGemini = async (action: string, payload: any) => {
+  const { data, error } = await supabase.functions.invoke('gemini-ai', {
+    body: { action, payload }
+  });
+
+  if (error) throw error;
+  return data;
+};
+
 export const generateClassInsights = async (
   classInfo: ClassInfo, 
   learners: Learner[],
   assessmentData: any
 ): Promise<ClassInsight> => {
   try {
-    const { data, error } = await supabase.functions.invoke('generate-class-insights', {
-      body: { 
-        className: classInfo.className, 
-        grade: classInfo.grade,
-        subject: classInfo.subject,
-        learners, 
-        assessmentData 
-      }
+    const data = await invokeGemini('generate-insights', { 
+      subject: classInfo.subject,
+      grade: classInfo.grade,
+      learners, // Passing mostly marks
+      assessmentData 
     });
-
-    if (error) throw error;
     return data || mockInsights;
   } catch (error) {
     console.error("AI Insight Generation Failed:", error);
@@ -39,11 +44,15 @@ export const generateLearnerReport = async (
   assessmentData: any
 ): Promise<string> => {
   try {
-    const { data, error } = await supabase.functions.invoke('generate-learner-report', {
-      body: { learner, classInfo, assessmentData }
+    const data = await invokeGemini('generate-report', { 
+      learner, 
+      classInfo: {
+        subject: classInfo.subject,
+        grade: classInfo.grade,
+        className: classInfo.className
+      }, 
+      assessmentData 
     });
-
-    if (error) throw error;
     return data?.report || "Could not generate report.";
   } catch (error) {
     console.error("Report Gen Error:", error);
@@ -55,17 +64,22 @@ export const generateLearnerComment = async (
     learner: Learner,
     tone: string
 ): Promise<string> => {
-    // Mock implementation 
-    return `Good progress shown this term. (${tone})`;
+    try {
+        const data = await invokeGemini('generate-single-comment', {
+            learner,
+            tone
+        });
+        return data?.comment || "";
+    } catch (e) {
+        console.error("Comment Gen Error", e);
+        return "";
+    }
 };
 
 export const processImagesWithGemini = async (images: string[]): Promise<any> => {
   try {
-    const { data, error } = await supabase.functions.invoke('scan-scripts', {
-      body: { images }
-    });
-
-    if (error) throw error;
+    // Action name matches what is expected in the edge function
+    const data = await invokeGemini('scan-images', { images });
     return data;
   } catch (error) {
     console.error("Image Processing Failed:", error);
