@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClassInfo } from "@/lib/types";
 import { useMemo } from "react";
-import { Users, Percent, TrendingUp, TrendingDown, BookOpen } from "lucide-react";
+import { Percent, TrendingUp, TrendingDown, BookOpen } from "lucide-react";
 
 interface GlobalStatsProps {
   classes: ClassInfo[];
@@ -9,9 +9,7 @@ interface GlobalStatsProps {
 
 const GlobalStats = ({ classes }: GlobalStatsProps) => {
   const stats = useMemo(() => {
-    if (classes.length === 0) {
-      return null;
-    }
+    if (classes.length === 0) return null;
 
     const totalLearners = classes.reduce((acc, c) => acc + c.learners.length, 0);
     const totalClasses = classes.length;
@@ -31,24 +29,22 @@ const GlobalStats = ({ classes }: GlobalStatsProps) => {
         .filter(mark => mark && !isNaN(parseFloat(mark)))
         .map(mark => parseFloat(mark));
       
-      if (marks.length === 0) {
-        return { name: `${c.subject} - ${c.className}`, average: -1 };
-      }
+      if (marks.length === 0) return { name: `${c.subject} - ${c.className}`, average: -1 };
       
       const average = marks.reduce((acc, mark) => acc + mark, 0) / marks.length;
       return { name: `${c.subject} - ${c.className}`, average };
     }).filter(c => c.average !== -1);
 
-    let bestClass = { name: "No data", average: "-" };
+    let bestClass = { name: "N/A", average: "-" };
     if (classAverages.length > 0) {
       const best = classAverages.reduce((max, c) => c.average > max.average ? c : max, classAverages[0]);
       bestClass = { name: best.name, average: `${best.average.toFixed(1)}%` };
     }
 
-    let worstClass = { name: "No data", average: "-" };
+    let needsAttention = { name: "N/A", average: "-" };
     if (classAverages.length > 0) {
       const worst = classAverages.reduce((min, c) => c.average < min.average ? c : min, classAverages[0]);
-      worstClass = { name: worst.name, average: `${worst.average.toFixed(1)}%` };
+      needsAttention = { name: worst.name, average: `${worst.average.toFixed(1)}%` };
     }
 
     return {
@@ -56,63 +52,54 @@ const GlobalStats = ({ classes }: GlobalStatsProps) => {
       totalLearners,
       overallAverage,
       bestClass,
-      worstClass,
+      needsAttention,
     };
   }, [classes]);
 
-  if (!stats) {
-    return null;
-  }
+  if (!stats) return null;
 
   return (
-    <div className="mb-6">
-      <h2 className="text-xl font-semibold mb-4">Overall Statistics</h2>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Classes</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalClasses}</div>
-            <p className="text-xs text-muted-foreground">{stats.totalLearners} total learners</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overall Average</CardTitle>
-            <Percent className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.overallAverage}</div>
-            <p className="text-xs text-muted-foreground">Based on captured marks</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Best Performance</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.bestClass.average}</div>
-            <p className="text-xs text-muted-foreground truncate" title={stats.bestClass.name}>
-              {stats.bestClass.name}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Needs Attention</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.worstClass.average}</div>
-            <p className="text-xs text-muted-foreground truncate" title={stats.worstClass.name}>
-              {stats.worstClass.name}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <Card className="border-none shadow-sm bg-white dark:bg-card">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Classes</CardTitle>
+          <BookOpen className="h-4 w-4 text-primary opacity-50" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-foreground">{stats.totalClasses}</div>
+          <p className="text-[10px] text-muted-foreground mt-1">{stats.totalLearners} total learners</p>
+        </CardContent>
+      </Card>
+      <Card className="border-none shadow-sm bg-white dark:bg-card">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Avg. Mark</CardTitle>
+          <Percent className="h-4 w-4 text-primary opacity-50" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-foreground">{stats.overallAverage}</div>
+          <p className="text-[10px] text-muted-foreground mt-1">Global performance</p>
+        </CardContent>
+      </Card>
+      <Card className="border-none shadow-sm bg-white dark:bg-card">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Top Performer</CardTitle>
+          <TrendingUp className="h-4 w-4 text-green-600 opacity-50" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-green-600">{stats.bestClass.average}</div>
+          <p className="text-[10px] text-muted-foreground mt-1 truncate">{stats.bestClass.name}</p>
+        </CardContent>
+      </Card>
+      <Card className="border-none shadow-sm bg-white dark:bg-card">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Lower Tier</CardTitle>
+          <TrendingDown className="h-4 w-4 text-amber-600 opacity-50" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-amber-600">{stats.needsAttention.average}</div>
+          <p className="text-[10px] text-muted-foreground mt-1 truncate">{stats.needsAttention.name}</p>
+        </CardContent>
+      </Card>
     </div>
   );
 };

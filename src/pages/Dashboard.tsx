@@ -1,13 +1,9 @@
-import { BarChart3, BookOpen, GraduationCap, Loader2 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import GlobalStats from '@/components/dashboard/GlobalStats';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { DashboardOverviewTab } from '@/components/dashboard/DashboardOverviewTab';
 import { DashboardGroupedView } from '@/components/dashboard/DashboardGroupedView';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart3, LayoutGrid, GraduationCap, Loader2 } from 'lucide-react';
 import { useClasses } from '@/context/ClassesContext';
-import { QuickActions } from '@/components/dashboard/QuickActions';
-import { GlobalAddNoteDialog } from '@/components/dialogs/GlobalAddNoteDialog';
-import { useState } from 'react';
 
 const Dashboard = () => {
   const { loading } = useClasses();
@@ -19,74 +15,61 @@ const Dashboard = () => {
     classesByGrade 
   } = useDashboardData();
 
-  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
-
   if (loading) {
     return (
-        <div className="flex h-[50vh] w-full items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex h-[60vh] w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Preparing Dashboard</p>
         </div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+    <div className="space-y-6 pb-12">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground text-sm">Professional overview of your academic workload and results.</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-4">
-         <div className="lg:col-span-3 space-y-6">
-            {activeClasses.length > 0 && <GlobalStats classes={activeClasses} />}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="bg-muted/50 p-1 border">
+          <TabsTrigger value="overview" className="flex items-center gap-2 px-4">
+            <BarChart3 className="h-4 w-4" /> Overview
+          </TabsTrigger>
+          <TabsTrigger value="subjects" className="flex items-center gap-2 px-4">
+            <LayoutGrid className="h-4 w-4" /> By Subject
+          </TabsTrigger>
+          <TabsTrigger value="grades" className="flex items-center gap-2 px-4">
+            <GraduationCap className="h-4 w-4" /> By Grade
+          </TabsTrigger>
+        </TabsList>
 
-            <Tabs defaultValue="overview" className="space-y-4">
-                <TabsList>
-                <TabsTrigger value="overview" className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" /> Overview
-                </TabsTrigger>
-                <TabsTrigger value="subjects" className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4" /> By Subject
-                </TabsTrigger>
-                <TabsTrigger value="grades" className="flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4" /> By Grade
-                </TabsTrigger>
-                </TabsList>
+        <TabsContent value="overview">
+          <DashboardOverviewTab 
+            activeClasses={activeClasses}
+            allActiveLearners={allActiveLearners}
+            totalClassesCount={classes.length}
+          />
+        </TabsContent>
 
-                <TabsContent value="overview" className="space-y-6">
-                <DashboardOverviewTab 
-                    activeClasses={activeClasses}
-                    allActiveLearners={allActiveLearners}
-                    totalClassesCount={classes.length}
-                />
-                </TabsContent>
+        <TabsContent value="subjects">
+          <DashboardGroupedView 
+            activeClasses={activeClasses}
+            groupedClasses={classesBySubject}
+            groupBy="subject"
+          />
+        </TabsContent>
 
-                <TabsContent value="subjects" className="space-y-6">
-                <DashboardGroupedView 
-                    activeClasses={activeClasses}
-                    groupedClasses={classesBySubject}
-                    groupBy="subject"
-                />
-                </TabsContent>
-
-                <TabsContent value="grades" className="space-y-6">
-                <DashboardGroupedView 
-                    activeClasses={activeClasses}
-                    groupedClasses={classesByGrade}
-                    groupBy="grade"
-                />
-                </TabsContent>
-            </Tabs>
-         </div>
-         <div className="lg:col-span-1 space-y-6">
-            <QuickActions onAddNote={() => setIsAddNoteOpen(true)} />
-            {/* We can hide other widgets on mobile or rearrange */}
-         </div>
-      </div>
-
-      <GlobalAddNoteDialog 
-        open={isAddNoteOpen} 
-        onOpenChange={setIsAddNoteOpen} 
-      />
+        <TabsContent value="grades">
+          <DashboardGroupedView 
+            activeClasses={activeClasses}
+            groupedClasses={classesByGrade}
+            groupBy="grade"
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

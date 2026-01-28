@@ -11,101 +11,60 @@ const ClassComparisonChart = ({ classes }: ClassComparisonChartProps) => {
   const data = classes.map(c => {
     const stats = calculateClassStats(c.learners);
     return {
-      name: `${c.grade} ${c.subject}`, // Full name for tooltip
-      shortName: c.className,          // Short name for X-Axis
+      name: c.className,
+      subject: c.subject,
       average: stats.average,
-      passRate: stats.passRate,
-      learners: c.learners.length
     };
   });
 
   return (
-    <Card>
+    <Card className="border-none shadow-sm bg-white dark:bg-card">
       <CardHeader>
-        <CardTitle>Class Comparison</CardTitle>
-        <CardDescription>Average mark percentage per class.</CardDescription>
+        <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Performance by Class</CardTitle>
+        <CardDescription className="text-xs italic">Average percentage across active class groups.</CardDescription>
       </CardHeader>
       <CardContent>
-        {classes.length > 0 ? (
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="shortName" 
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={10}
-                  tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
-                />
-                <YAxis 
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `${value}%`}
-                  tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
-                  domain={[0, 100]}
-                />
-                <Tooltip 
-                  cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="rounded-lg border bg-background p-2 shadow-sm">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="flex flex-col">
-                              <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                Class
-                              </span>
-                              <span className="font-bold text-foreground">
-                                {data.name}
-                              </span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                Average
-                              </span>
-                              <span className="font-bold text-foreground">
-                                {data.average}%
-                              </span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                Pass Rate
-                              </span>
-                              <span className="font-bold text-foreground">
-                                {data.passRate}%
-                              </span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                Learners
-                              </span>
-                              <span className="font-bold text-foreground">
-                                {data.learners}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar 
-                  dataKey="average" 
-                  fill="hsl(var(--primary))" 
-                  radius={[4, 4, 0, 0]} 
-                  maxBarSize={60}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            No class data available to chart.
-          </div>
-        )}
+        <div className="h-[300px] w-full pt-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis 
+                dataKey="name" 
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10, fontWeight: 500 }}
+              />
+              <YAxis 
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => `${value}%`}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                domain={[0, 100]}
+              />
+              <Tooltip 
+                cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const d = payload[0].payload;
+                    return (
+                      <div className="rounded-md border bg-background p-3 shadow-md border-border/50">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{d.subject}</p>
+                        <p className="text-sm font-bold text-foreground">{d.name}: {d.average}%</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Bar 
+                dataKey="average" 
+                fill="hsl(var(--primary))" 
+                radius={[4, 4, 0, 0]} 
+                maxBarSize={40}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );

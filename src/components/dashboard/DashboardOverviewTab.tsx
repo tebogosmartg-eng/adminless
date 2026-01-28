@@ -1,23 +1,14 @@
+import GlobalStats from './GlobalStats';
+import ClassComparisonChart from '@/components/charts/ClassComparisonChart';
+import MarkDistributionChart from '@/components/charts/MarkDistributionChart';
+import AtRiskLearners from './AtRiskLearners';
+import RecentActivity from './RecentActivity';
+import { ClassInfo, Learner } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Camera } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
-import ClassComparisonChart from '@/components/charts/ClassComparisonChart';
-import MarkDistributionChart from '@/components/charts/MarkDistributionChart';
-import RecentActivity from './RecentActivity';
-import AtRiskLearners from './AtRiskLearners';
-import { DailyAttendanceCard } from './DailyAttendanceCard';
-import { TodoList } from './TodoList';
-import { PendingActions } from './PendingActions';
-import { ActiveTermStats } from './ActiveTermStats';
-import { UpcomingAssessments } from './UpcomingAssessments';
-import { YearPerformanceTrend } from './YearPerformanceTrend';
-import { TopLearnersPerGrade } from './TopLearnersPerGrade';
-import { TimetableWidget } from './TimetableWidget';
-import { TermProgressWidget } from './TermProgressWidget';
-import { RecentAlerts } from './RecentAlerts';
-import { ClassInfo, Learner } from '@/lib/types';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -27,80 +18,60 @@ interface DashboardOverviewTabProps {
 
 export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalClassesCount }: DashboardOverviewTabProps) => {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
-        
-        <div className="grid gap-6 md:grid-cols-2">
-            <ActiveTermStats />
-            <YearPerformanceTrend />
-        </div>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <GlobalStats classes={activeClasses} />
+      
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+          {activeClasses.length > 0 ? (
+            <>
+              <ClassComparisonChart classes={activeClasses} />
+              <div className="grid gap-6 md:grid-cols-2">
+                <MarkDistributionChart 
+                  learners={allActiveLearners} 
+                  title="Global Symbol Spread" 
+                  description="Aggregate distribution across all classes."
+                />
+                <AtRiskLearners />
+              </div>
+            </>
+          ) : (
+            <Card className="border-dashed border-2 bg-transparent flex flex-col items-center justify-center py-16 text-center">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xl">Welcome to SmaReg</CardTitle>
+                <CardDescription>Start by creating your first class to see analytics.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col sm:flex-row gap-4 mt-4">
+                <Button asChild>
+                  <Link to="/classes">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Create Class
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/scan">
+                    <Camera className="mr-2 h-4 w-4" /> Scan Marksheet
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
-        {activeClasses.length > 0 && (
-           <PendingActions classes={activeClasses} />
-        )}
-
-        <div className="grid gap-6 md:grid-cols-2">
-            <RecentAlerts />
-            <AtRiskLearners />
-        </div>
-
-        {activeClasses.length > 0 && (
-          <>
-            <ClassComparisonChart classes={activeClasses} />
-            <MarkDistributionChart 
-              learners={allActiveLearners} 
-              title="Global Grade Distribution" 
-              description="Distribution of symbols across active classes." 
-            />
-          </>
-        )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Classes</CardTitle>
-            <CardDescription>Quick access to your current class registers.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {activeClasses.length > 0 ? (
+          {activeClasses.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Class Registers</h3>
               <div className="grid gap-4 md:grid-cols-2">
-                {activeClasses.map(classInfo => (
-                  <ClassSummaryCard key={classInfo.id} classInfo={classInfo} />
+                {activeClasses.map(c => (
+                  <ClassSummaryCard key={c.id} classInfo={c} />
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                <h3 className="text-lg font-semibold">No active classes</h3>
-                <p className="text-muted-foreground mt-1 mb-6">
-                  {totalClassesCount > 0 
-                    ? "All your classes are archived." 
-                    : "You haven't created any classes yet."}
-                </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <Button asChild>
-                    <Link to="/classes">
-                      <PlusCircle className="mr-2 h-4 w-4" /> Create Manually
-                    </Link>
-                  </Button>
-                  <span className="text-xs text-muted-foreground">OR</span>
-                  <Button asChild variant="outline">
-                    <Link to="/scan">
-                      <Camera className="mr-2 h-4 w-4" /> Scan Scripts (AI)
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-      <div className="lg:col-span-1 space-y-6">
-        <TermProgressWidget />
-        <TimetableWidget />
-        <UpcomingAssessments />
-        <DailyAttendanceCard />
-        <TopLearnersPerGrade classes={activeClasses} />
-        <TodoList />
-        <RecentActivity />
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          <RecentActivity />
+          {/* We can add a "Tasks/Reminders" widget here later */}
+        </div>
       </div>
     </div>
   );

@@ -8,10 +8,10 @@ export const useDashboardData = () => {
   // Only show active classes on the dashboard
   const activeClasses = useMemo(() => classes.filter(c => !c.archived), [classes]);
   
-  // Aggregate all learners for the global chart from active classes only
+  // Aggregate all learners for global distribution charts
   const allActiveLearners = useMemo(() => activeClasses.flatMap(c => c.learners), [activeClasses]);
 
-  // Group active classes by subject
+  // Group active classes by subject for categorical analysis
   const classesBySubject = useMemo(() => {
     const groups: Record<string, ClassInfo[]> = {};
     activeClasses.forEach(c => {
@@ -32,7 +32,7 @@ export const useDashboardData = () => {
   }, [activeClasses]);
 
   return {
-    classes, // Return all classes for "no classes created" check
+    classes,
     activeClasses,
     allActiveLearners,
     classesBySubject,
