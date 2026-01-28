@@ -77,6 +77,16 @@ export class SmaRegDB extends Dexie {
     this.version(6).stores({
       learner_notes: 'id, learner_id, date'
     });
+
+    // Version 7: Add user_id index to all tables queried by user_id for backup/restore/demo
+    this.version(7).stores({
+      academic_years: 'id, user_id, closed, name',
+      terms: 'id, user_id, year_id, name',
+      assessments: 'id, user_id, class_id, term_id, [class_id+term_id]',
+      activities: 'id, user_id, timestamp',
+      todos: 'id, user_id, completed',
+      learner_notes: 'id, user_id, learner_id, date'
+    });
   }
 }
 
