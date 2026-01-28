@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 import { useSettings } from '@/context/SettingsContext';
 import { Learner, ClassInfo, Assessment } from '@/lib/types';
@@ -84,6 +84,56 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     );
   }, [classInfo.learners, searchQuery]);
 
+  // Helper to get raw mark value (checks edited first, then DB)
+  const getRawMark = useCallback((assessmentId: string, learnerId: string) => {
+     const key = `${assessmentId}-${learnerId}`;
+     if (key in editedMarks) {
+         return editedMarks[key] === "" ? null : parseFloat(editedMarks[key]);
+     }
+     const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+     return m?.score ?? null;
+  }, [editedMarks, marks]);
+
+  // --- Rankings & Totals Logic ---
+
+  const learnerStats = useMemo(() => {
+      const stats: Record<string, { total: number; rank: number }> = {};
+      const targetAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
+
+      // 1. Calculate totals
+      const learnerTotals: { id: string; total: number }[] = [];
+
+      classInfo.learners.forEach(l => {
+          if (!l.id) return;
+          let weightedSum = 0;
+          
+          targetAssessments.forEach(ass => {
+              const rawScore = getRawMark(ass.id, l.id!);
+              if (rawScore !== null) {
+                  const weighted = (rawScore / ass.max_mark) * ass.weight;
+                  weightedSum += weighted;
+              }
+          });
+          
+          const total = parseFloat(weightedSum.toFixed(1));
+          learnerTotals.push({ id: l.id, total });
+          stats[l.id] = { total, rank: 0 };
+      });
+
+      // 2. Sort and Assign Ranks
+      learnerTotals.sort((a, b) => b.total - a.total);
+
+      let currentRank = 1;
+      for (let i = 0; i < learnerTotals.length; i++) {
+          if (i > 0 && learnerTotals[i].total < learnerTotals[i-1].total) {
+              currentRank = i + 1;
+          }
+          stats[learnerTotals[i].id].rank = currentRank;
+      }
+
+      return stats;
+  }, [classInfo.learners, isUsingVisibleTotal, visibleAssessments, assessments, getRawMark]);
+
   // --- Actions ---
 
   const getMarkValue = (assessmentId: string, learnerId: string) => {
@@ -131,13 +181,11 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       const updates = Array.from(keys).map(key => {
           const [assessmentId, learnerId] = key.split('-');
           
-          // Get values: prioritize edited, fallback to existing DB, or default
           let score: number | null = null;
           if (key in editedMarks) {
               const val = editedMarks[key];
               score = val === "" ? null : parseFloat(val);
           } else {
-              // Not edited locally, fetch current
               const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
               score = m?.score ?? null;
           }
@@ -186,22 +234,19 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
      setNewAss({ title: "", type: "Test", max: 50, weight: 10, date: "" });
   };
 
-  const calculateLearnerTotal = (learnerId: string) => {
-      let weightedSum = 0;
-      let totalMaxWeight = 0;
+  const getLearnerTotal = (learnerId: string) => {
+      return learnerStats[learnerId]?.total.toFixed(1) || "0.0";
+  };
+
+  const getLearnerRank = (learnerId: string) => {
+      const rank = learnerStats[learnerId]?.rank;
+      if (!rank) return "-";
       
-      const targetAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
-      
-      targetAssessments.forEach(ass => {
-          const val = getMarkValue(ass.id, learnerId);
-          if (val !== "") {
-              const score = parseFloat(val);
-              const weighted = (score / ass.max_mark) * ass.weight;
-              weightedSum += weighted;
-              totalMaxWeight += ass.weight;
-          }
-      });
-      return weightedSum.toFixed(1);
+      const suffix = (n: number) => {
+          const v = n % 100;
+          return (v >= 11 && v <= 13) ? 'th' : ['th', 'st', 'nd', 'rd', 'th'][v % 10] || 'th';
+      };
+      return `${rank}${suffix(rank)}`;
   };
 
   const getAssessmentStats = (assessmentId: string) => {
@@ -235,7 +280,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     try {
         const exportAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
         const assessmentHeaders = exportAssessments.map(a => `"${a.title} (${a.max_mark})"`);
-        const header = ["Learner Name", ...assessmentHeaders, `Total (${currentTotalWeight}%)`].join(",");
+        const header = ["Learner Name", ...assessmentHeaders, `Total (${currentTotalWeight}%)`, "Position"].join(",");
 
         const rows = classInfo.learners.map(l => {
             if (!l.id) return "";
@@ -243,8 +288,9 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
                 const m = getMarkValue(a.id, l.id!);
                 return m || "";
             });
-            const total = calculateLearnerTotal(l.id);
-            return [`"${l.name}"`, ...marksData, total].join(",");
+            const total = getLearnerTotal(l.id);
+            const rank = getLearnerRank(l.id);
+            return [`"${l.name}"`, ...marksData, total, rank].join(",");
         });
 
         const csvContent = [header, ...rows].join("\n");
@@ -319,7 +365,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       handleSaveMarks,
       handleBulkImport,
       handleAddAssessment,
-      calculateLearnerTotal,
+      getLearnerTotal,
+      getLearnerRank,
       getAssessmentStats,
       openAnalytics,
       handleExportSheet,

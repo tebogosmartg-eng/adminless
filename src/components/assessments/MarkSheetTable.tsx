@@ -43,7 +43,8 @@ interface MarkSheetTableProps {
   handleMarkChange: (assId: string, lId: string, val: string) => void;
   handleCommentChange: (assId: string, lId: string, val: string) => void;
   handleBulkColumnUpdate?: (assId: string, val: string) => void;
-  calculateLearnerTotal: (lId: string) => string;
+  calculateLearnerTotal: (lId: string) => string; // Now getLearnerTotal
+  getLearnerRank?: (lId: string) => string;
   getAssessmentStats: (assId: string) => { avg: string; max: string | number; min: string | number };
   onViewLearnerProfile?: (learner: Learner) => void;
 }
@@ -52,7 +53,7 @@ export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
   isLocked, isUsingVisibleTotal, atRiskThreshold, setIsAddOpen,
   openAnalytics, deleteAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
-  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile
+  calculateLearnerTotal, getLearnerRank, getAssessmentStats, onViewLearnerProfile
 }: MarkSheetTableProps) => {
 
   const [noteDialog, setNoteDialog] = useState<{ open: boolean; assId: string; learnerId: string; learnerName: string; comment: string }>({ 
@@ -177,7 +178,6 @@ export const MarkSheetTable = ({
                             <>
                                 <DropdownMenuItem onClick={() => { 
                                     if (confirm(`Fill all empty cells in "${ass.title}" with 0?`)) {
-                                        // Use prompt to be safe, or just default to 0
                                         const val = prompt("Enter value to set for ALL learners (or leave blank to cancel):", "0");
                                         if (val !== null) handleBulkColumnUpdate(ass.id, val);
                                     }
@@ -208,6 +208,7 @@ export const MarkSheetTable = ({
           <TableBody>
             {filteredLearners.map((learner, rowIdx) => {
               const total = learner.id ? parseFloat(calculateLearnerTotal(learner.id)) : 0;
+              const rank = learner.id && getLearnerRank ? getLearnerRank(learner.id) : '-';
               const isAtRisk = total < atRiskThreshold && total > 0;
 
               return (
@@ -283,8 +284,15 @@ export const MarkSheetTable = ({
                       </TableCell>
                     );
                   })}
-                  <TableCell className={`text-center font-bold bg-muted/30 ${isAtRisk ? 'text-red-600' : ''}`}>
-                    {learner.id ? total.toFixed(1) : '-'}
+                  <TableCell className={`text-center bg-muted/30 p-2 ${isAtRisk ? 'text-red-600' : ''}`}>
+                    <div className="flex flex-col items-center justify-center">
+                        <span className="font-bold text-sm">{learner.id ? total.toFixed(1) : '-'}</span>
+                        {learner.id && rank !== '-' && (
+                            <span className="text-[10px] text-muted-foreground font-medium bg-muted-foreground/10 px-1.5 rounded-full mt-0.5">
+                                {rank}
+                            </span>
+                        )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );
