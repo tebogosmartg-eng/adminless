@@ -33,28 +33,42 @@ export const DataManagementSettings = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Export from Local DB to ensure we have latest offline changes too
+      // Fetch all data from Local DB
+      const profile = await db.profiles.get(user.id);
       
       const classes = await db.classes.where('user_id').equals(user.id).toArray();
-      // Need learners for these classes
       const classIds = classes.map(c => c.id);
-      const learners = await db.learners.where('class_id').anyOf(classIds).toArray();
       
-      // We need to reconstruct the class structure expected by the backup format
-      const classesWithLearners = classes.map(c => ({
-          ...c,
-          learners: learners.filter(l => l.class_id === c.id)
-      }));
+      const learners = await db.learners.where('class_id').anyOf(classIds).toArray();
+      const learnerIds = learners.map(l => l.id!);
 
-      const profile = await db.profiles.get(user.id);
+      const academic_years = await db.academic_years.where('user_id').equals(user.id).toArray();
+      const terms = await db.terms.where('user_id').equals(user.id).toArray();
+      
+      const assessments = await db.assessments.where('user_id').equals(user.id).toArray();
+      const assessmentIds = assessments.map(a => a.id);
+      const assessment_marks = await db.assessment_marks.where('assessment_id').anyOf(assessmentIds).toArray();
+      
+      const attendance = await db.attendance.where('class_id').anyOf(classIds).toArray();
+      const timetable = await db.timetable.where('user_id').equals(user.id).toArray();
+      const learner_notes = await db.learner_notes.where('learner_id').anyOf(learnerIds).toArray();
+      
       const todos = await db.todos.where('user_id').equals(user.id).toArray();
       const activities = await db.activities.where('user_id').equals(user.id).toArray();
 
       const backupData = {
-        version: '2.1', // Bump version for local-first structure
+        version: '3.0',
         timestamp: new Date().toISOString(),
         profile,
-        classes: classesWithLearners,
+        classes,
+        learners,
+        academic_years,
+        terms,
+        assessments,
+        assessment_marks,
+        attendance,
+        timetable,
+        learner_notes,
         todos,
         activities
       };
@@ -67,7 +81,7 @@ export const DataManagementSettings = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      showSuccess("Backup file downloaded successfully.");
+      showSuccess("Full backup downloaded successfully.");
     } catch (error: any) {
       showError(error.message || "Failed to export data.");
       console.error(error);
@@ -90,79 +104,63 @@ export const DataManagementSettings = () => {
         
         if (!user) throw new Error("User not authenticated");
 
-        // 1. Restore Profile Settings
+        // Helper to process a table
+        const restoreTable = async (tableName: string, items: any[]) => {
+            if (!items || !Array.isArray(items) || items.length === 0) return 0;
+            
+            // Map items to current user ID to prevent ownership issues on restore
+            const safeItems = items.map(item => ({
+                ...item,
+                user_id: item.user_id ? user.id : undefined // Only override if field exists
+            }));
+
+            // @ts-ignore
+            await db[tableName].bulkPut(safeItems);
+            // Queue sync for each item (bulk would be better but sync service takes array)
+            await queueAction(tableName, 'upsert', safeItems);
+            return safeItems.length;
+        };
+
+        // 1. Profile
         if (data.profile) {
-          const profileData = { 
-              id: user.id, 
-              ...data.profile,
-              updated_at: new Date().toISOString()
-          };
-          
+          const profileData = { id: user.id, ...data.profile, updated_at: new Date().toISOString() };
           await db.profiles.put(profileData);
           await queueAction('profiles', 'upsert', profileData);
         }
 
-        // 2. Restore Classes & Learners
-        if (data.classes && Array.isArray(data.classes)) {
-          let restoredCount = 0;
-          for (const cls of data.classes) {
-            
-            const existing = await db.classes.get(cls.id);
-            const classId = existing ? cls.id : (cls.id || crypto.randomUUID());
-            
-            const classData = {
-                id: classId,
-                user_id: user.id,
-                grade: cls.grade,
-                subject: cls.subject,
-                className: cls.className || cls.class_name, // Handle both versions
-                class_name: cls.className || cls.class_name, // DB expects class_name often for Supabase sync
-                archived: cls.archived || false,
-                notes: cls.notes || '',
-                created_at: cls.created_at || new Date().toISOString()
-            };
+        // 2. Classes (Legacy structure support: classes might contain learners in v2.1)
+        if (data.classes) {
+            // Check if v2.1 structure (learners nested)
+            if (data.classes.some((c: any) => c.learners)) {
+                // Flatten logic
+                const flattenedClasses = data.classes.map((c: any) => {
+                    const { learners, ...cls } = c;
+                    return { ...cls, user_id: user.id };
+                });
+                await restoreTable('classes', flattenedClasses);
 
-            await db.classes.put(classData);
-            
-            // Clean payload for sync
-            const syncClass = { ...classData };
-            delete (syncClass as any).className;
-            await queueAction('classes', 'upsert', syncClass);
-
-            if (cls.learners && cls.learners.length > 0) {
-              const learnersToInsert = cls.learners.map((l: any) => ({
-                id: l.id || crypto.randomUUID(),
-                class_id: classId,
-                name: l.name,
-                mark: l.mark,
-                comment: l.comment
-              }));
-              
-              await db.learners.bulkPut(learnersToInsert);
-              await queueAction('learners', 'upsert', learnersToInsert);
+                const flattenedLearners = data.classes.flatMap((c: any) => 
+                    (c.learners || []).map((l: any) => ({ ...l, class_id: c.id }))
+                );
+                await restoreTable('learners', flattenedLearners);
+            } else {
+                // v3.0 Flat structure
+                await restoreTable('classes', data.classes);
             }
-            restoredCount++;
-          }
-          showSuccess(`Restored ${restoredCount} classes locally.`);
         }
 
-        // 3. Restore Todos
-        if (data.todos && Array.isArray(data.todos)) {
-          const todosToInsert = data.todos.map((t: any) => ({
-             id: t.id || crypto.randomUUID(),
-             user_id: user.id,
-             title: t.title,
-             completed: t.completed || false,
-             created_at: t.created_at || new Date().toISOString()
-          }));
-          
-          if (todosToInsert.length > 0) {
-            await db.todos.bulkPut(todosToInsert);
-            await queueAction('todos', 'upsert', todosToInsert);
-          }
-        }
+        // 3. Other Tables (v3.0)
+        await restoreTable('learners', data.learners); // Will run if flat learners array exists
+        await restoreTable('academic_years', data.academic_years);
+        await restoreTable('terms', data.terms);
+        await restoreTable('assessments', data.assessments);
+        await restoreTable('assessment_marks', data.assessment_marks);
+        await restoreTable('attendance', data.attendance);
+        await restoreTable('timetable', data.timetable);
+        await restoreTable('learner_notes', data.learner_notes);
+        await restoreTable('todos', data.todos);
         
-        showSuccess("Data import complete.");
+        showSuccess("Data import complete. Reloading...");
         setTimeout(() => window.location.reload(), 1500);
 
       } catch (err) {
@@ -183,7 +181,6 @@ export const DataManagementSettings = () => {
       if (!user) return;
 
       // Clear Local DB
-      // Pass tables as an array to avoid Dexie transaction argument limit
       await db.transaction('rw', [
         db.classes, 
         db.learners, 
@@ -192,7 +189,11 @@ export const DataManagementSettings = () => {
         db.sync_queue, 
         db.attendance, 
         db.assessments, 
-        db.assessment_marks
+        db.assessment_marks,
+        db.academic_years,
+        db.terms,
+        db.timetable,
+        db.learner_notes
       ], async () => {
           await db.learners.clear();
           await db.classes.clear();
@@ -201,20 +202,23 @@ export const DataManagementSettings = () => {
           await db.attendance.clear();
           await db.assessments.clear();
           await db.assessment_marks.clear();
+          await db.academic_years.clear();
+          await db.terms.clear();
+          await db.timetable.clear();
+          await db.learner_notes.clear();
           
-          // Clear sync queue to prevent re-pushing old actions
           await db.sync_queue.clear();
       });
 
-      // If Online, also clear Server
       if (isOnline) {
+          // Cascading deletes on server usually handle most, but explicit safety:
           await supabase.from('classes').delete().eq('user_id', user.id);
+          await supabase.from('academic_years').delete().eq('user_id', user.id);
           await supabase.from('todos').delete().eq('user_id', user.id);
-          await supabase.from('activities').delete().eq('user_id', user.id);
-          // Other tables cascade
+          await supabase.from('timetable').delete().eq('user_id', user.id);
           showSuccess("Application data reset locally and on server.");
       } else {
-          showSuccess("Application data reset locally. Server data remains until manual cleanup.");
+          showSuccess("Application data reset locally.");
       }
 
       setTimeout(() => window.location.reload(), 1000);
@@ -237,9 +241,6 @@ export const DataManagementSettings = () => {
         { name: "Charlie Brown", mark: "65", comment: "Good improvement this term." },
         { name: "David Wilson", mark: "32", comment: "Struggling with basics. Needs tutoring." },
         { name: "Eve Davis", mark: "91", comment: "Outstanding performance." },
-        { name: "Frank Miller", mark: "55", comment: "Satisfactory, but can do better." },
-        { name: "Grace Lee", mark: "78", comment: "Very consistent work." },
-        { name: "Henry Ford", mark: "25", comment: "Critical: Did not submit homework." },
       ]
     };
     addClass(demoClass);
@@ -271,18 +272,18 @@ export const DataManagementSettings = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
           <div>
             <h3 className="font-semibold mb-1">Backup Data</h3>
-            <p className="text-sm text-muted-foreground">Download a JSON file containing all your classes and settings.</p>
+            <p className="text-sm text-muted-foreground">Download a JSON file containing all classes, assessments, and settings.</p>
           </div>
           <Button onClick={handleExportData} variant="outline" disabled={isExporting}>
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-            Export to File
+            Export Full Backup
           </Button>
         </div>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
           <div>
             <h3 className="font-semibold mb-1">Restore Data</h3>
-            <p className="text-sm text-muted-foreground">Upload a backup file to restore your data. Works offline.</p>
+            <p className="text-sm text-muted-foreground">Upload a backup file to restore your data. <span className="text-amber-600 font-medium">Overwrites existing IDs.</span></p>
           </div>
           <div className="relative">
             <Button variant="outline" className="relative cursor-pointer" disabled={isImporting}>
@@ -302,7 +303,7 @@ export const DataManagementSettings = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border border-destructive/20 rounded-lg bg-red-50 dark:bg-red-950/10">
           <div>
             <h3 className="font-semibold mb-1 text-destructive">Danger Zone</h3>
-            <p className="text-sm text-muted-foreground">Permanently remove all classes and reset the application data.</p>
+            <p className="text-sm text-muted-foreground">Permanently remove all classes, assessments, and settings.</p>
           </div>
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -314,7 +315,7 @@ export const DataManagementSettings = () => {
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete all your classes, learners, and activity history.
+                  This action cannot be undone. This will permanently delete <strong>ALL</strong> data including classes, learners, assessments, marks, and settings.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
