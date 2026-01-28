@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useClasses } from '@/context/ClassesContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useAcademic } from '@/context/AcademicContext';
@@ -23,21 +23,30 @@ import { Loader2, FileDown } from 'lucide-react';
 const Reports = () => {
   const { classes } = useClasses();
   const { gradingScheme, schoolName } = useSettings();
-  const { terms, years, activeYear } = useAcademic();
+  const { terms, years, activeYear, activeTerm } = useAcademic();
 
   // Hooks
   const manualReports = useReportsData(classes);
   const { loading: termLoading, reportData: termData, generateTermReport } = useTermReportData();
   const { loading: yearLoading, yearData, generateYearReport } = useYearReportData();
 
-  // State
+  // State - Default to active context if available
   const [termReportGrade, setTermReportGrade] = useState("all");
   const [termReportSubject, setTermReportSubject] = useState("all");
-  const [selectedTermId, setSelectedTermId] = useState("");
+  const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
 
   const [yearReportGrade, setYearReportGrade] = useState("all");
   const [yearReportSubject, setYearReportSubject] = useState("all");
-  const [selectedYearId, setSelectedYearId] = useState("");
+  const [selectedYearId, setSelectedYearId] = useState(activeYear?.id || "");
+
+  // Update defaults if active context changes
+  useEffect(() => {
+      if (activeTerm && !selectedTermId) setSelectedTermId(activeTerm.id);
+  }, [activeTerm]);
+
+  useEffect(() => {
+      if (activeYear && !selectedYearId) setSelectedYearId(activeYear.id);
+  }, [activeYear]);
 
   // Term PDF Export
   const handleExportTermPDF = () => {
@@ -48,7 +57,11 @@ const Reports = () => {
     doc.text(`${schoolName} - ${termName} Report`, 14, 20);
     doc.setFontSize(10);
     doc.text(`Grade: ${termReportGrade} | Subject: ${termReportSubject}`, 14, 28);
-    const assessmentTitles = Array.from(new Set(termData.flatMap(r => Object.keys(r.assessments))));
+    
+    // Helper to extract keys safely
+    const firstItem = termData[0];
+    const assessmentTitles = firstItem ? Object.keys(firstItem.assessments) : [];
+    
     const head = [['Name', 'Class', ...assessmentTitles, 'Final %', 'Sym']];
     const body = termData.map(r => {
         const symbol = getGradeSymbol(r.termAverage, gradingScheme);
@@ -68,8 +81,9 @@ const Reports = () => {
     doc.setFontSize(10);
     doc.text(`Grade: ${yearReportGrade} | Subject: ${yearReportSubject}`, 14, 28);
     
-    // Get term names from the first result or a set of all
-    const termNames = Array.from(new Set(yearData.flatMap(r => Object.keys(r.termMarks))));
+    const firstItem = yearData[0];
+    const termNames = firstItem ? Object.keys(firstItem.termMarks).sort() : [];
+    
     const head = [['Name', ...termNames, 'Final Year %', 'Sym']];
     const body = yearData.map(r => {
         const symbol = getGradeSymbol(r.finalYearMark, gradingScheme);

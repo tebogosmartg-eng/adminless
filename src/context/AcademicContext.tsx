@@ -44,17 +44,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   // Logic to determine active term
   useEffect(() => {
-      if (terms.length === 0) return;
-
-      // Check if current selection is valid for this list
-      const isValidSelection = activeTermId && terms.some(t => t.id === activeTermId);
-
-      if (!isValidSelection) {
+      if (terms.length > 0 && !activeTermId) {
           const now = new Date().toISOString();
-          // Find term containing 'now'
-          const current = terms.find(t => t.start_date && t.end_date && now >= t.start_date && now <= t.end_date);
-          // Fallback to first term if no date match
-          setActiveTermId(current?.id || terms[0].id);
+          const current = terms.find(t => t.start_date && t.end_date && now >= t.start_date && now <= t.end_date) || terms[0];
+          setActiveTermId(current.id);
       }
   }, [terms, activeTermId]);
 
@@ -134,20 +127,13 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     const id = crypto.randomUUID();
     if (!session?.user.id) return id; 
     
-    // VALIDATION: Check if Term is valid and open
     const term = await db.terms.get(assessment.term_id);
-    if (!term) {
-        throw new Error("Invalid term selected.");
-    }
+    if (!term) throw new Error("Invalid term selected.");
     
     const year = await db.academic_years.get(term.year_id);
     
-    if (term.closed) {
-        throw new Error(`Cannot create assessment. ${term.name} is closed.`);
-    }
-    if (year?.closed) {
-        throw new Error(`Cannot create assessment. Academic Year ${year.name} is closed.`);
-    }
+    if (term.closed) throw new Error(`Cannot create assessment. ${term.name} is closed.`);
+    if (year?.closed) throw new Error(`Cannot create assessment. Academic Year ${year.name} is closed.`);
 
     const data = { ...assessment, id, user_id: session.user.id };
     
@@ -158,7 +144,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   };
 
   const deleteAssessment = async (id: string) => {
-      // Could add validation here too, but UI usually handles it.
       await db.assessment_marks.where('assessment_id').equals(id).delete(); 
       await db.assessments.delete(id);
       await queueAction('assessments', 'delete', { id });
@@ -177,6 +162,66 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     await queueAction('assessment_marks', 'upsert', toUpsert);
     
     showSuccess("Saved successfully.");
+
+    // SYNC Logic: Update learner "mark" field (Legacy field used for Dashboard/Class Cards)
+    // Only if we are updating marks for the ACTIVE term
+    if (activeTerm) {
+        // Group updates by assessment to check if they belong to active term
+        // Optimization: Just check one since usually bulk updates are for same assessment, or assume mixed.
+        // We will fetch ALL assessments for the active term to recalculate averages for affected learners.
+        
+        const learnerIds = new Set(updates.map(u => u.learner_id));
+        const affectedLearners = Array.from(learnerIds);
+
+        // Fetch assessments for active term (for the classes these learners belong to? A bit complex)
+        // Simplification: We assume updates are happening within the context of a class usually.
+        // But here we need to be generic. 
+        
+        // Let's iterate affected learners and recalculate their Active Term Average
+        for (const learnerId of affectedLearners) {
+            // Get learner to find their class
+            const learner = await db.learners.get(learnerId);
+            if (!learner) continue;
+
+            // Get all assessments for this learner's class in the active term
+            const termAssessments = await db.assessments
+                .where('[class_id+term_id]')
+                .equals([learner.class_id, activeTerm.id])
+                .toArray();
+            
+            if (termAssessments.length === 0) continue;
+
+            const assessmentIds = termAssessments.map(a => a.id);
+            const learnerMarks = await db.assessment_marks
+                .where('assessment_id')
+                .anyOf(assessmentIds)
+                .and(m => m.learner_id === learnerId)
+                .toArray();
+
+            // Calculate Average
+            let weightedSum = 0;
+            // Total weight should be based on assessments that HAVE marks or ALL assessments? 
+            // Usually weighted average of what's been marked so far.
+            // Or sum of weighted scores.
+            
+            termAssessments.forEach(ass => {
+                const m = learnerMarks.find(mark => mark.assessment_id === ass.id);
+                if (m && m.score !== null) {
+                    const val = Number(m.score);
+                    const weighted = (val / ass.max_mark) * ass.weight;
+                    weightedSum += weighted;
+                }
+            });
+
+            const newAverage = weightedSum.toFixed(1).replace(/\.0$/, '');
+            
+            // Update learner
+            await db.learners.update(learnerId, { mark: newAverage });
+            // We don't necessarily need to sync this 'mark' field update immediately if we treat it as derived data,
+            // but for consistency across devices we should.
+            await queueAction('learners', 'update', { id: learnerId, mark: newAverage });
+        }
+    }
   };
 
   return (
