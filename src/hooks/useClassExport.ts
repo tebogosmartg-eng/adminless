@@ -1,9 +1,10 @@
 import { ClassInfo, Learner, GradeSymbol } from '@/lib/types';
 import { getGradeSymbol } from '@/utils/grading';
-import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReportsPDF } from '@/utils/pdfGenerator';
+import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReportsPDF, generateLearnerReportPDF, AttendanceStats } from '@/utils/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateClassStats } from '@/utils/stats';
 import { useSettings } from '@/context/SettingsContext';
+import { db } from '@/db';
 
 export const useClassExport = (
   classInfo: ClassInfo | undefined,
@@ -14,6 +15,41 @@ export const useClassExport = (
   schoolLogo: string | null
 ) => {
   const { contactEmail, contactPhone } = useSettings();
+
+  // Helper to fetch attendance for all learners in the class
+  const fetchAttendanceMap = async (): Promise<Record<string, AttendanceStats>> => {
+    if (!classInfo) return {};
+    
+    try {
+        const records = await db.attendance.where('class_id').equals(classInfo.id).toArray();
+        const map: Record<string, AttendanceStats> = {};
+        
+        // Initialize for all learners
+        learners.forEach(l => {
+            if (l.id) map[l.id] = { present: 0, absent: 0, late: 0, total: 0, rate: 0 };
+        });
+
+        records.forEach(r => {
+            if (map[r.learner_id]) {
+                const s = map[r.learner_id];
+                if (r.status === 'present') s.present++;
+                if (r.status === 'absent') s.absent++;
+                if (r.status === 'late') s.late++;
+                s.total++;
+            }
+        });
+
+        // Calculate rates
+        Object.values(map).forEach(s => {
+            s.rate = s.total > 0 ? Math.round(((s.present + s.late) / s.total) * 100) : 0;
+        });
+
+        return map;
+    } catch (e) {
+        console.error("Failed to fetch attendance for export", e);
+        return {};
+    }
+  };
 
   const handleShareSummary = () => {
     if (!classInfo) return;
@@ -71,11 +107,12 @@ Lowest Mark: ${stats.lowestMark}%
     }
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     if (!classInfo) return;
     try {
+      const attMap = await fetchAttendanceMap();
       const exportClassInfo = { ...classInfo, learners };
-      generateClassPDF(exportClassInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone);
+      generateClassPDF(exportClassInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone, attMap);
       showSuccess("PDF Report generated successfully!");
     } catch (error) {
       console.error(error);
@@ -83,10 +120,11 @@ Lowest Mark: ${stats.lowestMark}%
     }
   };
   
-  const handleExportBulkPdf = () => {
+  const handleExportBulkPdf = async () => {
     if (!classInfo) return;
     try {
-      generateBulkLearnerReportsPDF(learners, classInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone);
+      const attMap = await fetchAttendanceMap();
+      generateBulkLearnerReportsPDF(learners, classInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone, attMap);
       showSuccess("Bulk PDF Report generated successfully!");
     } catch (error) {
       console.error(error);

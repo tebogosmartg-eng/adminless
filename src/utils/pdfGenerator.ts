@@ -12,6 +12,14 @@ interface SchoolProfile {
   phone: string;
 }
 
+export interface AttendanceStats {
+  present: number;
+  absent: number;
+  late: number;
+  total: number;
+  rate: number;
+}
+
 const addHeader = (doc: jsPDF, profile: SchoolProfile, title: string) => {
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
@@ -56,7 +64,8 @@ const addLearnerReportPage = (
   learner: Learner,
   classInfo: { subject: string; grade: string; className: string },
   gradingScheme: GradeSymbol[],
-  profile: SchoolProfile
+  profile: SchoolProfile,
+  attendance?: AttendanceStats
 ) => {
   const pageWidth = doc.internal.pageSize.width;
   const margin = 20;
@@ -141,7 +150,34 @@ const addLearnerReportPage = (
     doc.text(`Symbol: ${symbolObj.symbol}   |   Level: ${symbolObj.level}`, pageWidth / 2, resultY + 42, { align: 'center' });
   }
 
-  const commentY = resultY + 70;
+  let nextSectionY = resultY + 65;
+
+  // Attendance Section
+  if (attendance && attendance.total > 0) {
+      doc.setFontSize(14);
+      doc.setTextColor(41, 37, 36);
+      doc.setFont("helvetica", "bold");
+      doc.text("Attendance Overview", margin + 20, nextSectionY);
+
+      doc.setFontSize(10);
+      doc.setTextColor(80);
+      doc.setFont("helvetica", "normal");
+      
+      const attY = nextSectionY + 10;
+      doc.text(`Present: ${attendance.present} / ${attendance.total}`, margin + 20, attY);
+      doc.text(`Absent: ${attendance.absent}`, margin + 80, attY);
+      doc.text(`Late: ${attendance.late}`, margin + 120, attY);
+      
+      // Attendance Rate
+      doc.setFont("helvetica", "bold");
+      const rateColor = attendance.rate >= 90 ? [22, 163, 74] : attendance.rate >= 80 ? [217, 119, 6] : [220, 38, 38];
+      doc.setTextColor(rateColor[0], rateColor[1], rateColor[2]);
+      doc.text(`Attendance Rate: ${attendance.rate}%`, margin + 160, attY);
+
+      nextSectionY += 25;
+  }
+
+  const commentY = nextSectionY;
   doc.setFontSize(14);
   doc.setTextColor(41, 37, 36);
   doc.setFont("helvetica", "bold");
@@ -177,7 +213,8 @@ export const generateClassPDF = (
   teacherName: string = "",
   schoolLogo: string | null = null,
   contactEmail: string = "",
-  contactPhone: string = ""
+  contactPhone: string = "",
+  attendanceMap?: Record<string, AttendanceStats>
 ) => {
   const doc = new jsPDF();
   const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
@@ -243,21 +280,32 @@ export const generateClassPDF = (
   doc.text(`${average}%`, margin + 160, startY + 8);
   doc.text(`${passRate}%`, margin + 160, startY + 16);
 
+  const columns = ['#', 'Learner Name', 'Mark', 'Symbol', 'Level'];
+  if (attendanceMap) columns.push('Attendance');
+  columns.push('Comment');
+
   const tableRows = classInfo.learners.map((learner, index) => {
     const symbolObj = getGradeSymbol(learner.mark, gradingScheme);
-    return [
+    const row = [
       index + 1,
       learner.name,
       learner.mark ? `${learner.mark}%` : '-',
       symbolObj ? symbolObj.symbol : '-',
       symbolObj ? `L${symbolObj.level}` : '-',
-      learner.comment || '-'
     ];
+
+    if (attendanceMap) {
+        const stats = learner.id ? attendanceMap[learner.id] : null;
+        row.push(stats ? `${stats.rate}%` : '-');
+    }
+
+    row.push(learner.comment || '-');
+    return row;
   });
 
   autoTable(doc, {
     startY: startY + 30,
-    head: [['#', 'Learner Name', 'Mark', 'Symbol', 'Level', 'Comment']],
+    head: [columns],
     body: tableRows,
     theme: 'grid',
     headStyles: {
@@ -269,11 +317,12 @@ export const generateClassPDF = (
     },
     columnStyles: {
       0: { cellWidth: 10 },
-      1: { cellWidth: 50, fontStyle: 'bold' },
+      1: { cellWidth: attendanceMap ? 45 : 50, fontStyle: 'bold' },
       2: { cellWidth: 20, halign: 'right' },
       3: { cellWidth: 20, halign: 'center' },
       4: { cellWidth: 15, halign: 'center' },
-      5: { cellWidth: 'auto', fontStyle: 'italic' }
+      5: { cellWidth: attendanceMap ? 25 : 'auto', halign: attendanceMap ? 'center' : 'left', fontStyle: attendanceMap ? 'normal' : 'italic' },
+      6: { cellWidth: 'auto', fontStyle: 'italic' }
     },
     styles: {
       fontSize: 9,
@@ -383,11 +432,12 @@ export const generateLearnerReportPDF = (
   teacherName: string = "",
   schoolLogo: string | null = null,
   contactEmail: string = "",
-  contactPhone: string = ""
+  contactPhone: string = "",
+  attendance?: AttendanceStats
 ) => {
   const doc = new jsPDF();
   const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
-  addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile);
+  addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile, attendance);
   doc.save(`${learner.name}_Report.pdf`);
 };
 
@@ -399,14 +449,16 @@ export const generateBulkLearnerReportsPDF = (
   teacherName: string = "",
   schoolLogo: string | null = null,
   contactEmail: string = "",
-  contactPhone: string = ""
+  contactPhone: string = "",
+  attendanceMap?: Record<string, AttendanceStats>
 ) => {
   const doc = new jsPDF();
   const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
 
   learners.forEach((learner, index) => {
     if (index > 0) doc.addPage();
-    addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile);
+    const stats = learner.id && attendanceMap ? attendanceMap[learner.id] : undefined;
+    addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile, stats);
   });
 
   doc.save(`${classInfo.className}_All_Reports.pdf`);
