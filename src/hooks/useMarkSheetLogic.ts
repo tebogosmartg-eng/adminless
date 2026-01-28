@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 import { useSettings } from '@/context/SettingsContext';
 import { Learner, ClassInfo, Assessment } from '@/lib/types';
@@ -41,6 +41,9 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const [visibleAssessmentIds, setVisibleAssessmentIds] = useState<string[]>([]);
   const [recalculateTotal, setRecalculateTotal] = useState(false);
 
+  // Sorting State
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
+
   // --- Effects ---
 
   useEffect(() => {
@@ -61,6 +64,22 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     setVisibleAssessmentIds(assessments.map(a => a.id));
   }, [assessments]);
 
+  // --- Helpers (Hoisted for use in memo) ---
+
+  const getMarkValue = useCallback((assessmentId: string, learnerId: string) => {
+     const key = `${assessmentId}-${learnerId}`;
+     if (key in editedMarks) return editedMarks[key];
+     const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+     return m?.score?.toString() || "";
+  }, [editedMarks, marks]);
+
+  const getMarkComment = useCallback((assessmentId: string, learnerId: string) => {
+     const key = `${assessmentId}-${learnerId}`;
+     if (key in editedComments) return editedComments[key];
+     const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+     return m?.comment || "";
+  }, [editedComments, marks]);
+
   // --- Derived State ---
 
   const currentViewTerm = terms.find(t => t.id === viewTermId);
@@ -78,26 +97,60 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   
   const isLocked = currentViewTerm?.closed || activeYear?.closed || (activeTerm && viewTermId !== activeTerm.id);
 
-  const filteredLearners = useMemo(() => {
-    return classInfo.learners.filter(l => 
+  const calculateLearnerTotal = useCallback((learnerId: string) => {
+      let weightedSum = 0;
+      
+      const targetAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
+      
+      targetAssessments.forEach(ass => {
+          const val = getMarkValue(ass.id, learnerId);
+          if (val !== "") {
+              const score = parseFloat(val);
+              const weighted = (score / ass.max_mark) * ass.weight;
+              weightedSum += weighted;
+          }
+      });
+      return weightedSum.toFixed(1);
+  }, [isUsingVisibleTotal, visibleAssessments, assessments, getMarkValue]);
+
+  const sortedAndFilteredLearners = useMemo(() => {
+    // 1. Filter
+    const filtered = classInfo.learners.filter(l => 
         l.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [classInfo.learners, searchQuery]);
+
+    // 2. Sort
+    return filtered.sort((a, b) => {
+        let valA: string | number = '';
+        let valB: string | number = '';
+
+        if (sortConfig.key === 'name') {
+            valA = a.name.toLowerCase();
+            valB = b.name.toLowerCase();
+        } else if (sortConfig.key === 'total') {
+            valA = a.id ? parseFloat(calculateLearnerTotal(a.id)) : -1;
+            valB = b.id ? parseFloat(calculateLearnerTotal(b.id)) : -1;
+        } else {
+            // Sort by specific assessment
+            const rawA = a.id ? getMarkValue(sortConfig.key, a.id) : '';
+            const rawB = b.id ? getMarkValue(sortConfig.key, b.id) : '';
+            valA = rawA === '' ? -Infinity : parseFloat(rawA);
+            valB = rawB === '' ? -Infinity : parseFloat(rawB);
+        }
+
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+  }, [classInfo.learners, searchQuery, sortConfig, calculateLearnerTotal, getMarkValue]);
 
   // --- Actions ---
 
-  const getMarkValue = (assessmentId: string, learnerId: string) => {
-     const key = `${assessmentId}-${learnerId}`;
-     if (key in editedMarks) return editedMarks[key];
-     const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
-     return m?.score?.toString() || "";
-  };
-
-  const getMarkComment = (assessmentId: string, learnerId: string) => {
-     const key = `${assessmentId}-${learnerId}`;
-     if (key in editedComments) return editedComments[key];
-     const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
-     return m?.comment || "";
+  const handleSort = (key: string) => {
+      setSortConfig(current => ({
+          key,
+          direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc' // Default to desc for numbers usually, but toggle works fine
+      }));
   };
 
   const handleMarkChange = (assessmentId: string, learnerId: string, value: string) => {
@@ -184,24 +237,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
      });
      setIsAddOpen(false);
      setNewAss({ title: "", type: "Test", max: 50, weight: 10, date: "" });
-  };
-
-  const calculateLearnerTotal = (learnerId: string) => {
-      let weightedSum = 0;
-      let totalMaxWeight = 0;
-      
-      const targetAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
-      
-      targetAssessments.forEach(ass => {
-          const val = getMarkValue(ass.id, learnerId);
-          if (val !== "") {
-              const score = parseFloat(val);
-              const weighted = (score / ass.max_mark) * ass.weight;
-              weightedSum += weighted;
-              totalMaxWeight += ass.weight;
-          }
-      });
-      return weightedSum.toFixed(1);
   };
 
   const getAssessmentStats = (assessmentId: string) => {
@@ -292,14 +327,15 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       currentTotalWeight,
       isWeightValid,
       isLocked,
-      filteredLearners,
+      filteredLearners: sortedAndFilteredLearners,
       isUsingVisibleTotal,
       assessments,
       marks,
       terms,
       activeTerm,
       activeYear,
-      atRiskThreshold
+      atRiskThreshold,
+      sortConfig
     },
     actions: {
       setViewTermId,
@@ -325,7 +361,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       handleExportSheet,
       toggleAssessmentVisibility,
       deleteAssessment,
-      refreshAssessments
+      refreshAssessments,
+      handleSort
     }
   };
 };

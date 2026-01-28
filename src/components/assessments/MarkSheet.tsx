@@ -55,6 +55,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           isLocked={state.isLocked}
           isUsingVisibleTotal={state.isUsingVisibleTotal}
           atRiskThreshold={state.atRiskThreshold}
+          sortConfig={state.sortConfig}
           setIsAddOpen={actions.setIsAddOpen}
           openAnalytics={actions.openAnalytics}
           deleteAssessment={actions.deleteAssessment}
@@ -66,6 +67,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           calculateLearnerTotal={actions.calculateLearnerTotal}
           getAssessmentStats={actions.getAssessmentStats}
           onViewLearnerProfile={onViewLearnerProfile}
+          onSort={actions.handleSort}
        />
 
        <MarkSheetDialogs 

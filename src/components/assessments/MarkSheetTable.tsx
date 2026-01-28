@@ -17,7 +17,7 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -35,6 +35,7 @@ interface MarkSheetTableProps {
   isLocked: boolean | undefined;
   isUsingVisibleTotal: boolean;
   atRiskThreshold: number;
+  sortConfig?: { key: string; direction: 'asc' | 'desc' };
   setIsAddOpen: (open: boolean) => void;
   openAnalytics: (ass: Assessment) => void;
   deleteAssessment: (id: string) => void;
@@ -46,13 +47,14 @@ interface MarkSheetTableProps {
   calculateLearnerTotal: (lId: string) => string;
   getAssessmentStats: (assId: string) => { avg: string; max: string | number; min: string | number };
   onViewLearnerProfile?: (learner: Learner) => void;
+  onSort?: (key: string) => void;
 }
 
 export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
-  isLocked, isUsingVisibleTotal, atRiskThreshold, setIsAddOpen,
+  isLocked, isUsingVisibleTotal, atRiskThreshold, sortConfig, setIsAddOpen,
   openAnalytics, deleteAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
-  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile
+  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort
 }: MarkSheetTableProps) => {
 
   const [noteDialog, setNoteDialog] = useState<{ open: boolean; assId: string; learnerId: string; learnerName: string; comment: string }>({ 
@@ -133,6 +135,11 @@ export const MarkSheetTable = ({
     );
   }
 
+  const getSortIcon = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-20" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
   return (
     <>
       <div className="border rounded-md overflow-x-auto">
@@ -140,8 +147,12 @@ export const MarkSheetTable = ({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[200px] sticky left-0 bg-background z-10 shadow-sm">
-                <div className="flex items-center gap-2">
+                <div 
+                    className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors select-none"
+                    onClick={() => onSort && onSort('name')}
+                >
                   Learner
+                  {getSortIcon('name')}
                   <Badge variant="outline" className="ml-2 font-normal text-muted-foreground">
                     {filteredLearners.length}
                   </Badge>
@@ -150,9 +161,22 @@ export const MarkSheetTable = ({
               {visibleAssessments.map(ass => (
                 <TableHead key={ass.id} className="text-center min-w-[140px]">
                   <div className="flex flex-col items-center group relative">
-                    <div className="flex items-center gap-1 cursor-pointer hover:bg-muted/50 p-1 rounded" onClick={() => openAnalytics(ass)}>
-                      <span className="font-semibold truncate max-w-[100px]" title={ass.title}>{ass.title}</span>
-                      <BarChart2 className="h-3 w-3 text-muted-foreground opacity-50 group-hover:opacity-100" />
+                    <div className="flex items-center gap-1">
+                        <div 
+                            className="flex items-center gap-1 cursor-pointer hover:bg-muted/50 p-1 rounded" 
+                            onClick={() => onSort && onSort(ass.id)}
+                            title="Click to Sort"
+                        >
+                            <span className="font-semibold truncate max-w-[100px]">{ass.title}</span>
+                            {sortConfig?.key === ass.id && getSortIcon(ass.id)}
+                        </div>
+                        <div 
+                            className="cursor-pointer opacity-50 hover:opacity-100 hover:text-primary transition-opacity"
+                            onClick={() => openAnalytics(ass)}
+                            title="Analytics"
+                        >
+                            <BarChart2 className="h-3 w-3" />
+                        </div>
                     </div>
                     <span className="text-xs text-muted-foreground font-normal">
                       {ass.max_mark} marks • {ass.weight}%
@@ -177,7 +201,6 @@ export const MarkSheetTable = ({
                             <>
                                 <DropdownMenuItem onClick={() => { 
                                     if (confirm(`Fill all empty cells in "${ass.title}" with 0?`)) {
-                                        // Use prompt to be safe, or just default to 0
                                         const val = prompt("Enter value to set for ALL learners (or leave blank to cancel):", "0");
                                         if (val !== null) handleBulkColumnUpdate(ass.id, val);
                                     }
@@ -200,8 +223,16 @@ export const MarkSheetTable = ({
                 </TableHead>
               ))}
               <TableHead className="text-center font-bold bg-muted/30 min-w-[100px]">
-                {isUsingVisibleTotal && <span className="text-[10px] font-normal block text-muted-foreground">(Visible)</span>}
-                Total <br /> %
+                <div 
+                    className="flex flex-col items-center justify-center cursor-pointer select-none"
+                    onClick={() => onSort && onSort('total')}
+                >
+                    <div className="flex items-center">
+                        Total {getSortIcon('total')}
+                    </div>
+                    {isUsingVisibleTotal && <span className="text-[10px] font-normal text-muted-foreground">(Visible)</span>}
+                    <span className="text-xs font-normal">%</span>
+                </div>
               </TableHead>
             </TableRow>
           </TableHeader>
