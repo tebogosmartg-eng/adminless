@@ -3,6 +3,9 @@ import { useMarkSheetLogic } from '@/hooks/useMarkSheetLogic';
 import { MarkSheetToolbar } from './MarkSheetToolbar';
 import { MarkSheetTable } from './MarkSheetTable';
 import { MarkSheetDialogs } from './MarkSheetDialogs';
+import { Button } from "@/components/ui/button";
+import { Link } from 'react-router-dom';
+import { CalendarClock } from 'lucide-react';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
@@ -13,7 +16,16 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
   const { state, actions } = useMarkSheetLogic(classInfo);
 
   if (!state.currentViewTerm) {
-      return <div className="p-8 text-center text-muted-foreground">Please configure an Active Academic Year and Term in Settings.</div>;
+      return (
+        <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground bg-muted/10 border rounded-lg border-dashed">
+            <CalendarClock className="h-10 w-10 mb-2 opacity-50" />
+            <h3 className="font-semibold mb-1">Academic Calendar Not Configured</h3>
+            <p className="text-sm max-w-sm mb-4">You need to set up an Academic Year and Terms before capturing marks.</p>
+            <Button variant="outline" asChild>
+                <Link to="/settings">Go to Settings</Link>
+            </Button>
+        </div>
+      );
   }
 
   return (

@@ -60,6 +60,31 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     }
   }, [viewTermId, classInfo.id]);
 
+  // When adding an assessment, set smart defaults based on the VIEWED term
+  useEffect(() => {
+      if (isAddOpen && viewTermId) {
+          const currentTerm = terms.find(t => t.id === viewTermId);
+          let defaultDate = new Date().toISOString().split('T')[0];
+          
+          // If viewing a past/future term, try to use its end date or start date as default
+          // instead of "today" which might be wildly incorrect for that term
+          if (currentTerm) {
+              const now = new Date();
+              const start = currentTerm.start_date ? new Date(currentTerm.start_date) : null;
+              const end = currentTerm.end_date ? new Date(currentTerm.end_date) : null;
+              
+              if (start && end) {
+                  // If today is outside the range, default to end date
+                  if (now < start || now > end) {
+                      defaultDate = end.toISOString().split('T')[0];
+                  }
+              }
+          }
+          
+          setNewAss(prev => ({ ...prev, date: defaultDate }));
+      }
+  }, [isAddOpen, viewTermId, terms]);
+
   useEffect(() => {
     setVisibleAssessmentIds(assessments.map(a => a.id));
   }, [assessments]);
@@ -95,7 +120,9 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const currentTotalWeight = isUsingVisibleTotal ? visibleWeight : totalWeight;
   const isWeightValid = currentTotalWeight === 100;
   
-  const isLocked = currentViewTerm?.closed || activeYear?.closed || (activeTerm && viewTermId !== activeTerm.id);
+  // Logic: Locked if the TERM itself is closed, or the YEAR is closed.
+  // Relaxed logic: You CAN edit a term that isn't "active" (current date), as long as it's Open.
+  const isLocked = currentViewTerm?.closed || activeYear?.closed;
 
   const calculateLearnerTotal = useCallback((learnerId: string) => {
       let weightedSum = 0;

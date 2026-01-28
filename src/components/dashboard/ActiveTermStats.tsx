@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useAcademic } from '@/context/AcademicContext';
-import { Loader2, TrendingUp, AlertCircle } from 'lucide-react';
+import { Loader2, TrendingUp, AlertCircle, CalendarClock } from 'lucide-react';
 import { db } from '@/db';
+import { Link } from 'react-router-dom';
 
 export const ActiveTermStats = () => {
-  const { activeTerm } = useAcademic();
+  const { activeTerm, activeYear } = useAcademic();
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<{ avg: number; passRate: number; assessmentsCount: number } | null>(null);
 
@@ -70,7 +72,22 @@ export const ActiveTermStats = () => {
     fetchTermStats();
   }, [activeTerm]);
 
-  if (!activeTerm) return null;
+  if (!activeYear || !activeTerm) {
+      return (
+        <Card className="border-dashed border-2">
+            <CardContent className="flex flex-col items-center justify-center py-8 text-center space-y-2">
+                <CalendarClock className="h-10 w-10 text-muted-foreground opacity-50" />
+                <h3 className="font-semibold">No Active Term</h3>
+                <p className="text-sm text-muted-foreground max-w-[200px]">
+                    Configure your academic year and terms to see stats.
+                </p>
+                <Button variant="outline" size="sm" asChild className="mt-2">
+                    <Link to="/settings">Go to Settings</Link>
+                </Button>
+            </CardContent>
+        </Card>
+      );
+  }
 
   return (
     <Card className="bg-primary/5 border-primary/20">
@@ -78,7 +95,7 @@ export const ActiveTermStats = () => {
         <div className="flex justify-between items-start">
             <div>
                 <CardTitle className="text-lg font-bold text-primary">{activeTerm.name} Overview</CardTitle>
-                <CardDescription>Current Term Performance</CardDescription>
+                <CardDescription>Current Term Performance ({activeYear.name})</CardDescription>
             </div>
             <TrendingUp className="h-5 w-5 text-primary" />
         </div>
