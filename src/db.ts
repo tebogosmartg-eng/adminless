@@ -87,6 +87,11 @@ export class SmaRegDB extends Dexie {
       todos: 'id, user_id, completed',
       learner_notes: 'id, user_id, learner_id, date'
     });
+
+    // Version 8: Add indexes for learner_notes querying (created_at, category)
+    this.version(8).stores({
+      learner_notes: 'id, user_id, learner_id, date, created_at, category'
+    });
   }
 }
 
