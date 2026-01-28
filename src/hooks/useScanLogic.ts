@@ -7,6 +7,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ScannedDetails, ScannedLearner, Assessment } from '@/lib/types';
 import { db } from '@/db';
+import { compressImage } from '@/utils/image';
 
 export const useScanLogic = () => {
   const { classes, updateLearners, addClass } = useClasses();
@@ -73,23 +74,22 @@ export const useScanLogic = () => {
     fetchClassAssessments();
   }, [selectedClassId, activeTerm]);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      const newPreviews: Promise<string>[] = [];
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        newPreviews.push(new Promise((resolve) => {
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        }));
-      });
-      
-      Promise.all(newPreviews).then((previews) => {
-        setImagePreviews(previews);
+      try {
+        const compressedImages = await Promise.all(
+            Array.from(files).map(file => compressImage(file))
+        );
+        
+        setImagePreviews(compressedImages);
         setScannedLearners([]);
         setScannedDetails(null);
-      });
+        showSuccess(`Loaded ${files.length} image(s). Ready to process.`);
+      } catch (e) {
+        console.error("Image loading failed", e);
+        showError("Failed to load or compress images.");
+      }
     }
   };
 

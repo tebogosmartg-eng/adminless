@@ -2,13 +2,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowUpDown, Plus, Upload } from 'lucide-react';
+import { ArrowUpDown, Plus } from 'lucide-react';
 import { Learner, GradeSymbol } from '@/lib/types';
 import { useSettings } from '@/context/SettingsContext';
 import { showSuccess } from '@/utils/toast';
 import { useLearnerTable } from '@/hooks/useLearnerTable';
 import { LearnerListToolbar } from './LearnerListToolbar';
 import { LearnerListRow } from './LearnerListRow';
+import { parseMarkInput } from '@/utils/marks';
 
 interface LearnerListProps {
   learners: Learner[];
@@ -56,20 +57,11 @@ export const LearnerList = ({
 
   // Smart Input Logic
   const handleMarkBlur = (index: number, currentValue: string) => {
-    // Check for "x/y" pattern (e.g. 15/20)
-    const fractionMatch = currentValue.match(/^(\d+(\.\d+)?)\s*\/\s*(\d+(\.\d+)?)$/);
+    const { value, isCalculated, raw } = parseMarkInput(currentValue);
     
-    if (fractionMatch) {
-      const num = parseFloat(fractionMatch[1]);
-      const den = parseFloat(fractionMatch[3]);
-      
-      if (den !== 0) {
-        const percentage = ((num / den) * 100).toFixed(1).replace(/\.0$/, ''); 
-        if (percentage !== currentValue) {
-           onMarkChange(index, percentage);
-           showSuccess(`Calculated: ${num}/${den} = ${percentage}%`);
-        }
-      }
+    if (isCalculated && value !== currentValue) {
+       onMarkChange(index, value);
+       showSuccess(`Calculated: ${raw} = ${value}%`);
     }
   };
 

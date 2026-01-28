@@ -17,13 +17,15 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare 
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, Calculator
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import { parseMarkInput } from "@/utils/marks";
+import { showSuccess } from "@/utils/toast";
 
 interface MarkSheetTableProps {
   assessments: Assessment[]; 
@@ -69,6 +71,55 @@ export const MarkSheetTable = ({
   const saveNote = () => {
     handleCommentChange(noteDialog.assId, noteDialog.learnerId, noteDialog.comment);
     setNoteDialog(prev => ({ ...prev, open: false }));
+  };
+
+  const handleInputBlur = (assId: string, learnerId: string, currentValue: string) => {
+    const { value, isCalculated, raw } = parseMarkInput(currentValue);
+    
+    if (isCalculated && value !== currentValue) {
+       // Note: Assessments are stored as RAW SCORES usually, but the UI might vary.
+       // In MarkSheetTable, we are entering raw scores (e.g. 25/50).
+       // However, `parseMarkInput` converts fraction to PERCENTAGE.
+       // IF the input expects a raw score, we shouldn't convert to percentage automatically unless that's the intent.
+       
+       // Wait! The parser `parseMarkInput` returns a percentage. 
+       // In the standard Mark Sheet, we enter the RAW score out of Max Mark.
+       // If I type "15/20" into a test out of 20, I expect it to save "15", not "75".
+       // Or does it?
+       
+       // SmaReg philosophy: 
+       // If the input is "x/y", does the user mean "I am entering the fraction to be converted" or "I am calculating the value"?
+       // For assessment grids, usually you just type the number.
+       // But if a user types "15/20", they might imply "This student got 15 out of 20".
+       // Since the assessment ALREADY has a max mark defined (e.g. 50), 
+       // If I type "15/20", do I mean 75% of 50? (which is 37.5).
+       // Or do I mean 15?
+       
+       // Let's modify the behavior for Grid View vs List View.
+       // List View is "Aggregate Percentage". Grid View is "Raw Score".
+       
+       // If I am in Grid View, and I type "15/20", I probably mean 15 marks. 
+       // But if I type "3/4" for a test out of 20, maybe I mean 15?
+       
+       // Safest bet for Grid View: Only interpret calculation if specifically asked, OR just assume calculation mode is for percentage.
+       // Actually, users might use this to scale marks. 
+       // E.g. Test is out of 50. Paper was marked out of 30. Student got 15/30.
+       // We want to enter 25 (50 * 0.5).
+       
+       // Let's check max mark.
+       const assessment = assessments.find(a => a.id === assId);
+       if (assessment && isCalculated) {
+           const percent = parseFloat(value); // 75
+           const scaledScore = (percent / 100) * assessment.max_mark;
+           const finalScore = scaledScore % 1 === 0 ? scaledScore.toString() : scaledScore.toFixed(1);
+           
+           handleMarkChange(assId, learnerId, finalScore);
+           showSuccess(`Scaled: ${raw} -> ${finalScore}/${assessment.max_mark}`);
+           return;
+       }
+    }
+    
+    // Normal update (handled by onChange, but blur ensures we don't revert or anything)
   };
 
   if (assessments.length === 0) {
@@ -164,6 +215,7 @@ export const MarkSheetTable = ({
                   </TableCell>
                   {visibleAssessments.map(ass => {
                     const comment = learner.id ? getMarkComment(ass.id, learner.id) : "";
+                    const markValue = getMarkValue(ass.id, learner.id || '');
                     
                     return (
                       <TableCell key={ass.id} className="p-1">
@@ -172,8 +224,9 @@ export const MarkSheetTable = ({
                             <div className="flex justify-center relative group">
                               <Input
                                 className={`h-8 w-16 text-center ${isLocked ? "bg-muted cursor-not-allowed" : ""} ${comment ? "border-blue-400 border-dashed" : ""}`}
-                                value={getMarkValue(ass.id, learner.id || '')}
+                                value={markValue}
                                 onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
+                                onBlur={(e) => learner.id && handleInputBlur(ass.id, learner.id, e.target.value)}
                                 disabled={!learner.id || !!isLocked}
                                 placeholder="-"
                               />
