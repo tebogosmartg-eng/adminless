@@ -38,18 +38,6 @@ export const useLearnerNotes = (learnerId: string | undefined) => {
     }
   };
 
-  const updateNote = async (id: string, updates: Partial<LearnerNote>) => {
-    try {
-      await db.learner_notes.update(id, updates);
-      // We need to pass the ID and the specific updates for sync
-      await queueAction('learner_notes', 'update', { id, ...updates });
-      showSuccess("Note updated.");
-    } catch (e) {
-      console.error(e);
-      showError("Failed to update note.");
-    }
-  };
-
   const deleteNote = async (id: string) => {
     try {
       await db.learner_notes.delete(id);
@@ -60,5 +48,5 @@ export const useLearnerNotes = (learnerId: string | undefined) => {
     }
   };
 
-  return { notes, addNote, updateNote, deleteNote };
+  return { notes, addNote, deleteNote };
 };
