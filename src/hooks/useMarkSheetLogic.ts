@@ -149,7 +149,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const handleSort = (key: string) => {
       setSortConfig(current => ({
           key,
-          direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc' // Default to desc for numbers usually, but toggle works fine
+          direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
       }));
   };
 
@@ -178,19 +178,16 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   };
 
   const handleSaveMarks = async () => {
-      // Consolidate edits from both marks and comments
       const keys = new Set([...Object.keys(editedMarks), ...Object.keys(editedComments)]);
       
       const updates = Array.from(keys).map(key => {
           const [assessmentId, learnerId] = key.split('-');
           
-          // Get values: prioritize edited, fallback to existing DB, or default
           let score: number | null = null;
           if (key in editedMarks) {
               const val = editedMarks[key];
               score = val === "" ? null : parseFloat(val);
           } else {
-              // Not edited locally, fetch current
               const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
               score = m?.score ?? null;
           }
@@ -225,18 +222,26 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   };
 
   const handleAddAssessment = async () => {
-     if (!viewTermId) return;
-     await createAssessment({
-         class_id: classInfo.id,
-         term_id: viewTermId,
-         title: newAss.title,
-         type: newAss.type,
-         max_mark: Number(newAss.max),
-         weight: Number(newAss.weight),
-         date: newAss.date || new Date().toISOString()
-     });
-     setIsAddOpen(false);
-     setNewAss({ title: "", type: "Test", max: 50, weight: 10, date: "" });
+     if (!viewTermId) {
+         showError("Please select an active term first.");
+         return;
+     }
+     try {
+        await createAssessment({
+            class_id: classInfo.id,
+            term_id: viewTermId,
+            title: newAss.title,
+            type: newAss.type,
+            max_mark: Number(newAss.max),
+            weight: Number(newAss.weight),
+            date: newAss.date || new Date().toISOString()
+        });
+        setIsAddOpen(false);
+        setNewAss({ title: "", type: "Test", max: 50, weight: 10, date: "" });
+     } catch (e: any) {
+        console.error(e);
+        showError(e.message || "Failed to create assessment.");
+     }
   };
 
   const getAssessmentStats = (assessmentId: string) => {

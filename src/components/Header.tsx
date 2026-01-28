@@ -2,12 +2,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "./ThemeToggle";
 import MobileSidebar from "./MobileSidebar";
 import { useSettings } from "@/context/SettingsContext";
+import { useAcademic } from "@/context/AcademicContext";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, CalendarDays } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
+import { Badge } from "@/components/ui/badge";
 
 const Header = () => {
   const { teacherName } = useSettings();
+  const { activeYear, activeTerm } = useAcademic();
 
   const initials = teacherName
     ? teacherName.split(' ').map((n) => n[0]).join('').toUpperCase().substring(0, 2)
@@ -23,8 +26,8 @@ const Header = () => {
         <MobileSidebar />
       </div>
       
-      {/* Global Search Trigger - Visible on desktop centered/left, or icon on mobile */}
-      <div className="flex-1 flex justify-center md:justify-start px-4">
+      {/* Global Search Trigger */}
+      <div className="flex-1 flex justify-center md:justify-start px-4 items-center gap-4">
         <Button 
           variant="outline" 
           className="relative h-9 w-full md:w-64 justify-start text-sm text-muted-foreground sm:pr-12 bg-muted/50 hover:bg-muted"
@@ -37,6 +40,17 @@ const Header = () => {
             <span className="text-xs">⌘</span>K
           </kbd>
         </Button>
+
+        {activeYear && (
+            <div className="hidden lg:flex items-center gap-2">
+                <Badge variant="outline" className="h-9 px-3 gap-2 bg-background font-normal text-muted-foreground border-dashed">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    <span>{activeYear.name}</span>
+                    <span className="w-px h-3 bg-border mx-1"></span>
+                    <span className="text-foreground font-medium">{activeTerm?.name || "No Term"}</span>
+                </Badge>
+            </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
