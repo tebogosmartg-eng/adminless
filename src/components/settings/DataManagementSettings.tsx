@@ -19,6 +19,7 @@ import {
 import { db } from "@/db";
 import { queueAction } from "@/services/sync";
 import { useSync } from "@/context/SyncContext";
+import { subDays, format } from "date-fns";
 
 export const DataManagementSettings = () => {
   const { addClass } = useClasses();
@@ -26,6 +27,7 @@ export const DataManagementSettings = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleExportData = async () => {
     setIsExporting(true);
@@ -229,22 +231,178 @@ export const DataManagementSettings = () => {
     }
   };
 
-  const handleGenerateDemoData = () => {
-    const demoClass = {
-      id: crypto.randomUUID(),
-      grade: "Grade 10",
-      subject: "Mathematics",
-      className: "10-Demo",
-      learners: [
+  const handleGenerateDemoData = async () => {
+    setIsGenerating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+          showError("Please log in to generate demo data.");
+          return;
+      }
+
+      const userId = user.id;
+      const today = new Date().toISOString();
+      const todayShort = today.split('T')[0];
+
+      // 1. Create Academic Year if needed
+      const existingYear = await db.academic_years.where('user_id').equals(userId).first();
+      let yearId = existingYear?.id;
+      let termId = "";
+
+      if (!existingYear) {
+          yearId = crypto.randomUUID();
+          const yearData = { id: yearId, name: "2024 (Demo)", user_id: userId, closed: false };
+          await db.academic_years.add(yearData);
+          await queueAction('academic_years', 'create', yearData);
+
+          const terms = ["Term 1", "Term 2", "Term 3", "Term 4"].map(name => ({
+              id: crypto.randomUUID(),
+              year_id: yearId!,
+              name,
+              user_id: userId,
+              closed: false,
+              weight: 25,
+              start_date: today,
+              end_date: today
+          }));
+          await db.terms.bulkAdd(terms as any);
+          await queueAction('terms', 'create', terms);
+          termId = terms[0].id;
+      } else {
+          const term = await db.terms.where('year_id').equals(yearId!).first();
+          if (term) termId = term.id;
+      }
+
+      // 2. Create Class
+      const classId = crypto.randomUUID();
+      const demoClass = {
+        id: classId,
+        user_id: userId,
+        grade: "Grade 10",
+        subject: "Mathematics",
+        className: "10-Demo",
+        archived: false,
+        created_at: today,
+        notes: "Focus on algebra basics for upcoming exam."
+      };
+      
+      // Store locally manually to ensure IDs match for subsequent inserts
+      await db.classes.add(demoClass as any);
+      await queueAction('classes', 'create', demoClass);
+
+      // 3. Create Learners
+      const learnersData = [
         { name: "Alice Smith", mark: "85", comment: "Excellent work, keep it up!" },
         { name: "Bob Johnson", mark: "42", comment: "Needs to focus more on algebra." },
         { name: "Charlie Brown", mark: "65", comment: "Good improvement this term." },
         { name: "David Wilson", mark: "32", comment: "Struggling with basics. Needs tutoring." },
         { name: "Eve Davis", mark: "91", comment: "Outstanding performance." },
-      ]
-    };
-    addClass(demoClass);
-    showSuccess("Demo class '10-Demo' created successfully!");
+      ];
+
+      const learnerIds: string[] = [];
+      const learners = learnersData.map(l => {
+          const id = crypto.randomUUID();
+          learnerIds.push(id);
+          return { id, class_id: classId, ...l };
+      });
+
+      await db.learners.bulkAdd(learners as any);
+      await queueAction('learners', 'create', learners);
+
+      // 4. Create Assessments (Term 1)
+      if (termId) {
+          const ass1Id = crypto.randomUUID();
+          const ass2Id = crypto.randomUUID();
+          
+          const assessments = [
+              { id: ass1Id, class_id: classId, term_id: termId, title: "Algebra Test", type: "Test", max_mark: 50, weight: 30, date: today, user_id: userId },
+              { id: ass2Id, class_id: classId, term_id: termId, title: "Geometry Project", type: "Project", max_mark: 100, weight: 70, date: today, user_id: userId }
+          ];
+          
+          await db.assessments.bulkAdd(assessments);
+          await queueAction('assessments', 'create', assessments);
+
+          // 5. Create Marks
+          const marks = [
+              // Alice
+              { assessment_id: ass1Id, learner_id: learnerIds[0], score: 42, comment: "Great job", user_id: userId },
+              { assessment_id: ass2Id, learner_id: learnerIds[0], score: 90, user_id: userId },
+              // Bob
+              { assessment_id: ass1Id, learner_id: learnerIds[1], score: 18, user_id: userId },
+              { assessment_id: ass2Id, learner_id: learnerIds[1], score: 45, comment: "Late submission", user_id: userId },
+              // Charlie
+              { assessment_id: ass1Id, learner_id: learnerIds[2], score: 30, user_id: userId },
+              { assessment_id: ass2Id, learner_id: learnerIds[2], score: 70, user_id: userId },
+              // David
+              { assessment_id: ass1Id, learner_id: learnerIds[3], score: 12, user_id: userId },
+              { assessment_id: ass2Id, learner_id: learnerIds[3], score: 35, comment: "Incomplete", user_id: userId },
+              // Eve
+              { assessment_id: ass1Id, learner_id: learnerIds[4], score: 48, user_id: userId },
+              { assessment_id: ass2Id, learner_id: learnerIds[4], score: 98, user_id: userId },
+          ];
+          
+          // Add random ID to marks for Dexie compatibility if composite key issues arise, but our schema uses composite [ass+learner]
+          await db.assessment_marks.bulkPut(marks as any);
+          await queueAction('assessment_marks', 'upsert', marks);
+      }
+
+      // 6. Create Attendance (Last 5 days)
+      const attendance = [];
+      for (let i = 0; i < 5; i++) {
+          const dateStr = format(subDays(new Date(), i), 'yyyy-MM-dd');
+          learners.forEach((l, idx) => {
+              // Simulate some absentees
+              let status = 'present';
+              if (idx === 1 && i === 1) status = 'absent'; // Bob absent yesterday
+              if (idx === 3 && i === 0) status = 'late'; // David late today
+              
+              attendance.push({
+                  learner_id: l.id,
+                  class_id: classId,
+                  date: dateStr,
+                  status,
+                  user_id: userId
+              });
+          });
+      }
+      await db.attendance.bulkPut(attendance as any);
+      await queueAction('attendance', 'upsert', attendance);
+
+      // 7. Create Learner Notes
+      const notes = [
+          { id: crypto.randomUUID(), learner_id: learnerIds[1], user_id: userId, content: "Forgot textbook again.", category: "behavior", date: todayShort, created_at: today },
+          { id: crypto.randomUUID(), learner_id: learnerIds[4], user_id: userId, content: "Helped peers with difficult questions.", category: "positive", date: todayShort, created_at: today },
+      ];
+      await db.learner_notes.bulkAdd(notes as any);
+      await queueAction('learner_notes', 'create', notes);
+
+      // 8. Create Timetable Entries (Today + Tomorrow)
+      const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+      const currentDay = format(new Date(), 'EEEE');
+      const timetable = [
+          { id: crypto.randomUUID(), user_id: userId, day: currentDay, period: 1, subject: "Mathematics", class_name: "10-Demo", class_id: classId },
+          { id: crypto.randomUUID(), user_id: userId, day: currentDay, period: 3, subject: "Prep", class_name: "Free", class_id: null },
+      ];
+      await db.timetable.bulkPut(timetable as any);
+      await queueAction('timetable', 'upsert', timetable);
+
+      // 9. Todos
+      const todos = [
+          { id: crypto.randomUUID(), user_id: userId, title: "Mark 10-Demo Algebra Tests", completed: false, created_at: today },
+          { id: crypto.randomUUID(), user_id: userId, title: "Prepare Term 2 Schedule", completed: true, created_at: today }
+      ];
+      await db.todos.bulkAdd(todos);
+      await queueAction('todos', 'create', todos);
+
+      showSuccess("Full Demo Suite Generated! Redirecting to Dashboard...");
+      setTimeout(() => window.location.href = "/", 1500);
+
+    } catch (e: any) {
+        console.error(e);
+        showError("Failed to generate demo data: " + e.message);
+    } finally {
+        setIsGenerating(false);
+    }
   };
 
   return (
@@ -262,10 +420,11 @@ export const DataManagementSettings = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
           <div>
             <h3 className="font-semibold mb-1">Generate Demo Data</h3>
-            <p className="text-sm text-muted-foreground">Add a sample class with random learners to test features.</p>
+            <p className="text-sm text-muted-foreground">Populate the app with a sample class, assessments, attendance, and notes.</p>
           </div>
-          <Button onClick={handleGenerateDemoData} variant="outline" className="text-primary hover:text-primary">
-            <Database className="mr-2 h-4 w-4" /> Create Demo Class
+          <Button onClick={handleGenerateDemoData} disabled={isGenerating} variant="outline" className="text-primary hover:text-primary">
+            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+            Generate Full Demo
           </Button>
         </div>
 
