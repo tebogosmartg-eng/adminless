@@ -75,8 +75,8 @@ serve(async (req) => {
 
         const imageParts = images.map((img: any) => ({
             inlineData: {
-                data: img.split(',')[1] || img, // Handle base64 prefix if present
-                mimeType: "image/jpeg" // Assuming jpeg or png, api is flexible usually
+                data: img.split(',')[1] || img,
+                mimeType: "image/jpeg"
             }
         }));
 
@@ -94,17 +94,23 @@ serve(async (req) => {
     }
 
     if (action === 'generate-insights') {
-        const { subject, grade, learners } = payload;
+        const { subject, grade, learners, assessmentData } = payload;
         
         const prompt = `
-            Analyze the performance of the following class:
+            Analyze the performance of the following class.
             Subject: ${subject}
             Grade: ${grade}
-            Learner Data (Names and Marks): ${JSON.stringify(learners.map(l => ({ name: l.name, mark: l.mark })))}
+            
+            Learner Data (Current Aggregate): 
+            ${JSON.stringify(learners.map(l => ({ name: l.name, mark: l.mark })))}
 
+            Assessment History (Context):
+            ${assessmentData ? JSON.stringify(assessmentData.assessments.map(a => ({ title: a.title, type: a.type, max: a.max_mark }))) : "No detailed assessment history."}
+
+            Provide a strategic analysis for the teacher.
             Output JSON only:
             {
-                "summary": "A concise 2-3 sentence overview of class performance.",
+                "summary": "A concise 2-3 sentence overview of class performance trends.",
                 "strengths": ["Strength 1", "Strength 2", "Strength 3"],
                 "areasForImprovement": ["Weakness 1", "Weakness 2", "Weakness 3"],
                 "recommendations": ["Strategy 1", "Strategy 2", "Strategy 3"]
@@ -155,6 +161,33 @@ serve(async (req) => {
             
             Output JSON only:
             { "comment": "The comment text." }
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const jsonStr = cleanJson(response.text());
+        
+        return new Response(jsonStr, { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    if (action === 'generate-bulk-comments') {
+        const { learners, tone } = payload;
+        
+        const prompt = `
+            Generate short, unique, single-sentence report card comments for the following students based on their marks.
+            Tone: ${tone || 'Professional'}
+            
+            Students:
+            ${JSON.stringify(learners)}
+            
+            Output JSON only with an array of objects:
+            {
+                "comments": [
+                    { "name": "Student Name", "comment": "The comment." },
+                    ...
+                ]
+            }
+            Ensure the order matches or names are accurate.
         `;
 
         const result = await model.generateContent(prompt);

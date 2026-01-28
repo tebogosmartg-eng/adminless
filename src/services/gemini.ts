@@ -1,4 +1,4 @@
-import { ClassInfo, Learner, ClassInsight } from "@/lib/types";
+import { ClassInfo, Learner, ClassInsight, LearnerComment } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 
 // Helper to handle offline/error states gracefully
@@ -28,7 +28,7 @@ export const generateClassInsights = async (
     const data = await invokeGemini('generate-insights', { 
       subject: classInfo.subject,
       grade: classInfo.grade,
-      learners, // Passing mostly marks
+      learners, 
       assessmentData 
     });
     return data || mockInsights;
@@ -76,9 +76,24 @@ export const generateLearnerComment = async (
     }
 };
 
+export const generateBulkComments = async (
+    learners: Learner[],
+    tone: string
+): Promise<LearnerComment[]> => {
+    try {
+        const data = await invokeGemini('generate-bulk-comments', {
+            learners: learners.map(l => ({ name: l.name, mark: l.mark })),
+            tone
+        });
+        return data?.comments || [];
+    } catch (e) {
+        console.error("Bulk Comment Gen Error", e);
+        return [];
+    }
+};
+
 export const processImagesWithGemini = async (images: string[]): Promise<any> => {
   try {
-    // Action name matches what is expected in the edge function
     const data = await invokeGemini('scan-images', { images });
     return data;
   } catch (error) {

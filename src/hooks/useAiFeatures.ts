@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { generateLearnerReport, generateClassInsights, generateLearnerComment } from '@/services/gemini';
+import { generateLearnerReport, generateClassInsights, generateBulkComments } from '@/services/gemini';
 import { useToast } from '@/components/ui/use-toast';
 import { Learner, ClassInfo, ClassInsight } from '@/lib/types';
 import { db } from '@/db';
@@ -89,13 +89,20 @@ export const useAiFeatures = (
 
     setIsGeneratingComments(true);
     try {
-      const updatedLearners = await Promise.all(learners.map(async (l) => {
-          const comment = await generateLearnerComment(l, tone);
-          return { ...l, comment };
+      const comments = await generateBulkComments(learners, tone);
+      
+      // Map back to learners (handling potential AI response mismatch by name map or index if reliable, name is safer)
+      const commentMap = new Map(comments.map(c => [c.name, c.comment]));
+      
+      const updatedLearners = learners.map(l => ({
+          ...l,
+          comment: commentMap.get(l.name) || l.comment || ""
       }));
+
       setLearners(updatedLearners);
-      toast({ title: "Comments Generated", description: `Generated comments for ${learners.length} learners.` });
+      toast({ title: "Comments Generated", description: `Generated comments for ${updatedLearners.length} learners.` });
     } catch (e) {
+      console.error(e);
       toast({ title: "Error", description: "Failed to generate comments.", variant: "destructive" });
     } finally {
       setIsGeneratingComments(false);
