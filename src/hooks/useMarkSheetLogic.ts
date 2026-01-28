@@ -110,6 +110,20 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
      setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
   };
 
+  const handleBulkColumnUpdate = (assessmentId: string, value: string) => {
+      if (isLocked) return;
+      const updates = { ...editedMarks };
+      
+      classInfo.learners.forEach(l => {
+          if (l.id) {
+              updates[`${assessmentId}-${l.id}`] = value;
+          }
+      });
+      
+      setEditedMarks(updates);
+      showSuccess(`Updated column with "${value || 'Cleared'}"`);
+  };
+
   const handleSaveMarks = async () => {
       // Consolidate edits from both marks and comments
       const keys = new Set([...Object.keys(editedMarks), ...Object.keys(editedComments)]);
@@ -301,6 +315,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       getMarkComment,
       handleMarkChange,
       handleCommentChange,
+      handleBulkColumnUpdate,
       handleSaveMarks,
       handleBulkImport,
       handleAddAssessment,

@@ -62,6 +62,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           getMarkComment={actions.getMarkComment}
           handleMarkChange={actions.handleMarkChange}
           handleCommentChange={actions.handleCommentChange}
+          handleBulkColumnUpdate={actions.handleBulkColumnUpdate}
           calculateLearnerTotal={actions.calculateLearnerTotal}
           getAssessmentStats={actions.getAssessmentStats}
           onViewLearnerProfile={onViewLearnerProfile}

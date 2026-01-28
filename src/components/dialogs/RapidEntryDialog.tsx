@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState, useEffect } from 'react';
 import { Learner } from '@/lib/types';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Check, Calculator } from 'lucide-react';
+import { parseMarkInput } from '@/utils/marks';
+import { showSuccess } from '@/utils/toast';
 
 interface RapidEntryDialogProps {
   open: boolean;
@@ -31,7 +33,15 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
   }, [currentIndex, learners]);
 
   const handleNext = () => {
-    onUpdateMark(currentIndex, currentMark);
+    // Parse input before saving
+    const { value, isCalculated, raw } = parseMarkInput(currentMark);
+    
+    if (isCalculated) {
+        showSuccess(`Calculated: ${raw} = ${value}%`);
+    }
+
+    onUpdateMark(currentIndex, value);
+    
     if (currentIndex < learners.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
@@ -53,7 +63,7 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
         <DialogHeader>
           <DialogTitle>Rapid Mark Entry</DialogTitle>
           <DialogDescription>
-            Quickly enter marks one by one. Press Enter to save and go to next.
+            Quickly enter marks one by one. Supports calculations (e.g. "15/20").
           </DialogDescription>
         </DialogHeader>
         
@@ -67,7 +77,7 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
 
             <div className="flex flex-col items-center justify-center space-y-4 py-4">
                 <h3 className="text-2xl font-bold">{learners[currentIndex]?.name}</h3>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 relative">
                     <Label htmlFor="rapid-mark" className="sr-only">Mark</Label>
                     <Input 
                         id="rapid-mark"
@@ -78,6 +88,11 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
                         placeholder="%"
                         autoFocus
                     />
+                    {currentMark.includes('/') && (
+                        <div className="absolute -right-8 text-muted-foreground animate-in fade-in">
+                            <Calculator className="h-5 w-5" />
+                        </div>
+                    )}
                 </div>
             </div>
 

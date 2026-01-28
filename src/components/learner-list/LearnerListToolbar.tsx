@@ -2,7 +2,7 @@ import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, BrainCircuit, Loader2, Trash2, MessageSquare, AlertOctagon, Filter } from 'lucide-react';
+import { Search, BrainCircuit, Loader2, Trash2, MessageSquare, AlertOctagon, Filter, Calculator } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface LearnerListToolbarProps {
@@ -108,10 +108,20 @@ export const LearnerListToolbar = ({
               <Input
                 type="search"
                 placeholder="Search..."
-                className="pl-8"
+                className="pl-8 pr-8"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className="absolute right-2.5 top-2.5 cursor-help">
+                        <Calculator className="h-4 w-4 text-muted-foreground opacity-50 hover:opacity-100" />
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Smart Entry: Type '17/20' to auto-calculate %</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </div>

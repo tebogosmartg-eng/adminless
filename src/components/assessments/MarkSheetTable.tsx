@@ -7,6 +7,7 @@ import {
   DropdownMenuContent, 
   DropdownMenuTrigger, 
   DropdownMenuItem,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { 
   ContextMenu,
@@ -16,7 +17,7 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -41,6 +42,7 @@ interface MarkSheetTableProps {
   getMarkComment: (assId: string, lId: string) => string;
   handleMarkChange: (assId: string, lId: string, val: string) => void;
   handleCommentChange: (assId: string, lId: string, val: string) => void;
+  handleBulkColumnUpdate?: (assId: string, val: string) => void;
   calculateLearnerTotal: (lId: string) => string;
   getAssessmentStats: (assId: string) => { avg: string; max: string | number; min: string | number };
   onViewLearnerProfile?: (learner: Learner) => void;
@@ -49,7 +51,7 @@ interface MarkSheetTableProps {
 export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
   isLocked, isUsingVisibleTotal, atRiskThreshold, setIsAddOpen,
-  openAnalytics, deleteAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange,
+  openAnalytics, deleteAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
   calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile
 }: MarkSheetTableProps) => {
 
@@ -91,7 +93,6 @@ export const MarkSheetTable = ({
   const handleGridKeyDown = (e: React.KeyboardEvent, colIdx: number, rowIdx: number) => {
     if (e.key === 'Enter') {
         e.preventDefault();
-        // Move down on Enter
         const nextRow = Math.min(filteredLearners.length - 1, rowIdx + 1);
         const nextEl = document.getElementById(`cell-${colIdx}-${nextRow}`);
         if (nextEl) {
@@ -101,7 +102,6 @@ export const MarkSheetTable = ({
         return;
     }
 
-    // Arrow Navigation
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
         let nextRow = rowIdx;
@@ -172,6 +172,27 @@ export const MarkSheetTable = ({
                           <DropdownMenuItem onClick={() => { deleteAssessment(ass.id); }}>
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {handleBulkColumnUpdate && (
+                            <>
+                                <DropdownMenuItem onClick={() => { 
+                                    if (confirm(`Fill all empty cells in "${ass.title}" with 0?`)) {
+                                        // Use prompt to be safe, or just default to 0
+                                        const val = prompt("Enter value to set for ALL learners (or leave blank to cancel):", "0");
+                                        if (val !== null) handleBulkColumnUpdate(ass.id, val);
+                                    }
+                                }}>
+                                    <PaintBucket className="mr-2 h-4 w-4" /> Fill All
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                    if (confirm(`Clear ALL marks for "${ass.title}"?`)) {
+                                        handleBulkColumnUpdate(ass.id, "");
+                                    }
+                                }}>
+                                    <Eraser className="mr-2 h-4 w-4" /> Clear All
+                                </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
