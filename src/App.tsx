@@ -23,7 +23,7 @@ import { AcademicProvider } from "./context/AcademicContext";
 import { SyncProvider } from "./context/SyncContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { ReloadPrompt } from "./components/ReloadPrompt";
-import { Loader2 } from "lucide-react";
+import { SystemThemeManager } from "./components/SystemThemeManager";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +72,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="smareg-theme">
         <TooltipProvider>
+          <SystemThemeManager />
           <Toaster />
           <Sonner />
           <SyncProvider>

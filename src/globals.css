@@ -4,39 +4,28 @@
 
 @layer base {
   :root {
-    /* Calm Classroom - Light Mode */
-    --background: 210 20% 98%; /* Off-white/Light grey */
-    --foreground: 222 47% 11%; /* Soft Navy */
-
+    /* DEFAULT: Calm Classroom - Light Mode */
+    --background: 210 20% 98%; 
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-
-    /* Soft Navy / Deep Blue */
     --primary: 222 47% 15%; 
     --primary-foreground: 210 40% 98%;
-
     --secondary: 214 32% 91%;
     --secondary-foreground: 222 47% 11%;
-
     --muted: 210 20% 92%;
     --muted-foreground: 215 16% 47%;
-
     --accent: 214 32% 91%;
     --accent-foreground: 222 47% 11%;
-
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 214 32% 85%;
     --input: 214 32% 85%;
     --ring: 222 47% 15%;
-
     --radius: 0.6rem;
 
-    /* Professional Navy Sidebar */
     --sidebar-background: 222 47% 12%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 215 25% 27%;
@@ -47,32 +36,38 @@
     --sidebar-ring: 217 91% 60%;
   }
 
+  /* SYSTEM VARIANT: Fresh Morning (6am - 11am) */
+  .theme-morning {
+    --background: 200 30% 98%; /* Slightly cooler/fresher */
+    --primary: 210 50% 25%;
+    --sidebar-background: 210 50% 15%;
+  }
+
+  /* SYSTEM VARIANT: Relaxed Afternoon (4pm - 8pm) */
+  .theme-afternoon {
+    --background: 30 20% 98%; /* Slightly warmer to reduce blue light */
+    --border: 30 10% 90%;
+    --primary: 222 30% 20%;
+  }
+
   .dark {
     /* Night Marker - Dark Mode */
-    --background: 222 47% 4%; /* Near-black / Dark Charcoal */
-    --foreground: 210 20% 85%; /* Soft Grey text */
-
+    --background: 222 47% 4%;
+    --foreground: 210 20% 85%;
     --card: 222 47% 6%;
     --card-foreground: 210 20% 85%;
-
     --popover: 222 47% 6%;
     --popover-foreground: 210 20% 85%;
-
-    --primary: 190 40% 60%; /* Muted Teal/Soft Blue accent */
+    --primary: 190 40% 60%;
     --primary-foreground: 222 47% 4%;
-
     --secondary: 222 47% 12%;
     --secondary-foreground: 210 20% 85%;
-
     --muted: 222 47% 12%;
     --muted-foreground: 215 16% 60%;
-
     --accent: 222 47% 12%;
     --accent-foreground: 210 20% 85%;
-
     --destructive: 0 62% 40%;
     --destructive-foreground: 210 20% 85%;
-
     --border: 222 47% 15%;
     --input: 222 47% 15%;
     --ring: 190 40% 60%;
@@ -92,40 +87,7 @@
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  }
-
-  /* Improve table readability */
-  th {
-    @apply font-semibold uppercase tracking-wider text-[11px] text-muted-foreground bg-muted/50;
-  }
-  
-  /* Focus highlights for inputs in tables */
-  .table-input-focus:focus-within {
-    @apply ring-2 ring-primary ring-offset-1 bg-primary/5 outline-none transition-all;
-  }
-}
-
-@media print {
-  header, aside, .no-print, button, input, .fixed {
-    display: none !important;
-  }
-  body, main, div {
-    background: white !important;
-    color: black !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-  }
-  table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-  }
-  th, td {
-    border: 1px solid #ddd !important;
-    padding: 8px !important;
+    @apply bg-background text-foreground antialiased transition-colors duration-700;
   }
 }
