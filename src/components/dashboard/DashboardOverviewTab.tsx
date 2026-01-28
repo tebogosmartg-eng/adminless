@@ -3,6 +3,9 @@ import ClassComparisonChart from '@/components/charts/ClassComparisonChart';
 import MarkDistributionChart from '@/components/charts/MarkDistributionChart';
 import AtRiskLearners from './AtRiskLearners';
 import RecentActivity from './RecentActivity';
+import { PendingActions } from './PendingActions';
+import { UpcomingAssessments } from './UpcomingAssessments';
+import { RecentAlerts } from './RecentAlerts';
 import { ClassInfo, Learner } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,10 +25,17 @@ export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalCl
       <GlobalStats classes={activeClasses} />
       
       <div className="grid gap-6 lg:grid-cols-3">
+        {/* Main Content Column */}
         <div className="lg:col-span-2 space-y-6">
           {activeClasses.length > 0 ? (
             <>
+              <div className="grid gap-6 md:grid-cols-2">
+                <PendingActions classes={activeClasses} />
+                <UpcomingAssessments />
+              </div>
+              
               <ClassComparisonChart classes={activeClasses} />
+              
               <div className="grid gap-6 md:grid-cols-2">
                 <MarkDistributionChart 
                   learners={allActiveLearners} 
@@ -58,7 +68,7 @@ export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalCl
 
           {activeClasses.length > 0 && (
             <div className="space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Class Registers</h3>
+              <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Quick Class Access</h3>
               <div className="grid gap-4 md:grid-cols-2">
                 {activeClasses.map(c => (
                   <ClassSummaryCard key={c.id} classInfo={c} />
@@ -68,9 +78,10 @@ export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalCl
           )}
         </div>
 
+        {/* Sidebar Column */}
         <div className="space-y-6">
+          <RecentAlerts />
           <RecentActivity />
-          {/* We can add a "Tasks/Reminders" widget here later */}
         </div>
       </div>
     </div>
