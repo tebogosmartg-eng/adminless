@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.3"
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +22,12 @@ serve(async (req) => {
 
     const genAI = new GoogleGenerativeAI(apiKey)
     const modelName = Deno.env.get('GEMINI_MODEL_NAME') || "gemini-1.5-flash"
-    const model = genAI.getGenerativeModel({ model: modelName });
+    
+    // Set API version to v1beta
+    const model = genAI.getGenerativeModel(
+      { model: modelName },
+      { apiVersion: "v1beta" }
+    );
 
     const cleanJson = (text: string) => {
         let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "");
