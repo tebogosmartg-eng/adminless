@@ -3,11 +3,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Eye, AlertCircle, Search, Settings2, Save, FileSpreadsheet, Plus, Copy, Upload } from 'lucide-react';
+import { Calendar, Eye, AlertCircle, Search, Settings2, Save, FileSpreadsheet, Plus, Copy, Upload, Calculator } from 'lucide-react';
 import { Assessment, Term, AcademicYear } from '@/lib/types';
 
 interface MarkSheetToolbarProps {
@@ -92,16 +92,26 @@ export const MarkSheetToolbar = ({
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search learner..."
-            className="pl-8"
+            className="pl-8 pr-8"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          <Tooltip>
+            <TooltipTrigger asChild>
+                <div className="absolute right-2.5 top-2.5 cursor-help">
+                    <Calculator className="h-4 w-4 text-muted-foreground opacity-50 hover:opacity-100" />
+                </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+                <p>Smart Entry: Type '15/20' to auto-calculate scores.</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-10">
-              <Settings2 className="mr-2 h-4 w-4" /> View Options
+              <Settings2 className="mr-2 h-4 w-4" /> View
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
