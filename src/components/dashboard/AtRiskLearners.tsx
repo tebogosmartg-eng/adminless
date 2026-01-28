@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { db } from '@/db';
 import { useAcademic } from '@/context/AcademicContext';
 
@@ -12,6 +12,7 @@ interface AtRiskStudent {
   id: string;
   name: string;
   className: string;
+  classId: string;
   average: number;
   failingCount: number;
 }
@@ -20,6 +21,7 @@ export default function AtRiskLearners() {
   const { activeTerm } = useAcademic();
   const [loading, setLoading] = useState(false);
   const [students, setStudents] = useState<AtRiskStudent[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!activeTerm) return;
@@ -92,6 +94,7 @@ export default function AtRiskLearners() {
                 id: l.id!,
                 name: l.name,
                 className: classMap.get(stats.classId) || 'Unknown Class',
+                classId: stats.classId,
                 average: Math.round(stats.totalPct / stats.count),
                 failingCount: stats.failing
             };
@@ -152,10 +155,13 @@ export default function AtRiskLearners() {
                                 <p className="text-xs text-muted-foreground mt-1">{student.className}</p>
                             </div>
                         </div>
-                        <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-                            <Link to={`/learners/${student.id}`}>
-                                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                            </Link>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => navigate(`/classes/${student.classId}`, { state: { openLearnerId: student.id } })}
+                        >
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         </Button>
                     </div>
                 ))}

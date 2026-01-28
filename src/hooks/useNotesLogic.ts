@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 export interface AlertWithLearner extends LearnerNote {
   learnerName: string;
   className: string;
+  classId?: string;
 }
 
 export const useNotesLogic = () => {
@@ -54,7 +55,8 @@ export const useNotesLogic = () => {
             return {
                 ...note,
                 learnerName: learner?.name || 'Unknown Learner',
-                className
+                className,
+                classId: learner?.class_id
             };
         });
 

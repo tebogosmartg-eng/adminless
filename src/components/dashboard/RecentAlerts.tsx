@@ -1,12 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertTriangle, BookOpen, MessageCircle, Clock } from "lucide-react";
+import { AlertTriangle, BookOpen, MessageCircle, Clock, ExternalLink } from "lucide-react";
 import { useNotesLogic } from "@/hooks/useNotesLogic";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
 
 export const RecentAlerts = () => {
   const { recentAlerts, loadingAlerts } = useNotesLogic();
+  const navigate = useNavigate();
 
   const getIcon = (cat: string) => {
     switch (cat) {
@@ -14,6 +16,12 @@ export const RecentAlerts = () => {
       case 'academic': return <BookOpen className="h-4 w-4 text-blue-500" />;
       case 'parent': return <MessageCircle className="h-4 w-4 text-purple-500" />;
       default: return <AlertTriangle className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const handleAlertClick = (classId: string | undefined, learnerId: string) => {
+    if (classId) {
+      navigate(`/classes/${classId}`, { state: { openLearnerId: learnerId } });
     }
   };
 
@@ -41,13 +49,20 @@ export const RecentAlerts = () => {
           ) : (
             <div className="space-y-4 pt-2">
               {recentAlerts.map((alert) => (
-                <div key={alert.id} className="flex gap-3 items-start p-2 rounded-md hover:bg-muted/50 transition-colors border border-transparent hover:border-border">
-                  <div className="mt-1 bg-muted p-1.5 rounded-full">
+                <div 
+                  key={alert.id} 
+                  className="flex gap-3 items-start p-2 rounded-md hover:bg-muted/50 transition-colors border border-transparent hover:border-border cursor-pointer group"
+                  onClick={() => handleAlertClick(alert.classId, alert.learner_id)}
+                >
+                  <div className="mt-1 bg-muted p-1.5 rounded-full group-hover:bg-background transition-colors">
                     {getIcon(alert.category)}
                   </div>
                   <div className="flex-1 space-y-1">
                     <div className="flex justify-between items-start">
-                      <span className="font-semibold text-sm">{alert.learnerName}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm group-hover:text-primary transition-colors">{alert.learnerName}</span>
+                        {alert.classId && <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50" />}
+                      </div>
                       <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {format(new Date(alert.date), 'dd MMM')}
