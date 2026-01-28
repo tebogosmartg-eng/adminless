@@ -1,11 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Camera, Upload, Users } from "lucide-react";
+import { Camera, Upload, Users, StickyNote, PlusCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CreateClassDialog } from "@/components/CreateClassDialog";
 import { useClasses } from "@/context/ClassesContext";
 
-export const QuickActions = () => {
+interface QuickActionsProps {
+  onAddNote: () => void;
+}
+
+export const QuickActions = ({ onAddNote }: QuickActionsProps) => {
   const { addClass } = useClasses();
 
   return (
@@ -25,11 +29,9 @@ export const QuickActions = () => {
           </Link>
         </Button>
 
-        <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2" asChild>
-          <Link to="/classes">
-            <Users className="h-6 w-6 text-blue-600" />
-            <span className="text-xs">View Classes</span>
-          </Link>
+        <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2" onClick={onAddNote}>
+            <StickyNote className="h-6 w-6 text-orange-500" />
+            <span className="text-xs">Quick Note</span>
         </Button>
         
         <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2" asChild>

@@ -16,6 +16,7 @@ import { YearPerformanceTrend } from './YearPerformanceTrend';
 import { TopLearnersPerGrade } from './TopLearnersPerGrade';
 import { TimetableWidget } from './TimetableWidget';
 import { TermProgressWidget } from './TermProgressWidget';
+import { RecentAlerts } from './RecentAlerts';
 import { ClassInfo, Learner } from '@/lib/types';
 
 interface DashboardOverviewTabProps {
@@ -37,6 +38,11 @@ export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalCl
         {activeClasses.length > 0 && (
            <PendingActions classes={activeClasses} />
         )}
+
+        <div className="grid gap-6 md:grid-cols-2">
+            <RecentAlerts />
+            <AtRiskLearners />
+        </div>
 
         {activeClasses.length > 0 && (
           <>
@@ -94,7 +100,6 @@ export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalCl
         <DailyAttendanceCard />
         <TopLearnersPerGrade classes={activeClasses} />
         <TodoList />
-        <AtRiskLearners />
         <RecentActivity />
       </div>
     </div>

@@ -6,6 +6,8 @@ import { DashboardOverviewTab } from '@/components/dashboard/DashboardOverviewTa
 import { DashboardGroupedView } from '@/components/dashboard/DashboardGroupedView';
 import { useClasses } from '@/context/ClassesContext';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { GlobalAddNoteDialog } from '@/components/dialogs/GlobalAddNoteDialog';
+import { useState } from 'react';
 
 const Dashboard = () => {
   const { loading } = useClasses();
@@ -16,6 +18,8 @@ const Dashboard = () => {
     classesBySubject, 
     classesByGrade 
   } = useDashboardData();
+
+  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
 
   if (loading) {
     return (
@@ -74,10 +78,15 @@ const Dashboard = () => {
             </Tabs>
          </div>
          <div className="lg:col-span-1 space-y-6">
-            <QuickActions />
+            <QuickActions onAddNote={() => setIsAddNoteOpen(true)} />
             {/* We can hide other widgets on mobile or rearrange */}
          </div>
       </div>
+
+      <GlobalAddNoteDialog 
+        open={isAddNoteOpen} 
+        onOpenChange={setIsAddNoteOpen} 
+      />
     </div>
   );
 };
