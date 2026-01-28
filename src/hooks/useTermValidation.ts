@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/db';
 
 export interface ValidationError {
   type: 'weight' | 'marks';
@@ -16,23 +16,13 @@ export const useTermValidation = () => {
     const errors: ValidationError[] = [];
 
     try {
-      // 1. Get all assessments for this term
-      const { data: assessments, error: assError } = await supabase
-        .from('assessments')
-        .select(`
-          id, 
-          title, 
-          weight, 
-          class_id,
-          classes ( id, class_name, subject, learners (id) )
-        `)
-        .eq('term_id', termId);
-
-      if (assError) throw assError;
+      // 1. Get all assessments for this term from Local DB
+      const assessments = await db.assessments
+        .where('term_id')
+        .equals(termId)
+        .toArray();
 
       if (!assessments || assessments.length === 0) {
-        // Technically valid to close an empty term, but let's warn? 
-        // No, let's allow it, but usually a term has work.
         setValidating(false);
         return { isValid: true, errors: [] };
       }
@@ -47,11 +37,11 @@ export const useTermValidation = () => {
       // 2. Validate Weights per Class
       for (const classId in classGroups) {
         const classAss = classGroups[classId];
-        const classInfo = classAss[0].classes; // flattened from join
         
-        // @ts-ignore
-        const className = classInfo?.class_name || "Unknown Class";
-        // @ts-ignore
+        // Get Class Info
+        const classInfo = await db.classes.get(classId);
+        
+        const className = classInfo?.className || "Unknown Class";
         const subject = classInfo?.subject || "Unknown Subject";
 
         const totalWeight = classAss.reduce((sum, a) => sum + Number(a.weight), 0);
@@ -66,26 +56,37 @@ export const useTermValidation = () => {
         }
 
         // 3. Validate Missing Marks
-        // We need to check if every learner in the class has a mark for every assessment
-        // @ts-ignore
-        const learners = classInfo?.learners || [];
+        // Get learners for this class
+        const learners = await db.learners
+            .where('class_id')
+            .equals(classId)
+            .toArray();
+            
         if (learners.length === 0) continue; // Skip empty classes
 
         const assessmentIds = classAss.map(a => a.id);
         
         // Fetch actual marks
-        const { data: marks } = await supabase
-          .from('assessment_marks')
-          .select('assessment_id, learner_id')
-          .in('assessment_id', assessmentIds);
+        const marks = await db.assessment_marks
+          .where('assessment_id')
+          .anyOf(assessmentIds)
+          .toArray();
 
-        const marksMap = new Set(marks?.map(m => `${m.assessment_id}-${m.learner_id}`));
+        const marksMap = new Set(marks.map(m => `${m.assessment_id}-${m.learner_id}`));
 
         let missingCount = 0;
         
         classAss.forEach(ass => {
-          learners.forEach((l: any) => {
-            if (!marksMap.has(`${ass.id}-${l.id}`)) {
+          learners.forEach((l) => {
+            // Check if mark exists AND is not null?
+            // Usually existence in DB with value means it's there. 
+            // In our system, we might delete marks or store them as null.
+            if (!l.id) return; // Unsynced/created learner should have ID if saved.
+            
+            const key = `${ass.id}-${l.id}`;
+            const markEntry = marks.find(m => m.assessment_id === ass.id && m.learner_id === l.id);
+            
+            if (!markEntry || markEntry.score === null || markEntry.score === undefined) {
               missingCount++;
             }
           });
@@ -103,7 +104,7 @@ export const useTermValidation = () => {
 
     } catch (error) {
       console.error("Validation error:", error);
-      errors.push({ type: 'weight', className: 'System', subject: 'Error', details: 'Failed to run validation check.' });
+      errors.push({ type: 'weight', className: 'System', subject: 'Error', details: 'Failed to run validation check locally.' });
     } finally {
       setValidating(false);
     }

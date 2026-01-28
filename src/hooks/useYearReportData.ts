@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/db';
 import { showSuccess, showError } from '@/utils/toast';
 
 interface YearReportResult {
@@ -20,23 +20,17 @@ export const useYearReportData = () => {
 
     setLoading(true);
     try {
-      // 1. Get Terms for Year
-      const { data: terms, error: termError } = await supabase
-        .from('terms')
-        .select('*')
-        .eq('year_id', yearId);
-      
-      if (termError) throw termError;
+      // 1. Get Terms for Year from Local DB
+      const terms = await db.terms
+        .where('year_id')
+        .equals(yearId)
+        .toArray();
       
       // 2. Get Classes
-      const { data: classesData, error: classError } = await supabase
-        .from('classes')
-        .select('id, class_name, learners(*)')
-        .eq('grade', grade)
-        .eq('subject', subject)
-        .eq('archived', false);
+      const classesData = await db.classes
+        .filter(c => c.grade === grade && c.subject === subject && !c.archived)
+        .toArray();
 
-      if (classError) throw classError;
       if (!classesData || classesData.length === 0) {
         showError("No classes found.");
         setLoading(false);
@@ -45,34 +39,40 @@ export const useYearReportData = () => {
 
       const classIds = classesData.map(c => c.id);
 
-      // 3. Get Assessments for ALL terms in this year for these classes
-      const { data: assessmentsData, error: assError } = await supabase
-        .from('assessments')
-        .select('*')
-        .in('class_id', classIds)
-        .in('term_id', terms.map(t => t.id));
+      // Get Learners for Classes
+      const learnersData = await db.learners
+        .where('class_id')
+        .anyOf(classIds)
+        .toArray();
 
-      if (assError) throw assError;
+      // 3. Get Assessments for ALL terms in this year for these classes
+      const termIds = terms.map(t => t.id);
+      const assessmentsData = await db.assessments
+        .where('class_id')
+        .anyOf(classIds)
+        .filter(a => termIds.includes(a.term_id))
+        .toArray();
 
       // 4. Get Marks
-      const assessmentIds = assessmentsData?.map(a => a.id) || [];
-      const { data: marksData, error: marksError } = await supabase
-        .from('assessment_marks')
-        .select('*')
-        .in('assessment_id', assessmentIds);
-
-      if (marksError) throw marksError;
+      const assessmentIds = assessmentsData.map(a => a.id);
+      const marksData = await db.assessment_marks
+        .where('assessment_id')
+        .anyOf(assessmentIds)
+        .toArray();
 
       // 5. Calculation
       const learnerResults: { [id: string]: YearReportResult } = {};
 
       classesData.forEach(cls => {
-        cls.learners.forEach((l: any) => {
-            learnerResults[l.id] = {
-                learnerName: l.name,
-                termMarks: {},
-                finalYearMark: 0
-            };
+        const classLearners = learnersData.filter(l => l.class_id === cls.id);
+        classLearners.forEach((l) => {
+            if (l.id) {
+                learnerResults[l.id] = {
+                    learnerName: l.name,
+                    termMarks: {},
+                    finalYearMark: 0
+                };
+            }
         });
       });
 
@@ -82,14 +82,14 @@ export const useYearReportData = () => {
 
       terms.forEach(term => {
           totalYearWeight += Number(term.weight);
-          const termAssessments = assessmentsData?.filter(a => a.term_id === term.id) || [];
+          const termAssessments = assessmentsData.filter(a => a.term_id === term.id);
 
           learnerIds.forEach(lId => {
               let weightedTermSum = 0;
               let termWeightTotal = 0;
 
               termAssessments.forEach(ass => {
-                  const m = marksData?.find(md => md.assessment_id === ass.id && md.learner_id === lId);
+                  const m = marksData.find(md => md.assessment_id === ass.id && md.learner_id === lId);
                   if (m && m.score !== null) {
                       const val = Number(m.score);
                       const weighted = (val / Number(ass.max_mark)) * Number(ass.weight);
@@ -99,8 +99,6 @@ export const useYearReportData = () => {
               });
 
               // Term Mark Calculation
-              // If assessments don't sum to 100, we normalize based on what was assessed? 
-              // Or strictly assume sum. Let's use running total.
               const termMark = termWeightTotal > 0 ? (weightedTermSum / termWeightTotal) * 100 : null;
               
               learnerResults[lId].termMarks[term.name] = termMark !== null ? parseFloat(termMark.toFixed(1)) : null;
@@ -120,8 +118,7 @@ export const useYearReportData = () => {
               }
           });
 
-          // Final Mark is normalized to the active weight (e.g. if Term 4 is missing, calculate based on T1-T3)
-          // This allows "Year-to-date" marks
+          // Final Mark is normalized to the active weight
           const final = activeWeight > 0 ? (yearSum / activeWeight) : 0;
           learnerResults[lId].finalYearMark = parseFloat(final.toFixed(1));
       });

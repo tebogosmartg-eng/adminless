@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { useAcademic } from '@/context/AcademicContext';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/db';
 import { Loader2, TrendingUp } from 'lucide-react';
 
 export const YearPerformanceTrend = () => {
@@ -15,58 +15,59 @@ export const YearPerformanceTrend = () => {
 
     const fetchTrendData = async () => {
         setLoading(true);
-        const termIds = terms.map(t => t.id);
-        
-        // Fetch all assessments and marks for this year
-        const { data: assessments } = await supabase
-            .from('assessments')
-            .select('id, term_id, max_mark')
-            .in('term_id', termIds);
+        try {
+            const termIds = terms.map(t => t.id);
             
-        if (!assessments) {
-            setLoading(false);
-            return;
-        }
+            // Fetch all assessments for this year
+            const assessments = await db.assessments
+                .where('term_id')
+                .anyOf(termIds)
+                .toArray();
+                
+            if (!assessments || assessments.length === 0) {
+                setLoading(false);
+                return;
+            }
 
-        const assessmentIds = assessments.map(a => a.id);
-        
-        const { data: marks } = await supabase
-            .from('assessment_marks')
-            .select('assessment_id, score')
-            .in('assessment_id', assessmentIds);
-
-        if (!marks) {
-            setLoading(false);
-            return;
-        }
-
-        // Calculate Average per Term
-        const trendData = terms.map(term => {
-            const termAssessments = assessments.filter(a => a.term_id === term.id);
-            const termAssessmentIds = new Set(termAssessments.map(a => a.id));
+            const assessmentIds = assessments.map(a => a.id);
             
-            const termMarks = marks.filter(m => termAssessmentIds.has(m.assessment_id) && m.score !== null);
-            
-            let totalPercent = 0;
-            let count = 0;
+            // Fetch all marks
+            const marks = await db.assessment_marks
+                .where('assessment_id')
+                .anyOf(assessmentIds)
+                .toArray();
 
-            termMarks.forEach(m => {
-                const ass = termAssessments.find(a => a.id === m.assessment_id);
-                if (ass) {
-                    totalPercent += (Number(m.score) / ass.max_mark) * 100;
-                    count++;
-                }
+            // Calculate Average per Term
+            const trendData = terms.map(term => {
+                const termAssessments = assessments.filter(a => a.term_id === term.id);
+                const termAssessmentIds = new Set(termAssessments.map(a => a.id));
+                
+                const termMarks = marks.filter(m => termAssessmentIds.has(m.assessment_id) && m.score !== null);
+                
+                let totalPercent = 0;
+                let count = 0;
+
+                termMarks.forEach(m => {
+                    const ass = termAssessments.find(a => a.id === m.assessment_id);
+                    if (ass) {
+                        totalPercent += (Number(m.score) / ass.max_mark) * 100;
+                        count++;
+                    }
+                });
+
+                return {
+                    name: term.name,
+                    average: count > 0 ? Math.round(totalPercent / count) : 0,
+                    assessments: count
+                };
             });
 
-            return {
-                name: term.name,
-                average: count > 0 ? Math.round(totalPercent / count) : 0,
-                assessments: count
-            };
-        });
-
-        setData(trendData);
-        setLoading(false);
+            setData(trendData);
+        } catch (error) {
+            console.error("Failed to load trend data", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     fetchTrendData();

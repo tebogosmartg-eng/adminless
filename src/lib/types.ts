@@ -133,3 +133,16 @@ export interface TimetableEntry {
   start_time?: string;
   end_time?: string;
 }
+
+export interface AssessmentResult {
+  termName: string;
+  termId: string;
+  assessmentTitle: string;
+  assessmentType: string;
+  date: string;
+  score: number | null;
+  max: number;
+  weight: number;
+  percentage: number | null;
+  classAverage: number | null;
+}

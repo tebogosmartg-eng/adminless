@@ -1,19 +1,11 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Assessment, AssessmentMark, Term } from '@/lib/types';
+import { db } from '@/db';
+import { AssessmentResult } from '@/lib/types';
 
-export interface AssessmentResult {
-  termName: string;
-  termId: string;
-  assessmentTitle: string;
-  assessmentType: string;
-  date: string;
-  score: number | null;
-  max: number;
-  weight: number;
-  percentage: number | null;
-  classAverage: number | null;
-}
+// We need to extend the type because our local join manual construction might look slightly different
+// but the interface for the component remains the same.
+
+export { type AssessmentResult };
 
 export const useLearnerAssessmentData = (learnerId: string | undefined) => {
   const [loading, setLoading] = useState(true);
@@ -29,33 +21,44 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
       setLoading(true);
       try {
         // 1. Get all marks for this learner
-        const { data: marks, error: marksError } = await supabase
-          .from('assessment_marks')
-          .select(`
-            score,
-            assessments (
-              id,
-              title,
-              type,
-              max_mark,
-              weight,
-              date,
-              term_id,
-              terms ( id, name )
-            )
-          `)
-          .eq('learner_id', learnerId);
+        const marks = await db.assessment_marks
+            .where('learner_id')
+            .equals(learnerId)
+            .toArray();
 
-        if (marksError) throw marksError;
+        if (!marks || marks.length === 0) {
+            setResults([]);
+            setLoading(false);
+            return;
+        }
 
-        // 2. Format data
-        const formatted: AssessmentResult[] = marks.map((m: any) => {
-          const ass = m.assessments;
+        const assessmentIds = marks.map(m => m.assessment_id);
+
+        // 2. Get Assessments details
+        const assessments = await db.assessments
+            .where('id')
+            .anyOf(assessmentIds)
+            .toArray();
+
+        // 3. Get Term details
+        const termIds = [...new Set(assessments.map(a => a.term_id))];
+        const terms = await db.terms
+            .where('id')
+            .anyOf(termIds)
+            .toArray();
+        const termMap = new Map(terms.map(t => [t.id, t.name]));
+
+        // 4. Format data
+        const formatted: AssessmentResult[] = marks.map((m) => {
+          const ass = assessments.find(a => a.id === m.assessment_id);
+          
+          if (!ass) return null; // Should not happen if data integrity is good
+
           const score = m.score ? Number(m.score) : null;
           const percentage = score !== null ? (score / ass.max_mark) * 100 : null;
 
           return {
-            termName: ass.terms?.name || 'Unknown Term',
+            termName: termMap.get(ass.term_id) || 'Unknown Term',
             termId: ass.term_id,
             assessmentTitle: ass.title,
             assessmentType: ass.type,
@@ -64,9 +67,9 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
             max: ass.max_mark,
             weight: ass.weight,
             percentage: percentage ? parseFloat(percentage.toFixed(1)) : null,
-            classAverage: null // We could fetch this separately if needed
+            classAverage: null 
           };
-        });
+        }).filter(item => item !== null) as AssessmentResult[];
 
         // Sort by date
         formatted.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());

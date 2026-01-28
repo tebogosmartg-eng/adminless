@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { supabase } from '@/integrations/supabase/client';
 import { useAcademic } from '@/context/AcademicContext';
 import { Loader2, TrendingUp, AlertCircle } from 'lucide-react';
+import { db } from '@/db';
 
 export const ActiveTermStats = () => {
   const { activeTerm } = useAcademic();
@@ -14,55 +14,57 @@ export const ActiveTermStats = () => {
 
     const fetchTermStats = async () => {
         setLoading(true);
-        // 1. Get assessments for this term
-        const { data: assessments } = await supabase
-            .from('assessments')
-            .select('id, max_mark, weight')
-            .eq('term_id', activeTerm.id);
-        
-        if (!assessments || assessments.length === 0) {
-            setStats({ avg: 0, passRate: 0, assessmentsCount: 0 });
-            setLoading(false);
-            return;
-        }
-
-        const assessmentIds = assessments.map(a => a.id);
-
-        // 2. Get marks
-        const { data: marks } = await supabase
-            .from('assessment_marks')
-            .select('*')
-            .in('assessment_id', assessmentIds);
-
-        if (!marks || marks.length === 0) {
-            setStats({ avg: 0, passRate: 0, assessmentsCount: assessments.length });
-            setLoading(false);
-            return;
-        }
-
-        // 3. Calculate Global Average for Term
-        // Note: Accurately calculating "Learner Term Average" across all learners requires grouping by learner
-        // For a quick dashboard stat, we will calculate the average % performance across all assessment entries
-        
-        let totalPercentage = 0;
-        let count = 0;
-        let passCount = 0;
-
-        marks.forEach(m => {
-            const ass = assessments.find(a => a.id === m.assessment_id);
-            if (ass && m.score !== null) {
-                const pct = (Number(m.score) / Number(ass.max_mark)) * 100;
-                totalPercentage += pct;
-                if (pct >= 50) passCount++;
-                count++;
+        try {
+            // 1. Get assessments for this term from Local DB
+            const assessments = await db.assessments
+                .where('term_id')
+                .equals(activeTerm.id)
+                .toArray();
+            
+            if (!assessments || assessments.length === 0) {
+                setStats({ avg: 0, passRate: 0, assessmentsCount: 0 });
+                setLoading(false);
+                return;
             }
-        });
 
-        const avg = count > 0 ? Math.round(totalPercentage / count) : 0;
-        const passRate = count > 0 ? Math.round((passCount / count) * 100) : 0;
+            const assessmentIds = assessments.map(a => a.id);
 
-        setStats({ avg, passRate, assessmentsCount: assessments.length });
-        setLoading(false);
+            // 2. Get marks from Local DB
+            const marks = await db.assessment_marks
+                .where('assessment_id')
+                .anyOf(assessmentIds)
+                .toArray();
+
+            if (!marks || marks.length === 0) {
+                setStats({ avg: 0, passRate: 0, assessmentsCount: assessments.length });
+                setLoading(false);
+                return;
+            }
+
+            // 3. Calculate Global Average for Term
+            let totalPercentage = 0;
+            let count = 0;
+            let passCount = 0;
+
+            marks.forEach(m => {
+                const ass = assessments.find(a => a.id === m.assessment_id);
+                if (ass && m.score !== null) {
+                    const pct = (Number(m.score) / Number(ass.max_mark)) * 100;
+                    totalPercentage += pct;
+                    if (pct >= 50) passCount++;
+                    count++;
+                }
+            });
+
+            const avg = count > 0 ? Math.round(totalPercentage / count) : 0;
+            const passRate = count > 0 ? Math.round((passCount / count) * 100) : 0;
+
+            setStats({ avg, passRate, assessmentsCount: assessments.length });
+        } catch (error) {
+            console.error("Failed to load term stats", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     fetchTermStats();
