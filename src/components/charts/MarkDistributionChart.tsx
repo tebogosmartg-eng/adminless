@@ -19,22 +19,23 @@ const MarkDistributionChart = ({
   const { gradingScheme } = useSettings();
 
   const chartData = useMemo(() => {
+    // Defense: Ensure gradingScheme is an array before spreading
+    const safeScheme = Array.isArray(gradingScheme) ? gradingScheme : [];
+    
     // Initialize counts for each symbol in the scheme
     // Sort by min value ascending so the chart goes from low to high marks left-to-right
-    const sortedScheme = [...gradingScheme].sort((a, b) => a.min - b.min);
+    const sortedScheme = [...safeScheme].sort((a, b) => a.min - b.min);
     
     const data = sortedScheme.map(grade => ({
       name: grade.symbol,
       count: 0,
-      min: grade.min, // keeping for reference
-      fill: grade.color.replace('text-', 'var(--') // This is tricky with Tailwind classes, let's map manually or use a default
+      min: grade.min,
+      fill: grade.color.replace('text-', 'var(--') 
     }));
 
-    // Add a category for "Ungraded" or "Invalid" if needed, but for now we filter them
-    
     learners.forEach(learner => {
       if (learner.mark && !isNaN(parseFloat(learner.mark))) {
-        const symbolObj = getGradeSymbol(learner.mark, gradingScheme);
+        const symbolObj = getGradeSymbol(learner.mark, safeScheme);
         if (symbolObj) {
           const dataPoint = data.find(d => d.name === symbolObj.symbol);
           if (dataPoint) {
@@ -72,7 +73,6 @@ const MarkDistributionChart = ({
                   }}
                 />
                 <Legend />
-                {/* We use a single Bar with a default color, as Recharts individual bar coloring requires specific data structure or Cell components */}
                 <Bar dataKey="count" name="Learners" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

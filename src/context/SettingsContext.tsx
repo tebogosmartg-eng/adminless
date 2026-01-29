@@ -66,16 +66,17 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   useEffect(() => {
     if (profile) {
-        if (profile.grading_scheme !== undefined) setGradingSchemeState(profile.grading_scheme);
-        if (profile.school_name !== undefined) setSchoolNameState(profile.school_name);
-        if (profile.teacher_name !== undefined) setTeacherNameState(profile.teacher_name);
-        if (profile.contact_email !== undefined) setContactEmailState(profile.contact_email);
-        if (profile.contact_phone !== undefined) setContactPhoneState(profile.contact_phone);
-        if (profile.school_logo !== undefined) setSchoolLogoState(profile.school_logo);
-        if (profile.at_risk_threshold !== undefined) setAtRiskThresholdState(profile.at_risk_threshold);
-        if (profile.comment_bank !== undefined) setCommentBankState(profile.comment_bank);
-        if (profile.subjects !== undefined) setSavedSubjectsState(profile.subjects);
-        if (profile.grades !== undefined) setSavedGradesState(profile.grades);
+        // Critical Fix: Only update state if the value from DB is a valid array
+        if (Array.isArray(profile.grading_scheme)) setGradingSchemeState(profile.grading_scheme);
+        if (profile.school_name !== undefined) setSchoolNameState(profile.school_name || "My School");
+        if (profile.teacher_name !== undefined) setTeacherNameState(profile.teacher_name || "");
+        if (profile.contact_email !== undefined) setContactEmailState(profile.contact_email || "");
+        if (profile.contact_phone !== undefined) setContactPhoneState(profile.contact_phone || "");
+        if (profile.school_logo !== undefined) setSchoolLogoState(profile.school_logo || null);
+        if (profile.at_risk_threshold !== undefined) setAtRiskThresholdState(profile.at_risk_threshold ?? 50);
+        if (Array.isArray(profile.comment_bank)) setCommentBankState(profile.comment_bank);
+        if (Array.isArray(profile.subjects)) setSavedSubjectsState(profile.subjects);
+        if (Array.isArray(profile.grades)) setSavedGradesState(profile.grades);
     }
   }, [profile]);
 
