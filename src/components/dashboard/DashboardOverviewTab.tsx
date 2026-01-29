@@ -14,6 +14,9 @@ import { PlusCircle, Camera } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import { QuickActions } from './QuickActions';
 import { TopLearnersPerGrade } from './TopLearnersPerGrade';
+import { ActiveTermStats } from './ActiveTermStats';
+import { TermProgressWidget } from './TermProgressWidget';
+import { YearPerformanceTrend } from './YearPerformanceTrend';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -30,6 +33,13 @@ export const DashboardOverviewTab = ({
 }: DashboardOverviewTabProps) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="grid gap-6 md:grid-cols-3">
+         <div className="md:col-span-2">
+            <ActiveTermStats />
+         </div>
+         <TermProgressWidget />
+      </div>
+
       <GlobalStats classes={activeClasses} />
       
       <div className="grid gap-6 lg:grid-cols-3">
@@ -41,6 +51,8 @@ export const DashboardOverviewTab = ({
                 <PendingActions classes={activeClasses} />
                 <QuickActions onAddNote={onAddNote} />
               </div>
+              
+              <YearPerformanceTrend />
               
               <ClassComparisonChart classes={activeClasses} />
               
