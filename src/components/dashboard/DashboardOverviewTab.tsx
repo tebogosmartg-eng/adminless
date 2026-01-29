@@ -17,6 +17,7 @@ import { TopLearnersPerGrade } from './TopLearnersPerGrade';
 import { ActiveTermStats } from './ActiveTermStats';
 import { TermProgressWidget } from './TermProgressWidget';
 import { YearPerformanceTrend } from './YearPerformanceTrend';
+import { TimetableWidget } from './TimetableWidget';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -105,6 +106,7 @@ export const DashboardOverviewTab = ({
 
         {/* Sidebar Column */}
         <div className="space-y-6">
+          <TimetableWidget />
           <RecentAlerts />
           <RecentActivity />
         </div>
