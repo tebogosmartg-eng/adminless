@@ -3,18 +3,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { School, User, AlertCircle, Save, Trash2, ImagePlus, Mail, Phone } from "lucide-react";
+import { School, User, AlertCircle, Save, Trash2, ImagePlus, Mail, Phone, Loader2 } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { showSuccess, showError } from "@/utils/toast";
 
 export const SchoolProfileSettings = () => {
   const { 
-    schoolName, setSchoolName,
-    teacherName, setTeacherName,
-    contactEmail, setContactEmail,
-    contactPhone, setContactPhone,
+    schoolName,
+    teacherName,
+    contactEmail,
+    contactPhone,
     schoolLogo, setSchoolLogo,
-    atRiskThreshold, setAtRiskThreshold,
+    atRiskThreshold,
+    updateProfileSettings
   } = useSettings();
 
   const [tempSchoolName, setTempSchoolName] = useState(schoolName);
@@ -22,9 +23,11 @@ export const SchoolProfileSettings = () => {
   const [tempContactEmail, setTempContactEmail] = useState(contactEmail);
   const [tempContactPhone, setTempContactPhone] = useState(contactPhone);
   const [tempThreshold, setTempThreshold] = useState(atRiskThreshold.toString());
+  const [isSaving, setIsSaving] = useState(false);
+  
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // Update local state when context updates (e.g. initial load)
+  // Update local state when context updates (initial load or background sync)
   useEffect(() => {
     setTempSchoolName(schoolName);
     setTempTeacherName(teacherName);
@@ -33,18 +36,27 @@ export const SchoolProfileSettings = () => {
     setTempThreshold(atRiskThreshold.toString());
   }, [schoolName, teacherName, contactEmail, contactPhone, atRiskThreshold]);
 
-  const handleSaveProfile = () => {
-    setSchoolName(tempSchoolName);
-    setTeacherName(tempTeacherName);
-    setContactEmail(tempContactEmail);
-    setContactPhone(tempContactPhone);
-    
+  const handleSaveProfile = async () => {
     const thresh = parseInt(tempThreshold);
-    if (!isNaN(thresh) && thresh >= 0 && thresh <= 100) {
-      setAtRiskThreshold(thresh);
-      showSuccess("School profile and settings updated.");
-    } else {
+    if (isNaN(thresh) || thresh < 0 || thresh > 100) {
       showError("Invalid threshold value. Must be between 0 and 100.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+        await updateProfileSettings({
+            schoolName: tempSchoolName,
+            teacherName: tempTeacherName,
+            contactEmail: tempContactEmail,
+            contactPhone: tempContactPhone,
+            atRiskThreshold: thresh
+        });
+        showSuccess("Profile settings saved successfully.");
+    } catch (e) {
+        showError("Failed to save settings.");
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -200,8 +212,9 @@ export const SchoolProfileSettings = () => {
                 </div>
               </div>
             </div>
-            <Button onClick={handleSaveProfile} className="w-full sm:w-auto">
-              <Save className="mr-2 h-4 w-4" /> Save Profile & Settings
+            <Button onClick={handleSaveProfile} className="w-full sm:w-auto" disabled={isSaving}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Profile & Settings
             </Button>
           </div>
         </div>

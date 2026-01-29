@@ -32,6 +32,13 @@ interface SettingsContextType {
   savedGrades: string[];
   addGrade: (grade: string) => void;
   removeGrade: (grade: string) => void;
+  updateProfileSettings: (updates: {
+    schoolName?: string;
+    teacherName?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    atRiskThreshold?: number;
+  }) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -59,16 +66,16 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   useEffect(() => {
     if (profile) {
-        if (profile.grading_scheme) setGradingSchemeState(profile.grading_scheme);
-        if (profile.school_name) setSchoolNameState(profile.school_name);
-        if (profile.teacher_name) setTeacherNameState(profile.teacher_name);
-        if (profile.contact_email) setContactEmailState(profile.contact_email);
-        if (profile.contact_phone) setContactPhoneState(profile.contact_phone);
-        if (profile.school_logo) setSchoolLogoState(profile.school_logo);
-        if (profile.at_risk_threshold) setAtRiskThresholdState(profile.at_risk_threshold);
-        if (profile.comment_bank) setCommentBankState(profile.comment_bank);
-        if (profile.subjects) setSavedSubjectsState(profile.subjects);
-        if (profile.grades) setSavedGradesState(profile.grades);
+        if (profile.grading_scheme !== undefined) setGradingSchemeState(profile.grading_scheme);
+        if (profile.school_name !== undefined) setSchoolNameState(profile.school_name);
+        if (profile.teacher_name !== undefined) setTeacherNameState(profile.teacher_name);
+        if (profile.contact_email !== undefined) setContactEmailState(profile.contact_email);
+        if (profile.contact_phone !== undefined) setContactPhoneState(profile.contact_phone);
+        if (profile.school_logo !== undefined) setSchoolLogoState(profile.school_logo);
+        if (profile.at_risk_threshold !== undefined) setAtRiskThresholdState(profile.at_risk_threshold);
+        if (profile.comment_bank !== undefined) setCommentBankState(profile.comment_bank);
+        if (profile.subjects !== undefined) setSavedSubjectsState(profile.subjects);
+        if (profile.grades !== undefined) setSavedGradesState(profile.grades);
     }
   }, [profile]);
 
@@ -83,6 +90,33 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
     // 2. Queue Sync
     await queueAction('profiles', 'upsert', updated);
+  };
+
+  const updateProfileSettings = async (updates: {
+    schoolName?: string;
+    teacherName?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    atRiskThreshold?: number;
+  }) => {
+    if (!session?.user.id) return;
+
+    // Map keys to DB field names
+    const dbUpdates: any = {};
+    if (updates.schoolName !== undefined) dbUpdates.school_name = updates.schoolName;
+    if (updates.teacherName !== undefined) dbUpdates.teacher_name = updates.teacherName;
+    if (updates.contactEmail !== undefined) dbUpdates.contact_email = updates.contactEmail;
+    if (updates.contactPhone !== undefined) dbUpdates.contact_phone = updates.contactPhone;
+    if (updates.atRiskThreshold !== undefined) dbUpdates.at_risk_threshold = updates.atRiskThreshold;
+
+    // Update local state immediately for snappy UI
+    if (updates.schoolName !== undefined) setSchoolNameState(updates.schoolName);
+    if (updates.teacherName !== undefined) setTeacherNameState(updates.teacherName);
+    if (updates.contactEmail !== undefined) setContactEmailState(updates.contactEmail);
+    if (updates.contactPhone !== undefined) setContactPhoneState(updates.contactPhone);
+    if (updates.atRiskThreshold !== undefined) setAtRiskThresholdState(updates.atRiskThreshold);
+
+    await updateProfile(dbUpdates);
   };
 
   const updateGradingScheme = (newScheme: GradeSymbol[]) => {
@@ -196,7 +230,8 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
       removeSubject,
       savedGrades,
       addGrade,
-      removeGrade
+      removeGrade,
+      updateProfileSettings
     }}>
       {children}
     </SettingsContext.Provider>
