@@ -31,7 +31,7 @@ const Header = () => {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-white dark:bg-card px-4 md:px-8 no-print shadow-sm z-30 transition-all duration-300">
+    <header className="flex h-16 items-center justify-between border-b bg-orange-700 dark:bg-orange-950 px-4 md:px-8 no-print shadow-md z-30 transition-all duration-300 text-white border-orange-800">
       <div className="flex items-center gap-4 md:hidden">
         <MobileSidebar />
       </div>
@@ -40,13 +40,13 @@ const Header = () => {
         <div className="relative group">
             <Button 
             variant="outline" 
-            className="h-9 w-full md:w-72 justify-start text-xs text-muted-foreground bg-muted/40 hover:bg-muted border-none group-hover:bg-muted/60 transition-all"
+            className="h-9 w-full md:w-72 justify-start text-xs text-white/80 bg-orange-800/40 hover:bg-orange-800/60 border-orange-600/50 group-hover:border-orange-500 transition-all"
             onClick={triggerSearch}
             >
-            <Search className="mr-2 h-3.5 w-3.5" />
+            <Search className="mr-2 h-3.5 w-3.5 text-white/70" />
             <span className="hidden lg:inline-flex">Find a learner...</span>
             <span className="inline-flex lg:hidden">Search...</span>
-            <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border bg-background px-1.5 font-mono text-[9px] font-medium opacity-50 sm:flex">
+            <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border border-orange-600 bg-orange-800/50 px-1.5 font-mono text-[9px] font-medium text-white/50 sm:flex">
                 <span className="text-[10px]">⌘</span>K
             </kbd>
             </Button>
@@ -56,12 +56,12 @@ const Header = () => {
             <div className="hidden lg:flex items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-9 px-3 gap-2 font-normal text-muted-foreground hover:bg-muted/40">
+                    <Button variant="ghost" className="h-9 px-3 gap-2 font-normal text-white/80 hover:bg-white/10">
                       <CalendarDays className="h-4 w-4" />
-                      <span className="text-xs uppercase tracking-wider font-bold text-foreground/80">{activeYear.name}</span>
-                      <span className="w-px h-3 bg-border mx-1"></span>
-                      <span className="text-xs font-medium text-foreground">{activeTerm?.name || "No Term"}</span>
-                      <ChevronDown className="h-3 w-3 opacity-40" />
+                      <span className="text-xs uppercase tracking-wider font-bold text-white">{activeYear.name}</span>
+                      <span className="w-px h-3 bg-white/20 mx-1"></span>
+                      <span className="text-xs font-medium text-white/90">{activeTerm?.name || "No Term"}</span>
+                      <ChevronDown className="h-3 w-3 opacity-60" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-56">
@@ -92,17 +92,21 @@ const Header = () => {
       </div>
 
       <div className="flex items-center gap-3">
-        <HelpDialog />
-        <ThemeToggle />
-        <div className="flex items-center gap-3 pl-2 border-l ml-1">
+        <div className="text-white/80 hover:text-white transition-colors">
+            <HelpDialog />
+        </div>
+        <div className="text-white/80 hover:text-white transition-colors">
+            <ThemeToggle />
+        </div>
+        <div className="flex items-center gap-3 pl-2 border-l border-white/20 ml-1">
           {teacherName && (
-            <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-foreground/70">
+            <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-white/90">
               {teacherName}
             </span>
           )}
-          <Avatar className="h-8 w-8 ring-2 ring-primary/10">
+          <Avatar className="h-8 w-8 ring-2 ring-white/20">
             <AvatarImage src="" alt={teacherName || "Teacher"} />
-            <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{initials}</AvatarFallback>
+            <AvatarFallback className="bg-white/10 text-white text-xs font-bold">{initials}</AvatarFallback>
           </Avatar>
         </div>
       </div>
