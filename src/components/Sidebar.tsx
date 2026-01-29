@@ -2,7 +2,7 @@ import { NavLinks } from "./NavLinks";
 
 const Sidebar = () => {
   return (
-    <aside className="hidden w-64 flex-shrink-0 border-r bg-sidebar-background text-sidebar-foreground md:block transition-colors duration-300">
+    <aside className="hidden w-64 flex-shrink-0 border-r bg-sidebar text-sidebar-foreground md:block transition-colors duration-300">
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center border-b border-sidebar-border px-6">
           <h1 className="text-xl font-bold tracking-tight text-white/90">SmaReg</h1>

@@ -70,7 +70,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="system" storageKey="smareg-theme">
+      <ThemeProvider attribute="class" defaultTheme="system" storageKey="smareg-theme">
         <TooltipProvider>
           <SystemThemeManager />
           <Toaster />
