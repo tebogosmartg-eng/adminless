@@ -126,8 +126,22 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
     if (isLocked) return;
+
+    // VALIDATION: Only block if it's a simple number and exceeds the maximum for this specific task
+    if (value !== "") {
+        const assessment = assessments.find(a => a.id === assessmentId);
+        if (assessment) {
+            const numVal = parseFloat(value);
+            // We ignore strings with '/' during the live typing to allow the user to finish "15/20"
+            if (!isNaN(numVal) && !value.includes('/') && numVal > assessment.max_mark) {
+                showError(`Entry Error: ${numVal} exceeds the total of ${assessment.max_mark} for this task.`);
+                return; // Stop the change from being recorded
+            }
+        }
+    }
+
     setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
-  }, [isLocked]);
+  }, [isLocked, assessments]);
 
   const handleCommentChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
     if (isLocked) return;
@@ -170,12 +184,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const handleAddAssessment = async () => {
      if (isLocked) {
          showError("Assessment creation restricted to active terms only.");
-         return;
-     }
-
-     // NEW RULE: Prevent assessment total of 50 to force specific entry
-     if (Number(newAss.max) === 50) {
-         showError("Please enter the actual total for this assessment (cannot be 50).");
          return;
      }
 

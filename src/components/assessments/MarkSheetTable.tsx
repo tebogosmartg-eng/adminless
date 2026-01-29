@@ -27,7 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { parseMarkInput } from "@/utils/marks";
-import { showSuccess } from "@/utils/toast";
+import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 
 interface MarkSheetTableProps {
@@ -87,6 +87,14 @@ export const MarkSheetTable = ({
        const assessment = assessments.find(a => a.id === assId);
        if (assessment) {
            const percent = parseFloat(value);
+           
+           // Extra validation for calculated percentage
+           if (percent > 100) {
+               showError(`Calculated mark (${percent}%) exceeds 100% limit.`);
+               handleMarkChange(assId, learnerId, "");
+               return;
+           }
+
            const scaledScore = (percent / 100) * assessment.max_mark;
            const finalScore = scaledScore % 1 === 0 ? scaledScore.toString() : scaledScore.toFixed(1);
            
