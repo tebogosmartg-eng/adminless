@@ -1,9 +1,11 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, AlertCircle, CheckCircle2, History } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Learner } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 interface VoiceEntryDialogProps {
   open: boolean;
@@ -16,33 +18,44 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isSupported, setIsSupported] = useState(true);
+  const [history, setHistory] = useState<{name: string, mark: string, time: string}[]>([]);
   
   const recognitionRef = useRef<any>(null);
+  const processedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window) {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       // @ts-ignore
-      const recognition = new window.webkitSpeechRecognition();
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
       recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
+      recognition.onend = () => {
+          // Auto-restart if we didn't manually stop it
+          if (isListening && open) {
+              recognition.start();
+          } else {
+              setIsListening(false);
+          }
+      };
       
       recognition.onresult = (event: any) => {
-        let finalTranscript = '';
+        let currentTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-            processCommand(event.results[i][0].transcript);
+          const result = event.results[i];
+          const text = result[0].transcript;
+          
+          if (result.isFinal) {
+            processCommand(text);
           } else {
-             setTranscript(event.results[i][0].transcript);
+             currentTranscript = text;
           }
         }
-        if (finalTranscript) {
-           setTranscript(finalTranscript);
-        }
+        setTranscript(currentTranscript);
       };
 
       recognition.onerror = (event: any) => {
@@ -63,63 +76,68 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
         recognitionRef.current.stop();
       }
     };
-  }, []);
+  }, [open, isListening]);
 
   useEffect(() => {
-      if (!open && isListening && recognitionRef.current) {
-          recognitionRef.current.stop();
-      }
-      if (open && !isListening) {
+      if (!open) {
+          if (isListening && recognitionRef.current) recognitionRef.current.stop();
           setTranscript('');
+          processedRef.current.clear();
       }
   }, [open]);
 
   const processCommand = (command: string) => {
     const lowerCommand = command.toLowerCase().trim();
-    // Pattern: [Learner Name] [Mark] (maybe "percent" at end)
-    // Heuristic: Last word is number? Or try to fuzzy match name?
-    
-    // Simplest approach: Try to find a learner name at start
-    // Then find numbers after it.
-    
+    if (!lowerCommand) return;
+
+    // To prevent processing the same "Final" chunk multiple times 
+    // (Speech API sometimes repeats chunks in continuous mode)
+    if (processedRef.current.has(lowerCommand)) return;
+    processedRef.current.add(lowerCommand);
+
     let matchedLearnerIndex = -1;
     let bestMatchLen = 0;
 
+    // 1. Try to find the learner name in the command
     learners.forEach((l, idx) => {
         const nameLower = l.name.toLowerCase();
-        if (lowerCommand.includes(nameLower) && nameLower.length > bestMatchLen) {
+        // Check for inclusion or close fuzzy match? 
+        // Simple word boundary check is safer than .includes
+        const regex = new RegExp(`\\b${nameLower}\\b`, 'i');
+        if (regex.test(lowerCommand) && nameLower.length > bestMatchLen) {
             matchedLearnerIndex = idx;
             bestMatchLen = nameLower.length;
         }
     });
 
     if (matchedLearnerIndex !== -1) {
-        // Extract number from the rest of the string
-        // e.g. "set mark for john doe to eighty five"
-        // e.g. "john doe 85"
-        
-        // Remove name
+        // 2. Extract number from the command
         const remainder = lowerCommand.replace(learners[matchedLearnerIndex].name.toLowerCase(), '');
-        
-        // Find numbers
         const numbers = remainder.match(/\d+/);
+        
         if (numbers) {
-            onUpdateMark(matchedLearnerIndex, numbers[0]);
-            showSuccess(`Matched: ${learners[matchedLearnerIndex].name} = ${numbers[0]}`);
-        } else {
-            // Try word-to-number if needed, or simple regex failed
-             // NOTE: webkitSpeechRecognition usually returns "85" for "eighty five"
+            const mark = numbers[0];
+            onUpdateMark(matchedLearnerIndex, mark);
+            
+            // Update local history for visual feedback
+            const entry = {
+                name: learners[matchedLearnerIndex].name,
+                mark: mark,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            };
+            setHistory(prev => [entry, ...prev].slice(0, 10));
+            showSuccess(`Recorded: ${entry.name} = ${mark}`);
         }
     }
   };
 
   const toggleListening = () => {
     if (!isSupported) {
-        // Fallback simulation
+        // Simulation for testing
         setIsListening(true);
         setTimeout(() => {
-            setTranscript("Simulated: " + learners[0]?.name + " 85");
-            if(learners.length > 0) onUpdateMark(0, "85");
+            const mockName = learners[0]?.name || "John Doe";
+            processCommand(`${mockName} 85`);
             setIsListening(false);
         }, 1500);
         return;
@@ -127,6 +145,7 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
 
     if (isListening) {
       recognitionRef.current.stop();
+      setIsListening(false);
     } else {
       recognitionRef.current.start();
     }
@@ -134,21 +153,30 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Voice Mark Entry</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Mic className={`h-5 w-5 ${isListening ? 'text-red-500 animate-pulse' : 'text-primary'}`} />
+            Voice Entry Mode
+          </DialogTitle>
           <DialogDescription>
-            Speak to set marks. Example: "{learners[0]?.name || 'John'} 85"
+            Dictate marks for students. 
+            Say the <span className="font-bold text-foreground">Name</span> followed by the <span className="font-bold text-foreground">Mark</span>.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col items-center gap-6 py-6">
+
+        <div className="flex flex-col items-center gap-6 py-4">
           {!isSupported && (
-              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-xs">
+              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-xs w-full">
                   <AlertCircle className="h-4 w-4" /> Browser not supported. Using simulation mode.
               </div>
           )}
 
-          <div className={`p-6 rounded-full transition-colors ${isListening ? 'bg-red-100 animate-pulse' : 'bg-muted'}`}>
+          <div className={`p-8 rounded-full transition-all duration-500 cursor-pointer border-4 ${
+              isListening 
+                ? 'bg-red-50 border-red-200 scale-110 shadow-lg shadow-red-100' 
+                : 'bg-muted border-transparent'
+          }`} onClick={toggleListening}>
             {isListening ? (
                 <Mic className="h-12 w-12 text-red-500" />
             ) : (
@@ -156,16 +184,56 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
             )}
           </div>
           
-          <Button onClick={toggleListening} variant={isListening ? "destructive" : "default"}>
-            {isListening ? "Stop Listening" : "Start Listening"}
-          </Button>
+          <div className="text-center space-y-1">
+              <Button 
+                onClick={toggleListening} 
+                variant={isListening ? "destructive" : "default"}
+                className="w-48"
+              >
+                {isListening ? "Stop Microphone" : "Start Listening"}
+              </Button>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                  {isListening ? "Listening for commands..." : "Click to begin dictation"}
+              </p>
+          </div>
 
-          <div className="min-h-[3rem] w-full text-center p-2 border rounded bg-muted/20">
+          <div className="w-full bg-muted/30 rounded-lg p-3 min-h-[4rem] flex flex-col items-center justify-center border border-dashed">
             {transcript ? (
-               <p className="text-sm italic text-foreground">"{transcript}"</p>
+               <p className="text-sm italic text-foreground text-center">"{transcript}"</p>
             ) : (
-               <p className="text-xs text-muted-foreground">Transcript will appear here...</p>
+               <p className="text-xs text-muted-foreground text-center">
+                   Example: "{learners[0]?.name || 'Student Name'} 75"
+               </p>
             )}
+          </div>
+
+          <div className="w-full space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  <History className="h-3 w-3" />
+                  Recently Captured
+              </div>
+              <ScrollArea className="h-32 border rounded-md bg-background">
+                  {history.length === 0 ? (
+                      <div className="h-full flex items-center justify-center text-xs text-muted-foreground italic">
+                          No marks recorded yet...
+                      </div>
+                  ) : (
+                      <div className="p-2 space-y-1">
+                          {history.map((item, i) => (
+                              <div key={i} className="flex items-center justify-between p-2 rounded bg-muted/20 border-b last:border-0 animate-in slide-in-from-left-2">
+                                  <div className="flex items-center gap-2">
+                                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                      <span className="text-sm font-medium">{item.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                      <Badge variant="secondary" className="font-bold">{item.mark}%</Badge>
+                                      <span className="text-[10px] text-muted-foreground">{item.time}</span>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </ScrollArea>
           </div>
         </div>
       </DialogContent>
