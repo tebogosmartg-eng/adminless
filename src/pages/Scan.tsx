@@ -25,10 +25,14 @@ const Scan = () => {
   } = useScanLogic();
 
   return (
-    <>
-      <h1 className="text-3xl font-bold mb-6">Scan Scripts</h1>
-      <div className="grid gap-8 md:grid-cols-2 h-[calc(100vh-140px)]">
-        <div className="flex flex-col">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-10">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-3xl font-bold tracking-tight">Scan Scripts</h1>
+        <p className="text-sm text-muted-foreground">Extract marks from paper lists or scripts using AI.</p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 md:h-[calc(100vh-200px)] items-stretch">
+        <div className="flex flex-col min-h-[400px]">
             <ScanUploadSection 
             imagePreviews={imagePreviews}
             isProcessing={isProcessing}
@@ -38,7 +42,7 @@ const Scan = () => {
             />
         </div>
 
-        <div className="flex flex-col h-full overflow-hidden">
+        <div className="flex flex-col h-full overflow-hidden min-h-[500px] border rounded-lg bg-card">
             <ScanReviewSection 
             scannedDetails={scannedDetails}
             scannedLearners={scannedLearners}
@@ -60,7 +64,7 @@ const Scan = () => {
             />
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
