@@ -172,6 +172,13 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
          showError("Assessment creation restricted to active terms only.");
          return;
      }
+
+     // NEW RULE: Prevent assessment total of 50 to force specific entry
+     if (Number(newAss.max) === 50) {
+         showError("Please enter the actual total for this assessment (cannot be 50).");
+         return;
+     }
+
      try {
         await createAssessment({
             class_id: classInfo.id,
