@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, FileDown } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
 
 const Reports = () => {
   const { classes } = useClasses();
@@ -58,7 +59,6 @@ const Reports = () => {
     doc.setFontSize(10);
     doc.text(`Grade: ${termReportGrade} | Subject: ${termReportSubject}`, 14, 28);
     
-    // Helper to extract keys safely
     const firstItem = termData[0];
     const assessmentTitles = firstItem ? Object.keys(firstItem.assessments) : [];
     
@@ -96,6 +96,50 @@ const Reports = () => {
     });
     autoTable(doc, { startY: 40, head, body });
     doc.save(`${yearReportGrade}_${yearReportSubject}_${yearName}_Final.pdf`);
+  };
+
+  // Manual Tab Exports
+  const handleManualExportPDF = () => {
+    if (!manualReports.aggregatedData) return;
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text(`${schoolName} - Custom Aggregate Report`, 14, 20);
+    
+    const selectedAssessments = manualReports.selectedClassIds.map(id => classes.find(c => c.id === id)?.className || 'Ass');
+    const head = [['Name', ...selectedAssessments, 'Total %', 'Sym']];
+    const body = manualReports.aggregatedData.map(l => {
+        const symbol = getGradeSymbol(l.finalMark, gradingScheme);
+        return [
+            l.name,
+            ...manualReports.selectedClassIds.map(id => l.marks[id] ?? '-'),
+            l.finalMark,
+            symbol?.symbol || '-'
+        ];
+    });
+
+    autoTable(doc, { startY: 30, head, body });
+    doc.save(`Custom_Aggregate_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    showSuccess("PDF Report generated.");
+  };
+
+  const handleManualExportCSV = () => {
+    if (!manualReports.aggregatedData) return;
+    const selectedAssessments = manualReports.selectedClassIds.map(id => classes.find(c => c.id === id)?.className || 'Assessment');
+    
+    let csv = "Learner Name," + selectedAssessments.join(",") + ",Final Percent,Symbol\n";
+    manualReports.aggregatedData.forEach(l => {
+        const symbol = getGradeSymbol(l.finalMark, gradingScheme);
+        const marks = manualReports.selectedClassIds.map(id => l.marks[id] ?? '-').join(",");
+        csv += `"${l.name}",${marks},${l.finalMark},${symbol?.symbol || '-'}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Custom_Aggregate_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.click();
+    showSuccess("CSV data exported.");
   };
 
   return (
@@ -287,8 +331,8 @@ const Reports = () => {
                     classes={classes}
                     weights={manualReports.weights}
                     gradingScheme={gradingScheme}
-                    onExportCSV={() => {}} 
-                    onExportPDF={() => {}} 
+                    onExportCSV={handleManualExportCSV} 
+                    onExportPDF={handleManualExportPDF} 
                 />
                 </div>
             </div>
