@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, PlusCircle, FileText, Eye, Target } from 'lucide-react';
+import { Save, PlusCircle, FileText, Eye } from 'lucide-react';
 import { ClassInfo, ScannedDetails, ScannedLearner, Assessment } from '@/lib/types';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
@@ -49,7 +49,7 @@ export const ScanReviewSection = ({
   setSelectedAssessmentId
 }: ScanReviewSectionProps) => {
   return (
-    <Card className="h-full flex flex-col overflow-hidden border-none shadow-sm">
+    <Card className="h-full flex flex-col overflow-hidden border-none shadow-none">
       <CardHeader className="flex-shrink-0 border-b bg-muted/10">
         <div className="flex items-center justify-between">
             <div>
@@ -75,9 +75,9 @@ export const ScanReviewSection = ({
         </div>
       </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col overflow-hidden p-0">
+      <CardContent className="flex-1 flex flex-col overflow-hidden p-0 relative">
         {scannedDetails && scannedLearners.length > 0 ? (
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <>
             {/* Scrollable Body Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               {/* Details Grid */}
@@ -123,7 +123,7 @@ export const ScanReviewSection = ({
                   <TabsTrigger value="create" className="text-xs">Create New</TabsTrigger>
                 </TabsList>
                 
-                <div className="pt-4 min-h-[80px]">
+                <div className="pt-4">
                   {activeTab === 'update' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
@@ -210,18 +210,18 @@ export const ScanReviewSection = ({
             </div>
 
             {/* Pinned Action Area */}
-            <div className="flex-shrink-0 p-4 border-t bg-muted/5">
+            <div className="p-4 border-t bg-background mt-auto shadow-[0_-4px_10px_-5px_rgba(0,0,0,0.05)]">
               {activeTab === 'update' ? (
-                <Button onClick={onSaveToExisting} disabled={!selectedClassId} className="w-full h-11 font-semibold shadow-sm">
+                <Button onClick={onSaveToExisting} disabled={!selectedClassId} className="w-full h-11 font-semibold">
                   <Save className="mr-2 h-4 w-4" /> Save Scanned Marks
                 </Button>
               ) : (
-                <Button onClick={onCreateNew} disabled={!newClassName} className="w-full h-11 font-semibold shadow-sm">
+                <Button onClick={onCreateNew} disabled={!newClassName} className="w-full h-11 font-semibold">
                   <PlusCircle className="mr-2 h-4 w-4" /> Create & Save Class
                 </Button>
               )}
             </div>
-          </div>
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-12">
             <div className="p-4 rounded-full bg-muted/50 mb-4">

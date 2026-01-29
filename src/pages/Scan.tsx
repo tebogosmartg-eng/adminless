@@ -31,36 +31,36 @@ const Scan = () => {
         <p className="text-sm text-muted-foreground">Extract marks from paper lists or scripts using AI.</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 md:h-[calc(100vh-200px)] items-stretch">
+      <div className="grid gap-6 md:grid-cols-2 lg:h-[calc(100vh-220px)] items-start">
         <div className="flex flex-col min-h-[400px]">
             <ScanUploadSection 
-            imagePreviews={imagePreviews}
-            isProcessing={isProcessing}
-            onFileChange={handleFileChange}
-            onProcess={handleProcessImage}
-            onSimulate={handleSimulateScan}
+              imagePreviews={imagePreviews}
+              isProcessing={isProcessing}
+              onFileChange={handleFileChange}
+              onProcess={handleProcessImage}
+              onSimulate={handleSimulateScan}
             />
         </div>
 
-        <div className="flex flex-col h-full overflow-hidden min-h-[500px] border rounded-lg bg-card">
+        <div className="flex flex-col h-full overflow-hidden min-h-[600px] border rounded-lg bg-card shadow-sm">
             <ScanReviewSection 
-            scannedDetails={scannedDetails}
-            scannedLearners={scannedLearners}
-            classes={classes}
-            selectedClassId={selectedClassId}
-            setSelectedClassId={setSelectedClassId}
-            newClassName={newClassName}
-            setNewClassName={setNewClassName}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            onDetailsChange={updateScannedDetail}
-            onLearnerChange={updateScannedLearner}
-            onSaveToExisting={handleSaveToExisting}
-            onCreateNew={handleCreateNewClass}
-            imagePreviews={imagePreviews}
-            availableAssessments={availableAssessments}
-            selectedAssessmentId={selectedAssessmentId}
-            setSelectedAssessmentId={setSelectedAssessmentId}
+              scannedDetails={scannedDetails}
+              scannedLearners={scannedLearners}
+              classes={classes}
+              selectedClassId={selectedClassId}
+              setSelectedClassId={setSelectedClassId}
+              newClassName={newClassName}
+              setNewClassName={setNewClassName}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              onDetailsChange={updateScannedDetail}
+              onLearnerChange={updateScannedLearner}
+              onSaveToExisting={handleSaveToExisting}
+              onCreateNew={handleCreateNewClass}
+              imagePreviews={imagePreviews}
+              availableAssessments={availableAssessments}
+              selectedAssessmentId={selectedAssessmentId}
+              setSelectedAssessmentId={setSelectedAssessmentId}
             />
         </div>
       </div>
