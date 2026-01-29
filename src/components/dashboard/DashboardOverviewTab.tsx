@@ -12,14 +12,22 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Camera } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
+import { QuickActions } from './QuickActions';
+import { TopLearnersPerGrade } from './TopLearnersPerGrade';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
   allActiveLearners: Learner[];
   totalClassesCount: number;
+  onAddNote: () => void;
 }
 
-export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalClassesCount }: DashboardOverviewTabProps) => {
+export const DashboardOverviewTab = ({ 
+  activeClasses, 
+  allActiveLearners, 
+  totalClassesCount,
+  onAddNote
+}: DashboardOverviewTabProps) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <GlobalStats classes={activeClasses} />
@@ -31,11 +39,16 @@ export const DashboardOverviewTab = ({ activeClasses, allActiveLearners, totalCl
             <>
               <div className="grid gap-6 md:grid-cols-2">
                 <PendingActions classes={activeClasses} />
-                <UpcomingAssessments />
+                <QuickActions onAddNote={onAddNote} />
               </div>
               
               <ClassComparisonChart classes={activeClasses} />
               
+              <div className="grid gap-6 md:grid-cols-2">
+                <UpcomingAssessments />
+                <TopLearnersPerGrade classes={activeClasses} />
+              </div>
+
               <div className="grid gap-6 md:grid-cols-2">
                 <MarkDistributionChart 
                   learners={allActiveLearners} 

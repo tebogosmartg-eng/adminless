@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { DashboardOverviewTab } from '@/components/dashboard/DashboardOverviewTab';
 import { DashboardGroupedView } from '@/components/dashboard/DashboardGroupedView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, LayoutGrid, GraduationCap, Loader2 } from 'lucide-react';
 import { useClasses } from '@/context/ClassesContext';
+import { GlobalAddNoteDialog } from '@/components/dialogs/GlobalAddNoteDialog';
 
 const Dashboard = () => {
   const { loading } = useClasses();
@@ -14,6 +16,8 @@ const Dashboard = () => {
     classesBySubject, 
     classesByGrade 
   } = useDashboardData();
+
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
 
   if (loading) {
     return (
@@ -51,6 +55,7 @@ const Dashboard = () => {
             activeClasses={activeClasses}
             allActiveLearners={allActiveLearners}
             totalClassesCount={classes.length}
+            onAddNote={() => setIsNoteDialogOpen(true)}
           />
         </TabsContent>
 
@@ -70,6 +75,11 @@ const Dashboard = () => {
           />
         </TabsContent>
       </Tabs>
+
+      <GlobalAddNoteDialog 
+        open={isNoteDialogOpen} 
+        onOpenChange={setIsNoteDialogOpen} 
+      />
     </div>
   );
 };
