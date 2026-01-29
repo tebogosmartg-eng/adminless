@@ -42,11 +42,17 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return db.terms.where('year_id').equals(activeYear.id).sortBy('name');
   }, [activeYear?.id]) || [];
 
+  // Logic: Active term is the ONLY one that is NOT closed.
   useEffect(() => {
-      if (terms.length > 0 && !activeTermId) {
-          const now = new Date().toISOString();
-          const current = terms.find(t => t.start_date && t.end_date && now >= t.start_date && now <= t.end_date) || terms[0];
-          setActiveTermId(current.id);
+      if (terms.length > 0) {
+          const openTerm = terms.find(t => !t.closed);
+          // If we found an open term, that MUST be the active working term
+          if (openTerm) {
+              setActiveTermId(openTerm.id);
+          } else if (!activeTermId) {
+              // If none are open and we don't have a selection, default to the last one (most recent)
+              setActiveTermId(terms[terms.length - 1].id);
+          }
       }
   }, [terms, activeTermId]);
 
@@ -68,9 +74,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return db.assessment_marks.where('assessment_id').anyOf(ids).toArray();
   }, [assessments]) || [];
 
-  // Helper to recalculate average for specific learners in the active term
   const updateLearnerActiveAverages = useCallback(async (learnerIds: string[]) => {
-    if (!activeTerm || learnerIds.length === 0) return;
+    // Only update averages if there is an OPEN term to work on
+    const currentOpenTerm = terms.find(t => !t.closed);
+    if (!currentOpenTerm || learnerIds.length === 0) return;
 
     for (const learnerId of learnerIds) {
         const learner = await db.learners.get(learnerId);
@@ -78,7 +85,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
         const termAssessments = await db.assessments
             .where('[class_id+term_id]')
-            .equals([learner.class_id, activeTerm.id])
+            .equals([learner.class_id, currentOpenTerm.id])
             .toArray();
         
         if (termAssessments.length === 0) {
@@ -105,14 +112,15 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         await db.learners.update(learnerId, { mark: newAverage });
         await queueAction('learners', 'update', { id: learnerId, mark: newAverage });
     }
-  }, [activeTerm]);
+  }, [terms]);
 
   const recalculateAllActiveAverages = async () => {
-      if (!activeTerm) return;
+      const openTerm = terms.find(t => !t.closed);
+      if (!openTerm) return;
       const allLearners = await db.learners.toArray();
       const ids = allLearners.map(l => l.id!);
       await updateLearnerActiveAverages(ids);
-      showSuccess("All class averages recalculated based on current marks.");
+      showSuccess("All class averages recalculated based on the active open term.");
   };
 
   const createYear = async (name: string) => {
@@ -122,18 +130,18 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     await db.academic_years.add(yearData);
     await queueAction('academic_years', 'create', yearData);
 
-    const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map(tName => ({
+    const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName, idx) => ({
       id: crypto.randomUUID(),
       year_id: yearId,
       name: tName,
       user_id: session.user.id,
-      closed: false,
+      closed: idx !== 0, // Only the first term is open by default
       weight: 25
     }));
 
     await db.terms.bulkAdd(termsToCreate as any);
     await queueAction('terms', 'create', termsToCreate);
-    showSuccess(`Academic Year ${name} created.`);
+    showSuccess(`Academic Year ${name} created. ${termsToCreate[0].name} is now your active working term.`);
   };
 
   const updateTerm = async (term: Term) => {
@@ -141,17 +149,29 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
      await db.terms.put(term);
      await queueAction('terms', 'update', term);
      
-     // If weights changed, we should probably trigger a global recalculation
      if (oldTerm?.weight !== term.weight) {
          recalculateAllActiveAverages();
      }
-     showSuccess('Term updated.');
+     showSuccess('Term configuration updated.');
   };
   
   const toggleTermStatus = async (termId: string, closed: boolean) => {
+      // Check if we are opening a term when another is already open
+      if (!closed) {
+          const alreadyOpen = terms.find(t => !t.closed && t.id !== termId);
+          if (alreadyOpen) {
+              throw new Error(`Cannot open this term. ${alreadyOpen.name} is still active. Finalize it first.`);
+          }
+      }
+
       await db.terms.update(termId, { closed });
       await queueAction('terms', 'update', { id: termId, closed });
-      showSuccess(`Term ${closed ? 'closed' : 're-opened'}.`);
+      
+      if (!closed) {
+          setActiveTermId(termId);
+      }
+      
+      showSuccess(`Term ${closed ? 'finalized' : 'activated for editing'}.`);
   };
 
   const closeYear = async (yearId: string) => {
@@ -177,7 +197,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     
     const term = await db.terms.get(assessment.term_id);
     if (!term) throw new Error("Invalid term selected.");
-    if (term.closed) throw new Error(`Cannot create assessment. ${term.name} is closed.`);
+    if (term.closed) throw new Error(`Editing restricted. ${term.name} is finalized.`);
 
     const data = { ...assessment, id, user_id: session.user.id };
     await db.assessments.add(data);
@@ -190,6 +210,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       const ass = await db.assessments.get(id);
       if (!ass) return;
 
+      const term = await db.terms.get(ass.term_id);
+      if (term?.closed) {
+          showError("Cannot delete assessments from a finalized term.");
+          return;
+      }
+
       const marksToDelete = await db.assessment_marks.where('assessment_id').equals(id).toArray();
       const affectedLearnerIds = Array.from(new Set(marksToDelete.map(m => m.learner_id)));
 
@@ -197,7 +223,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       await db.assessments.delete(id);
       await queueAction('assessments', 'delete', { id });
 
-      if (ass.term_id === activeTerm?.id) {
+      if (!term?.closed) {
           await updateLearnerActiveAverages(affectedLearnerIds);
       }
       showSuccess("Assessment deleted.");
@@ -206,6 +232,17 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const updateMarks = async (updates: { assessment_id: string; learner_id: string; score: number | null; comment?: string }[]) => {
     if (!session?.user.id || updates.length === 0) return;
     
+    // Check if the assessment belongs to a closed term
+    const firstAssId = updates[0].assessment_id;
+    const ass = await db.assessments.get(firstAssId);
+    if (ass) {
+        const term = await db.terms.get(ass.term_id);
+        if (term?.closed) {
+            showError("Cannot modify marks in a finalized term.");
+            return;
+        }
+    }
+
     const toUpsert = updates.map(u => ({
         ...u,
         user_id: session.user.id
@@ -214,7 +251,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     await db.assessment_marks.bulkPut(toUpsert as any);
     await queueAction('assessment_marks', 'upsert', toUpsert);
     
-    // Trigger average updates for affected learners
     const learnerIds = Array.from(new Set(updates.map(u => u.learner_id)));
     await updateLearnerActiveAverages(learnerIds);
     

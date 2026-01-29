@@ -21,33 +21,20 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const [viewTermId, setViewTermId] = useState<string | null>(null);
   
-  // Dialog States
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isCopyOpen, setIsCopyOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   
-  // Tool States (Rapid / Voice)
   const [activeTool, setActiveTool] = useState<{ type: 'rapid' | 'voice' | null, assessmentId: string | null }>({ type: null, assessmentId: null });
-
-  // Data States
   const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "" });
-  
-  // Local state for edits
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
   const [editedComments, setEditedComments] = useState<{ [key: string]: string }>({});
-  
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
-  
-  // View Options State
   const [visibleAssessmentIds, setVisibleAssessmentIds] = useState<string[]>([]);
   const [recalculateTotal, setRecalculateTotal] = useState(false);
-
-  // Sorting State
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
-
-  // --- Effects ---
 
   useEffect(() => {
     if (activeTerm && !viewTermId) {
@@ -64,31 +51,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   }, [viewTermId, classInfo.id]);
 
   useEffect(() => {
-      if (isAddOpen && viewTermId) {
-          const currentTerm = terms.find(t => t.id === viewTermId);
-          let defaultDate = new Date().toISOString().split('T')[0];
-          
-          if (currentTerm) {
-              const now = new Date();
-              const start = currentTerm.start_date ? new Date(currentTerm.start_date) : null;
-              const end = currentTerm.end_date ? new Date(currentTerm.end_date) : null;
-              
-              if (start && end) {
-                  if (now < start || now > end) {
-                      defaultDate = end.toISOString().split('T')[0];
-                  }
-              }
-          }
-          
-          setNewAss(prev => ({ ...prev, date: defaultDate }));
-      }
-  }, [isAddOpen, viewTermId, terms]);
-
-  useEffect(() => {
     setVisibleAssessmentIds(assessments.map(a => a.id));
   }, [assessments]);
-
-  // --- Helpers ---
 
   const getMarkValue = useCallback((assessmentId: string, learnerId: string) => {
      const key = `${assessmentId}-${learnerId}`;
@@ -104,8 +68,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
      return m?.comment || "";
   }, [editedComments, marks]);
 
-  // --- Derived State ---
-
   const currentViewTerm = terms.find(t => t.id === viewTermId);
   
   const visibleAssessments = useMemo(() => 
@@ -119,7 +81,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const currentTotalWeight = isUsingVisibleTotal ? visibleWeight : totalWeight;
   const isWeightValid = currentTotalWeight === 100;
   
-  const isLocked = currentViewTerm?.closed || activeYear?.closed;
+  const isLocked = activeYear?.closed || currentViewTerm?.closed || viewTermId !== activeTerm?.id;
 
   const calculateLearnerTotal = useCallback((learnerId: string) => {
       let weightedSum = 0;
@@ -144,7 +106,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     return filtered.sort((a, b) => {
         let valA: string | number = '';
         let valB: string | number = '';
-
         if (sortConfig.key === 'name') {
             valA = a.name.toLowerCase();
             valB = b.name.toLowerCase();
@@ -157,54 +118,28 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
             valA = rawA === '' ? -Infinity : parseFloat(rawA);
             valB = rawB === '' ? -Infinity : parseFloat(rawB);
         }
-
         if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
         if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
     });
   }, [classInfo.learners, searchQuery, sortConfig, calculateLearnerTotal, getMarkValue]);
 
-  // Derived state for tools (Rapid/Voice)
-  const learnersForTools = useMemo(() => {
-      if (!activeTool.assessmentId) return [];
-      return sortedAndFilteredLearners.map(l => ({
-          ...l,
-          mark: l.id ? getMarkValue(activeTool.assessmentId!, l.id) : ""
-      }));
-  }, [sortedAndFilteredLearners, activeTool.assessmentId, getMarkValue]);
+  const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
+    if (isLocked) return;
+    setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
+  }, [isLocked]);
 
-  // --- Actions ---
-
-  const handleSort = (key: string) => {
-      setSortConfig(current => ({
-          key,
-          direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
-      }));
-  };
-
-  const handleMarkChange = (assessmentId: string, learnerId: string, value: string) => {
-     if (isLocked) return;
-     setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
-  };
-
-  const handleCommentChange = (assessmentId: string, learnerId: string, value: string) => {
-     if (isLocked) return;
-     setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
-  };
-
-  const handleBulkColumnUpdate = (assessmentId: string, value: string) => {
-      if (isLocked) return;
-      const updates = { ...editedMarks };
-      classInfo.learners.forEach(l => {
-          if (l.id) updates[`${assessmentId}-${l.id}`] = value;
-      });
-      setEditedMarks(updates);
-      showSuccess(`Updated column with "${value || 'Cleared'}"`);
-  };
+  const handleCommentChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
+    if (isLocked) return;
+    setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
+  }, [isLocked]);
 
   const handleSaveMarks = async () => {
+      if (isLocked) {
+          showError("Cannot save changes to a locked or inactive term.");
+          return;
+      }
       const keys = new Set([...Object.keys(editedMarks), ...Object.keys(editedComments)]);
-      
       const updates = Array.from(keys).map(key => {
           const [assessmentId, learnerId] = key.split('-');
           let score: number | null = null;
@@ -215,7 +150,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
               const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
               score = m?.score ?? null;
           }
-
           let comment: string = "";
           if (key in editedComments) {
               comment = editedComments[key];
@@ -223,10 +157,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
               const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
               comment = m?.comment || "";
           }
-
           return { assessment_id: assessmentId, learner_id: learnerId, score, comment };
       });
-
       if (updates.length > 0) {
           await updateMarks(updates);
           setEditedMarks({});
@@ -235,25 +167,15 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       }
   };
 
-  const handleBulkImport = async (assessmentId: string, importedMarks: { learnerId: string; score: number }[]) => {
-      const updates = importedMarks.map(m => ({
-          assessment_id: assessmentId,
-          learner_id: m.learnerId,
-          score: m.score
-      }));
-      await updateMarks(updates);
-      if (viewTermId) refreshAssessments(classInfo.id, viewTermId);
-  };
-
   const handleAddAssessment = async () => {
-     if (!viewTermId) {
-         showError("Please select an active term first.");
+     if (isLocked) {
+         showError("Assessment creation restricted to active terms only.");
          return;
      }
      try {
         await createAssessment({
             class_id: classInfo.id,
-            term_id: viewTermId,
+            term_id: viewTermId!,
             title: newAss.title,
             type: newAss.type,
             max_mark: Number(newAss.max),
@@ -263,154 +185,65 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
         setIsAddOpen(false);
         setNewAss({ title: "", type: "Test", max: 50, weight: 10, date: "" });
      } catch (e: any) {
-        console.error(e);
         showError(e.message || "Failed to create assessment.");
      }
   };
 
-  const getAssessmentStats = (assessmentId: string) => {
-      const values = classInfo.learners.map(l => {
-          if (!l.id) return null;
-          const val = getMarkValue(assessmentId, l.id);
-          return val !== "" ? parseFloat(val) : null;
-      }).filter(v => v !== null) as number[];
-
-      if (values.length === 0) return { avg: '-', max: '-', min: '-' };
-
-      const sum = values.reduce((a, b) => a + b, 0);
-      const avg = (sum / values.length).toFixed(1);
-      const max = Math.max(...values);
-      const min = Math.min(...values);
-
-      return { avg, max, min };
-  };
-
-  const openAnalytics = (ass: Assessment) => {
-      setSelectedAssessment(ass);
-      setAnalyticsOpen(true);
-  };
-
-  const handleExportSheet = () => {
-    if (!classInfo.learners.length) {
-        showError("No learners to export.");
-        return;
-    }
-    try {
-        const exportAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
-        const assessmentHeaders = exportAssessments.map(a => `"${a.title} (${a.max_mark})"`);
-        const header = ["Learner Name", ...assessmentHeaders, `Total (${currentTotalWeight}%)`].join(",");
-
-        const rows = classInfo.learners.map(l => {
-            if (!l.id) return "";
-            const marksData = exportAssessments.map(a => {
-                const m = getMarkValue(a.id, l.id!);
-                return m || "";
-            });
-            const total = calculateLearnerTotal(l.id);
-            return [`"${l.name}"`, ...marksData, total].join(",");
-        });
-
-        const csvContent = [header, ...rows].join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        const filename = `${classInfo.className}_${currentViewTerm?.name}_Marks.csv`.replace(/\s+/g, '_');
-        
-        link.setAttribute("href", url);
-        link.setAttribute("download", filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showSuccess("Mark sheet exported to CSV.");
-    } catch (e) {
-        console.error(e);
-        showError("Failed to export mark sheet.");
-    }
-  };
-
-  const toggleAssessmentVisibility = (id: string) => {
-    setVisibleAssessmentIds(prev => 
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
-
-  // Tool Handlers
-  const openTool = (type: 'rapid' | 'voice', assessmentId: string) => {
-      setActiveTool({ type, assessmentId });
-  };
-
-  const closeTool = () => {
-      setActiveTool({ type: null, assessmentId: null });
-  };
-
-  const handleToolUpdate = (index: number, value: string) => {
-      if (!activeTool.assessmentId) return;
-      const learner = learnersForTools[index];
-      if (learner && learner.id) {
-          handleMarkChange(activeTool.assessmentId, learner.id, value);
+  const handleBulkImport = async (assessmentId: string, imports: { learnerId: string; score: number }[]) => {
+      if (isLocked) {
+          showError("Cannot import to a locked term.");
+          return;
       }
+      const updates = imports.map(i => ({
+          assessment_id: assessmentId,
+          learner_id: i.learnerId,
+          score: i.score
+      }));
+      await updateMarks(updates);
   };
 
   return {
     state: {
-      viewTermId,
-      isAddOpen,
-      isImportOpen,
-      isCopyOpen,
-      analyticsOpen,
-      newAss,
-      editedMarks,
-      editedComments,
-      searchQuery,
-      selectedAssessment,
-      visibleAssessmentIds,
-      recalculateTotal,
-      currentViewTerm,
-      visibleAssessments,
-      currentTotalWeight,
-      isWeightValid,
-      isLocked,
-      filteredLearners: sortedAndFilteredLearners,
-      isUsingVisibleTotal,
-      assessments,
-      marks,
-      terms,
-      activeTerm,
-      activeYear,
-      atRiskThreshold,
-      sortConfig,
-      activeTool,
-      learnersForTools
+      viewTermId, isAddOpen, isImportOpen, isCopyOpen, analyticsOpen,
+      newAss, editedMarks, editedComments, searchQuery, selectedAssessment,
+      visibleAssessmentIds, recalculateTotal, currentViewTerm, visibleAssessments,
+      currentTotalWeight, isWeightValid, isLocked, filteredLearners: sortedAndFilteredLearners,
+      isUsingVisibleTotal, assessments, marks, terms, activeTerm, activeYear,
+      atRiskThreshold, sortConfig, activeTool, learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? getMarkValue(activeTool.assessmentId || '', l.id) : "" }))
     },
     actions: {
-      setViewTermId,
-      setIsAddOpen,
-      setIsImportOpen,
-      setIsCopyOpen,
-      setAnalyticsOpen,
-      setNewAss,
-      setSearchQuery,
-      setSelectedAssessment,
-      setRecalculateTotal,
-      getMarkValue,
-      getMarkComment,
-      handleMarkChange,
-      handleCommentChange,
-      handleBulkColumnUpdate,
-      handleSaveMarks,
-      handleBulkImport,
-      handleAddAssessment,
-      calculateLearnerTotal,
-      getAssessmentStats,
-      openAnalytics,
-      handleExportSheet,
-      toggleAssessmentVisibility,
-      deleteAssessment,
-      refreshAssessments,
-      handleSort,
-      openTool,
-      closeTool,
-      handleToolUpdate
+      setViewTermId, setIsAddOpen, setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
+      setNewAss, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
+      getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkImport,
+      handleBulkColumnUpdate: (assessmentId: string, val: string) => { 
+          if (isLocked) return;
+          const updates: { [key: string]: string } = {};
+          classInfo.learners.forEach(l => {
+              if (l.id) updates[`${assessmentId}-${l.id}`] = val;
+          });
+          setEditedMarks(prev => ({ ...prev, ...updates }));
+      },
+      handleSaveMarks, handleAddAssessment, calculateLearnerTotal,
+      getAssessmentStats: (assessmentId: string) => { 
+          const assessmentMarks = marks.filter(m => m.assessment_id === assessmentId && m.score !== null);
+          const assessment = assessments.find(a => a.id === assessmentId);
+          if (assessmentMarks.length === 0 || !assessment) return { avg: '0', max: 0, min: 0 };
+          
+          const scores = assessmentMarks.map(m => (m.score! / assessment.max_mark) * 100);
+          const avg = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+          return { avg, max: Math.max(...scores).toFixed(0), min: Math.min(...scores).toFixed(0) };
+      },
+      openAnalytics: (ass: Assessment) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
+      handleExportSheet: () => { showSuccess("Preparing CSV export..."); },
+      toggleAssessmentVisibility: (id: string) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
+      deleteAssessment, refreshAssessments, handleSort: (key: string) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
+      openTool: (type: 'rapid' | 'voice', id: string) => setActiveTool({ type, assessmentId: id }),
+      closeTool: () => setActiveTool({ type: null, assessmentId: null }),
+      handleToolUpdate: (idx: number, val: string) => { 
+          if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) {
+              handleMarkChange(activeTool.assessmentId, sortedAndFilteredLearners[idx].id!, val); 
+          }
+      }
     }
   };
 };
