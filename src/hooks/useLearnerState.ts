@@ -17,7 +17,6 @@ export const useLearnerState = (
   useEffect(() => {
     if (classInfo) {
       // Only update local state if the learners array reference has changed
-      // This prevents overwriting local edits when classInfo updates for other reasons (e.g. renaming class)
       if (classInfo.learners !== lastSyncedLearnersRef.current) {
         setLearners(classInfo.learners);
         lastSyncedLearnersRef.current = classInfo.learners;
@@ -73,6 +72,14 @@ export const useLearnerState = (
     });
   }, []);
   
+  const handleRenameLearner = useCallback((index: number, newName: string) => {
+    setLearners(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], name: newName };
+      return updated;
+    });
+  }, []);
+
   const handleRemoveLearner = useCallback((index: number) => {
     if (confirm("Are you sure you want to remove this learner?")) {
       setLearners(prev => prev.filter((_, i) => i !== index));
@@ -148,6 +155,7 @@ export const useLearnerState = (
     hasUnsavedChanges,
     handleMarkChange,
     handleCommentChange,
+    handleRenameLearner,
     handleRemoveLearner,
     handleBatchDelete,
     handleBatchComment,

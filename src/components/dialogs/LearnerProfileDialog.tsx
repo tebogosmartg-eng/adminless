@@ -11,7 +11,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { useClasses } from '@/context/ClassesContext';
 import { useLearnerHistory } from '@/hooks/useLearnerHistory';
 import { getGradeSymbol } from '@/utils/grading';
-import { ChevronLeft, ChevronRight, GraduationCap, Share2, Book } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Share2, Book, Edit2 } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 interface LearnerProfileDialogProps {
@@ -36,9 +36,8 @@ export const LearnerProfileDialog = ({
   hasPrev
 }: LearnerProfileDialogProps) => {
   const { gradingScheme } = useSettings();
-  const { classes } = useClasses();
+  const { classes, renameLearner } = useClasses();
   
-  // Hook to get history across all classes based on learner name (Legacy/Aggregate view)
   const { history, stats, subjects, getSubjectColor } = useLearnerHistory(learner, classes);
 
   if (!learner) return null;
@@ -60,6 +59,16 @@ ${currentSymbol ? `🏷️ Symbol: ${currentSymbol.symbol} (Level ${currentSymbo
     showSuccess("Learner summary copied to clipboard.");
   };
 
+  const handleRename = async () => {
+    if (!learner.id) return;
+    const newName = prompt("Enter new name for student:", learner.name);
+    if (newName && newName.trim() && newName !== learner.name) {
+        await renameLearner(learner.id, newName.trim());
+        showSuccess("Student renamed. Refreshing profile...");
+        // Usually context update handles this, if not, we can trigger a manual sync or close/reopen
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl h-[85vh] flex flex-col">
@@ -76,7 +85,14 @@ ${currentSymbol ? `🏷️ Symbol: ${currentSymbol.symbol} (Level ${currentSymbo
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="flex flex-col">
-                <DialogTitle className="text-xl md:text-2xl">{learner.name}</DialogTitle>
+                <div className="flex items-center gap-2">
+                    <DialogTitle className="text-xl md:text-2xl">{learner.name}</DialogTitle>
+                    {learner.id && (
+                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-40 hover:opacity-100" onClick={handleRename}>
+                            <Edit2 className="h-3 w-3" />
+                        </Button>
+                    )}
+                </div>
                 <span className="text-xs text-muted-foreground font-normal">{classSubject}</span>
             </div>
             <Button 

@@ -19,6 +19,7 @@ interface LearnerListProps {
   onGenerateComments: () => void;
   onMarkChange: (index: number, mark: string) => void;
   onCommentChange: (index: number, comment: string) => void;
+  onRenameLearner: (index: number, name: string) => void;
   onRemoveLearner: (index: number) => void;
   onProfileClick: (learner: Learner) => void;
   onAddLearnerClick: () => void;
@@ -35,6 +36,7 @@ export const LearnerList = ({
   onGenerateComments,
   onMarkChange,
   onCommentChange,
+  onRenameLearner,
   onRemoveLearner,
   onProfileClick,
   onAddLearnerClick,
@@ -186,6 +188,7 @@ export const LearnerList = ({
                   onSelect={(checked) => handleSelectOne(learner.originalIndex, checked)}
                   onMarkChange={onMarkChange}
                   onCommentChange={onCommentChange}
+                  onRenameLearner={onRenameLearner}
                   onMarkBlur={handleMarkBlur}
                   onRemoveLearner={onRemoveLearner}
                   onProfileClick={onProfileClick}

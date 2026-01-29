@@ -14,6 +14,7 @@ interface MarksTabProps {
   onGenerateComments: () => void;
   onMarkChange: (index: number, mark: string) => void;
   onCommentChange: (index: number, comment: string) => void;
+  onRenameLearner: (index: number, name: string) => void;
   onRemoveLearner: (index: number) => void;
   onProfileClick: (learner: Learner) => void;
   onAddLearnerClick: () => void;
@@ -32,6 +33,7 @@ export const MarksTab = ({
   onGenerateComments,
   onMarkChange,
   onCommentChange,
+  onRenameLearner,
   onRemoveLearner,
   onProfileClick,
   onAddLearnerClick,
@@ -67,6 +69,7 @@ export const MarksTab = ({
         onGenerateComments={onGenerateComments}
         onMarkChange={onMarkChange}
         onCommentChange={onCommentChange}
+        onRenameLearner={onRenameLearner}
         onRemoveLearner={onRemoveLearner}
         onProfileClick={onProfileClick}
         onAddLearnerClick={onAddLearnerClick}

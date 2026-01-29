@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, AlertCircle, AlertOctagon, Calculator, BookText } from 'lucide-react';
+import { Trash2, AlertCircle, AlertOctagon, Calculator, BookText, MoreVertical, User, Edit2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Learner, GradeSymbol } from '@/lib/types';
 import { getGradeSymbol } from '@/utils/grading';
@@ -29,6 +29,7 @@ interface LearnerListRowProps {
   onSelect: (checked: boolean) => void;
   onMarkChange: (index: number, mark: string) => void;
   onCommentChange: (index: number, comment: string) => void;
+  onRenameLearner: (index: number, name: string) => void;
   onMarkBlur: (index: number, mark: string) => void;
   onRemoveLearner: (index: number) => void;
   onProfileClick: (learner: Learner) => void;
@@ -45,6 +46,7 @@ export const LearnerListRow = ({
   onSelect,
   onMarkChange,
   onCommentChange,
+  onRenameLearner,
   onMarkBlur,
   onRemoveLearner,
   onProfileClick,
@@ -55,7 +57,6 @@ export const LearnerListRow = ({
   const gradeSymbol = getGradeSymbol(learner.mark, gradingScheme);
   const markNum = parseFloat(learner.mark);
   
-  // Use Amber for attention as per Calm Classroom principles
   const isAtRisk = !isNaN(markNum) && markNum < atRiskThreshold && markNum > 0;
   const isInvalid = !isNaN(markNum) && (markNum < 0 || markNum > 100);
   const isCalculated = learner.mark.includes('.') && !learner.mark.endsWith('.0');
@@ -64,6 +65,13 @@ export const LearnerListRow = ({
     const current = learner.comment || "";
     const newVal = current ? `${current} ${text}` : text;
     onCommentChange(learner.originalIndex, newVal);
+  };
+
+  const handleRename = () => {
+    const newName = prompt("Enter new name for student:", learner.name);
+    if (newName && newName.trim() && newName !== learner.name) {
+        onRenameLearner(learner.originalIndex, newName.trim());
+    }
   };
 
   return (
@@ -96,16 +104,6 @@ export const LearnerListRow = ({
                </TooltipTrigger>
                <TooltipContent>
                  <p className="text-xs">Needs attention: Mark below {atRiskThreshold}%</p>
-               </TooltipContent>
-             </Tooltip>
-           )}
-           {isInvalid && (
-             <Tooltip>
-               <TooltipTrigger>
-                 <AlertOctagon className="h-3.5 w-3.5 text-red-500" />
-               </TooltipTrigger>
-               <TooltipContent>
-                 <p className="text-xs">Invalid entry: Mark outside 0-100% range.</p>
                </TooltipContent>
              </Tooltip>
            )}
@@ -160,31 +158,36 @@ export const LearnerListRow = ({
                 <DropdownMenuContent align="end" className="w-[280px]">
                   <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Observation Bank</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {commentBank.length === 0 ? (
-                    <div className="p-4 text-xs text-muted-foreground text-center">
-                      No saved observations. Add them in Settings.
-                    </div>
-                  ) : (
-                    commentBank.map((comment, i) => (
-                      <DropdownMenuItem key={i} onClick={() => insertComment(comment)} className="text-xs">
-                        <span className="truncate">{comment}</span>
-                      </DropdownMenuItem>
-                    ))
-                  )}
+                  {commentBank.map((comment, i) => (
+                    <DropdownMenuItem key={i} onClick={() => insertComment(comment)} className="text-xs">
+                      <span className="truncate">{comment}</span>
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
            </div>
         </TableCell>
       )}
       <TableCell className="py-2 text-right">
-         <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={() => onRemoveLearner(learner.originalIndex)}
-         >
-            <Trash2 className="h-3.5 w-3.5" />
-         </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100">
+                    <MoreVertical className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => onProfileClick(learner)}>
+                    <User className="mr-2 h-4 w-4" /> View Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleRename}>
+                    <Edit2 className="mr-2 h-4 w-4" /> Rename Student
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onRemoveLearner(learner.originalIndex)} className="text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" /> Remove from Class
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
       </TableCell>
     </TableRow>
   );

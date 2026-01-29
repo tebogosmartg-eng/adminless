@@ -17,6 +17,7 @@ interface ClassesContextType {
   updateClassLearners: (classId: string, newLearners: Learner[]) => void;
   toggleClassArchive: (classId: string, archived: boolean) => void;
   updateClassNotes: (classId: string, notes: string) => void;
+  renameLearner: (learnerId: string, newName: string) => Promise<void>;
 }
 
 const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
@@ -140,6 +141,20 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     }
   };
 
+  const renameLearner = async (learnerId: string, newName: string) => {
+    try {
+        const learner = await db.learners.get(learnerId);
+        if (!learner) return;
+
+        await db.learners.update(learnerId, { name: newName });
+        await queueAction('learners', 'update', { id: learnerId, name: newName });
+        logActivity(`Renamed student to: ${newName}`);
+    } catch (e) {
+        console.error(e);
+        showError("Failed to rename learner.");
+    }
+  };
+
   const updateClassDetails = async (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => {
     try {
         const updates: any = {};
@@ -217,7 +232,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       deleteClass, 
       updateClassLearners, 
       toggleClassArchive,
-      updateClassNotes
+      updateClassNotes,
+      renameLearner
     }}>
       {children}
     </ClassesContext.Provider>

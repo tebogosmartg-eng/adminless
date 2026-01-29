@@ -27,6 +27,7 @@ const ClassDetails = () => {
     setLearners,
     handleMarkChange,
     handleCommentChange,
+    handleRenameLearner,
     handleRemoveLearner,
     handleBatchDelete,
     handleBatchComment,
@@ -70,10 +71,6 @@ const ClassDetails = () => {
         const learner = learners.find(l => l.id === targetId || l.name === targetId);
         if (learner) {
             dialogs.setSelectedProfileLearner(learner);
-            // Clear state so it doesn't reopen on refresh/navigation? 
-            // React Router location state persists on refresh, so we might want to clear it.
-            // But replacing history inside useEffect might trigger re-renders. 
-            // For now, it's acceptable behavior or we can manually clear it.
             window.history.replaceState({}, document.title);
         }
     }
@@ -141,6 +138,7 @@ const ClassDetails = () => {
              onGenerateComments={handleGenerateComments}
              onMarkChange={handleMarkChange}
              onCommentChange={handleCommentChange}
+             onRenameLearner={handleRenameLearner}
              onRemoveLearner={handleRemoveLearner}
              onProfileClick={(l) => dialogs.setSelectedProfileLearner(l)}
              onAddLearnerClick={() => dialogs.setIsAddLearnerOpen(true)}
