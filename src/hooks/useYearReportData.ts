@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { db } from '@/db';
 import { showSuccess, showError } from '@/utils/toast';
+import { calculateWeightedAverage } from '@/utils/calculations';
 
 interface YearReportResult {
   learnerName: string;
@@ -78,30 +79,20 @@ export const useYearReportData = () => {
 
       // Calculate Term Marks for each learner
       const learnerIds = Object.keys(learnerResults);
-      let totalYearWeight = 0;
 
       terms.forEach(term => {
-          totalYearWeight += Number(term.weight);
           const termAssessments = assessmentsData.filter(a => a.term_id === term.id);
 
           learnerIds.forEach(lId => {
-              let weightedTermSum = 0;
-              let termWeightTotal = 0;
-
-              termAssessments.forEach(ass => {
-                  const m = marksData.find(md => md.assessment_id === ass.id && md.learner_id === lId);
-                  if (m && m.score !== null) {
-                      const val = Number(m.score);
-                      const weighted = (val / Number(ass.max_mark)) * Number(ass.weight);
-                      weightedTermSum += weighted;
-                      termWeightTotal += Number(ass.weight);
-                  }
-              });
-
-              // Term Mark Calculation
-              const termMark = termWeightTotal > 0 ? (weightedTermSum / termWeightTotal) * 100 : null;
+              // AUDIT FIX: Calculate normalized term average first
+              const termAvg = calculateWeightedAverage(termAssessments, marksData, lId);
               
-              learnerResults[lId].termMarks[term.name] = termMark !== null ? parseFloat(termMark.toFixed(1)) : null;
+              // Only assign if there were actually assessments in this term for this learner
+              const hasMarks = termAssessments.some(ass => 
+                marksData.some(m => m.assessment_id === ass.id && m.learner_id === lId && m.score !== null)
+              );
+
+              learnerResults[lId].termMarks[term.name] = hasMarks ? termAvg : null;
           });
       });
 
@@ -118,7 +109,7 @@ export const useYearReportData = () => {
               }
           });
 
-          // Final Mark is normalized to the active weight
+          // Final Mark is normalized to the active weight of terms completed
           const final = activeWeight > 0 ? (yearSum / activeWeight) : 0;
           learnerResults[lId].finalYearMark = parseFloat(final.toFixed(1));
       });

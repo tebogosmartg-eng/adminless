@@ -5,6 +5,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
+import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
 
 interface AcademicContextType {
   years: AcademicYear[];
@@ -72,6 +73,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [assessments]) || [];
 
   const updateLearnerActiveAverages = useCallback(async (learnerIds: string[]) => {
+    // We update based on the current open term so the dashboard reflects current progress
     const currentOpenTerm = terms.find(t => !t.closed);
     if (!currentOpenTerm || learnerIds.length === 0) return;
 
@@ -96,15 +98,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             .and(m => m.learner_id === learnerId)
             .toArray();
 
-        let weightedSum = 0;
-        termAssessments.forEach(ass => {
-            const m = learnerMarks.find(mark => mark.assessment_id === ass.id);
-            if (m && m.score !== null) {
-                weightedSum += (Number(m.score) / ass.max_mark) * ass.weight;
-            }
-        });
+        // AUDIT FIX: Use unified calculation utility
+        const avg = calculateWeightedAverage(termAssessments, learnerMarks, learnerId);
+        const newAverage = formatDisplayMark(avg);
 
-        const newAverage = weightedSum.toFixed(1).replace(/\.0$/, '');
         await db.learners.update(learnerId, { mark: newAverage });
         await queueAction('learners', 'update', { id: learnerId, mark: newAverage });
     }

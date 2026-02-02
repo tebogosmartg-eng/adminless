@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { db } from '@/db';
 import { Assessment, AssessmentMark, Learner, ClassInfo } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
+import { calculateWeightedAverage } from '@/utils/calculations';
 
 interface TermReportResult {
   learnerName: string;
@@ -66,11 +67,12 @@ export const useTermReportData = () => {
         // Check weight validity (Rule 7)
         const totalWeight = classAssessments.reduce((sum, a) => sum + Number(a.weight), 0);
         if (totalWeight !== 100 && classAssessments.length > 0) {
-            console.warn(`Class ${cls.className} weights total ${totalWeight}%, not 100%. Report may be inaccurate.`);
+            console.warn(`Class ${cls.className} weights total ${totalWeight}%, not 100%. Result will be normalized.`);
         }
 
         classLearners.forEach((learner) => {
-          let weightedSum = 0;
+          if (!learner.id) return;
+
           const learnerAssessments: { [title: string]: string } = {};
 
           classAssessments.forEach(ass => {
@@ -78,19 +80,20 @@ export const useTermReportData = () => {
             
             if (markRecord && markRecord.score !== null) {
               const score = Number(markRecord.score);
-              const weighted = (score / Number(ass.max_mark)) * Number(ass.weight);
-              weightedSum += weighted;
               learnerAssessments[ass.title] = `${score}/${ass.max_mark}`;
             } else {
               learnerAssessments[ass.title] = "-";
             }
           });
 
+          // AUDIT FIX: Use unified calculation utility
+          const avg = calculateWeightedAverage(classAssessments, marksData, learner.id);
+
           results.push({
             learnerName: learner.name,
             className: cls.className,
             assessments: learnerAssessments,
-            termAverage: parseFloat(weightedSum.toFixed(1))
+            termAverage: avg
           });
         });
       });

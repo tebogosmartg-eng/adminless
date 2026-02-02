@@ -3,6 +3,7 @@ import { useAcademic } from '@/context/AcademicContext';
 import { useSettings } from '@/context/SettingsContext';
 import { Learner, ClassInfo, Assessment } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
+import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
 
 export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const { 
@@ -82,19 +83,24 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const isWeightValid = useMemo(() => currentTotalWeight === 100, [currentTotalWeight]);
 
   const calculateLearnerTotal = useCallback((learnerId: string) => {
-      let weightedSum = 0;
       const targetAssessments = recalculateTotal ? visibleAssessments : assessments;
       
-      targetAssessments.forEach(ass => {
-          const val = getMarkValue(ass.id, learnerId);
-          if (val !== "") {
-              const score = parseFloat(val);
-              const weighted = (score / ass.max_mark) * ass.weight;
-              weightedSum += weighted;
+      // We need to merge local edits with existing marks for calculation
+      const combinedMarks = [...marks];
+      Object.entries(editedMarks).forEach(([key, val]) => {
+          const [assId, lId] = key.split('-');
+          if (lId === learnerId) {
+              const idx = combinedMarks.findIndex(m => m.assessment_id === assId && m.learner_id === learnerId);
+              const entry = { assessment_id: assId, learner_id: lId, score: val === "" ? null : parseFloat(val), id: '' };
+              if (idx !== -1) combinedMarks[idx] = entry;
+              else combinedMarks.push(entry);
           }
       });
-      return weightedSum.toFixed(1);
-  }, [recalculateTotal, visibleAssessments, assessments, getMarkValue]);
+
+      // AUDIT FIX: Use unified normalization logic
+      const result = calculateWeightedAverage(targetAssessments, combinedMarks, learnerId);
+      return formatDisplayMark(result);
+  }, [recalculateTotal, visibleAssessments, assessments, editedMarks, marks]);
 
   const sortedAndFilteredLearners = useMemo(() => {
     const filtered = classInfo.learners.filter(l => 
