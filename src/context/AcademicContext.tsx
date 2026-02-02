@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
+import { useActivity } from './ActivityContext';
 
 interface AcademicContextType {
   years: AcademicYear[];
@@ -31,6 +32,7 @@ interface AcademicContextType {
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
 
 export const AcademicProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
+  const { logActivity } = useActivity();
   const [activeYearId, setActiveYearId] = useState<string | null>(null);
   const [activeTermId, setActiveTermId] = useState<string | null>(null);
   
@@ -73,7 +75,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [assessments]) || [];
 
   const updateLearnerActiveAverages = useCallback(async (learnerIds: string[]) => {
-    // We update based on the current open term so the dashboard reflects current progress
     const currentOpenTerm = terms.find(t => !t.closed);
     if (!currentOpenTerm || learnerIds.length === 0) return;
 
@@ -98,7 +99,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             .and(m => m.learner_id === learnerId)
             .toArray();
 
-        // AUDIT FIX: Use unified calculation utility
         const avg = calculateWeightedAverage(termAssessments, learnerMarks, learnerId);
         const newAverage = formatDisplayMark(avg);
 
@@ -134,6 +134,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
     await db.terms.bulkAdd(termsToCreate as any);
     await queueAction('terms', 'create', termsToCreate);
+    
+    logActivity(`Created academic cycle: "${name}"`);
     showSuccess(`Academic Year ${name} created with 4 standard terms.`);
   };
 
@@ -151,6 +153,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
      if (oldTerm?.weight !== term.weight) {
          recalculateAllActiveAverages();
      }
+     
+     logActivity(`Updated configuration for: "${term.name}" (${year?.name})`);
      showSuccess('Term configuration updated.');
   };
   
@@ -179,10 +183,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           setActiveTermId(termId);
       }
       
+      logActivity(`${closed ? 'Finalized' : 'Re-opened'} academic term: "${term.name}"`);
       showSuccess(`Term ${closed ? 'finalized' : 'activated'}.`);
   };
 
   const closeYear = async (yearId: string) => {
+    const year = await db.academic_years.get(yearId);
     const yearTerms = await db.terms.where('year_id').equals(yearId).toArray();
     const openTerms = yearTerms.filter(t => !t.closed);
     
@@ -192,6 +198,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     }
     await db.academic_years.update(yearId, { closed: true });
     await queueAction('academic_years', 'update', { id: yearId, closed: true });
+    
+    logActivity(`Permanently finalized academic year: "${year?.name}"`);
     showSuccess("Academic Year permanently finalized.");
   };
 
@@ -213,6 +221,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     const data = { ...assessment, id, user_id: session.user.id };
     await db.assessments.add(data);
     await queueAction('assessments', 'create', data);
+    
+    const classInfo = await db.classes.get(assessment.class_id);
+    logActivity(`Created assessment: "${assessment.title}" for class: "${classInfo?.className}"`);
+    
     showSuccess("Assessment created.");
     return id;
   };
@@ -235,13 +247,14 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       await queueAction('assessments', 'delete', { id });
 
       await updateLearnerActiveAverages(affectedLearnerIds);
+      
+      logActivity(`Deleted assessment: "${ass.title}" and ${marksToDelete.length} associated marks.`);
       showSuccess("Assessment deleted.");
   };
 
   const updateMarks = async (updates: { assessment_id: string; learner_id: string; score: number | null; comment?: string }[]) => {
     if (!session?.user.id || updates.length === 0) return;
     
-    // Verify ALL assessments in the batch belong to open terms
     const assIds = [...new Set(updates.map(u => u.assessment_id))];
     const targetAssessments = await db.assessments.where('id').anyOf(assIds).toArray();
     const termIds = [...new Set(targetAssessments.map(a => a.term_id))];
@@ -262,6 +275,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     
     const learnerIds = Array.from(new Set(updates.map(u => u.learner_id)));
     await updateLearnerActiveAverages(learnerIds);
+    
+    // Log the update with context
+    const firstAss = targetAssessments[0];
+    const classInfo = await db.classes.get(firstAss.class_id);
+    logActivity(`Updated ${updates.length} marks in "${firstAss.title}" (${classInfo?.className})`);
     
     showSuccess("Marks saved.");
   };

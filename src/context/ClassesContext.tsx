@@ -69,7 +69,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         created_at: new Date().toISOString()
       };
 
-      // Atomic write: Data + Sync Queue
       await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
         await db.classes.add(classData);
         await queueAction('classes', 'create', classData);
@@ -132,7 +131,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             }
         });
 
-        logActivity(`Updated marks for: "${classInfo.subject} - ${classInfo.className}"`);
+        logActivity(`Updated learner roster/legacy marks for: "${classInfo.subject} - ${classInfo.className}"`);
     } catch (e) {
         console.error(e);
         showError("Failed to save updates locally.");
@@ -145,7 +144,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             await db.learners.update(learnerId, { name: newName });
             await queueAction('learners', 'update', { id: learnerId, name: newName });
         });
-        logActivity(`Renamed student to: ${newName}`);
+        logActivity(`Renamed student to: "${newName}"`);
     } catch (e) {
         console.error(e);
         showError("Failed to rename learner.");
@@ -164,7 +163,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             await queueAction('classes', 'update', { ...updates, id: classId });
         });
 
-        logActivity("Class details updated.");
+        const cls = classes.find(c => c.id === classId);
+        logActivity(`Updated metadata for class: "${cls?.className}"`);
     } catch (e) {
         console.error(e);
         showError("Update failed.");
@@ -173,10 +173,12 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const updateClassNotes = async (classId: string, notes: string) => {
     try {
+        const cls = classes.find(c => c.id === classId);
         await db.transaction('rw', [db.classes, db.sync_queue], async () => {
             await db.classes.update(classId, { notes });
             await queueAction('classes', 'update', { id: classId, notes });
         });
+        logActivity(`Updated teacher reflection notes for: "${cls?.className}"`);
     } catch (e) {
         showError("Failed to save notes.");
     }
@@ -193,7 +195,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         });
         
         if (classInfo) {
-            logActivity(`Deleted class: "${classInfo.subject} - ${classInfo.className}"`);
+            logActivity(`Deleted class and all associated data: "${classInfo.subject} - ${classInfo.className}"`);
         }
     } catch (e) {
         showError("Failed to delete class.");
