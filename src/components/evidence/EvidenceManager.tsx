@@ -1,4 +1,4 @@
-import { Evidence } from '@/lib/types';
+import { Evidence, Learner } from '@/lib/types';
 import { useEvidence } from '@/hooks/useEvidence';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,10 @@ import { FileText, Image as ImageIcon, Trash2, ExternalLink, ShieldCheck, Histor
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { UploadEvidenceDialog } from './UploadEvidenceDialog';
+import { ModerationAssistant } from './ModerationAssistant';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useClasses } from '@/context/ClassesContext';
 
 interface EvidenceManagerProps {
   classId: string;
@@ -19,9 +21,16 @@ interface EvidenceManagerProps {
   learnerName?: string;
 }
 
-export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerName }: EvidenceManagerProps) => {
+export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerName: initialLearnerName }: EvidenceManagerProps) => {
   const { evidenceList, addEvidence, deleteEvidence, isUploading } = useEvidence({ classId, learnerId, termId });
+  const { classes } = useClasses();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  
+  // Selection state for moderation assistant
+  const [targetLearnerId, setTargetLearnerId] = useState<string | undefined>(learnerId);
+  const [targetLearnerName, setTargetLearnerName] = useState<string | undefined>(initialLearnerName);
+
+  const currentClass = classes.find(c => c.id === classId);
 
   const getIcon = (cat: string) => {
     switch (cat) {
@@ -37,8 +46,31 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
       return data.publicUrl;
   };
 
+  const handleOpenUpload = (l?: Learner) => {
+      if (l) {
+          setTargetLearnerId(l.id);
+          setTargetLearnerName(l.name);
+      } else {
+          setTargetLearnerId(learnerId);
+          setTargetLearnerName(initialLearnerName);
+      }
+      setIsUploadOpen(true);
+  };
+
+  const handleAssistantUpload = (file: File, category: Evidence['category'], notes: string) => {
+      // Create special filters for this specific upload
+      return addEvidence(file, category, notes);
+  };
+
   return (
     <div className="flex flex-col h-full gap-4">
+      {!learnerId && currentClass && !isLocked && (
+          <ModerationAssistant 
+            learners={currentClass.learners} 
+            onSelectLearner={handleOpenUpload}
+          />
+      )}
+
       <Card className={cn("border-dashed", isLocked && "bg-muted/10 border-muted-foreground/20")}>
         <CardHeader className="pb-3">
           <div className="flex justify-between items-start">
@@ -50,12 +82,12 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
               </div>
               <CardDescription>
                 {isLocked 
-                    ? "Audit trail is finalized for this term and cannot be modified." 
-                    : "Attach scripts or moderation proof for audit purposes."}
+                    ? "Audit trail is finalized and cannot be modified." 
+                    : `Attach scripts or moderation proof${targetLearnerName ? ' for ' + targetLearnerName : ''}.`}
               </CardDescription>
             </div>
             {!isLocked && (
-              <Button size="sm" onClick={() => setIsUploadOpen(true)}>
+              <Button size="sm" onClick={() => handleOpenUpload()}>
                 <Plus className="mr-2 h-4 w-4" /> Attach
               </Button>
             )}
@@ -65,7 +97,7 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
           {isLocked && evidenceList.length === 0 && (
              <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-700 text-xs rounded border border-amber-100 mb-4">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>No evidence was attached before this term was finalized.</span>
+                <span>No evidence was attached before finalization.</span>
              </div>
           )}
 
@@ -117,9 +149,9 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
       <UploadEvidenceDialog 
         open={isUploadOpen}
         onOpenChange={setIsUploadOpen}
-        onUpload={addEvidence}
+        onUpload={handleAssistantUpload}
         isUploading={isUploading}
-        learnerName={learnerName}
+        learnerName={targetLearnerName}
       />
     </div>
   );

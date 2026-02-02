@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { db } from '@/db';
 
 export interface ValidationError {
-  type: 'weight' | 'marks';
+  type: 'weight' | 'marks' | 'evidence';
   className: string;
   subject: string;
   details: string;
@@ -16,7 +16,6 @@ export const useTermValidation = () => {
     const errors: ValidationError[] = [];
 
     try {
-      // 1. Get all assessments for this term from Local DB
       const assessments = await db.assessments
         .where('term_id')
         .equals(termId)
@@ -27,25 +26,25 @@ export const useTermValidation = () => {
         return { isValid: true, errors: [] };
       }
 
-      // Group assessments by Class
       const classGroups: { [classId: string]: typeof assessments } = {};
       assessments.forEach(ass => {
         if (!classGroups[ass.class_id]) classGroups[ass.class_id] = [];
         classGroups[ass.class_id].push(ass);
       });
 
-      // 2. Validate Weights per Class
+      // Get all evidence for this term to check compliance
+      const termEvidence = await db.evidence.where('term_id').equals(termId).toArray();
+      const classesWithEvidence = new Set(termEvidence.map(e => e.class_id));
+
       for (const classId in classGroups) {
         const classAss = classGroups[classId];
-        
-        // Get Class Info
         const classInfo = await db.classes.get(classId);
         
         const className = classInfo?.className || "Unknown Class";
         const subject = classInfo?.subject || "Unknown Subject";
 
+        // 1. Weight Validation
         const totalWeight = classAss.reduce((sum, a) => sum + Number(a.weight), 0);
-
         if (totalWeight !== 100) {
           errors.push({
             type: 'weight',
@@ -55,50 +54,44 @@ export const useTermValidation = () => {
           });
         }
 
-        // 3. Validate Missing Marks
-        // Get learners for this class
-        const learners = await db.learners
-            .where('class_id')
-            .equals(classId)
-            .toArray();
-            
-        if (learners.length === 0) continue; // Skip empty classes
+        // 2. Marks Validation
+        const learners = await db.learners.where('class_id').equals(classId).toArray();
+        if (learners.length > 0) {
+            const assessmentIds = classAss.map(a => a.id);
+            const marks = await db.assessment_marks
+              .where('assessment_id')
+              .anyOf(assessmentIds)
+              .toArray();
 
-        const assessmentIds = classAss.map(a => a.id);
-        
-        // Fetch actual marks
-        const marks = await db.assessment_marks
-          .where('assessment_id')
-          .anyOf(assessmentIds)
-          .toArray();
+            let missingCount = 0;
+            classAss.forEach(ass => {
+              learners.forEach((l) => {
+                if (!l.id) return;
+                const markEntry = marks.find(m => m.assessment_id === ass.id && m.learner_id === l.id);
+                if (!markEntry || markEntry.score === null || markEntry.score === undefined) {
+                  missingCount++;
+                }
+              });
+            });
 
-        const marksMap = new Set(marks.map(m => `${m.assessment_id}-${m.learner_id}`));
-
-        let missingCount = 0;
-        
-        classAss.forEach(ass => {
-          learners.forEach((l) => {
-            // Check if mark exists AND is not null?
-            // Usually existence in DB with value means it's there. 
-            // In our system, we might delete marks or store them as null.
-            if (!l.id) return; // Unsynced/created learner should have ID if saved.
-            
-            const key = `${ass.id}-${l.id}`;
-            const markEntry = marks.find(m => m.assessment_id === ass.id && m.learner_id === l.id);
-            
-            if (!markEntry || markEntry.score === null || markEntry.score === undefined) {
-              missingCount++;
+            if (missingCount > 0) {
+              errors.push({
+                type: 'marks',
+                className,
+                subject,
+                details: `${missingCount} marks are missing across ${classAss.length} assessments.`
+              });
             }
-          });
-        });
+        }
 
-        if (missingCount > 0) {
-          errors.push({
-            type: 'marks',
-            className,
-            subject,
-            details: `${missingCount} marks are missing across ${classAss.length} assessments.`
-          });
+        // 3. Evidence Validation (NEW)
+        if (!classesWithEvidence.has(classId)) {
+            errors.push({
+                type: 'evidence',
+                className,
+                subject,
+                details: `No moderation evidence attached. Upload at least one script or note for audit.`
+            });
         }
       }
 

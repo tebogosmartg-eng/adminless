@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertTriangle, CheckCircle, Lock, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Lock, XCircle, ShieldAlert } from 'lucide-react';
 import { ValidationError } from '@/hooks/useTermValidation';
 
 interface TermClosureDialogProps {
@@ -43,7 +43,11 @@ export const TermClosureDialog = ({ open, onOpenChange, termName, errors, onConf
             <div className="space-y-3">
                 {errors.map((err, idx) => (
                     <div key={idx} className="flex items-start gap-3 p-3 border rounded-lg bg-red-50/50 border-red-100">
-                        <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        {err.type === 'evidence' ? (
+                            <ShieldAlert className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                        ) : (
+                            <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        )}
                         <div>
                             <p className="font-semibold text-sm text-red-900">{err.className} • {err.subject}</p>
                             <p className="text-sm text-red-700">{err.details}</p>
