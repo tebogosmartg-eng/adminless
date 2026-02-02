@@ -27,6 +27,7 @@ const Header = () => {
     : "T";
 
   const triggerSearch = () => {
+    // Custom event that SearchCommand listens for
     window.dispatchEvent(new Event("open-command-search"));
   };
 
@@ -37,6 +38,7 @@ const Header = () => {
       </div>
       
       <div className="flex-1 flex justify-center md:justify-start items-center gap-4">
+        {/* Global Search Trigger */}
         <div className="relative group">
             <Button 
             variant="outline" 
