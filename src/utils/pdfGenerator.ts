@@ -4,7 +4,7 @@ import { ClassInfo, Learner, GradeSymbol } from '@/lib/types';
 import { getGradeSymbol } from './grading';
 import { format } from 'date-fns';
 
-interface SchoolProfile {
+export interface SchoolProfile {
   name: string;
   teacher: string;
   logo: string | null;
@@ -24,7 +24,7 @@ export interface AttendanceStats {
  * Standard Header for all PDF documents
  * Ensures consistent branding and contact info layout
  */
-const addHeader = (doc: jsPDF, profile: SchoolProfile, title: string) => {
+export const addHeader = (doc: jsPDF, profile: SchoolProfile, title: string) => {
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
 

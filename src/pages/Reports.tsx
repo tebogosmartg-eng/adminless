@@ -20,18 +20,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Loader2, FileDown } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
+import { addHeader, SchoolProfile } from '@/utils/pdfGenerator';
 
 const Reports = () => {
   const { classes } = useClasses();
-  const { gradingScheme, schoolName } = useSettings();
+  const { gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   const { terms, years, activeYear, activeTerm } = useAcademic();
+
+  const profile: SchoolProfile = { 
+    name: schoolName, 
+    teacher: teacherName, 
+    logo: schoolLogo, 
+    email: contactEmail, 
+    phone: contactPhone 
+  };
 
   // Hooks
   const manualReports = useReportsData(classes);
   const { loading: termLoading, reportData: termData, generateTermReport } = useTermReportData();
   const { loading: yearLoading, yearData, generateYearReport } = useYearReportData();
 
-  // State - Default to active context if available
+  // State
   const [termReportGrade, setTermReportGrade] = useState("all");
   const [termReportSubject, setTermReportSubject] = useState("all");
   const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
@@ -40,7 +49,6 @@ const Reports = () => {
   const [yearReportSubject, setYearReportSubject] = useState("all");
   const [selectedYearId, setSelectedYearId] = useState(activeYear?.id || "");
 
-  // Update defaults if active context changes
   useEffect(() => {
       if (activeTerm && !selectedTermId) setSelectedTermId(activeTerm.id);
   }, [activeTerm]);
@@ -49,75 +57,115 @@ const Reports = () => {
       if (activeYear && !selectedYearId) setSelectedYearId(activeYear.id);
   }, [activeYear]);
 
-  // Term PDF Export
+  // Standardized Term PDF Export
   const handleExportTermPDF = () => {
     if (!termData || !selectedTermId) return;
     const termName = terms.find(t => t.id === selectedTermId)?.name || "Term Report";
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text(`${schoolName} - ${termName} Report`, 14, 20);
+    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for term grids
+    
+    const startY = addHeader(doc, profile, `${termName} Performance Summary`);
+    
     doc.setFontSize(10);
-    doc.text(`Grade: ${termReportGrade} | Subject: ${termReportSubject}`, 14, 28);
+    doc.setTextColor(80);
+    doc.text(`Grade: ${termReportGrade}  |  Subject: ${termReportSubject}`, 14, startY + 5);
     
     const firstItem = termData[0];
     const assessmentTitles = firstItem ? Object.keys(firstItem.assessments) : [];
     
-    const head = [['Name', 'Class', ...assessmentTitles, 'Final %', 'Sym']];
-    const body = termData.map(r => {
+    const head = [['#', 'Learner Name', 'Class', ...assessmentTitles, 'Term %', 'Sym']];
+    const body = termData.map((r, idx) => {
         const symbol = getGradeSymbol(r.termAverage, gradingScheme);
-        return [r.learnerName, r.className, ...assessmentTitles.map(t => r.assessments[t] || '-'), r.termAverage, symbol?.symbol || '-'];
+        return [
+            idx + 1,
+            r.learnerName, 
+            r.className, 
+            ...assessmentTitles.map(t => r.assessments[t] || '-'), 
+            `${r.termAverage}%`, 
+            symbol?.symbol || '-'
+        ];
     });
-    autoTable(doc, { startY: 40, head, body });
+
+    autoTable(doc, { 
+        startY: startY + 12, 
+        head, 
+        body,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 37, 36], textColor: 255 },
+        styles: { fontSize: 8 },
+        columnStyles: { 1: { fontStyle: 'bold' } }
+    });
+
     doc.save(`${termReportGrade}_${termReportSubject}_${termName}.pdf`);
   };
 
-  // Year PDF Export
+  // Standardized Year PDF Export
   const handleExportYearPDF = () => {
     if (!yearData || !selectedYearId) return;
     const yearName = years.find(y => y.id === selectedYearId)?.name || "Year Report";
     const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text(`${schoolName} - ${yearName} Final Report`, 14, 20);
+    
+    const startY = addHeader(doc, profile, `Year End Academic Summary: ${yearName}`);
+    
     doc.setFontSize(10);
-    doc.text(`Grade: ${yearReportGrade} | Subject: ${yearReportSubject}`, 14, 28);
+    doc.setTextColor(80);
+    doc.text(`Grade: ${yearReportGrade}  |  Subject: ${yearReportSubject}`, 14, startY + 5);
     
     const firstItem = yearData[0];
     const termNames = firstItem ? Object.keys(firstItem.termMarks).sort() : [];
     
-    const head = [['Name', ...termNames, 'Final Year %', 'Sym']];
-    const body = yearData.map(r => {
+    const head = [['#', 'Learner Name', ...termNames, 'Year %', 'Sym']];
+    const body = yearData.map((r, idx) => {
         const symbol = getGradeSymbol(r.finalYearMark, gradingScheme);
         return [
+            idx + 1,
             r.learnerName, 
-            ...termNames.map(t => r.termMarks[t] !== null ? r.termMarks[t] : '-'), 
-            r.finalYearMark, 
+            ...termNames.map(t => r.termMarks[t] !== null ? `${r.termMarks[t]}%` : '-'), 
+            `${r.finalYearMark}%`, 
             symbol?.symbol || '-'
         ];
     });
-    autoTable(doc, { startY: 40, head, body });
+
+    autoTable(doc, { 
+        startY: startY + 12, 
+        head, 
+        body,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 37, 36], textColor: 255 },
+        styles: { fontSize: 9 },
+        columnStyles: { 1: { fontStyle: 'bold' } }
+    });
+
     doc.save(`${yearReportGrade}_${yearReportSubject}_${yearName}_Final.pdf`);
   };
 
-  // Manual Tab Exports
+  // Standardized Manual Tab Exports
   const handleManualExportPDF = () => {
     if (!manualReports.aggregatedData) return;
     const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text(`${schoolName} - Custom Aggregate Report`, 14, 20);
+    
+    const startY = addHeader(doc, profile, "Custom Aggregate Performance Report");
     
     const selectedAssessments = manualReports.selectedClassIds.map(id => classes.find(c => c.id === id)?.className || 'Ass');
-    const head = [['Name', ...selectedAssessments, 'Total %', 'Sym']];
-    const body = manualReports.aggregatedData.map(l => {
+    const head = [['#', 'Learner Name', ...selectedAssessments, 'Total %', 'Sym']];
+    const body = manualReports.aggregatedData.map((l, idx) => {
         const symbol = getGradeSymbol(l.finalMark, gradingScheme);
         return [
+            idx + 1,
             l.name,
             ...manualReports.selectedClassIds.map(id => l.marks[id] ?? '-'),
-            l.finalMark,
+            `${l.finalMark}%`,
             symbol?.symbol || '-'
         ];
     });
 
-    autoTable(doc, { startY: 30, head, body });
+    autoTable(doc, { 
+        startY: startY + 5, 
+        head, 
+        body,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 37, 36], textColor: 255 }
+    });
+
     doc.save(`Custom_Aggregate_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     showSuccess("PDF Report generated.");
   };
@@ -156,7 +204,6 @@ const Reports = () => {
             <TabsTrigger value="manual">Manual Aggregate (Legacy)</TabsTrigger>
         </TabsList>
 
-        {/* Term Report Tab */}
         <TabsContent value="term" className="space-y-6">
             <div className="grid gap-6 md:grid-cols-4">
                 <Card className="md:col-span-1">
@@ -227,7 +274,6 @@ const Reports = () => {
             </div>
         </TabsContent>
 
-        {/* Year Report Tab */}
         <TabsContent value="year" className="space-y-6">
             <div className="grid gap-6 md:grid-cols-4">
                 <Card className="md:col-span-1">
@@ -303,7 +349,6 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="manual">
-            {/* Legacy Content */}
             <div className="grid gap-6 lg:grid-cols-3">
                 <div className="lg:col-span-1 space-y-6">
                 <ReportsFilterCard 
