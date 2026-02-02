@@ -127,15 +127,15 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
     if (isLocked) return;
 
-    // VALIDATION: Only block if it's a simple number and exceeds the maximum for this specific task
-    if (value !== "") {
+    // Only block simple numbers that exceed the max mark. 
+    // Allow strings like "15/20" to be typed without interruption.
+    if (value !== "" && !value.includes('/')) {
         const assessment = assessments.find(a => a.id === assessmentId);
         if (assessment) {
             const numVal = parseFloat(value);
-            // We ignore strings with '/' during the live typing to allow the user to finish "15/20"
-            if (!isNaN(numVal) && !value.includes('/') && numVal > assessment.max_mark) {
-                showError(`Entry Error: ${numVal} exceeds the total of ${assessment.max_mark} for this task.`);
-                return; // Stop the change from being recorded
+            if (!isNaN(numVal) && numVal > assessment.max_mark) {
+                showError(`Value ${numVal} exceeds the total of ${assessment.max_mark}. Use 'x/y' for scaling.`);
+                return; 
             }
         }
     }
