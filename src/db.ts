@@ -98,6 +98,11 @@ export class SmaRegDB extends Dexie {
     this.version(9).stores({
       evidence: 'id, user_id, class_id, term_id, learner_id, category'
     });
+
+    // Version 10: Add created_at index for evidence audit sorting
+    this.version(10).stores({
+      evidence: 'id, user_id, class_id, term_id, learner_id, category, created_at'
+    });
   }
 }
 
