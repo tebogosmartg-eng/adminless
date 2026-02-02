@@ -2,7 +2,7 @@
 
 import { useAcademic } from "@/context/AcademicContext";
 import { useClasses } from "@/context/ClassesContext";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { 
   CalendarDays, 
@@ -15,7 +15,9 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
-  ArrowRight
+  ArrowRight,
+  AlertCircle,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSync } from "@/context/SyncContext";
@@ -29,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
+import { calculateClassStats } from "@/utils/stats";
 
 export const ContextBar = () => {
   const { activeYear, activeTerm } = useAcademic();
@@ -37,12 +40,12 @@ export const ContextBar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isOnline, isSyncing, pendingChanges } = useSync();
-  const { nextPeriod } = useCurrentPeriod();
+  const { nextPeriod, currentPeriod } = useCurrentPeriod();
 
   const currentClass = classId ? classes.find(c => c.id === classId) : null;
   const isClassPage = location.pathname.includes('/classes/') && currentClass;
 
-  // Live Attendance Pulse for the current class
+  // Live Attendance Pulse
   const today = format(new Date(), 'yyyy-MM-dd');
   const attendancePulse = useLiveQuery(async () => {
     if (!classId) return null;
@@ -52,23 +55,29 @@ export const ContextBar = () => {
         .filter(r => r.date === today)
         .toArray();
     
-    if (records.length === 0) return null;
-    
-    const presentCount = records.filter(r => r.status === 'present' || r.status === 'late').length;
-    return { present: presentCount, total: currentClass?.learners.length || 0 };
-  }, [classId]);
+    return { 
+        marked: records.length > 0,
+        present: records.filter(r => r.status === 'present' || r.status === 'late').length,
+        total: currentClass?.learners.length || 0 
+    };
+  }, [classId, currentClass]);
+
+  // Calculate Class Average for header
+  const classAvg = useMemo(() => {
+    if (!currentClass) return null;
+    const stats = calculateClassStats(currentClass.learners);
+    return stats.average;
+  }, [currentClass]);
 
   if (!activeYear && !activeTerm && !isClassPage) return null;
 
   const otherClasses = classes.filter(c => c.id !== classId && !c.archived);
-
-  // Minutes until next class
   const minsUntilNext = nextPeriod ? differenceInMinutes(nextPeriod.startParsed, new Date()) : null;
 
   return (
     <div className="bg-white dark:bg-card border-b px-4 md:px-8 h-10 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider z-20 sticky top-0 md:relative overflow-hidden no-print">
       <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
-        {/* Global Academic Context */}
+        {/* Academic Context */}
         <div className="flex items-center gap-2 shrink-0">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <CalendarDays className="h-3 w-3" />
@@ -96,28 +105,39 @@ export const ContextBar = () => {
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1 hover:bg-muted px-1.5 py-0.5 rounded transition-colors">
-                    <Badge variant="outline" className="h-4.5 px-1.5 text-[9px] font-black border-primary/20 text-primary bg-primary/5">
+                  <button className="flex items-center gap-1 hover:bg-muted px-1.5 py-0.5 rounded transition-colors group">
+                    <Badge variant="outline" className="h-4.5 px-1.5 text-[9px] font-black border-primary/20 text-primary bg-primary/5 group-hover:bg-primary group-hover:text-white transition-colors">
                         {currentClass.className}
                     </Badge>
                     <ChevronDown className="h-3 w-3 text-muted-foreground opacity-50" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuContent align="start" className="w-56">
                     <div className="px-2 py-1.5 text-[9px] text-muted-foreground font-bold uppercase tracking-widest border-b mb-1">Switch Class</div>
-                    {otherClasses.length === 0 ? (
-                        <div className="px-2 py-2 text-[10px] text-muted-foreground italic">No other active classes</div>
-                    ) : (
-                        otherClasses.map(c => (
-                            <DropdownMenuItem key={c.id} onClick={() => navigate(`/classes/${c.id}`)} className="text-[10px] font-bold">
-                                {c.className} ({c.subject})
-                            </DropdownMenuItem>
-                        ))
-                    )}
+                    {otherClasses.map(c => (
+                        <DropdownMenuItem key={c.id} onClick={() => navigate(`/classes/${c.id}`)} className="text-[10px] font-bold">
+                            {c.className} ({c.subject})
+                        </DropdownMenuItem>
+                    ))}
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {attendancePulse && (
+              {classAvg !== null && classAvg > 0 && (
+                <div className="flex items-center gap-1 text-muted-foreground border-l pl-3 ml-1">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>Avg: <span className="text-foreground">{classAvg}%</span></span>
+                </div>
+              )}
+
+              {/* Urgent Attendance Warning */}
+              {attendancePulse && !attendancePulse.marked && !activeTerm?.closed && (
+                 <Link to={`/classes/${classId}`} className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-100 animate-pulse-slow">
+                    <AlertCircle className="h-3 w-3" />
+                    <span>Register Pending</span>
+                 </Link>
+              )}
+
+              {attendancePulse && attendancePulse.marked && (
                 <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border border-green-100 dark:border-green-900/50">
                     <Users className="h-2.5 w-2.5" />
                     <span className="tabular-nums">{attendancePulse.present}/{attendancePulse.total} present</span>
@@ -127,7 +147,7 @@ export const ContextBar = () => {
           </>
         )}
 
-        {/* Up Next - If not on a class page or looking at a different class */}
+        {/* Up Next Prediction */}
         {nextPeriod && (!isClassPage || nextPeriod.class_id !== classId) && (
             <>
                 <div className="h-3 w-px bg-border mx-1 shrink-0" />
@@ -142,29 +162,27 @@ export const ContextBar = () => {
                             {minsUntilNext}m
                         </span>
                     )}
-                    <ArrowRight className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
             </>
         )}
       </div>
 
-      {/* Sync Status - Integrated into Header */}
+      {/* Connection & Sync */}
       <div className="flex items-center gap-3 shrink-0 pl-4 bg-gradient-to-l from-white dark:from-card via-white dark:via-card to-transparent">
          {isSyncing ? (
-            <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+            <div className="flex items-center gap-1.5 text-blue-600">
                 <RefreshCw className="h-3 w-3 animate-spin" />
                 <span className="hidden sm:inline">Syncing...</span>
             </div>
          ) : pendingChanges > 0 ? (
-            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-1.5 text-amber-600">
                 <CloudUpload className="h-3 w-3" />
                 <span className="hidden sm:inline">{pendingChanges} pending</span>
-                <span className="sm:hidden">{pendingChanges}</span>
             </div>
          ) : isOnline ? (
-            <div className="flex items-center gap-1.5 text-green-600 dark:text-green-500 opacity-60">
+            <div className="flex items-center gap-1.5 text-green-600 opacity-60">
                 <CheckCircle2 className="h-3 w-3" />
-                <span className="hidden sm:inline">Up to date</span>
+                <span className="hidden sm:inline">Synced</span>
             </div>
          ) : (
             <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -176,3 +194,5 @@ export const ContextBar = () => {
     </div>
   );
 };
+
+import { useMemo } from 'react';
