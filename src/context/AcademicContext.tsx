@@ -42,15 +42,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return db.terms.where('year_id').equals(activeYear.id).sortBy('name');
   }, [activeYear?.id]) || [];
 
-  // Logic: Active term is the ONLY one that is NOT closed.
   useEffect(() => {
       if (terms.length > 0) {
           const openTerm = terms.find(t => !t.closed);
-          // If we found an open term, that MUST be the active working term
           if (openTerm) {
               setActiveTermId(openTerm.id);
           } else if (!activeTermId) {
-              // If none are open and we don't have a selection, default to the last one (most recent)
               setActiveTermId(terms[terms.length - 1].id);
           }
       }
@@ -75,7 +72,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [assessments]) || [];
 
   const updateLearnerActiveAverages = useCallback(async (learnerIds: string[]) => {
-    // Only update averages if there is an OPEN term to work on
     const currentOpenTerm = terms.find(t => !t.closed);
     if (!currentOpenTerm || learnerIds.length === 0) return;
 
@@ -120,7 +116,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       const allLearners = await db.learners.toArray();
       const ids = allLearners.map(l => l.id!);
       await updateLearnerActiveAverages(ids);
-      showSuccess("All class averages recalculated based on the active open term.");
+      showSuccess("All class averages recalculated.");
   };
 
   const createYear = async (name: string) => {
@@ -135,16 +131,22 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       year_id: yearId,
       name: tName,
       user_id: session.user.id,
-      closed: idx !== 0, // Only the first term is open by default
+      closed: idx !== 0,
       weight: 25
     }));
 
     await db.terms.bulkAdd(termsToCreate as any);
     await queueAction('terms', 'create', termsToCreate);
-    showSuccess(`Academic Year ${name} created. ${termsToCreate[0].name} is now your active working term.`);
+    showSuccess(`Academic Year ${name} created with 4 standard terms.`);
   };
 
   const updateTerm = async (term: Term) => {
+     const year = await db.academic_years.get(term.year_id);
+     if (year?.closed) {
+         showError("Cannot modify terms in a finalized year.");
+         return;
+     }
+
      const oldTerm = await db.terms.get(term.id);
      await db.terms.put(term);
      await queueAction('terms', 'update', term);
@@ -156,11 +158,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   };
   
   const toggleTermStatus = async (termId: string, closed: boolean) => {
-      // Check if we are opening a term when another is already open
+      const term = await db.terms.get(termId);
+      if (!term) return;
+
+      const year = await db.academic_years.get(term.year_id);
+      if (year?.closed && !closed) {
+          showError("Cannot re-open terms in a finalized year.");
+          return;
+      }
+
       if (!closed) {
           const alreadyOpen = terms.find(t => !t.closed && t.id !== termId);
           if (alreadyOpen) {
-              throw new Error(`Cannot open this term. ${alreadyOpen.name} is still active. Finalize it first.`);
+              showError(`Cannot open ${term.name}. ${alreadyOpen.name} is still active.`);
+              return;
           }
       }
 
@@ -171,18 +182,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           setActiveTermId(termId);
       }
       
-      showSuccess(`Term ${closed ? 'finalized' : 'activated for editing'}.`);
+      showSuccess(`Term ${closed ? 'finalized' : 'activated'}.`);
   };
 
   const closeYear = async (yearId: string) => {
-    const openTerms = await db.terms.where('year_id').equals(yearId).filter(t => !t.closed).count();
-    if (openTerms > 0) {
-        showError(`Cannot close year. ${openTerms} terms are still open.`);
+    const yearTerms = await db.terms.where('year_id').equals(yearId).toArray();
+    const openTerms = yearTerms.filter(t => !t.closed);
+    
+    if (openTerms.length > 0) {
+        showError(`Finalize all terms before closing the academic year.`);
         return;
     }
     await db.academic_years.update(yearId, { closed: true });
     await queueAction('academic_years', 'update', { id: yearId, closed: true });
-    showSuccess("Academic Year finalized and closed.");
+    showSuccess("Academic Year permanently finalized.");
   };
 
   const refreshAssessments = async (classId: string, termId?: string) => {
@@ -196,8 +209,9 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (!session?.user.id) return id; 
     
     const term = await db.terms.get(assessment.term_id);
-    if (!term) throw new Error("Invalid term selected.");
-    if (term.closed) throw new Error(`Editing restricted. ${term.name} is finalized.`);
+    if (!term || term.closed) {
+        throw new Error("Cannot add assessments to a finalized term.");
+    }
 
     const data = { ...assessment, id, user_id: session.user.id };
     await db.assessments.add(data);
@@ -223,24 +237,22 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       await db.assessments.delete(id);
       await queueAction('assessments', 'delete', { id });
 
-      if (!term?.closed) {
-          await updateLearnerActiveAverages(affectedLearnerIds);
-      }
+      await updateLearnerActiveAverages(affectedLearnerIds);
       showSuccess("Assessment deleted.");
   };
 
   const updateMarks = async (updates: { assessment_id: string; learner_id: string; score: number | null; comment?: string }[]) => {
     if (!session?.user.id || updates.length === 0) return;
     
-    // Check if the assessment belongs to a closed term
-    const firstAssId = updates[0].assessment_id;
-    const ass = await db.assessments.get(firstAssId);
-    if (ass) {
-        const term = await db.terms.get(ass.term_id);
-        if (term?.closed) {
-            showError("Cannot modify marks in a finalized term.");
-            return;
-        }
+    // Verify ALL assessments in the batch belong to open terms
+    const assIds = [...new Set(updates.map(u => u.assessment_id))];
+    const targetAssessments = await db.assessments.where('id').anyOf(assIds).toArray();
+    const termIds = [...new Set(targetAssessments.map(a => a.term_id))];
+    const targetTerms = await db.terms.where('id').anyOf(termIds).toArray();
+
+    if (targetTerms.some(t => t.closed)) {
+        showError("One or more marks belong to a finalized term and cannot be changed.");
+        return;
     }
 
     const toUpsert = updates.map(u => ({
