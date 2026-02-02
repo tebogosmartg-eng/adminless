@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ShieldCheck, FileText, Image as ImageIcon, Search, ExternalLink, Filter, Calendar, Download, Lock, Loader2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { ShieldCheck, FileText, Image as ImageIcon, Search, ExternalLink, Filter, Calendar, Download, Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess } from '@/utils/toast';
@@ -28,28 +29,26 @@ const EvidenceAudit = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [termFilter, setTermFilter] = useState("all");
 
-  // Load basic context for filters
   const terms = useLiveQuery(() => db.terms.toArray()) || [];
 
-  const evidenceData = useLiveQuery(async (): Promise<EvidenceWithContext[]> => {
+  const auditData = useLiveQuery(async () => {
     const evidence = await db.evidence.orderBy('created_at').reverse().toArray();
-    if (evidence.length === 0) return [];
-
+    const activeClasses = await db.classes.filter(c => !c.archived).toArray();
+    
     const classIds = [...new Set(evidence.map(e => e.class_id))];
     const learnerIds = [...new Set(evidence.filter(e => e.learner_id).map(e => e.learner_id!))];
     const termIds = [...new Set(evidence.filter(e => e.term_id).map(e => e.term_id!))];
     
-    const [classes, learners, termDetails] = await Promise.all([
-        db.classes.where('id').anyOf(classIds).toArray(),
+    const [learners, termDetails] = await Promise.all([
         db.learners.where('id').anyOf(learnerIds).toArray(),
         db.terms.where('id').anyOf(termIds).toArray()
     ]);
 
-    const classMap = new Map<string, ClassInfo>(classes.map(c => [c.id, c as any]));
+    const classMap = new Map<string, any>(activeClasses.map(c => [c.id, c]));
     const learnerMap = new Map<string, Learner>(learners.map(l => [l.id!, l]));
     const termMap = new Map<string, Term>(termDetails.map(t => [t.id, t]));
 
-    return evidence.map(e => {
+    const enrichedEvidence = evidence.map(e => {
         const cls = classMap.get(e.class_id);
         const learner = e.learner_id ? learnerMap.get(e.learner_id) : null;
         const term = e.term_id ? termMap.get(e.term_id) : null;
@@ -61,12 +60,24 @@ const EvidenceAudit = () => {
             learnerName: learner?.name || "Class Level",
             termName: term?.name || "General",
             isLocked: term?.closed || false
-        };
+        } as EvidenceWithContext;
     });
-  }, []) || [];
+
+    // Calculate Grade-level compliance
+    const gradeStats: Record<string, { total: number; withEvidence: number }> = {};
+    activeClasses.forEach(c => {
+        if (!gradeStats[c.grade]) gradeStats[c.grade] = { total: 0, withEvidence: 0 };
+        gradeStats[c.grade].total++;
+        if (evidence.some(e => e.class_id === c.id)) {
+            gradeStats[c.grade].withEvidence++;
+        }
+    });
+
+    return { enrichedEvidence, gradeStats, totalActive: activeClasses.length };
+  }, []) || { enrichedEvidence: [], gradeStats: {}, totalActive: 0 };
 
   const filtered = useMemo(() => {
-    return evidenceData.filter(e => {
+    return auditData.enrichedEvidence.filter(e => {
         const matchesSearch = 
             e.file_name.toLowerCase().includes(search.toLowerCase()) ||
             e.learnerName.toLowerCase().includes(search.toLowerCase()) ||
@@ -77,7 +88,7 @@ const EvidenceAudit = () => {
 
         return matchesSearch && matchesCategory && matchesTerm;
     });
-  }, [evidenceData, search, categoryFilter, termFilter]);
+  }, [auditData.enrichedEvidence, search, categoryFilter, termFilter]);
 
   const getPublicUrl = (path: string) => {
       const { data } = supabase.storage.from('evidence').getPublicUrl(path);
@@ -87,7 +98,7 @@ const EvidenceAudit = () => {
   const handleExportLog = () => {
     const header = "File Name,Category,Linked To,Class,Subject,Term,Upload Date\n";
     const rows = filtered.map(e => 
-        `"${e.file_name}","${e.category}","${e.learnerName}","${e.className}","${e.subject}","${e.termName}","${format(new Date(e.created_at!), 'yyyy-MM-dd')}"`
+        `"${e.file_name}","${e.category}","${e.learnerName}","${e.className}","${e.subject}","${e.termName}","${e.created_at ? format(new Date(e.created_at), 'yyyy-MM-dd') : ''}"`
     ).join("\n");
     
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
@@ -96,16 +107,7 @@ const EvidenceAudit = () => {
     link.href = url;
     link.download = `Evidence_Audit_Log_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     link.click();
-    showSuccess("Audit log exported as CSV.");
-  };
-
-  const getIcon = (cat: string) => {
-    switch (cat) {
-      case 'script': return <FileText className="h-4 w-4 text-blue-500" />;
-      case 'moderation': return <ShieldCheck className="h-4 w-4 text-green-600" />;
-      case 'photo': return <ImageIcon className="h-4 w-4 text-purple-500" />;
-      default: return <FileText className="h-4 w-4 text-gray-500" />;
-    }
+    showSuccess("Audit log exported.");
   };
 
   return (
@@ -113,11 +115,60 @@ const EvidenceAudit = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <h1 className="text-3xl font-bold tracking-tight">Evidence Audit</h1>
-            <p className="text-muted-foreground text-sm">Centralized repository for moderation proof and assessment scripts.</p>
+            <p className="text-muted-foreground text-sm">Professional moderation trail management.</p>
         </div>
         <Button onClick={handleExportLog} disabled={filtered.length === 0} variant="outline" className="gap-2">
-            <Download className="h-4 w-4" /> Export Audit Log
+            <Download className="h-4 w-4" /> Export Register
         </Button>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-3">
+          <Card className="md:col-span-2">
+              <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Compliance Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {Object.entries(auditData.gradeStats).sort().map(([grade, stats]) => {
+                          const percent = Math.round((stats.withEvidence / stats.total) * 100);
+                          return (
+                              <div key={grade} className="p-3 rounded-lg border bg-muted/20 space-y-2">
+                                  <div className="flex justify-between items-center">
+                                      <span className="text-sm font-bold">{grade}</span>
+                                      <span className={`text-[10px] font-bold px-1.5 rounded ${percent === 100 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                          {percent}%
+                                      </span>
+                                  </div>
+                                  <Progress value={percent} className="h-1" />
+                                  <p className="text-[10px] text-muted-foreground">
+                                      {stats.withEvidence} of {stats.total} classes covered
+                                  </p>
+                              </div>
+                          );
+                      })}
+                  </div>
+              </CardContent>
+          </Card>
+          
+          <Card className="bg-primary/5 border-primary/20">
+              <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-bold text-primary flex items-center gap-2 uppercase tracking-widest">
+                    <ShieldCheck className="h-4 w-4" /> Audit Status
+                  </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Total Evidence Files</span>
+                      <span className="text-xl font-bold">{auditData.enrichedEvidence.length}</span>
+                  </div>
+                  <div className="pt-2">
+                      <div className="flex items-center gap-2 p-2 bg-background rounded border text-[10px]">
+                          <AlertTriangle className="h-3 w-3 text-amber-500" />
+                          <span>Ensure 10% sample scripts are uploaded per class for moderation.</span>
+                      </div>
+                  </div>
+              </CardContent>
+          </Card>
       </div>
 
       <Card className="bg-muted/30 border-none shadow-none">
@@ -162,12 +213,6 @@ const EvidenceAudit = () => {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Audit Log</CardTitle>
-          <CardDescription>
-            {evidenceData.length === 0 ? "No evidence recorded yet." : `Showing ${filtered.length} of ${evidenceData.length} records.`}
-          </CardDescription>
-        </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
@@ -192,11 +237,14 @@ const EvidenceAudit = () => {
                 </TableRow>
               ) : (
                 filtered.map((item) => (
-                  <TableRow key={item.id} className="group">
+                  <TableRow key={item.id} className="group hover:bg-muted/30 transition-colors">
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-muted rounded-md group-hover:bg-primary/10 transition-colors">
-                          {getIcon(item.category)}
+                          {item.category === 'script' ? <FileText className="h-4 w-4 text-blue-500" /> : 
+                           item.category === 'moderation' ? <ShieldCheck className="h-4 w-4 text-green-600" /> : 
+                           item.category === 'photo' ? <ImageIcon className="h-4 w-4 text-purple-500" /> : 
+                           <FileText className="h-4 w-4 text-gray-500" />}
                         </div>
                         <div className="flex flex-col min-w-0">
                             <span className="font-medium text-sm truncate max-w-[200px]" title={item.file_name}>{item.file_name}</span>
@@ -207,7 +255,7 @@ const EvidenceAudit = () => {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="text-sm font-medium">
                         {item.learnerName}
                     </TableCell>
                     <TableCell className="text-sm">

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertCircle, FileEdit, CalendarCheck, ArrowRight } from "lucide-react";
+import { AlertCircle, FileEdit, CalendarCheck, ArrowRight, ShieldAlert } from "lucide-react";
 import { useClasses } from "@/context/ClassesContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { usePendingAttendance } from "@/hooks/usePendingAttendance";
@@ -52,7 +52,19 @@ export const AdminDebtWidget = () => {
     return debts;
   }, [activeTerm, classes]) || [];
 
-  const hasDebt = pendingClasses.length > 0 || missingMarksInfo.length > 0;
+  // NEW: Find classes with zero evidence for the current term
+  const missingEvidenceInfo = useLiveQuery(async () => {
+    if (!activeTerm) return [];
+    const activeClasses = classes.filter(c => !c.archived);
+    const evidence = await db.evidence.where('term_id').equals(activeTerm.id).toArray();
+    const classIdsWithEvidence = new Set(evidence.map(e => e.class_id));
+
+    return activeClasses
+        .filter(c => !classIdsWithEvidence.has(c.id))
+        .map(c => ({ id: c.id, className: c.className, subject: c.subject }));
+  }, [activeTerm, classes]) || [];
+
+  const hasDebt = pendingClasses.length > 0 || missingMarksInfo.length > 0 || missingEvidenceInfo.length > 0;
 
   if (!hasDebt) {
     return null;
@@ -65,7 +77,7 @@ export const AdminDebtWidget = () => {
           <AlertCircle className="h-5 w-5" />
           Pending Admin
         </CardTitle>
-        <CardDescription>Items requiring your attention to stay up to date.</CardDescription>
+        <CardDescription>Items requiring attention for {activeTerm?.name}.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {pendingClasses.length > 0 && (
@@ -77,7 +89,7 @@ export const AdminDebtWidget = () => {
                     <div key={cls.id} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
                         <span className="truncate max-w-[150px] font-medium">{cls.className} Register</span>
                         <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
-                            <Link to={`/classes/${cls.id}`}>Mark Register <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                            <Link to={`/classes/${cls.id}`}>Mark <ArrowRight className="ml-1 h-3 w-3" /></Link>
                         </Button>
                     </div>
                 ))}
@@ -97,6 +109,25 @@ export const AdminDebtWidget = () => {
                         </div>
                         <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
                             <Link to={`/classes/${debt.classId}`}>Capture <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                        </Button>
+                    </div>
+                ))}
+            </div>
+        )}
+
+        {missingEvidenceInfo.length > 0 && (
+            <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600">
+                    <ShieldAlert className="h-3 w-3" /> Missing Evidence
+                </div>
+                {missingEvidenceInfo.slice(0, 2).map((cls) => (
+                    <div key={cls.id} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
+                        <div className="flex flex-col">
+                            <span className="font-medium truncate max-w-[150px]">{cls.className} Audit Folder</span>
+                            <span className="text-[10px] text-muted-foreground">{cls.subject}</span>
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
+                            <Link to={`/classes/${cls.id}`}>Attach <ArrowRight className="ml-1 h-3 w-3" /></Link>
                         </Button>
                     </div>
                 ))}
