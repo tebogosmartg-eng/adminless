@@ -13,19 +13,22 @@ import {
   RefreshCw, 
   CloudUpload,
   CheckCircle2,
-  ChevronDown
+  ChevronDown,
+  Clock,
+  ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSync } from "@/context/SyncContext";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db";
-import { format } from "date-fns";
+import { format, differenceInMinutes } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 
 export const ContextBar = () => {
   const { activeYear, activeTerm } = useAcademic();
@@ -34,6 +37,7 @@ export const ContextBar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isOnline, isSyncing, pendingChanges } = useSync();
+  const { nextPeriod } = useCurrentPeriod();
 
   const currentClass = classId ? classes.find(c => c.id === classId) : null;
   const isClassPage = location.pathname.includes('/classes/') && currentClass;
@@ -58,8 +62,11 @@ export const ContextBar = () => {
 
   const otherClasses = classes.filter(c => c.id !== classId && !c.archived);
 
+  // Minutes until next class
+  const minsUntilNext = nextPeriod ? differenceInMinutes(nextPeriod.startParsed, new Date()) : null;
+
   return (
-    <div className="bg-white dark:bg-card border-b px-4 md:px-8 h-10 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider z-20 sticky top-0 md:relative overflow-hidden">
+    <div className="bg-white dark:bg-card border-b px-4 md:px-8 h-10 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider z-20 sticky top-0 md:relative overflow-hidden no-print">
       <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
         {/* Global Academic Context */}
         <div className="flex items-center gap-2 shrink-0">
@@ -97,7 +104,7 @@ export const ContextBar = () => {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48">
-                    <div className="px-2 py-1.5 text-[9px] text-muted-foreground font-bold uppercase tracking-widest">Switch Class</div>
+                    <div className="px-2 py-1.5 text-[9px] text-muted-foreground font-bold uppercase tracking-widest border-b mb-1">Switch Class</div>
                     {otherClasses.length === 0 ? (
                         <div className="px-2 py-2 text-[10px] text-muted-foreground italic">No other active classes</div>
                     ) : (
@@ -118,6 +125,26 @@ export const ContextBar = () => {
               )}
             </div>
           </>
+        )}
+
+        {/* Up Next - If not on a class page or looking at a different class */}
+        {nextPeriod && (!isClassPage || nextPeriod.class_id !== classId) && (
+            <>
+                <div className="h-3 w-px bg-border mx-1 shrink-0" />
+                <button 
+                    onClick={() => nextPeriod.class_id && navigate(`/classes/${nextPeriod.class_id}`)}
+                    className="flex items-center gap-2 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 hover:bg-amber-100 transition-colors group shrink-0"
+                >
+                    <Clock className="h-2.5 w-2.5" />
+                    <span className="text-[9px]">Up Next: <span className="font-black">{nextPeriod.class_name}</span></span>
+                    {minsUntilNext !== null && minsUntilNext <= 15 && (
+                        <span className="bg-amber-200 dark:bg-amber-800 px-1 rounded text-[8px] animate-pulse">
+                            {minsUntilNext}m
+                        </span>
+                    )}
+                    <ArrowRight className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+            </>
         )}
       </div>
 
