@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { 
-  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote
+  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote, Evidence
 } from '@/lib/types';
 
 // Extend types for DB storage (flattened structures where necessary)
@@ -36,6 +36,7 @@ export class SmaRegDB extends Dexie {
   profiles!: Table<any>;
   timetable!: Table<TimetableEntry>;
   learner_notes!: Table<LearnerNote>;
+  evidence!: Table<Evidence>;
 
   constructor() {
     super('SmaRegDB');
@@ -58,12 +59,12 @@ export class SmaRegDB extends Dexie {
       terms: 'id, year_id, name'
     });
 
-    // Version 3: Add attendance table with compound index for querying by class/date and uniqueness
+    // Version 3: Add attendance table
     this.version(3).stores({
       attendance: '[learner_id+date], class_id, date'
     });
 
-    // Version 4: Add compound index for assessments to fix "KeyPath not indexed" error
+    // Version 4: Add compound index for assessments
     this.version(4).stores({
       assessments: 'id, class_id, term_id, [class_id+term_id]'
     });
@@ -78,7 +79,7 @@ export class SmaRegDB extends Dexie {
       learner_notes: 'id, learner_id, date'
     });
 
-    // Version 7: Add user_id index to all tables queried by user_id for backup/restore/demo
+    // Version 7: Add user_id index
     this.version(7).stores({
       academic_years: 'id, user_id, closed, name',
       terms: 'id, user_id, year_id, name',
@@ -88,9 +89,14 @@ export class SmaRegDB extends Dexie {
       learner_notes: 'id, user_id, learner_id, date'
     });
 
-    // Version 8: Add indexes for learner_notes querying (created_at, category)
+    // Version 8: Add learner_notes querying indexes
     this.version(8).stores({
       learner_notes: 'id, user_id, learner_id, date, created_at, category'
+    });
+
+    // Version 9: Add Evidence table
+    this.version(9).stores({
+      evidence: 'id, user_id, class_id, term_id, learner_id, category'
     });
   }
 }

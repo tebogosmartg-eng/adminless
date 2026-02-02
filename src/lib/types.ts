@@ -156,3 +156,19 @@ export interface LearnerNote {
   date: string;
   created_at?: string;
 }
+
+// --- EVIDENCE TYPES ---
+
+export interface Evidence {
+  id: string;
+  user_id?: string;
+  class_id: string;
+  term_id?: string | null;
+  learner_id?: string | null;
+  file_path: string;
+  file_name: string;
+  file_type: string;
+  category: 'script' | 'moderation' | 'photo' | 'general';
+  notes?: string;
+  created_at?: string;
+}

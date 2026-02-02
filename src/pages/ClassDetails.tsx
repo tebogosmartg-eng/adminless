@@ -9,22 +9,22 @@ import { MarksTab } from "@/components/MarksTab";
 import { MarkSheet } from "@/components/assessments/MarkSheet"; 
 import { AttendanceView } from "@/components/AttendanceView";
 import { ClassDialogsManager } from "@/components/ClassDialogsManager";
+import { EvidenceManager } from "@/components/evidence/EvidenceManager";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 
 const ClassDetails = () => {
   const { classId } = useParams();
   const location = useLocation();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
-  const { assessments } = useAcademic();
+  const { assessments, activeTerm } = useAcademic();
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   
   const classInfo = classes.find((c) => c.id === classId);
   
-  // Cognitive Load Fix: If assessments exist, "Legacy" is just a distraction
   const hasAssessments = assessments.length > 0;
 
   const {
@@ -87,7 +87,7 @@ const ClassDetails = () => {
     );
   }
 
-  if (!classInfo) {
+  if (!classId || !classInfo) {
     return <div className="p-8 text-center text-muted-foreground">Class not found.</div>;
   }
 
@@ -117,10 +117,12 @@ const ClassDetails = () => {
       />
 
       <Tabs defaultValue="assessments" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-2 lg:w-[500px]">
           <TabsTrigger value="assessments">Assessments</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
-          {/* Legacy is hidden if using assessments system to reduce noise */}
+          <TabsTrigger value="evidence" className="gap-2">
+            <ShieldCheck className="h-3.5 w-3.5" /> Evidence
+          </TabsTrigger>
           {!hasAssessments && <TabsTrigger value="legacy">Legacy Marks</TabsTrigger>}
         </TabsList>
         
@@ -129,6 +131,16 @@ const ClassDetails = () => {
                classInfo={classInfo} 
                onViewLearnerProfile={(l) => dialogs.setSelectedProfileLearner(l)}
              />
+        </TabsContent>
+
+        <TabsContent value="evidence">
+             <div className="max-w-2xl mx-auto mt-6">
+                <EvidenceManager 
+                    classId={classId} 
+                    termId={activeTerm?.id}
+                    isLocked={activeTerm?.closed} 
+                />
+             </div>
         </TabsContent>
 
         <TabsContent value="legacy">
