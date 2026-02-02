@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText, Image as ImageIcon, Trash2, ExternalLink, ShieldCheck, History, Plus, FileSearch } from 'lucide-react';
+import { FileText, Image as ImageIcon, Trash2, ExternalLink, ShieldCheck, History, Plus, FileSearch, Lock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { UploadEvidenceDialog } from './UploadEvidenceDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 interface EvidenceManagerProps {
   classId: string;
@@ -38,16 +39,19 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
 
   return (
     <div className="flex flex-col h-full gap-4">
-      <Card className="border-dashed">
+      <Card className={cn("border-dashed", isLocked && "bg-muted/10 border-muted-foreground/20")}>
         <CardHeader className="pb-3">
           <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                Evidence Folder
-              </CardTitle>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className={cn("h-5 w-5", isLocked ? "text-muted-foreground" : "text-primary")} />
+                <CardTitle className="text-lg">Evidence Folder</CardTitle>
+                {isLocked && <Badge variant="secondary" className="gap-1 h-5"><Lock className="h-3 w-3" /> Locked</Badge>}
+              </div>
               <CardDescription>
-                Store scripts and moderation notes for audit purposes.
+                {isLocked 
+                    ? "Audit trail is finalized for this term and cannot be modified." 
+                    : "Attach scripts or moderation proof for audit purposes."}
               </CardDescription>
             </div>
             {!isLocked && (
@@ -58,6 +62,13 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
           </div>
         </CardHeader>
         <CardContent>
+          {isLocked && evidenceList.length === 0 && (
+             <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-700 text-xs rounded border border-amber-100 mb-4">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>No evidence was attached before this term was finalized.</span>
+             </div>
+          )}
+
           <ScrollArea className="h-[300px]">
             {evidenceList.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground space-y-2">
@@ -102,6 +113,7 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
           </ScrollArea>
         </CardContent>
       </Card>
+
       <UploadEvidenceDialog 
         open={isUploadOpen}
         onOpenChange={setIsUploadOpen}
