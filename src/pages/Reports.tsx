@@ -20,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Loader2, FileDown } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { addHeader, SchoolProfile } from '@/utils/pdfGenerator';
+import { addHeader, addFooter, SchoolProfile } from '@/utils/pdfGenerator';
 
 const Reports = () => {
   const { classes } = useClasses();
@@ -35,12 +35,10 @@ const Reports = () => {
     phone: contactPhone 
   };
 
-  // Hooks
   const manualReports = useReportsData(classes);
   const { loading: termLoading, reportData: termData, generateTermReport } = useTermReportData();
   const { loading: yearLoading, yearData, generateYearReport } = useYearReportData();
 
-  // State
   const [termReportGrade, setTermReportGrade] = useState("all");
   const [termReportSubject, setTermReportSubject] = useState("all");
   const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
@@ -57,11 +55,10 @@ const Reports = () => {
       if (activeYear && !selectedYearId) setSelectedYearId(activeYear.id);
   }, [activeYear]);
 
-  // Standardized Term PDF Export
   const handleExportTermPDF = () => {
     if (!termData || !selectedTermId) return;
     const termName = terms.find(t => t.id === selectedTermId)?.name || "Term Report";
-    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for term grids
+    const doc = new jsPDF('l', 'mm', 'a4');
     
     const startY = addHeader(doc, profile, `${termName} Performance Summary`);
     
@@ -95,10 +92,10 @@ const Reports = () => {
         columnStyles: { 1: { fontStyle: 'bold' } }
     });
 
+    addFooter(doc);
     doc.save(`${termReportGrade}_${termReportSubject}_${termName}.pdf`);
   };
 
-  // Standardized Year PDF Export
   const handleExportYearPDF = () => {
     if (!yearData || !selectedYearId) return;
     const yearName = years.find(y => y.id === selectedYearId)?.name || "Year Report";
@@ -135,10 +132,10 @@ const Reports = () => {
         columnStyles: { 1: { fontStyle: 'bold' } }
     });
 
+    addFooter(doc);
     doc.save(`${yearReportGrade}_${yearReportSubject}_${yearName}_Final.pdf`);
   };
 
-  // Standardized Manual Tab Exports
   const handleManualExportPDF = () => {
     if (!manualReports.aggregatedData) return;
     const doc = new jsPDF();
@@ -166,6 +163,7 @@ const Reports = () => {
         headStyles: { fillColor: [41, 37, 36], textColor: 255 }
     });
 
+    addFooter(doc);
     doc.save(`Custom_Aggregate_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     showSuccess("PDF Report generated.");
   };
