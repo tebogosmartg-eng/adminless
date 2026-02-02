@@ -35,7 +35,6 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
 
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => {
-          // Auto-restart if we didn't manually stop it
           if (isListening && open) {
               recognition.start();
           } else {
@@ -90,20 +89,15 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
     const lowerCommand = command.toLowerCase().trim();
     if (!lowerCommand) return;
 
-    // To prevent processing the same "Final" chunk multiple times 
-    // (Speech API sometimes repeats chunks in continuous mode)
     if (processedRef.current.has(lowerCommand)) return;
     processedRef.current.add(lowerCommand);
 
     let matchedLearnerIndex = -1;
     let bestMatchLen = 0;
 
-    // 1. Try to find the learner name in the command
     learners.forEach((l, idx) => {
         const nameLower = l.name.toLowerCase();
-        // Check for inclusion or close fuzzy match? 
-        // Simple word boundary check is safer than .includes
-        const regex = new RegExp(`\\b${nameLower}\\b`, 'i');
+        const regex = new RegExp(`\\b${nameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
         if (regex.test(lowerCommand) && nameLower.length > bestMatchLen) {
             matchedLearnerIndex = idx;
             bestMatchLen = nameLower.length;
@@ -111,7 +105,6 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
     });
 
     if (matchedLearnerIndex !== -1) {
-        // 2. Extract number from the command
         const remainder = lowerCommand.replace(learners[matchedLearnerIndex].name.toLowerCase(), '');
         const numbers = remainder.match(/\d+/);
         
@@ -119,7 +112,6 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
             const mark = numbers[0];
             onUpdateMark(matchedLearnerIndex, mark);
             
-            // Update local history for visual feedback
             const entry = {
                 name: learners[matchedLearnerIndex].name,
                 mark: mark,
@@ -133,7 +125,6 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
 
   const toggleListening = () => {
     if (!isSupported) {
-        // Simulation for testing
         setIsListening(true);
         setTimeout(() => {
             const mockName = learners[0]?.name || "John Doe";
