@@ -2,65 +2,150 @@
 
 import { useAcademic } from "@/context/AcademicContext";
 import { useClasses } from "@/context/ClassesContext";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, BookOpen, GraduationCap, ChevronRight } from "lucide-react";
+import { 
+  CalendarDays, 
+  BookOpen, 
+  GraduationCap, 
+  ChevronRight, 
+  Users, 
+  RefreshCw, 
+  CloudUpload,
+  CheckCircle2,
+  ChevronDown
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSync } from "@/context/SyncContext";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/db";
+import { format } from "date-fns";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const ContextBar = () => {
   const { activeYear, activeTerm } = useAcademic();
   const { classes } = useClasses();
   const { classId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isOnline, isSyncing, pendingChanges } = useSync();
 
   const currentClass = classId ? classes.find(c => c.id === classId) : null;
   const isClassPage = location.pathname.includes('/classes/') && currentClass;
 
+  // Live Attendance Pulse for the current class
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const attendancePulse = useLiveQuery(async () => {
+    if (!classId) return null;
+    const records = await db.attendance
+        .where('class_id')
+        .equals(classId)
+        .filter(r => r.date === today)
+        .toArray();
+    
+    if (records.length === 0) return null;
+    
+    const presentCount = records.filter(r => r.status === 'present' || r.status === 'late').length;
+    return { present: presentCount, total: currentClass?.learners.length || 0 };
+  }, [classId]);
+
   if (!activeYear && !activeTerm && !isClassPage) return null;
 
+  const otherClasses = classes.filter(c => c.id !== classId && !c.archived);
+
   return (
-    <div className="bg-white dark:bg-card border-b px-4 md:px-8 h-10 flex items-center gap-4 text-[11px] font-bold uppercase tracking-wider overflow-x-auto no-scrollbar z-20 sticky top-0 md:relative">
-      {/* Global Academic Context */}
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <CalendarDays className="h-3.5 w-3.5" />
-          <span>{activeYear?.name || "No Year"}</span>
-        </div>
-        <ChevronRight className="h-3 w-3 text-muted-foreground/30" />
-        <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-bold bg-primary/10 text-primary border-none">
-          {activeTerm?.name || "No Term"}
-        </Badge>
-      </div>
-
-      {/* Specific Class Context */}
-      {isClassPage && (
-        <>
-          <div className="h-3 w-px bg-border mx-1 shrink-0" />
-          <div className="flex items-center gap-3 shrink-0 animate-in fade-in slide-in-from-left-2">
-            <div className="flex items-center gap-1.5 text-foreground/80">
-              <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
-              <span>{currentClass.grade}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-foreground/80">
-              <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-primary">{currentClass.subject}</span>
-            </div>
-            <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-black border-primary/20 text-primary">
-              {currentClass.className}
-            </Badge>
+    <div className="bg-white dark:bg-card border-b px-4 md:px-8 h-10 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider z-20 sticky top-0 md:relative overflow-hidden">
+      <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
+        {/* Global Academic Context */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <CalendarDays className="h-3 w-3" />
+            <span>{activeYear?.name || "No Year"}</span>
           </div>
-        </>
-      )}
+          <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/30" />
+          <Badge variant="secondary" className="h-4.5 px-1.5 text-[9px] font-black bg-primary/10 text-primary border-none">
+            {activeTerm?.name || "No Term"}
+          </Badge>
+        </div>
 
-      {/* Location Breadcrumb for other pages */}
-      {!isClassPage && location.pathname !== '/' && (
+        {/* Specific Class Context */}
+        {isClassPage && (
           <>
             <div className="h-3 w-px bg-border mx-1 shrink-0" />
-            <span className="text-muted-foreground/60 font-medium lowercase italic">
-                {location.pathname.split('/').filter(Boolean).join(' / ')}
-            </span>
+            <div className="flex items-center gap-3 shrink-0 animate-in fade-in slide-in-from-left-2">
+              <div className="flex items-center gap-1.5 text-foreground/70">
+                <GraduationCap className="h-3 w-3 text-muted-foreground" />
+                <span>{currentClass.grade}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-foreground/70">
+                <BookOpen className="h-3 w-3 text-muted-foreground" />
+                <span className="text-primary">{currentClass.subject}</span>
+              </div>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-1 hover:bg-muted px-1.5 py-0.5 rounded transition-colors">
+                    <Badge variant="outline" className="h-4.5 px-1.5 text-[9px] font-black border-primary/20 text-primary bg-primary/5">
+                        {currentClass.className}
+                    </Badge>
+                    <ChevronDown className="h-3 w-3 text-muted-foreground opacity-50" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                    <div className="px-2 py-1.5 text-[9px] text-muted-foreground font-bold uppercase tracking-widest">Switch Class</div>
+                    {otherClasses.length === 0 ? (
+                        <div className="px-2 py-2 text-[10px] text-muted-foreground italic">No other active classes</div>
+                    ) : (
+                        otherClasses.map(c => (
+                            <DropdownMenuItem key={c.id} onClick={() => navigate(`/classes/${c.id}`)} className="text-[10px] font-bold">
+                                {c.className} ({c.subject})
+                            </DropdownMenuItem>
+                        ))
+                    )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {attendancePulse && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border border-green-100 dark:border-green-900/50">
+                    <Users className="h-2.5 w-2.5" />
+                    <span className="tabular-nums">{attendancePulse.present}/{attendancePulse.total} present</span>
+                </div>
+              )}
+            </div>
           </>
-      )}
+        )}
+      </div>
+
+      {/* Sync Status - Integrated into Header */}
+      <div className="flex items-center gap-3 shrink-0 pl-4 bg-gradient-to-l from-white dark:from-card via-white dark:via-card to-transparent">
+         {isSyncing ? (
+            <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                <span className="hidden sm:inline">Syncing...</span>
+            </div>
+         ) : pendingChanges > 0 ? (
+            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                <CloudUpload className="h-3 w-3" />
+                <span className="hidden sm:inline">{pendingChanges} pending</span>
+                <span className="sm:hidden">{pendingChanges}</span>
+            </div>
+         ) : isOnline ? (
+            <div className="flex items-center gap-1.5 text-green-600 dark:text-green-500 opacity-60">
+                <CheckCircle2 className="h-3 w-3" />
+                <span className="hidden sm:inline">Up to date</span>
+            </div>
+         ) : (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+                <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>Offline</span>
+            </div>
+         )}
+      </div>
     </div>
   );
 };

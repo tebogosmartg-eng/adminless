@@ -22,6 +22,7 @@ import { DailyAttendanceCard } from './DailyAttendanceCard';
 import { TodoList } from './TodoList';
 import { AdminDebtWidget } from './AdminDebtWidget';
 import { EvidenceComplianceWidget } from './EvidenceComplianceWidget';
+import { DailyGoalWidget } from './DailyGoalWidget';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -42,7 +43,10 @@ export const DashboardOverviewTab = ({
          <div className="md:col-span-2">
             <ActiveTermStats />
          </div>
-         <TermProgressWidget />
+         <div className="space-y-6">
+            <TermProgressWidget />
+            <DailyGoalWidget />
+         </div>
       </div>
 
       <GlobalStats classes={activeClasses} />
