@@ -37,12 +37,12 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
     const allLearners = await db.learners.toArray();
 
-    // Join manually
+    // Join manually and ensure className is correctly mapped
     return allClasses.map(c => ({
         id: c.id,
         grade: c.grade,
         subject: c.subject,
-        className: c.className,
+        className: c.className || "Untitled Class",
         archived: !!c.archived,
         notes: c.notes || '',
         learners: allLearners.filter(l => l.class_id === c.id)
@@ -55,13 +55,12 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     if (!session?.user.id) return;
 
     try {
-      // 1. Prepare Local Data
+      // 1. Prepare Local Data - ensuring property matches DBClass interface (className)
       const classData = {
         id: newClass.id, 
         user_id: session.user.id,
         grade: newClass.grade,
         subject: newClass.subject,
-        class_name: newClass.className, 
         className: newClass.className, 
         archived: false,
         notes: newClass.notes || '',
@@ -71,12 +70,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       // 2. Write to Local DB
       await db.classes.add(classData);
       
-      // 3. Queue Sync
-      const syncData = { ...classData };
-      delete (syncData as any).className; 
-      delete (syncData as any).learners;
-      
-      await queueAction('classes', 'create', syncData);
+      // 3. Queue Sync - the sync layer handles mapping className back to class_name for Supabase
+      await queueAction('classes', 'create', classData);
 
       // Learners
       if (newClass.learners.length > 0) {
@@ -161,15 +156,11 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         if (details.grade) updates.grade = details.grade;
         if (details.subject) updates.subject = details.subject;
         if (details.className) {
-            updates.class_name = details.className;
             updates.className = details.className;
         }
 
         await db.classes.update(classId, updates);
-        
-        const syncUpdates = { ...updates, id: classId };
-        delete syncUpdates.className;
-        await queueAction('classes', 'update', syncUpdates);
+        await queueAction('classes', 'update', { ...updates, id: classId });
 
         logActivity("Class details updated.");
     } catch (e) {

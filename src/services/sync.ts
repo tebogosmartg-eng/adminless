@@ -6,7 +6,15 @@ export const pullData = async (userId: string) => {
   try {
     // 1. Classes
     const { data: classes } = await supabase.from('classes').select('*').eq('user_id', userId);
-    if (classes) await db.classes.bulkPut(classes);
+    if (classes) {
+        // Map snake_case from DB to camelCase for local Dexie store
+        const mappedClasses = classes.map(c => ({
+            ...c,
+            className: c.class_name,
+            class_name: undefined // Clean up if necessary
+        }));
+        await db.classes.bulkPut(mappedClasses);
+    }
 
     // 2. Learners (Need all learners for user's classes)
     const classIds = classes?.map(c => c.id) || [];
@@ -77,8 +85,16 @@ export const pushChanges = async () => {
       const { table, action, data, id } = item;
       
       // Remove local-only fields if present
-      const payload = { ...data };
+      let payload = { ...data };
       delete payload.sync_status;
+
+      // Handle property mapping for 'classes' table (camelCase UI -> snake_case DB)
+      if (table === 'classes') {
+          if (payload.className !== undefined) {
+              payload.class_name = payload.className;
+              delete payload.className;
+          }
+      }
 
       let error = null;
 
