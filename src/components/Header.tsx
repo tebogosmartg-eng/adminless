@@ -4,8 +4,10 @@ import MobileSidebar from "./MobileSidebar";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { Button } from "@/components/ui/button";
-import { Search, CalendarDays, ChevronDown, Check } from "lucide-react";
+import { Search, CalendarDays, ChevronDown, Check, LogOut } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/db";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +29,15 @@ const Header = () => {
     : "T";
 
   const triggerSearch = () => {
-    // Custom event that SearchCommand listens for
     window.dispatchEvent(new Event("open-command-search"));
+  };
+
+  const handleLogout = async () => {
+      if (confirm("Sign out of AdminLess? Changes pending sync will be lost.")) {
+          await supabase.auth.signOut();
+          // We don't clear DB here so PWA keeps local data for the next sign-in,
+          // but we redirect to login via App.tsx session listener.
+      }
   };
 
   return (
@@ -38,7 +47,6 @@ const Header = () => {
       </div>
       
       <div className="flex-1 flex justify-center md:justify-start items-center gap-4">
-        {/* Global Search Trigger */}
         <div className="relative group">
             <Button 
             variant="outline" 
@@ -100,17 +108,29 @@ const Header = () => {
         <div className="text-white/80 hover:text-white transition-colors">
             <ThemeToggle />
         </div>
-        <div className="flex items-center gap-3 pl-2 border-l border-white/20 ml-1">
-          {teacherName && (
-            <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-white/90">
-              {teacherName}
-            </span>
-          )}
-          <Avatar className="h-8 w-8 ring-2 ring-white/20">
-            <AvatarImage src="" alt={teacherName || "Teacher"} />
-            <AvatarFallback className="bg-white/10 text-white text-xs font-bold">{initials}</AvatarFallback>
-          </Avatar>
-        </div>
+        
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <div className="flex items-center gap-3 pl-2 border-l border-white/20 ml-1 cursor-pointer hover:opacity-80 transition-opacity">
+                    {teacherName && (
+                        <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-white/90">
+                        {teacherName}
+                        </span>
+                    )}
+                    <Avatar className="h-8 w-8 ring-2 ring-white/20">
+                        <AvatarImage src="" alt={teacherName || "Teacher"} />
+                        <AvatarFallback className="bg-white/10 text-white text-xs font-bold">{initials}</AvatarFallback>
+                    </Avatar>
+                </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" /> Sign Out
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
