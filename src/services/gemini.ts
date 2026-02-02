@@ -101,7 +101,3 @@ export const processImagesWithGemini = async (images: string[]): Promise<any> =>
     throw error;
   }
 };
-
-export const parseScanResult = async (text: string): Promise<any> => {
-    return {};
-}
