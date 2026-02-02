@@ -74,18 +74,16 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     assessments.filter(a => visibleAssessmentIds.includes(a.id)), 
   [assessments, visibleAssessmentIds]);
 
-  const totalWeight = useMemo(() => assessments.reduce((acc, curr) => acc + Number(curr.weight), 0), [assessments]);
-  const visibleWeight = useMemo(() => visibleAssessments.reduce((acc, curr) => acc + Number(curr.weight), 0), [visibleAssessments]);
-  
-  const isUsingVisibleTotal = recalculateTotal && visibleAssessments.length !== assessments.length;
-  const currentTotalWeight = isUsingVisibleTotal ? visibleWeight : totalWeight;
-  const isWeightValid = currentTotalWeight === 100;
-  
-  const isLocked = activeYear?.closed || currentViewTerm?.closed || viewTermId !== activeTerm?.id;
+  const currentTotalWeight = useMemo(() => {
+    const target = recalculateTotal ? visibleAssessments : assessments;
+    return target.reduce((acc, a) => acc + (a.weight || 0), 0);
+  }, [assessments, visibleAssessments, recalculateTotal]);
+
+  const isWeightValid = useMemo(() => currentTotalWeight === 100, [currentTotalWeight]);
 
   const calculateLearnerTotal = useCallback((learnerId: string) => {
       let weightedSum = 0;
-      const targetAssessments = isUsingVisibleTotal ? visibleAssessments : assessments;
+      const targetAssessments = recalculateTotal ? visibleAssessments : assessments;
       
       targetAssessments.forEach(ass => {
           const val = getMarkValue(ass.id, learnerId);
@@ -96,7 +94,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           }
       });
       return weightedSum.toFixed(1);
-  }, [isUsingVisibleTotal, visibleAssessments, assessments, getMarkValue]);
+  }, [recalculateTotal, visibleAssessments, assessments, getMarkValue]);
 
   const sortedAndFilteredLearners = useMemo(() => {
     const filtered = classInfo.learners.filter(l => 
@@ -124,35 +122,57 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     });
   }, [classInfo.learners, searchQuery, sortConfig, calculateLearnerTotal, getMarkValue]);
 
-  const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
-    if (isLocked) return;
+  const handleExportSheet = () => {
+    if (assessments.length === 0) {
+      showError("No assessments to export.");
+      return;
+    }
 
-    // Only block simple numbers that exceed the max mark. 
-    // Allow strings like "15/20" to be typed without interruption.
+    try {
+      const header = ["Learner Name", ...assessments.map(a => `${a.title} (${a.max_mark})`), "Term Total (%)"].join(",");
+      const rows = sortedAndFilteredLearners.map(l => {
+        const rowMarks = assessments.map(a => l.id ? getMarkValue(a.id, l.id) : "");
+        const total = l.id ? calculateLearnerTotal(l.id) : "0";
+        return `"${l.name}",${rowMarks.join(",")},${total}`;
+      });
+
+      const csvContent = [header, ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `${classInfo.className}_${currentViewTerm?.name || 'Marks'}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showSuccess("Marksheet exported successfully.");
+    } catch (e) {
+      showError("Failed to generate CSV export.");
+    }
+  };
+
+  const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
+    if (activeYear?.closed || currentViewTerm?.closed) return;
+
     if (value !== "" && !value.includes('/')) {
         const assessment = assessments.find(a => a.id === assessmentId);
         if (assessment) {
             const numVal = parseFloat(value);
             if (!isNaN(numVal) && numVal > assessment.max_mark) {
-                showError(`Value ${numVal} exceeds the total of ${assessment.max_mark}. Use 'x/y' for scaling.`);
+                showError(`Value ${numVal} exceeds the total of ${assessment.max_mark}.`);
                 return; 
             }
         }
     }
-
     setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
-  }, [isLocked, assessments]);
+  }, [activeYear?.closed, currentViewTerm?.closed, assessments]);
 
   const handleCommentChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
-    if (isLocked) return;
+    if (activeYear?.closed || currentViewTerm?.closed) return;
     setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
-  }, [isLocked]);
+  }, [activeYear?.closed, currentViewTerm?.closed]);
 
   const handleSaveMarks = async () => {
-      if (isLocked) {
-          showError("Cannot save changes to a locked or inactive term.");
-          return;
-      }
       const keys = new Set([...Object.keys(editedMarks), ...Object.keys(editedComments)]);
       const updates = Array.from(keys).map(key => {
           const [assessmentId, learnerId] = key.split('-');
@@ -182,11 +202,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   };
 
   const handleAddAssessment = async () => {
-     if (isLocked) {
-         showError("Assessment creation restricted to active terms only.");
-         return;
-     }
-
      try {
         await createAssessment({
             class_id: classInfo.id,
@@ -205,10 +220,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   };
 
   const handleBulkImport = async (assessmentId: string, imports: { learnerId: string; score: number }[]) => {
-      if (isLocked) {
-          showError("Cannot import to a locked term.");
-          return;
-      }
       const updates = imports.map(i => ({
           assessment_id: assessmentId,
           learner_id: i.learnerId,
@@ -222,20 +233,20 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       viewTermId, isAddOpen, isImportOpen, isCopyOpen, analyticsOpen,
       newAss, editedMarks, editedComments, searchQuery, selectedAssessment,
       visibleAssessmentIds, recalculateTotal, currentViewTerm, visibleAssessments,
-      currentTotalWeight, isWeightValid, isLocked, filteredLearners: sortedAndFilteredLearners,
-      isUsingVisibleTotal, assessments, marks, terms, activeTerm, activeYear,
-      atRiskThreshold, sortConfig, activeTool, learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? getMarkValue(activeTool.assessmentId || '', l.id) : "" }))
+      isLocked: activeYear?.closed || currentViewTerm?.closed || viewTermId !== activeTerm?.id, 
+      filteredLearners: sortedAndFilteredLearners,
+      assessments, marks, terms, activeTerm, activeYear,
+      atRiskThreshold, sortConfig, activeTool, 
+      currentTotalWeight, isWeightValid, isUsingVisibleTotal: recalculateTotal,
+      learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? getMarkValue(activeTool.assessmentId || '', l.id) : "" }))
     },
     actions: {
       setViewTermId, setIsAddOpen, setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
       setNewAss, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
       getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkImport,
       handleBulkColumnUpdate: (assessmentId: string, val: string) => { 
-          if (isLocked) return;
           const updates: { [key: string]: string } = {};
-          classInfo.learners.forEach(l => {
-              if (l.id) updates[`${assessmentId}-${l.id}`] = val;
-          });
+          classInfo.learners.forEach(l => { if (l.id) updates[`${assessmentId}-${l.id}`] = val; });
           setEditedMarks(prev => ({ ...prev, ...updates }));
       },
       handleSaveMarks, handleAddAssessment, calculateLearnerTotal,
@@ -243,13 +254,11 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           const assessmentMarks = marks.filter(m => m.assessment_id === assessmentId && m.score !== null);
           const assessment = assessments.find(a => a.id === assessmentId);
           if (assessmentMarks.length === 0 || !assessment) return { avg: '0', max: 0, min: 0 };
-          
           const scores = assessmentMarks.map(m => (m.score! / assessment.max_mark) * 100);
-          const avg = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
-          return { avg, max: Math.max(...scores).toFixed(0), min: Math.min(...scores).toFixed(0) };
+          return { avg: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1), max: Math.max(...scores).toFixed(0), min: Math.min(...scores).toFixed(0) };
       },
       openAnalytics: (ass: Assessment) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
-      handleExportSheet: () => { showSuccess("Preparing CSV export..."); },
+      handleExportSheet,
       toggleAssessmentVisibility: (id: string) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
       deleteAssessment, refreshAssessments, handleSort: (key: string) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
       openTool: (type: 'rapid' | 'voice', id: string) => setActiveTool({ type, assessmentId: id }),
