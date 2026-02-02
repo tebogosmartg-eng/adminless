@@ -1,26 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, ArrowRight, Clock, BookOpen } from "lucide-react";
-import { useTimetable } from "@/hooks/useTimetable";
+import { CalendarClock, ArrowRight, Clock, BookOpen, Timer } from "lucide-react";
+import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export const TimetableWidget = () => {
-  const { timetable } = useTimetable();
-  const today = format(new Date(), 'EEEE'); // e.g. "Monday"
+  const { periods, currentPeriod, nextPeriod } = useCurrentPeriod();
+  const today = format(new Date(), 'EEEE');
   
-  const daysSchedule = timetable
-    .filter(t => t.day === today)
-    .sort((a, b) => a.period - b.period);
-
-  const nextClass = daysSchedule.find(t => {
-      // Logic to find "next" based on time? 
-      // Without strict times, we just show the whole day or highlight based on period index if we knew current period?
-      // Let's just show the list for today.
-      return true; 
-  });
-
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-3">
@@ -37,8 +27,8 @@ export const TimetableWidget = () => {
             </Link>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-auto max-h-[300px] pr-2">
-        {daysSchedule.length === 0 ? (
+      <CardContent className="flex-1 overflow-auto max-h-[350px] pr-2">
+        {periods.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
                 <Clock className="h-8 w-8 mb-2 opacity-20" />
                 <p>No classes scheduled for today.</p>
@@ -48,32 +38,63 @@ export const TimetableWidget = () => {
             </div>
         ) : (
             <div className="space-y-3">
-                {daysSchedule.map((entry) => (
-                    <div key={entry.id} className="flex items-center gap-3 p-2 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
-                        <div className="flex flex-col items-center justify-center w-10 h-10 bg-primary/10 rounded-md text-primary font-bold text-lg">
-                            {entry.period}
+                {currentPeriod && (
+                    <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-3 animate-pulse-slow">
+                        <div className="flex items-center justify-between mb-2">
+                            <Badge className="bg-primary text-white">LIVE NOW</Badge>
+                            <span className="text-[10px] font-bold text-primary uppercase">Period {currentPeriod.period}</span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                                <span className="font-semibold text-sm truncate">{entry.class_name || "Untitled Class"}</span>
-                                {entry.subject && (
-                                    <Badge variant="secondary" className="text-[10px] h-5">{entry.subject}</Badge>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                                <BookOpen className="h-3 w-3" />
-                                <span>Period {entry.period}</span>
-                            </div>
-                        </div>
-                        {entry.class_id && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-                                <Link to={`/classes/${entry.class_id}`} title="Go to Class">
-                                    <ArrowRight className="h-4 w-4" />
+                        <h4 className="font-bold text-lg">{currentPeriod.class_name}</h4>
+                        <p className="text-xs text-muted-foreground">{currentPeriod.subject}</p>
+                        {currentPeriod.class_id && (
+                             <Button size="sm" className="w-full mt-3 h-8 text-xs" asChild>
+                                <Link to={`/classes/${currentPeriod.class_id}`}>
+                                    Open Register <ArrowRight className="ml-2 h-3 w-3" />
                                 </Link>
-                            </Button>
+                             </Button>
                         )}
                     </div>
-                ))}
+                )}
+
+                <div className="space-y-2">
+                    {periods.map((entry) => {
+                        const isCurrent = entry.isCurrent;
+                        if (isCurrent) return null; // Already shown above
+
+                        return (
+                            <div 
+                                key={entry.id} 
+                                className={cn(
+                                    "flex items-center gap-3 p-2 rounded-lg border bg-card transition-colors",
+                                    entry === nextPeriod ? "border-primary/30 bg-primary/[0.02]" : "hover:bg-muted/50"
+                                )}
+                            >
+                                <div className={cn(
+                                    "flex flex-col items-center justify-center w-8 h-8 rounded text-sm font-bold",
+                                    entry === nextPeriod ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                                )}>
+                                    {entry.period}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-semibold text-sm truncate">{entry.class_name || "Untitled"}</span>
+                                        {entry === nextPeriod && <span className="text-[10px] font-bold text-primary uppercase">Next</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                        <span>{entry.subject}</span>
+                                    </div>
+                                </div>
+                                {entry.class_id && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild>
+                                        <Link to={`/classes/${entry.class_id}`}>
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         )}
       </CardContent>

@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import { Learner } from '@/lib/types';
 import { ProfileSummaryTab } from '@/components/learner-profile/ProfileSummaryTab';
 import { ProfileAttendanceTab } from '@/components/learner-profile/ProfileAttendanceTab';
@@ -13,8 +13,11 @@ import { useClasses } from '@/context/ClassesContext';
 import { useAcademic } from '@/context/AcademicContext';
 import { useLearnerHistory } from '@/hooks/useLearnerHistory';
 import { getGradeSymbol } from '@/utils/grading';
-import { ChevronLeft, ChevronRight, GraduationCap, Share2, Book, Edit2, ShieldCheck } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
+import { ChevronLeft, ChevronRight, GraduationCap, Share2, Book, Edit2, ShieldCheck, FileDown, Loader2 } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
+import { generateLearnerReportPDF } from '@/utils/pdfGenerator';
+import { useState } from 'react';
+import { db } from '@/db';
 
 interface LearnerProfileDialogProps {
   learner: Learner | null;
@@ -37,9 +40,10 @@ export const LearnerProfileDialog = ({
   hasNext,
   hasPrev
 }: LearnerProfileDialogProps) => {
-  const { gradingScheme } = useSettings();
+  const { gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   const { classes, renameLearner } = useClasses();
   const { activeTerm } = useAcademic();
+  const [isExporting, setIsExporting] = useState(false);
   
   const { history, stats, subjects, getSubjectColor } = useLearnerHistory(learner, classes);
 
@@ -51,6 +55,42 @@ export const LearnerProfileDialog = ({
     const text = `🎓 Learner Report\n👤 ${learner.name}\n📚 ${classSubject}\n📊 Mark: ${learner.mark}%`;
     navigator.clipboard.writeText(text);
     showSuccess("Summary copied.");
+  };
+
+  const handleDownloadPDF = async () => {
+    setIsExporting(true);
+    try {
+        const cls = classes.find(c => c.learners.some(l => l.id === learner.id));
+        if (!cls) throw new Error("Class not found");
+
+        // Fetch attendance stats for the PDF
+        const attRecords = await db.attendance.where('learner_id').equals(learner.id!).toArray();
+        const attStats = {
+            present: attRecords.filter(r => r.status === 'present').length,
+            absent: attRecords.filter(r => r.status === 'absent').length,
+            late: attRecords.filter(r => r.status === 'late').length,
+            total: attRecords.length,
+            rate: attRecords.length > 0 ? Math.round(((attRecords.filter(r => r.status === 'present' || r.status === 'late').length) / attRecords.length) * 100) : 0
+        };
+
+        generateLearnerReportPDF(
+            learner,
+            { subject: cls.subject, grade: cls.grade, className: cls.className },
+            gradingScheme,
+            schoolName,
+            teacherName,
+            schoolLogo,
+            contactEmail,
+            contactPhone,
+            attStats
+        );
+        showSuccess("PDF report generated.");
+    } catch (e) {
+        console.error(e);
+        showError("Failed to generate PDF.");
+    } finally {
+        setIsExporting(false);
+    }
   };
 
   const handleRename = async () => {
@@ -78,7 +118,13 @@ export const LearnerProfileDialog = ({
             </div>
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={onNext} disabled={!hasNext}><ChevronRight className="h-4 w-4" /></Button>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleShare}><Share2 className="h-4 w-4" /></Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-8 gap-2" onClick={handleDownloadPDF} disabled={isExporting}>
+                {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+                PDF Report
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleShare} className="h-8 w-8"><Share2 className="h-4 w-4" /></Button>
+          </div>
         </DialogHeader>
         
         <Tabs defaultValue="academic" className="flex-1 flex flex-col overflow-hidden">
