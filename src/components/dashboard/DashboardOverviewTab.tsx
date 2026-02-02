@@ -18,6 +18,9 @@ import { ActiveTermStats } from './ActiveTermStats';
 import { TermProgressWidget } from './TermProgressWidget';
 import { YearPerformanceTrend } from './YearPerformanceTrend';
 import { TimetableWidget } from './TimetableWidget';
+import { DailyAttendanceCard } from './DailyAttendanceCard';
+import { TodoList } from './TodoList';
+import { AdminDebtWidget } from './AdminDebtWidget';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -49,19 +52,19 @@ export const DashboardOverviewTab = ({
           {activeClasses.length > 0 ? (
             <>
               <div className="grid gap-6 md:grid-cols-2">
-                <PendingActions classes={activeClasses} />
+                <AdminDebtWidget />
                 <QuickActions onAddNote={onAddNote} />
               </div>
               
               <YearPerformanceTrend />
               
-              <ClassComparisonChart classes={activeClasses} />
-              
               <div className="grid gap-6 md:grid-cols-2">
+                <DailyAttendanceCard />
                 <UpcomingAssessments />
-                <TopLearnersPerGrade classes={activeClasses} />
               </div>
 
+              <ClassComparisonChart classes={activeClasses} />
+              
               <div className="grid gap-6 md:grid-cols-2">
                 <MarkDistributionChart 
                   learners={allActiveLearners} 
@@ -74,7 +77,7 @@ export const DashboardOverviewTab = ({
           ) : (
             <Card className="border-dashed border-2 bg-transparent flex flex-col items-center justify-center py-16 text-center">
               <CardHeader className="pb-2">
-                <CardTitle className="text-xl">Welcome to SmaReg</CardTitle>
+                <CardTitle className="text-xl">Welcome to AdminLess</CardTitle>
                 <CardDescription>Start by creating your first class to see analytics.</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col sm:flex-row gap-4 mt-4">
@@ -107,6 +110,8 @@ export const DashboardOverviewTab = ({
         {/* Sidebar Column */}
         <div className="space-y-6">
           <TimetableWidget />
+          <TodoList />
+          <TopLearnersPerGrade classes={activeClasses} />
           <RecentAlerts />
           <RecentActivity />
         </div>
