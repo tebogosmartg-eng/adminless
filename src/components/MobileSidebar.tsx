@@ -20,7 +20,7 @@ const MobileSidebar = () => {
           </SheetDescription>
         </div>
         <div className="flex h-16 items-center border-b px-6">
-          <h1 className="text-2xl font-bold">SmaReg</h1>
+          <h1 className="text-2xl font-bold">AdminLess</h1>
         </div>
         <nav className="grid gap-2 text-lg font-medium p-4">
           <NavLinks />

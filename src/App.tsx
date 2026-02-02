@@ -62,7 +62,7 @@ const App = () => {
              <div className="h-16 w-16 rounded-full border-4 border-primary/30" />
              <div className="absolute top-0 left-0 h-16 w-16 rounded-full border-4 border-primary border-t-transparent animate-spin" />
            </div>
-           <p className="text-muted-foreground font-medium animate-pulse">Loading SmaReg...</p>
+           <p className="text-muted-foreground font-medium animate-pulse">Loading AdminLess...</p>
         </div>
       </div>
     );
@@ -70,7 +70,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" storageKey="smareg-theme">
+      <ThemeProvider attribute="class" defaultTheme="system" storageKey="adminless-theme">
         <TooltipProvider>
           <SystemThemeManager />
           <Toaster />

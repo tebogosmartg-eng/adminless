@@ -4,14 +4,14 @@
 
 @layer base {
   :root {
-    /* DEFAULT: Calm Classroom - Light Mode */
+    /* DEFAULT: AdminLess - Light Mode */
     --background: 210 20% 98%; 
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 222 47% 15%; 
+    --primary: 221 83% 43%; /* Primary Blue */
     --primary-foreground: 210 40% 98%;
     --secondary: 214 32% 91%;
     --secondary-foreground: 222 47% 11%;
@@ -23,31 +23,17 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214 32% 85%;
     --input: 214 32% 85%;
-    --ring: 222 47% 15%;
+    --ring: 221 83% 43%;
     --radius: 0.6rem;
 
     --sidebar-background: 222 47% 12%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 215 25% 27%;
+    --sidebar-primary: 221 83% 33%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 215 25% 20%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 222 47% 15%;
     --sidebar-ring: 217 91% 60%;
-  }
-
-  /* SYSTEM VARIANT: Fresh Morning (6am - 11am) */
-  .theme-morning {
-    --background: 200 30% 98%; /* Slightly cooler/fresher */
-    --primary: 210 50% 25%;
-    --sidebar-background: 210 50% 15%;
-  }
-
-  /* SYSTEM VARIANT: Relaxed Afternoon (4pm - 8pm) */
-  .theme-afternoon {
-    --background: 30 20% 98%; /* Slightly warmer to reduce blue light */
-    --border: 30 10% 90%;
-    --primary: 222 30% 20%;
   }
 
   .dark {
@@ -58,7 +44,7 @@
     --card-foreground: 210 20% 85%;
     --popover: 222 47% 6%;
     --popover-foreground: 210 20% 85%;
-    --primary: 190 40% 60%;
+    --primary: 217 91% 65%;
     --primary-foreground: 222 47% 4%;
     --secondary: 222 47% 12%;
     --secondary-foreground: 210 20% 85%;
@@ -70,16 +56,16 @@
     --destructive-foreground: 210 20% 85%;
     --border: 222 47% 15%;
     --input: 222 47% 15%;
-    --ring: 190 40% 60%;
+    --ring: 217 91% 65%;
 
     --sidebar-background: 222 47% 3%;
     --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 190 40% 60%;
+    --sidebar-primary: 217 91% 65%;
     --sidebar-primary-foreground: 222 47% 3%;
     --sidebar-accent: 222 47% 8%;
     --sidebar-accent-foreground: 210 20% 85%;
     --sidebar-border: 222 47% 10%;
-    --sidebar-ring: 190 40% 60%;
+    --sidebar-ring: 217 91% 65%;
   }
 }
 

@@ -4,7 +4,7 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookOpen } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -23,12 +23,12 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="text-center space-y-2">
-            <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-2">
-                 <BookOpen className="h-8 w-8 text-primary" />
+            <div className="mx-auto bg-blue-100 p-4 rounded-full w-fit mb-2">
+                 <ShieldCheck className="h-10 w-10 text-blue-600" />
             </div>
-            <CardTitle className="text-2xl font-bold tracking-tight">Welcome to SmaReg</CardTitle>
-            <CardDescription className="text-base">
-                Sign in to manage your classes and learners
+            <CardTitle className="text-3xl font-extrabold tracking-tight text-blue-900">AdminLess</CardTitle>
+            <CardDescription className="text-sm font-bold text-blue-600 uppercase tracking-widest">
+                Less Admin. More Teaching.
             </CardDescription>
         </CardHeader>
         <CardContent>
@@ -39,8 +39,8 @@ const Login = () => {
                 variables: {
                     default: {
                         colors: {
-                            brand: 'hsl(var(--primary))',
-                            brandAccent: 'hsl(var(--primary))',
+                            brand: '#2563eb',
+                            brandAccent: '#1d4ed8',
                         },
                         radii: {
                             borderRadiusButton: '0.5rem',

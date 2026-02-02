@@ -1,6 +1,6 @@
-# SmaReg - Smart Register
+# AdminLess - Less Admin. More Teaching.
 
-A modern, AI-powered class register and mark management application for teachers.
+A modern, AI-powered class register and mark management application for teachers, designed to minimize paperwork and maximize instructional time.
 
 ## Features
 

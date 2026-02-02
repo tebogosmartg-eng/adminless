@@ -31,7 +31,7 @@ const Header = () => {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-orange-700 dark:bg-orange-950 px-4 md:px-8 no-print shadow-md z-30 transition-all duration-300 text-white border-orange-800">
+    <header className="flex h-16 items-center justify-between border-b bg-blue-700 dark:bg-blue-950 px-4 md:px-8 no-print shadow-md z-30 transition-all duration-300 text-white border-blue-800">
       <div className="flex items-center gap-4 md:hidden">
         <MobileSidebar />
       </div>
@@ -40,13 +40,13 @@ const Header = () => {
         <div className="relative group">
             <Button 
             variant="outline" 
-            className="h-9 w-full md:w-72 justify-start text-xs text-white/80 bg-orange-800/40 hover:bg-orange-800/60 border-orange-600/50 group-hover:border-orange-500 transition-all"
+            className="h-9 w-full md:w-72 justify-start text-xs text-white/80 bg-blue-800/40 hover:bg-blue-800/60 border-blue-600/50 group-hover:border-blue-500 transition-all"
             onClick={triggerSearch}
             >
             <Search className="mr-2 h-3.5 w-3.5 text-white/70" />
             <span className="hidden lg:inline-flex">Find a learner...</span>
             <span className="inline-flex lg:hidden">Search...</span>
-            <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border border-orange-600 bg-orange-800/50 px-1.5 font-mono text-[9px] font-medium text-white/50 sm:flex">
+            <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border border-blue-600 bg-blue-800/50 px-1.5 font-mono text-[9px] font-medium text-white/50 sm:flex">
                 <span className="text-[10px]">⌘</span>K
             </kbd>
             </Button>

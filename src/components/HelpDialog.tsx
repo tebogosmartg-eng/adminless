@@ -22,7 +22,7 @@ export function HelpDialog() {
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>SmaReg Help Center</DialogTitle>
+          <DialogTitle>AdminLess Help Center</DialogTitle>
           <DialogDescription>
             Guides and tips to get the most out of your smart register.
           </DialogDescription>
@@ -62,7 +62,7 @@ export function HelpDialog() {
             <TabsContent value="assessments" className="space-y-4 mt-0">
               <h3 className="font-semibold text-lg">Capturing Marks</h3>
               <p className="text-sm text-muted-foreground">
-                SmaReg uses a term-based assessment system.
+                AdminLess uses a term-based assessment system.
               </p>
               
               <div className="grid gap-4 md:grid-cols-2 mt-2">

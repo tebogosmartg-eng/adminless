@@ -5,13 +5,13 @@ const Sidebar = () => {
     <aside className="hidden w-64 flex-shrink-0 border-r bg-[#1a1a1a] text-sidebar-foreground md:block transition-colors duration-300">
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center border-b border-white/5 px-6">
-          <h1 className="text-xl font-bold tracking-tight text-white/90">SmaReg</h1>
+          <h1 className="text-xl font-bold tracking-tight text-white/90">AdminLess</h1>
         </div>
         <nav className="flex-1 space-y-1 p-4">
           <NavLinks />
         </nav>
         <div className="p-4 border-t border-white/5 text-[10px] text-white/30 uppercase tracking-widest text-center">
-          Calm Classroom v3.0
+          AdminLess v3.1
         </div>
       </div>
     </aside>

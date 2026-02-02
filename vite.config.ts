@@ -16,10 +16,10 @@ export default defineConfig(() => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon.svg'],
       manifest: {
-        name: 'SmaReg - Smart Register',
-        short_name: 'SmaReg',
-        description: 'Offline-first Class Register and Marks Management',
-        theme_color: '#ffffff',
+        name: 'AdminLess - Smart Register',
+        short_name: 'AdminLess',
+        description: 'Less Admin. More Teaching. Offline-first Class Register and Marks Management',
+        theme_color: '#2563eb',
         icons: [
           {
             src: 'icon.svg',
