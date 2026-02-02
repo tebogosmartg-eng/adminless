@@ -25,24 +25,33 @@ const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
 export const ClassesProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
 
-  // Read from Local DB
+  // Read from Local DB - Being more inclusive to recover data that might not have a user_id yet
   const classes = useLiveQuery(async () => {
     if (!session?.user.id) return [];
     
-    const allClasses = await db.classes
-        .where('user_id')
-        .equals(session.user.id)
-        .reverse()
-        .sortBy('created_at'); 
+    // Fetch all local classes first
+    const allClassesInDb = await db.classes.toArray();
+    
+    // Filter locally to include items belonging to this user OR items with no user assigned (migrating them)
+    const userClasses = allClassesInDb.filter(c => !c.user_id || c.user_id === session.user.id);
+
+    // If any don't have a user ID, update them now so they sync correctly
+    const itemsToUpdate = userClasses.filter(c => !c.user_id);
+    if (itemsToUpdate.length > 0) {
+        for (const c of itemsToUpdate) {
+            await db.classes.update(c.id, { user_id: session.user.id });
+            await queueAction('classes', 'update', { id: c.id, user_id: session.user.id });
+        }
+    }
 
     const allLearners = await db.learners.toArray();
 
-    // Join manually and ensure className is correctly mapped
-    return allClasses.map(c => ({
+    // Join manually and ensure className mapping is robust
+    return userClasses.map(c => ({
         id: c.id,
         grade: c.grade,
         subject: c.subject,
-        className: c.className || "Untitled Class",
+        className: c.className || (c as any).class_name || "Untitled Class",
         archived: !!c.archived,
         notes: c.notes || '',
         learners: allLearners.filter(l => l.class_id === c.id)
@@ -55,7 +64,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     if (!session?.user.id) return;
 
     try {
-      // 1. Prepare Local Data - ensuring property matches DBClass interface (className)
       const classData = {
         id: newClass.id, 
         user_id: session.user.id,
@@ -67,13 +75,9 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         created_at: new Date().toISOString()
       };
 
-      // 2. Write to Local DB
       await db.classes.add(classData);
-      
-      // 3. Queue Sync - the sync layer handles mapping className back to class_name for Supabase
       await queueAction('classes', 'create', classData);
 
-      // Learners
       if (newClass.learners.length > 0) {
         const learnersWithIds = newClass.learners.map(l => ({
             ...l,
