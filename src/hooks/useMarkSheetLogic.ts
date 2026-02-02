@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 import { useSettings } from '@/context/SettingsContext';
 import { Learner, ClassInfo, Assessment } from '@/lib/types';
@@ -21,7 +21,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const { atRiskThreshold } = useSettings();
 
   const [viewTermId, setViewTermId] = useState<string | null>(null);
-  
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isCopyOpen, setIsCopyOpen] = useState(false);
@@ -29,6 +28,10 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   
   const [activeTool, setActiveTool] = useState<{ type: 'rapid' | 'voice' | null, assessmentId: string | null }>({ type: null, assessmentId: null });
   const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "" });
+  
+  // Track "Saving..." status for UI feedback instead of a hard Save button
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
   const [editedComments, setEditedComments] = useState<{ [key: string]: string }>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,6 +40,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const [recalculateTotal, setRecalculateTotal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
 
+  // Load the term assessments on mount/change
   useEffect(() => {
     if (activeTerm && !viewTermId) {
         setViewTermId(activeTerm.id);
@@ -70,7 +74,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   }, [editedComments, marks]);
 
   const currentViewTerm = terms.find(t => t.id === viewTermId);
-  
   const visibleAssessments = useMemo(() => 
     assessments.filter(a => visibleAssessmentIds.includes(a.id)), 
   [assessments, visibleAssessmentIds]);
@@ -84,8 +87,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const calculateLearnerTotal = useCallback((learnerId: string) => {
       const targetAssessments = recalculateTotal ? visibleAssessments : assessments;
-      
-      // We need to merge local edits with existing marks for calculation
       const combinedMarks = [...marks];
       Object.entries(editedMarks).forEach(([key, val]) => {
           const [assId, lId] = key.split('-');
@@ -96,8 +97,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
               else combinedMarks.push(entry);
           }
       });
-
-      // AUDIT FIX: Use unified normalization logic
       const result = calculateWeightedAverage(targetAssessments, combinedMarks, learnerId);
       return formatDisplayMark(result);
   }, [recalculateTotal, visibleAssessments, assessments, editedMarks, marks]);
@@ -106,7 +105,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     const filtered = classInfo.learners.filter(l => 
         l.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
     return filtered.sort((a, b) => {
         let valA: string | number = '';
         let valB: string | number = '';
@@ -128,84 +126,71 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     });
   }, [classInfo.learners, searchQuery, sortConfig, calculateLearnerTotal, getMarkValue]);
 
-  const handleExportSheet = () => {
-    if (assessments.length === 0) {
-      showError("No assessments to export.");
-      return;
-    }
+  // AUTO-SAVE LOGIC: Triggers whenever there are changes in editedMarks or editedComments
+  // We debounce it to avoid hammering the DB while the teacher types
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const performSave = useCallback(async () => {
+    const markKeys = Object.keys(editedMarks);
+    const commentKeys = Object.keys(editedComments);
+    const allKeys = new Set([...markKeys, ...commentKeys]);
+
+    if (allKeys.size === 0) return;
+
+    setIsAutoSaving(true);
     try {
-      const header = ["Learner Name", ...assessments.map(a => `${a.title} (${a.max_mark})`), "Term Total (%)"].join(",");
-      const rows = sortedAndFilteredLearners.map(l => {
-        const rowMarks = assessments.map(a => l.id ? getMarkValue(a.id, l.id) : "");
-        const total = l.id ? calculateLearnerTotal(l.id) : "0";
-        return `"${l.name}",${rowMarks.join(",")},${total}`;
+      const updates = Array.from(allKeys).map(key => {
+        const [assessmentId, learnerId] = key.split('-');
+        
+        let score: number | null = null;
+        if (key in editedMarks) {
+          const val = editedMarks[key];
+          score = val === "" ? null : parseFloat(val);
+        } else {
+          const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+          score = m?.score ?? null;
+        }
+
+        let comment: string = "";
+        if (key in editedComments) {
+          comment = editedComments[key];
+        } else {
+          const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+          comment = m?.comment || "";
+        }
+
+        return { assessment_id: assessmentId, learner_id: learnerId, score, comment };
       });
 
-      const csvContent = [header, ...rows].join("\n");
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `${classInfo.className}_${currentViewTerm?.name || 'Marks'}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showSuccess("Marksheet exported successfully.");
+      await updateMarks(updates);
+      setEditedMarks({});
+      setEditedComments({});
     } catch (e) {
-      showError("Failed to generate CSV export.");
+      console.error("Auto-save failed", e);
+    } finally {
+      setIsAutoSaving(false);
     }
-  };
+  }, [editedMarks, editedComments, marks, updateMarks]);
+
+  useEffect(() => {
+    if (Object.keys(editedMarks).length > 0 || Object.keys(editedComments).length > 0) {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(performSave, 2000); // 2 second debounce
+    }
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [editedMarks, editedComments, performSave]);
 
   const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
     if (activeYear?.closed || currentViewTerm?.closed) return;
-
-    if (value !== "" && !value.includes('/')) {
-        const assessment = assessments.find(a => a.id === assessmentId);
-        if (assessment) {
-            const numVal = parseFloat(value);
-            if (!isNaN(numVal) && numVal > assessment.max_mark) {
-                showError(`Value ${numVal} exceeds the total of ${assessment.max_mark}.`);
-                return; 
-            }
-        }
-    }
     setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
-  }, [activeYear?.closed, currentViewTerm?.closed, assessments]);
+  }, [activeYear?.closed, currentViewTerm?.closed]);
 
   const handleCommentChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
     if (activeYear?.closed || currentViewTerm?.closed) return;
     setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
   }, [activeYear?.closed, currentViewTerm?.closed]);
-
-  const handleSaveMarks = async () => {
-      const keys = new Set([...Object.keys(editedMarks), ...Object.keys(editedComments)]);
-      const updates = Array.from(keys).map(key => {
-          const [assessmentId, learnerId] = key.split('-');
-          let score: number | null = null;
-          if (key in editedMarks) {
-              const val = editedMarks[key];
-              score = val === "" ? null : parseFloat(val);
-          } else {
-              const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
-              score = m?.score ?? null;
-          }
-          let comment: string = "";
-          if (key in editedComments) {
-              comment = editedComments[key];
-          } else {
-              const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
-              comment = m?.comment || "";
-          }
-          return { assessment_id: assessmentId, learner_id: learnerId, score, comment };
-      });
-      if (updates.length > 0) {
-          await updateMarks(updates);
-          setEditedMarks({});
-          setEditedComments({});
-          if (viewTermId) refreshAssessments(classInfo.id, viewTermId);
-      }
-  };
 
   const handleAddAssessment = async () => {
      try {
@@ -234,6 +219,33 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       await updateMarks(updates);
   };
 
+  const handleExportSheet = () => {
+    if (assessments.length === 0) {
+      showError("No assessments to export.");
+      return;
+    }
+    try {
+      const header = ["Learner Name", ...assessments.map(a => `${a.title} (${a.max_mark})`), "Term Total (%)"].join(",");
+      const rows = sortedAndFilteredLearners.map(l => {
+        const rowMarks = assessments.map(a => l.id ? getMarkValue(a.id, l.id) : "");
+        const total = l.id ? calculateLearnerTotal(l.id) : "0";
+        return `"${l.name}",${rowMarks.join(",")},${total}`;
+      });
+      const csvContent = [header, ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `${classInfo.className}_${currentViewTerm?.name || 'Marks'}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showSuccess("Marksheet exported.");
+    } catch (e) {
+      showError("Failed to generate CSV export.");
+    }
+  };
+
   return {
     state: {
       viewTermId, isAddOpen, isImportOpen, isCopyOpen, analyticsOpen,
@@ -244,6 +256,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       assessments, marks, terms, activeTerm, activeYear,
       atRiskThreshold, sortConfig, activeTool, 
       currentTotalWeight, isWeightValid, isUsingVisibleTotal: recalculateTotal,
+      isAutoSaving,
       learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? getMarkValue(activeTool.assessmentId || '', l.id) : "" }))
     },
     actions: {
@@ -255,7 +268,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           classInfo.learners.forEach(l => { if (l.id) updates[`${assessmentId}-${l.id}`] = val; });
           setEditedMarks(prev => ({ ...prev, ...updates }));
       },
-      handleSaveMarks, handleAddAssessment, calculateLearnerTotal,
+      handleSaveMarks: performSave, // Manual save still works but auto-save handles the heavy lifting
+      handleAddAssessment, calculateLearnerTotal,
       getAssessmentStats: (assessmentId: string) => { 
           const assessmentMarks = marks.filter(m => m.assessment_id === assessmentId && m.score !== null);
           const assessment = assessments.find(a => a.id === assessmentId);

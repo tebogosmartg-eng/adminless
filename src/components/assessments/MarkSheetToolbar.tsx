@@ -7,8 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Eye, AlertCircle, Search, Settings2, Save, FileSpreadsheet, Plus, Copy, Upload, Calculator } from 'lucide-react';
+import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import { Assessment, Term, AcademicYear } from '@/lib/types';
+import { cn } from "@/lib/utils";
 
 interface MarkSheetToolbarProps {
   terms: Term[];
@@ -37,15 +38,17 @@ interface MarkSheetToolbarProps {
   toggleAssessmentVisibility: (id: string) => void;
   recalculateTotal: boolean;
   setRecalculateTotal: (recalc: boolean) => void;
+  isAutoSaving?: boolean;
 }
 
 export const MarkSheetToolbar = ({
   terms, activeTerm, activeYear, viewTermId, setViewTermId, currentViewTerm,
   isWeightValid, currentTotalWeight, isLocked,
-  searchQuery, setSearchQuery, editedMarksCount, handleSaveMarks, handleExportSheet,
+  searchQuery, setSearchQuery, editedMarksCount, handleExportSheet,
   isAddOpen, setIsAddOpen, setIsImportOpen, setIsCopyOpen,
   newAss, setNewAss, handleAddAssessment,
-  assessments, visibleAssessmentIds, toggleAssessmentVisibility, recalculateTotal, setRecalculateTotal
+  assessments, visibleAssessmentIds, toggleAssessmentVisibility, recalculateTotal, setRecalculateTotal,
+  isAutoSaving
 }: MarkSheetToolbarProps) => {
 
   return (
@@ -67,23 +70,30 @@ export const MarkSheetToolbar = ({
           </Select>
 
           {currentViewTerm?.closed && <Badge variant="secondary"><Eye className="mr-1 h-3 w-3" /> Read Only</Badge>}
-          {activeYear?.closed && <Badge variant="destructive">Year Finalized</Badge>}
+          
+          {/* Tired Teacher UX: Status indicators instead of required clicks */}
+          <div className="flex items-center gap-2 px-3 py-1 bg-muted/40 rounded-full border border-transparent transition-all">
+            {isAutoSaving ? (
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-primary animate-pulse">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Auto-saving...
+                </div>
+            ) : editedMarksCount > 0 ? (
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600">
+                    <AlertCircle className="h-3 w-3" /> Pending changes
+                </div>
+            ) : (
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-green-600">
+                    <CheckCircle2 className="h-3 w-3" /> Saved locally
+                </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 text-sm">
-          <span className={isWeightValid ? "text-green-600 font-medium" : "text-amber-600 font-medium"}>
-            Total Weighting: {currentTotalWeight}%
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider font-bold">
+          <span className={isWeightValid ? "text-green-600" : "text-amber-600"}>
+            Weighting: {currentTotalWeight}%
           </span>
-          {!isWeightValid && (
-            <Tooltip>
-              <TooltipTrigger><AlertCircle className="h-4 w-4 text-amber-500" /></TooltipTrigger>
-              <TooltipContent>
-                {recalculateTotal
-                  ? "Displayed total represents only visible columns."
-                  : "Weights must sum to 100% for correct final calculation."}
-              </TooltipContent>
-            </Tooltip>
-          )}
+          {!isWeightValid && <AlertCircle className="h-3 w-3 text-amber-500" />}
         </div>
       </div>
 
@@ -91,36 +101,23 @@ export const MarkSheetToolbar = ({
         <div className="relative w-full md:w-48">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search learner..."
-            className="pl-8 pr-8"
+            placeholder="Find learner..."
+            className="pl-8 h-9 text-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-          <Tooltip>
-            <TooltipTrigger asChild>
-                <div className="absolute right-2.5 top-2.5 cursor-help">
-                    <Calculator className="h-4 w-4 text-muted-foreground opacity-50 hover:opacity-100" />
-                </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-                <p>Smart Entry: Type '15/20' to auto-calculate scores.</p>
-            </TooltipContent>
-          </Tooltip>
         </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-10">
+            <Button variant="outline" size="sm" className="h-9">
               <Settings2 className="mr-2 h-4 w-4" /> View
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Visible Assessments</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs">Visible Columns</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {assessments.length === 0 ? (
-                <div className="p-2 text-xs text-muted-foreground">No assessments available.</div>
-            ) : (
-                assessments.map(ass => (
+            {assessments.map(ass => (
                 <DropdownMenuCheckboxItem
                     key={ass.id}
                     checked={visibleAssessmentIds.includes(ass.id)}
@@ -128,46 +125,31 @@ export const MarkSheetToolbar = ({
                 >
                     {ass.title}
                 </DropdownMenuCheckboxItem>
-                ))
-            )}
-            <DropdownMenuSeparator />
-            <div className="p-2 flex items-center justify-between">
-              <Label htmlFor="recalc-toggle" className="text-xs">Calc. Visible Only</Label>
-              <Switch
-                id="recalc-toggle"
-                checked={recalculateTotal}
-                onCheckedChange={setRecalculateTotal}
-                className="scale-75"
-              />
-            </div>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button onClick={handleSaveMarks} disabled={editedMarksCount === 0 || !!isLocked}>
-          <Save className="mr-2 h-4 w-4" /> Save
-        </Button>
-
-        <Button variant="outline" size="icon" onClick={handleExportSheet} title="Export to CSV">
-          <FileSpreadsheet className="h-4 w-4" />
+        <Button variant="outline" size="sm" className="h-9" onClick={handleExportSheet} title="Export to CSV">
+          <FileSpreadsheet className="mr-2 h-4 w-4" /> Export
         </Button>
 
         {!isLocked && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Plus className="mr-2 h-4 w-4" /> Add / Import
+              <Button size="sm" className="h-9 bg-primary shadow-sm">
+                <Plus className="mr-1 h-4 w-4" /> Task
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => setIsAddOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" /> New Assessment
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setIsCopyOpen(true)}>
-                <Copy className="mr-2 h-4 w-4" /> Copy Structure...
+                <Copy className="mr-2 h-4 w-4" /> Copy Structure
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" /> Import Marks CSV
+                <Upload className="mr-2 h-4 w-4" /> Import CSV
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -176,38 +158,22 @@ export const MarkSheetToolbar = ({
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>New Assessment ({currentViewTerm?.name})</DialogTitle>
+              <DialogTitle>New Assessment</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Title</Label>
-                <Input value={newAss.title} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3" placeholder="e.g. Algebra Test" />
+                <Label className="text-right text-xs">Title</Label>
+                <Input value={newAss.title} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Test 1" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Type</Label>
-                <Select value={newAss.type} onValueChange={v => setNewAss({ ...newAss, type: v })}>
-                  <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Test">Test</SelectItem>
-                    <SelectItem value="Exam">Exam</SelectItem>
-                    <SelectItem value="Assignment">Assignment</SelectItem>
-                    <SelectItem value="Project">Project</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-right text-xs">Max Mark</Label>
+                <Input type="number" value={newAss.max} onChange={e => setNewAss({ ...newAss, max: parseInt(e.target.value) })} className="col-span-3 h-9" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Max Mark</Label>
-                <Input type="number" value={newAss.max} onChange={e => setNewAss({ ...newAss, max: parseInt(e.target.value) })} className="col-span-3" />
+                <Label className="text-right text-xs">Weight (%)</Label>
+                <Input type="number" value={newAss.weight} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) })} className="col-span-3 h-9" />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Weight (%)</Label>
-                <Input type="number" value={newAss.weight} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) })} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Date</Label>
-                <Input type="date" value={newAss.date} onChange={e => setNewAss({ ...newAss, date: e.target.value })} className="col-span-3" />
-              </div>
-              <Button onClick={handleAddAssessment}>Create</Button>
+              <Button onClick={handleAddAssessment} className="mt-2">Create Task</Button>
             </div>
           </DialogContent>
         </Dialog>

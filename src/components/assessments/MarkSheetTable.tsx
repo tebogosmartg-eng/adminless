@@ -64,6 +64,8 @@ export const MarkSheetTable = ({
   const [noteDialog, setNoteDialog] = useState<{ open: boolean; assId: string; learnerId: string; learnerName: string; comment: string }>({ 
     open: false, assId: '', learnerId: '', learnerName: '', comment: '' 
   });
+  
+  const [activeRow, setActiveRow] = useState<number | null>(null);
 
   const openNoteDialog = (assId: string, learnerId: string, learnerName: string) => {
     setNoteDialog({ 
@@ -81,25 +83,21 @@ export const MarkSheetTable = ({
   };
 
   const handleInputBlur = (assId: string, learnerId: string, currentValue: string) => {
-    const { value, isCalculated, raw } = parseMarkInput(currentValue);
+    const { value, isCalculated } = parseMarkInput(currentValue);
     
     if (isCalculated && value !== currentValue) {
        const assessment = assessments.find(a => a.id === assId);
        if (assessment) {
            const percent = parseFloat(value);
-           
-           // Extra validation for calculated percentage
            if (percent > 100) {
-               showError(`Calculated mark (${percent}%) exceeds 100% limit.`);
+               showError(`Mark exceeds 100%.`);
                handleMarkChange(assId, learnerId, "");
                return;
            }
-
            const scaledScore = (percent / 100) * assessment.max_mark;
            const finalScore = scaledScore % 1 === 0 ? scaledScore.toString() : scaledScore.toFixed(1);
-           
            handleMarkChange(assId, learnerId, finalScore);
-           showSuccess(`Scaled: ${raw} -> ${finalScore}/${assessment.max_mark}`);
+           // Silent update (no toast) for better flow
        }
     }
   };
@@ -155,33 +153,23 @@ export const MarkSheetTable = ({
     <>
       <div className="border bg-white dark:bg-card rounded-md overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-            <Table className="border-collapse">
+            <Table className="border-collapse table-fixed w-full">
             <TableHeader>
-                <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="w-[220px] sticky left-0 bg-muted/80 dark:bg-card z-10 border-r backdrop-blur-sm">
+                <TableRow className="hover:bg-transparent border-b h-12">
+                <TableHead className="w-[220px] sticky left-0 bg-muted/80 dark:bg-card z-20 border-r backdrop-blur-sm">
                     <div 
-                        className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors select-none p-1"
+                        className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors select-none"
                         onClick={() => onSort && onSort('name')}
                     >
                     Learner Name
                     {getSortIcon('name')}
-                    <Badge variant="outline" className="ml-auto font-normal text-[10px] py-0 bg-background/50">
-                        {filteredLearners.length}
-                    </Badge>
                     </div>
                 </TableHead>
                 {visibleAssessments.map(ass => (
-                    <TableHead key={ass.id} className="text-center min-w-[150px] border-r">
-                    <div className="flex flex-col items-center group relative py-2">
+                    <TableHead key={ass.id} className="text-center min-w-[120px] border-r">
+                    <div className="flex flex-col items-center group relative py-1">
                         <div className="flex items-center gap-1">
-                            <div 
-                                className="flex items-center gap-1 cursor-pointer hover:bg-muted p-1 rounded transition-colors" 
-                                onClick={() => onSort && onSort(ass.id)}
-                                title="Click to Sort"
-                            >
-                                <span className="font-bold text-foreground text-xs uppercase tracking-wide truncate max-w-[110px]">{ass.title}</span>
-                                {sortConfig?.key === ass.id && getSortIcon(ass.id)}
-                            </div>
+                            <span className="font-bold text-foreground text-[11px] uppercase tracking-wide truncate max-w-[90px]">{ass.title}</span>
                             <button 
                                 className="opacity-0 group-hover:opacity-100 hover:text-primary transition-opacity"
                                 onClick={() => openAnalytics(ass)}
@@ -189,8 +177,8 @@ export const MarkSheetTable = ({
                                 <BarChart2 className="h-3 w-3" />
                             </button>
                         </div>
-                        <span className="text-[10px] text-muted-foreground font-normal mt-0.5">
-                        Max: {ass.max_mark} • {ass.weight}%
+                        <span className="text-[9px] text-muted-foreground font-normal">
+                          Max: {ass.max_mark} • {ass.weight}%
                         </span>
                         {!isLocked && (
                         <DropdownMenu>
@@ -218,41 +206,15 @@ export const MarkSheetTable = ({
                             <DropdownMenuItem onClick={() => { deleteAssessment(ass.id); }} className="text-destructive">
                                 <Trash2 className="mr-2 h-4 w-4" /> Delete Column
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {handleBulkColumnUpdate && (
-                                <>
-                                    <DropdownMenuItem onClick={() => { 
-                                        const val = prompt("Set value for all learners:", "0");
-                                        if (val !== null) handleBulkColumnUpdate(ass.id, val);
-                                    }}>
-                                        <PaintBucket className="mr-2 h-4 w-4" /> Batch Fill...
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => {
-                                        if (confirm(`Clear all marks in this column?`)) {
-                                            handleBulkColumnUpdate(ass.id, "");
-                                        }
-                                    }}>
-                                        <Eraser className="mr-2 h-4 w-4" /> Clear All
-                                    </DropdownMenuItem>
-                                </>
-                            )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                         )}
                     </div>
                     </TableHead>
                 ))}
-                <TableHead className="text-center font-bold bg-primary/5 dark:bg-primary/10 min-w-[100px]">
-                    <div 
-                        className="flex flex-col items-center justify-center cursor-pointer select-none py-2"
-                        onClick={() => onSort && onSort('total')}
-                    >
-                        <div className="flex items-center text-primary text-[10px] uppercase tracking-widest">
-                            Term Total {getSortIcon('total')}
-                        </div>
-                        <span className="text-[9px] font-normal text-muted-foreground mt-0.5">
-                            {isUsingVisibleTotal ? "(Visible Only)" : "Weighted %"}
-                        </span>
+                <TableHead className="text-center font-bold bg-primary/5 dark:bg-primary/10 min-w-[80px]">
+                    <div className="flex flex-col items-center justify-center text-[10px] uppercase tracking-widest text-primary">
+                        Total
                     </div>
                 </TableHead>
                 </TableRow>
@@ -260,12 +222,23 @@ export const MarkSheetTable = ({
             <TableBody>
                 {filteredLearners.map((learner, rowIdx) => {
                 const total = learner.id ? parseFloat(calculateLearnerTotal(learner.id)) : 0;
-                // Use Amber for 'at risk' as per Calm Classroom principles
                 const isAtRisk = total < atRiskThreshold && total > 0;
+                const isRowFocused = activeRow === rowIdx;
 
                 return (
-                    <TableRow key={learner.id || learner.name} className="group hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-medium sticky left-0 bg-background dark:bg-card z-10 border-r shadow-sm group-hover:bg-muted/50 transition-colors">
+                    <TableRow 
+                      key={learner.id || learner.name} 
+                      className={cn(
+                        "group transition-all h-10",
+                        isRowFocused ? "bg-primary/5 shadow-inner" : "hover:bg-muted/30"
+                      )}
+                    >
+                    <TableCell 
+                      className={cn(
+                        "font-medium sticky left-0 z-10 border-r shadow-sm transition-colors",
+                        isRowFocused ? "bg-primary/10" : "bg-background dark:bg-card"
+                      )}
+                    >
                         <div className="flex items-center justify-between px-1">
                         <button 
                             className="hover:underline text-sm truncate max-w-[160px] text-left"
@@ -273,16 +246,7 @@ export const MarkSheetTable = ({
                         >
                             {learner.name}
                         </button>
-                        {isAtRisk && (
-                            <Tooltip>
-                            <TooltipTrigger>
-                                <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p className="text-xs">Needs attention: Below {atRiskThreshold}%</p>
-                            </TooltipContent>
-                            </Tooltip>
-                        )}
+                        {isAtRisk && <AlertCircle className="h-3.5 w-3.5 text-amber-500" />}
                         </div>
                     </TableCell>
                     {visibleAssessments.map((ass, colIdx) => {
@@ -298,36 +262,32 @@ export const MarkSheetTable = ({
                                     id={`cell-${colIdx}-${rowIdx}`}
                                     className={cn(
                                         "h-full w-full bg-transparent text-center text-sm outline-none transition-all",
-                                        "focus:bg-primary/5 focus:ring-1 focus:ring-inset focus:ring-primary/30",
+                                        "border border-transparent hover:border-muted-foreground/20", // Tier-1 Tiredness fix: show visual edges
+                                        "focus:bg-white dark:focus:bg-background focus:ring-2 focus:ring-primary focus:z-10",
                                         isLocked && "bg-muted/50 cursor-not-allowed text-muted-foreground",
-                                        comment && "font-semibold underline decoration-dotted decoration-primary/50 underline-offset-4"
+                                        comment && "font-bold text-primary"
                                     )}
                                     value={markValue}
+                                    onFocus={() => setActiveRow(rowIdx)}
                                     onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
-                                    onBlur={(e) => learner.id && handleInputBlur(ass.id, learner.id, e.target.value)}
+                                    onBlur={(e) => {
+                                        if (learner.id) handleInputBlur(ass.id, learner.id, e.target.value);
+                                        setActiveRow(null);
+                                    }}
                                     onKeyDown={(e) => handleGridKeyDown(e, colIdx, rowIdx)}
                                     disabled={!learner.id || !!isLocked}
                                     placeholder="-"
                                 />
                                 {comment && (
-                                    <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-primary/40 rounded-full" />
+                                    <div className="absolute top-1 right-1">
+                                        <MessageSquare className="h-2 w-2 text-primary opacity-50" />
+                                    </div>
                                 )}
                                 </div>
                             </ContextMenuTrigger>
                             <ContextMenuContent>
-                                <ContextMenuItem 
-                                onClick={() => learner.id && openNoteDialog(ass.id, learner.id, learner.name)}
-                                disabled={!learner.id || !!isLocked}
-                                >
-                                <MessageSquare className="mr-2 h-4 w-4" /> 
-                                {comment ? "Edit observation" : "Add observation"}
-                                </ContextMenuItem>
-                                <ContextMenuSeparator />
-                                <ContextMenuItem 
-                                onClick={() => learner.id && handleMarkChange(ass.id, learner.id, "")}
-                                disabled={!learner.id || !!isLocked}
-                                >
-                                <Eraser className="mr-2 h-4 w-4" /> Clear
+                                <ContextMenuItem onClick={() => learner.id && openNoteDialog(ass.id, learner.id, learner.name)}>
+                                <MessageSquare className="mr-2 h-4 w-4" /> Observation
                                 </ContextMenuItem>
                             </ContextMenuContent>
                             </ContextMenu>
@@ -335,8 +295,8 @@ export const MarkSheetTable = ({
                         );
                     })}
                     <TableCell className={cn(
-                        "text-center font-bold text-sm bg-primary/5 dark:bg-primary/10 transition-colors",
-                        isAtRisk ? "text-amber-600" : "text-primary"
+                        "text-center font-bold text-sm transition-colors",
+                        isAtRisk ? "text-amber-600 bg-amber-50" : "text-primary bg-primary/5"
                     )}>
                         {learner.id ? total.toFixed(1) : '-'}
                     </TableCell>
@@ -344,20 +304,15 @@ export const MarkSheetTable = ({
                 );
                 })}
 
-                <TableRow className="bg-muted/50 dark:bg-muted/20 border-t-2">
-                <TableCell className="font-bold sticky left-0 bg-muted dark:bg-muted/90 z-10 border-r text-[10px] uppercase tracking-widest text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                    <TrendingUp className="h-3 w-3" /> Averages
-                    </div>
+                <TableRow className="bg-muted/50 border-t-2 h-10">
+                <TableCell className="font-bold sticky left-0 bg-muted z-10 border-r text-[9px] uppercase tracking-widest text-muted-foreground">
+                    Avg
                 </TableCell>
                 {visibleAssessments.map(ass => {
                     const stats = getAssessmentStats(ass.id);
                     return (
-                    <TableCell key={ass.id} className="text-center p-2 border-r last:border-r-0">
-                        <div className="flex flex-col text-[10px] leading-tight cursor-help" title={`Max: ${stats.max} | Min: ${stats.min}`}>
-                        <div className="font-bold text-foreground">{stats.avg}%</div>
-                        <div className="text-muted-foreground opacity-70">Mean</div>
-                        </div>
+                    <TableCell key={ass.id} className="text-center p-0 border-r last:border-r-0">
+                        <div className="font-bold text-[10px] text-foreground">{stats.avg}%</div>
                     </TableCell>
                     );
                 })}
@@ -369,26 +324,21 @@ export const MarkSheetTable = ({
       </div>
 
       <Dialog open={noteDialog.open} onOpenChange={(open) => setNoteDialog(prev => ({ ...prev, open }))}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle>Observation for {noteDialog.learnerName}</DialogTitle>
+            <DialogTitle className="text-sm">Note for {noteDialog.learnerName}</DialogTitle>
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div className="space-y-2">
-                <Label htmlFor="observation-note" className="text-xs uppercase tracking-wider text-muted-foreground">Note / Comment</Label>
-                <textarea 
-                    id="observation-note"
-                    className="w-full min-h-[100px] bg-muted/30 border rounded-md p-3 text-sm focus:ring-1 focus:ring-primary outline-none resize-none"
-                    value={noteDialog.comment} 
-                    onChange={(e) => setNoteDialog(prev => ({ ...prev, comment: e.target.value }))}
-                    placeholder="e.g. Needs support with fractions..."
-                    autoFocus
-                />
-            </div>
+          <div className="py-2">
+            <textarea 
+                className="w-full min-h-[80px] bg-muted/30 border rounded-md p-2 text-sm outline-none resize-none"
+                value={noteDialog.comment} 
+                onChange={(e) => setNoteDialog(prev => ({ ...prev, comment: e.target.value }))}
+                placeholder="Absent, late, etc..."
+                autoFocus
+            />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNoteDialog(prev => ({ ...prev, open: false }))}>Cancel</Button>
-            <Button onClick={saveNote}>Save Changes</Button>
+            <Button size="sm" onClick={saveNote}>Save Note</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,7 +1,8 @@
 import { useParams, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
+import { useAcademic } from "@/context/AcademicContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassHeader } from "@/components/ClassHeader";
 import { MarksTab } from "@/components/MarksTab";
@@ -18,10 +19,14 @@ const ClassDetails = () => {
   const { classId } = useParams();
   const location = useLocation();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
+  const { assessments } = useAcademic();
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   
   const classInfo = classes.find((c) => c.id === classId);
   
+  // Cognitive Load Fix: If assessments exist, "Legacy" is just a distraction
+  const hasAssessments = assessments.length > 0;
+
   const {
     learners,
     setLearners,
@@ -43,7 +48,6 @@ const ClassDetails = () => {
     handleGenerateInsights,
     handleSimulateInsights,
     showComments,
-    setShowComments,
     isGeneratingComments,
     handleGenerateComments,
   } = useAiFeatures(classInfo, learners, setLearners);
@@ -60,11 +64,10 @@ const ClassDetails = () => {
 
   useEffect(() => {
     if (classInfo) {
-      document.title = `${classInfo.className} - ${classInfo.subject} | SmaReg`;
+      document.title = `${classInfo.className} | SmaReg`;
     }
   }, [classInfo]);
 
-  // Deep linking for learner profile
   useEffect(() => {
     if (location.state?.openLearnerId && learners.length > 0) {
         const targetId = location.state.openLearnerId;
@@ -114,10 +117,11 @@ const ClassDetails = () => {
       />
 
       <Tabs defaultValue="assessments" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
-          <TabsTrigger value="assessments">Term Assessments</TabsTrigger>
-          <TabsTrigger value="legacy">Legacy Marks</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+          <TabsTrigger value="assessments">Assessments</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          {/* Legacy is hidden if using assessments system to reduce noise */}
+          {!hasAssessments && <TabsTrigger value="legacy">Legacy Marks</TabsTrigger>}
         </TabsList>
         
         <TabsContent value="assessments">
