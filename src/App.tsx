@@ -14,6 +14,7 @@ import ClassDetails from "./pages/ClassDetails";
 import Scan from "./pages/Scan";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
+import EvidenceAudit from "./pages/EvidenceAudit";
 import Login from "./pages/Login";
 import { ClassesProvider } from "./context/ClassesContext";
 import { ActivityProvider } from "./context/ActivityContext";
@@ -97,6 +98,7 @@ const App = () => {
                             <Route path="/classes/:classId" element={<ClassDetails />} />
                             <Route path="/scan" element={<Scan />} />
                             <Route path="/reports" element={<Reports />} />
+                            <Route path="/evidence-audit" element={<EvidenceAudit />} />
                             <Route path="/settings" element={<Settings />} />
                         </Route>
                         <Route path="*" element={<NotFound />} />

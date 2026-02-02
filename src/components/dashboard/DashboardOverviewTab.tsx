@@ -21,6 +21,7 @@ import { TimetableWidget } from './TimetableWidget';
 import { DailyAttendanceCard } from './DailyAttendanceCard';
 import { TodoList } from './TodoList';
 import { AdminDebtWidget } from './AdminDebtWidget';
+import { EvidenceComplianceWidget } from './EvidenceComplianceWidget';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -60,7 +61,7 @@ export const DashboardOverviewTab = ({
               
               <div className="grid gap-6 md:grid-cols-2">
                 <DailyAttendanceCard />
-                <UpcomingAssessments />
+                <EvidenceComplianceWidget />
               </div>
 
               <ClassComparisonChart classes={activeClasses} />
@@ -110,6 +111,7 @@ export const DashboardOverviewTab = ({
         {/* Sidebar Column */}
         <div className="space-y-6">
           <TimetableWidget />
+          <UpcomingAssessments />
           <TodoList />
           <TopLearnersPerGrade classes={activeClasses} />
           <RecentAlerts />
