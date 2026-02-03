@@ -75,10 +75,10 @@ export const AcademicYearSettings = () => {
       setRollForwardOpen(true);
   };
 
-  const handleConfirmRollForward = async (selectedIds: string[]) => {
+  const handleConfirmRollForward = async (preparedClasses: any[]) => {
       const nextOpenTerm = terms.find(t => !t.closed);
       if (rollForwardSourceId && nextOpenTerm) {
-          await rollForwardClasses(rollForwardSourceId, nextOpenTerm.id, selectedIds);
+          await rollForwardClasses(rollForwardSourceId, nextOpenTerm.id, preparedClasses);
       }
   };
 

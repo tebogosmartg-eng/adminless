@@ -28,7 +28,7 @@ interface AcademicContextType {
   toggleTermStatus: (termId: string, closed: boolean) => Promise<void>;
   closeYear: (yearId: string) => Promise<void>;
   recalculateAllActiveAverages: () => Promise<void>;
-  rollForwardClasses: (sourceTermId: string, targetTermId: string, classIds?: string[]) => Promise<void>;
+  rollForwardClasses: (sourceTermId: string, targetTermId: string, preparedClasses: any[]) => Promise<void>;
 }
 
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
@@ -106,7 +106,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         const classInfo = await db.classes.get(learner.class_id);
         if (!classInfo) continue;
 
-        // Scoping: Find assessments for the EXACT term this class belongs to
         const termAssessments = await db.assessments
             .where('[class_id+term_id]')
             .equals([learner.class_id, classInfo.term_id])
@@ -237,42 +236,26 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       showSuccess(`Term ${closed ? 'finalized' : 'activated'}.`);
   };
 
-  const rollForwardClasses = async (sourceTermId: string, targetTermId: string, classIds?: string[]) => {
+  const rollForwardClasses = async (sourceTermId: string, targetTermId: string, preparedClasses: any[]) => {
     if (!session?.user.id || !activeYear) return;
     
     try {
         const sourceTerm = await db.terms.get(sourceTermId);
-        if (!sourceTerm?.closed) {
-            throw new Error("Source term must be finalized before rolling forward.");
-        }
-
         const targetTerm = await db.terms.get(targetTermId);
-        if (targetTerm?.closed) {
-            throw new Error("Target term must be open to receive data.");
-        }
-
-        let sourceClasses = await db.classes.where('term_id').equals(sourceTermId).toArray();
         
-        // Filter by selection if provided
-        if (classIds && classIds.length > 0) {
-            sourceClasses = sourceClasses.filter(c => classIds.includes(c.id));
-        }
-
-        if (sourceClasses.length === 0) {
-            showError("No classes selected or found to roll forward.");
-            return;
-        }
-
-        const sourceClassIds = sourceClasses.map(c => c.id);
-        const sourceLearners = await db.learners.where('class_id').anyOf(sourceClassIds).toArray();
+        if (!sourceTerm || !targetTerm) throw new Error("Invalid term context.");
 
         await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
-            for (const sClass of sourceClasses) {
+            for (const sClass of preparedClasses) {
                 const newClassId = crypto.randomUUID();
                 const newClass = {
-                    ...sClass,
                     id: newClassId,
+                    user_id: session.user.id,
+                    year_id: activeYear.id,
                     term_id: targetTermId,
+                    grade: sClass.grade,
+                    subject: sClass.subject,
+                    className: sClass.className,
                     archived: false,
                     notes: `Rolled forward from ${sourceTerm.name}`,
                     created_at: new Date().toISOString()
@@ -281,11 +264,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                 await db.classes.add(newClass);
                 await queueAction('classes', 'create', newClass);
 
-                const classLearners = sourceLearners.filter(l => l.class_id === sClass.id);
-                const newLearners = classLearners.map(l => ({
-                    ...l,
+                const newLearners = sClass.learners.map((l: any) => ({
                     id: crypto.randomUUID(),
                     class_id: newClassId,
+                    name: l.name,
                     mark: "",
                     comment: ""
                 }));
@@ -297,8 +279,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             }
         });
 
-        logActivity(`Rolled forward ${sourceClasses.length} classes from ${sourceTerm.name} to ${targetTerm?.name}`);
-        showSuccess(`Successfully migrated ${sourceClasses.length} class rosters to ${targetTerm?.name}.`);
+        logActivity(`Rolled forward ${preparedClasses.length} classes from ${sourceTerm.name} to ${targetTerm.name}`);
+        showSuccess(`Successfully migrated ${preparedClasses.length} class rosters to ${targetTerm.name}.`);
     } catch (e: any) {
         showError(e.message);
     }
