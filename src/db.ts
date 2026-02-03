@@ -102,7 +102,6 @@ export class SmaRegDB extends Dexie {
       assessment_marks: '[assessment_id+learner_id], assessment_id, learner_id, user_id'
     });
 
-    // Version 12: Strict Physical Scoping by Year/Term
     this.version(12).stores({
       classes: 'id, user_id, year_id, term_id, sync_status',
       activities: 'id, user_id, year_id, term_id, timestamp',
@@ -110,6 +109,11 @@ export class SmaRegDB extends Dexie {
       learner_notes: 'id, user_id, year_id, term_id, learner_id, date',
       attendance: '[learner_id+date], class_id, term_id, date',
       evidence: 'id, user_id, class_id, year_id, term_id, learner_id, category, created_at'
+    });
+
+    // Version 13: Added missing created_at index for learner_notes
+    this.version(13).stores({
+      learner_notes: 'id, user_id, year_id, term_id, learner_id, date, created_at'
     });
   }
 }
