@@ -1,12 +1,13 @@
+"use client";
+
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { AcademicYear, Term, Assessment, AssessmentMark, ClassInfo, Learner } from '@/lib/types';
+import { AcademicYear, Term, Assessment, AssessmentMark, Activity } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
-import { useActivity } from './ActivityContext';
 
 interface AcademicContextType {
   years: AcademicYear[];
@@ -39,8 +40,6 @@ const STORAGE_KEYS = {
 };
 
 export const AcademicProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
-  const { logActivity } = useActivity();
-  
   const [activeYearId, setActiveYearIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.YEAR));
   const [activeTermId, setActiveTermIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.TERM));
   
@@ -96,6 +95,28 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return db.assessment_marks.where('assessment_id').anyOf(ids).toArray();
   }, [assessments]) || [];
 
+  // Internal logging to avoid dependency on ActivityContext (circular dependency fix)
+  const logInternalActivity = useCallback(async (message: string, yearId?: string, termId?: string) => {
+    if (!session?.user.id) return;
+    
+    const targetYearId = yearId || activeYear?.id;
+    const targetTermId = termId || activeTerm?.id;
+    
+    if (!targetYearId || !targetTermId) return;
+
+    const newActivity: Activity = {
+      id: crypto.randomUUID(),
+      user_id: session.user.id,
+      year_id: targetYearId,
+      term_id: targetTermId,
+      message,
+      timestamp: new Date().toISOString(),
+    };
+
+    await db.activities.add(newActivity);
+    await queueAction('activities', 'create', newActivity);
+  }, [session?.user.id, activeYear?.id, activeTerm?.id]);
+
   const updateLearnerActiveAverages = useCallback(async (learnerIds: string[]) => {
     if (learnerIds.length === 0) return;
 
@@ -149,19 +170,23 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     await db.academic_years.add(yearData);
     await queueAction('academic_years', 'create', yearData);
 
+    const firstTermId = crypto.randomUUID();
     const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName, idx) => ({
-      id: crypto.randomUUID(),
+      id: idx === 0 ? firstTermId : crypto.randomUUID(),
       year_id: yearId,
       name: tName,
       user_id: session.user.id,
       closed: idx !== 0,
-      weight: 25
+      weight: 25,
+      start_date: null,
+      end_date: null
     }));
 
     await db.terms.bulkAdd(termsToCreate as any);
     await queueAction('terms', 'create', termsToCreate);
     
-    logActivity(`Created academic cycle: "${name}"`);
+    // Log using internal helper
+    logInternalActivity(`Created academic cycle: "${name}"`, yearId, firstTermId);
     showSuccess(`Academic Year ${name} created with 4 standard terms.`);
   };
 
@@ -193,7 +218,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       });
 
       if (activeYearId === yearId) setActiveYear(null);
-      logActivity(`Deleted academic cycle: "${year.name}"`);
+      // Log using internal helper
+      logInternalActivity(`Deleted academic cycle: "${year.name}"`, yearId, termIds[0]);
       showSuccess(`Academic Year "${year.name}" deleted.`);
     } catch (e) {
       showError("Failed to delete academic year.");
@@ -210,7 +236,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
      await db.terms.put(term);
      await queueAction('terms', 'update', term);
      if (oldTerm?.weight !== term.weight) recalculateAllActiveAverages();
-     logActivity(`Updated configuration for: "${term.name}"`);
+     
+     logInternalActivity(`Updated configuration for: "${term.name}"`, term.year_id, term.id);
      showSuccess('Term configuration updated.');
   };
   
@@ -232,7 +259,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       await db.terms.update(termId, { closed });
       await queueAction('terms', 'update', { id: termId, closed });
       if (!closed) setActiveTerm(term);
-      logActivity(`${closed ? 'Finalized' : 'Re-opened'} academic term: "${term.name}"`);
+      
+      logInternalActivity(`${closed ? 'Finalized' : 'Re-opened'} academic term: "${term.name}"`, term.year_id, term.id);
       showSuccess(`Term ${closed ? 'finalized' : 'activated'}.`);
   };
 
@@ -280,14 +308,9 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             }
         });
 
-        // Construct detailed audit message
-        const auditLog = `[AUDIT: ROLL_FORWARD]
-Source: ${sourceTerm.name} (${activeYear.name})
-Target: ${targetTerm.name} (${activeYear.name})
-Data Migrated: ${preparedClasses.length} Class Rosters
-Action by: ${session.user.email || session.user.id}`;
-
-        logActivity(auditLog);
+        const auditLog = `[AUDIT: ROLL_FORWARD] Source: ${sourceTerm.name} Target: ${targetTerm.name} (${preparedClasses.length} Rosters)`;
+        logInternalActivity(auditLog, activeYear.id, targetTermId);
+        
         showSuccess(`Successfully migrated rosters to ${targetTerm.name}.`);
         setActiveTerm(targetTerm);
         
@@ -304,7 +327,8 @@ Action by: ${session.user.email || session.user.id}`;
     }
     await db.academic_years.update(yearId, { closed: true });
     await queueAction('academic_years', 'update', { id: yearId, closed: true });
-    logActivity(`Permanently finalized academic year.`);
+    
+    logInternalActivity(`Permanently finalized academic year.`, yearId, yearTerms[yearTerms.length-1].id);
     showSuccess("Academic Year permanently finalized.");
   };
 
