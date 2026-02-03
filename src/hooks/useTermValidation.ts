@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { db } from '@/db';
 
 export interface ValidationError {
-  type: 'weight' | 'marks' | 'evidence';
+  type: 'weight' | 'marks' | 'evidence' | 'sample';
   className: string;
   subject: string;
   details: string;
@@ -32,9 +32,8 @@ export const useTermValidation = () => {
         classGroups[ass.class_id].push(ass);
       });
 
-      // Get all evidence for this term to check compliance
+      // Get all evidence for this term
       const termEvidence = await db.evidence.where('term_id').equals(termId).toArray();
-      const classesWithEvidence = new Set(termEvidence.map(e => e.class_id));
 
       for (const classId in classGroups) {
         const classAss = classGroups[classId];
@@ -82,16 +81,22 @@ export const useTermValidation = () => {
                 details: `${missingCount} marks are missing across ${classAss.length} assessments.`
               });
             }
-        }
 
-        // 3. Evidence Validation (NEW)
-        if (!classesWithEvidence.has(classId)) {
-            errors.push({
-                type: 'evidence',
-                className,
-                subject,
-                details: `No moderation evidence attached. Upload at least one script or note for audit.`
-            });
+            // 3. Advanced Audit Logic: 10% Moderation Sample (Rule from Chat ID 112)
+            const classEvidence = termEvidence.filter(e => e.class_id === classId);
+            const scriptEvidence = classEvidence.filter(e => e.category === 'script');
+            
+            // Required sample size is 10% of learners (min 1)
+            const requiredCount = Math.max(1, Math.ceil(learners.length * 0.1));
+            
+            if (scriptEvidence.length < requiredCount) {
+                errors.push({
+                    type: 'sample',
+                    className,
+                    subject,
+                    details: `Moderation failure: Uploaded ${scriptEvidence.length} scripts, but ${requiredCount} are required for audit (10% of class).`
+                });
+            }
         }
       }
 

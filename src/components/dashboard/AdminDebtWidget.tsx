@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertCircle, FileEdit, CalendarCheck, ArrowRight, ShieldAlert } from "lucide-react";
+import { AlertCircle, FileEdit, CalendarCheck, ArrowRight, ShieldAlert, FileWarning } from "lucide-react";
 import { useClasses } from "@/context/ClassesContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { usePendingAttendance } from "@/hooks/usePendingAttendance";
@@ -52,42 +52,54 @@ export const AdminDebtWidget = () => {
     return debts;
   }, [activeTerm, classes]) || [];
 
-  // NEW: Find classes with zero evidence for the current term
-  const missingEvidenceInfo = useLiveQuery(async () => {
+  // NEW Logic: Moderation Sample Debt (Chat ID 112)
+  const moderationDebt = useLiveQuery(async () => {
     if (!activeTerm) return [];
     const activeClasses = classes.filter(c => !c.archived);
-    const evidence = await db.evidence.where('term_id').equals(activeTerm.id).toArray();
-    const classIdsWithEvidence = new Set(evidence.map(e => e.class_id));
-
-    return activeClasses
-        .filter(c => !classIdsWithEvidence.has(c.id))
-        .map(c => ({ id: c.id, className: c.className, subject: c.subject }));
+    const evidence = await db.evidence.where('term_id').equals(activeTerm.id).and(e => e.category === 'script').toArray();
+    
+    const debts = [];
+    for (const cls of activeClasses) {
+        const classEvidenceCount = evidence.filter(e => e.class_id === cls.id).length;
+        const requiredCount = Math.max(1, Math.ceil(cls.learners.length * 0.1));
+        
+        if (classEvidenceCount < requiredCount) {
+            debts.push({
+                id: cls.id,
+                className: cls.className,
+                subject: cls.subject,
+                current: classEvidenceCount,
+                required: requiredCount
+            });
+        }
+    }
+    return debts;
   }, [activeTerm, classes]) || [];
 
-  const hasDebt = pendingClasses.length > 0 || missingMarksInfo.length > 0 || missingEvidenceInfo.length > 0;
+  const hasDebt = pendingClasses.length > 0 || missingMarksInfo.length > 0 || moderationDebt.length > 0;
 
   if (!hasDebt) {
     return null;
   }
 
   return (
-    <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-950/10">
+    <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg flex items-center gap-2 text-amber-700 dark:text-amber-500">
           <AlertCircle className="h-5 w-5" />
-          Pending Admin
+          Administrative Debt
         </CardTitle>
-        <CardDescription>Items requiring attention for {activeTerm?.name}.</CardDescription>
+        <CardDescription>Outstanding requirements for {activeTerm?.name}.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         {pendingClasses.length > 0 && (
             <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600">
-                    <CalendarCheck className="h-3 w-3" /> Attendance Needed
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                    <CalendarCheck className="h-3 w-3" /> Attendance Registers
                 </div>
                 {pendingClasses.slice(0, 2).map(cls => (
                     <div key={cls.id} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
-                        <span className="truncate max-w-[150px] font-medium">{cls.className} Register</span>
+                        <span className="truncate max-w-[150px] font-medium">{cls.className}</span>
                         <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
                             <Link to={`/classes/${cls.id}`}>Mark <ArrowRight className="ml-1 h-3 w-3" /></Link>
                         </Button>
@@ -98,14 +110,14 @@ export const AdminDebtWidget = () => {
 
         {missingMarksInfo.length > 0 && (
             <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600">
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-600">
                     <FileEdit className="h-3 w-3" /> Missing Marks
                 </div>
                 {missingMarksInfo.slice(0, 2).map((debt, idx) => (
                     <div key={idx} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
                         <div className="flex flex-col">
                             <span className="font-medium truncate max-w-[150px]">{debt.title}</span>
-                            <span className="text-[10px] text-muted-foreground">{debt.className} • {debt.count} missing</span>
+                            <span className="text-[10px] text-muted-foreground">{debt.className} • {debt.count} empty</span>
                         </div>
                         <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
                             <Link to={`/classes/${debt.classId}`}>Capture <ArrowRight className="ml-1 h-3 w-3" /></Link>
@@ -115,19 +127,19 @@ export const AdminDebtWidget = () => {
             </div>
         )}
 
-        {missingEvidenceInfo.length > 0 && (
+        {moderationDebt.length > 0 && (
             <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600">
-                    <ShieldAlert className="h-3 w-3" /> Missing Evidence
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                    <FileWarning className="h-3 w-3" /> Moderation Sample Required (10%)
                 </div>
-                {missingEvidenceInfo.slice(0, 2).map((cls) => (
-                    <div key={cls.id} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
+                {moderationDebt.slice(0, 2).map((debt) => (
+                    <div key={debt.id} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
                         <div className="flex flex-col">
-                            <span className="font-medium truncate max-w-[150px]">{cls.className} Audit Folder</span>
-                            <span className="text-[10px] text-muted-foreground">{cls.subject}</span>
+                            <span className="font-medium truncate max-w-[150px]">{debt.className} ({debt.subject})</span>
+                            <span className="text-[10px] text-muted-foreground">{debt.current} / {debt.required} scripts uploaded</span>
                         </div>
                         <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
-                            <Link to={`/classes/${cls.id}`}>Attach <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                            <Link to={`/classes/${debt.id}`}>Attach <ArrowRight className="ml-1 h-3 w-3" /></Link>
                         </Button>
                     </div>
                 ))}

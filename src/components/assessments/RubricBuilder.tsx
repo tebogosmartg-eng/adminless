@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Save, Layers, ListTodo } from 'lucide-react';
 import { Rubric, RubricCriterion, RubricLevel } from '@/lib/types';
 import { db } from '@/db';
