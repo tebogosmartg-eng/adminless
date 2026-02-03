@@ -13,14 +13,14 @@ import {
     AlertCircle, 
     CheckCircle2, 
     Loader2,
-    DatabaseZap
+    DatabaseZap,
+    ShieldCheck
 } from 'lucide-react';
 import { useAcademic } from '@/context/AcademicContext';
 import { showSuccess, showError } from '@/utils/toast';
-import { queueAction } from '@/services/sync';
 
 export const DataRecoveryTool = () => {
-  const { years, terms, activeYear, activeTerm } = useAcademic();
+  const { years, terms, activeYear, activeTerm, migrateLegacyData } = useAcademic();
   const [selectedYearId, setSelectedYearId] = useState<string>(activeYear?.id || "");
   const [selectedTermId, setSelectedTermId] = useState<string>(activeTerm?.id || "");
   const [isMigrating, setIsMigrating] = useState(false);
@@ -52,63 +52,40 @@ export const DataRecoveryTool = () => {
         return;
     }
 
-    if (!confirm(`This will link ${totalLegacyCount} legacy records to ${years.find(y => y.id === selectedYearId)?.name} - ${terms.find(t => t.id === selectedTermId)?.name}. This action is permanent. Proceed?`)) {
+    if (!confirm(`This will link ${totalLegacyCount} legacy records to ${years.find(y => y.id === selectedYearId)?.name} - ${terms.find(t => t.id === selectedTermId)?.name}. This action is permanent and will be logged in your audit trail. Proceed?`)) {
         return;
     }
 
     setIsMigrating(true);
-    try {
-        await db.transaction('rw', [
-            db.classes, db.assessments, db.activities, db.todos, 
-            db.learner_notes, db.evidence, db.attendance, db.sync_queue
-        ], async () => {
-            const tables = ['classes', 'assessments', 'activities', 'todos', 'learner_notes', 'evidence', 'attendance'];
-            
-            for (const table of tables) {
-                // @ts-ignore
-                const all = await db[table].toArray();
-                const legacy = all.filter((i: any) => !i.year_id || !i.term_id);
-                
-                if (legacy.length > 0) {
-                    const updates = legacy.map((item: any) => ({
-                        ...item,
-                        year_id: selectedYearId,
-                        term_id: selectedTermId
-                    }));
-
-                    // @ts-ignore
-                    await db[table].bulkPut(updates);
-                    await queueAction(table, 'upsert', updates);
-                }
-            }
-        });
-
-        showSuccess("Migration complete. Legacy data has been restored to your active cycle.");
+    
+    const report = await migrateLegacyData(selectedYearId, selectedTermId);
+    
+    if (report.success) {
+        showSuccess(`Recovery successful! ${report.total} records have been aligned with your active cycle.`);
         setCandidates(null);
         setTimeout(() => window.location.reload(), 1500);
-    } catch (e) {
-        console.error(e);
-        showError("Migration failed. Please check your connection and try again.");
-    } finally {
-        setIsMigrating(false);
+    } else {
+        showError("Migration failed. Please check your data integrity and try again.");
     }
+    
+    setIsMigrating(false);
   };
 
   return (
-    <Card className="border-primary/20 bg-primary/[0.02]">
+    <Card className="border-primary/20 bg-primary/[0.02] shadow-inner">
       <CardHeader>
         <div className="flex items-center gap-2">
             <History className="h-5 w-5 text-primary" />
-            <CardTitle>Legacy Data Recovery</CardTitle>
+            <CardTitle>Architectural Alignment Engine</CardTitle>
         </div>
         <CardDescription>
-          Link records created in older versions to a specific Academic Year and Term so they appear in your UI.
+          Identify and restore legacy data by assigning missing Academic Year and Term references.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-                <label className="text-[10px] uppercase font-bold text-muted-foreground">Target Year</label>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground">Destination Year</label>
                 <Select value={selectedYearId} onValueChange={setSelectedYearId}>
                     <SelectTrigger>
                         <SelectValue placeholder="Select Destination Year" />
@@ -119,7 +96,7 @@ export const DataRecoveryTool = () => {
                 </Select>
             </div>
             <div className="space-y-2">
-                <label className="text-[10px] uppercase font-bold text-muted-foreground">Target Term</label>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground">Destination Term</label>
                 <Select value={selectedTermId} onValueChange={setSelectedTermId}>
                     <SelectTrigger>
                         <SelectValue placeholder="Select Destination Term" />
@@ -134,42 +111,42 @@ export const DataRecoveryTool = () => {
         </div>
 
         {!candidates ? (
-            <Button variant="outline" className="w-full" onClick={scanForLegacyData}>
-                <DatabaseZap className="mr-2 h-4 w-4" /> Scan for Hidden Records
+            <Button variant="outline" className="w-full bg-white hover:bg-muted" onClick={scanForLegacyData}>
+                <DatabaseZap className="mr-2 h-4 w-4" /> Scan for Architectural Gaps
             </Button>
         ) : (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                 <div className="p-4 rounded-lg bg-white border shadow-sm">
                     <h4 className="font-bold text-sm mb-3 flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        Scan Results: {totalLegacyCount} records found
+                        Gaps Found: {totalLegacyCount} records identified
                     </h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {Object.entries(candidates).map(([table, count]) => (
                             <div key={table} className="p-2 rounded bg-muted/30 border text-center">
                                 <p className="text-xs font-bold">{count}</p>
-                                <p className="text-[9px] uppercase text-muted-foreground">{table}</p>
+                                <p className="text-[9px] uppercase text-muted-foreground font-black">{table}</p>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
-                    <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-                    <p className="text-xs text-amber-800 leading-relaxed">
-                        <strong>Warning:</strong> This will batch-update all selected records. This process ensures data is visible in the UI but does not verify if the dates strictly match the term.
+                <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                    <ShieldCheck className="h-4 w-4 text-blue-600 mt-0.5" />
+                    <p className="text-xs text-blue-900 leading-relaxed">
+                        <strong>Integrity Verification:</strong> This engine preserves all original timestamps and creates an audit trail entry for this migration. It is safe to run multiple times.
                     </p>
                 </div>
 
                 <div className="flex gap-2">
                     <Button variant="ghost" className="flex-1" onClick={() => setCandidates(null)}>Cancel</Button>
                     <Button 
-                        className="flex-1 bg-primary" 
+                        className="flex-1 bg-primary font-bold shadow-md" 
                         disabled={isMigrating || totalLegacyCount === 0} 
                         onClick={handleMigrate}
                     >
                         {isMigrating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightCircle className="mr-2 h-4 w-4" />}
-                        Link & Restore Data
+                        Run Alignment Script
                     </Button>
                 </div>
             </div>

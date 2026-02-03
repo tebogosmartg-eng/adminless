@@ -9,6 +9,12 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
 
+interface MigrationReport {
+    success: boolean;
+    counts: { [table: string]: number };
+    total: number;
+}
+
 interface AcademicContextType {
   years: AcademicYear[];
   terms: Term[];
@@ -30,6 +36,7 @@ interface AcademicContextType {
   closeYear: (yearId: string) => Promise<void>;
   recalculateAllActiveAverages: () => Promise<void>;
   rollForwardClasses: (sourceTermId: string, targetTermId: string, preparedClasses: any[]) => Promise<void>;
+  migrateLegacyData: (yearId: string, termId: string) => Promise<MigrationReport>;
 }
 
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
@@ -95,7 +102,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return db.assessment_marks.where('assessment_id').anyOf(ids).toArray();
   }, [assessments]) || [];
 
-  // Internal logging to avoid dependency on ActivityContext (circular dependency fix)
   const logInternalActivity = useCallback(async (message: string, yearId?: string, termId?: string) => {
     if (!session?.user.id) return;
     
@@ -185,7 +191,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     await db.terms.bulkAdd(termsToCreate as any);
     await queueAction('terms', 'create', termsToCreate);
     
-    // Log using internal helper
     logInternalActivity(`Created academic cycle: "${name}"`, yearId, firstTermId);
     showSuccess(`Academic Year ${name} created with 4 standard terms.`);
   };
@@ -218,7 +223,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       });
 
       if (activeYearId === yearId) setActiveYear(null);
-      // Log using internal helper
       logInternalActivity(`Deleted academic cycle: "${year.name}"`, yearId, termIds[0]);
       showSuccess(`Academic Year "${year.name}" deleted.`);
     } catch (e) {
@@ -262,6 +266,50 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       
       logInternalActivity(`${closed ? 'Finalized' : 'Re-opened'} academic term: "${term.name}"`, term.year_id, term.id);
       showSuccess(`Term ${closed ? 'finalized' : 'activated'}.`);
+  };
+
+  const migrateLegacyData = async (yearId: string, termId: string): Promise<MigrationReport> => {
+    const report: MigrationReport = { success: false, counts: {}, total: 0 };
+    const tables = ['classes', 'assessments', 'activities', 'todos', 'learner_notes', 'evidence', 'attendance'];
+
+    try {
+        await db.transaction('rw', [
+            db.classes, db.assessments, db.activities, db.todos, 
+            db.learner_notes, db.evidence, db.attendance, db.sync_queue
+        ], async () => {
+            for (const table of tables) {
+                // @ts-ignore
+                const all = await db[table].toArray();
+                const legacy = all.filter((i: any) => !i.year_id || !i.term_id);
+                
+                if (legacy.length > 0) {
+                    const updates = legacy.map((item: any) => ({
+                        ...item,
+                        year_id: yearId,
+                        term_id: termId
+                    }));
+
+                    // @ts-ignore
+                    await db[table].bulkPut(updates);
+                    await queueAction(table, 'upsert', updates);
+                    
+                    report.counts[table] = legacy.length;
+                    report.total += legacy.length;
+                }
+            }
+        });
+
+        if (report.total > 0) {
+            const auditMsg = `[MIGRATION] Restored ${report.total} legacy records to cycle. Detail: ${JSON.stringify(report.counts)}`;
+            await logInternalActivity(auditMsg, yearId, termId);
+        }
+
+        report.success = true;
+        return report;
+    } catch (e) {
+        console.error("[migration] failed", e);
+        return { ...report, success: false };
+    }
   };
 
   const rollForwardClasses = async (sourceTermId: string, targetTermId: string, preparedClasses: any[]) => {
@@ -379,7 +427,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       years, terms, assessments, marks, loading: !years, activeYear, activeTerm,
       setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm,
       createAssessment, deleteAssessment, updateMarks, refreshAssessments,
-      toggleTermStatus, closeYear, recalculateAllActiveAverages, rollForwardClasses
+      toggleTermStatus, closeYear, recalculateAllActiveAverages, rollForwardClasses, migrateLegacyData
     }}>
       {children}
     </AcademicContext.Provider>
