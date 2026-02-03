@@ -53,13 +53,15 @@ interface MarkSheetTableProps {
   onSort?: (key: string) => void;
   onOpenTool?: (type: 'rapid' | 'voice', assId: string) => void;
   onOpenRubric?: (assId: string, learner: Learner) => void;
+  validateAndCommitMark?: (assId: string, lId: string, val: string) => boolean;
 }
 
 export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
   isLocked, isUsingVisibleTotal, atRiskThreshold, sortConfig, setIsAddOpen,
   openAnalytics, deleteAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
-  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool, onOpenRubric
+  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool, onOpenRubric,
+  validateAndCommitMark
 }: MarkSheetTableProps) => {
 
   const [noteDialog, setNoteDialog] = useState<{ open: boolean; assId: string; learnerId: string; learnerName: string; comment: string }>({ 
@@ -84,21 +86,8 @@ export const MarkSheetTable = ({
   };
 
   const handleInputBlur = (assId: string, learnerId: string, currentValue: string) => {
-    const { value, isCalculated } = parseMarkInput(currentValue);
-    
-    if (isCalculated && value !== currentValue) {
-       const assessment = assessments.find(a => a.id === assId);
-       if (assessment) {
-           const percent = parseFloat(value);
-           if (percent > 100) {
-               showError(`Mark exceeds 100%.`);
-               handleMarkChange(assId, learnerId, "");
-               return;
-           }
-           const scaledScore = (percent / 100) * assessment.max_mark;
-           const finalScore = scaledScore % 1 === 0 ? scaledScore.toString() : scaledScore.toFixed(1);
-           handleMarkChange(assId, learnerId, finalScore);
-       }
+    if (validateAndCommitMark) {
+        validateAndCommitMark(assId, learnerId, currentValue);
     }
   };
 
@@ -282,7 +271,6 @@ export const MarkSheetTable = ({
                                     placeholder="-"
                                 />
                                 
-                                {/* Quick Rubric Access */}
                                 {ass.rubric_id && !isLocked && (
                                     <Button 
                                         variant="ghost" 

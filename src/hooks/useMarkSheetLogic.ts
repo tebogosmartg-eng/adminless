@@ -6,6 +6,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { parseMarkInput } from '@/utils/marks';
 
 export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const { 
@@ -22,7 +23,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const { atRiskThreshold } = useSettings();
 
-  // Fetch available rubrics for the "New Assessment" selector
   const availableRubrics = useLiveQuery(() => db.rubrics.toArray()) || [];
 
   const [viewTermId, setViewTermId] = useState<string | null>(null);
@@ -31,7 +31,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const [isCopyOpen, setIsCopyOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   
-  // Rubric Marking State
   const [rubricMarking, setRubricMarking] = useState<{ 
     open: boolean; 
     rubric: Rubric | null; 
@@ -269,6 +268,58 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       }
   };
 
+  const validateAndCommitMark = useCallback((assessmentId: string, learnerId: string, input: string) => {
+    if (input === "") {
+        handleMarkChange(assessmentId, learnerId, "");
+        return true;
+    }
+
+    const { value, isCalculated, raw } = parseMarkInput(input);
+    const assessment = assessments.find(a => a.id === assessmentId);
+    if (!assessment) return false;
+
+    if (isCalculated) {
+        const percent = parseFloat(value);
+        if (percent > 100) {
+            showError(`Calculated mark (${value}%) exceeds 100%.`);
+            handleMarkChange(assessmentId, learnerId, "");
+            return false;
+        }
+        if (percent < 0) {
+            showError("Negative marks are not allowed.");
+            handleMarkChange(assessmentId, learnerId, "");
+            return false;
+        }
+        
+        const scaledScore = (percent / 100) * assessment.max_mark;
+        const finalScore = scaledScore % 1 === 0 ? scaledScore.toString() : scaledScore.toFixed(1);
+        handleMarkChange(assessmentId, learnerId, finalScore);
+        showSuccess(`Calculated: ${raw} = ${value}%`);
+        return true;
+    } else {
+        const num = parseFloat(input);
+        if (!isNaN(num)) {
+            if (num < 0) {
+                showError("Negative marks are not allowed.");
+                handleMarkChange(assessmentId, learnerId, "");
+                return false;
+            } else if (num > assessment.max_mark) {
+                showError(`Mark (${num}) exceeds the assessment total (${assessment.max_mark}).`);
+                handleMarkChange(assessmentId, learnerId, "");
+                return false;
+            }
+            handleMarkChange(assessmentId, learnerId, input);
+            return true;
+        }
+    }
+    return false;
+  }, [assessments, handleMarkChange]);
+
+  const activeAssessmentMax = useMemo(() => {
+    if (!activeTool.assessmentId) return 0;
+    return assessments.find(a => a.id === activeTool.assessmentId)?.max_mark || 0;
+  }, [activeTool.assessmentId, assessments]);
+
   return {
     state: {
       viewTermId, isAddOpen, isImportOpen, isCopyOpen, analyticsOpen,
@@ -280,6 +331,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       atRiskThreshold, sortConfig, activeTool, 
       currentTotalWeight, isWeightValid, isUsingVisibleTotal: recalculateTotal,
       isAutoSaving, availableRubrics, rubricMarking,
+      activeAssessmentMax,
       learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? getMarkValue(activeTool.assessmentId || '', l.id) : "" }))
     },
     actions: {
@@ -304,16 +356,17 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           return { avg: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1), max: Math.max(...scores).toFixed(0), min: Math.min(...scores).toFixed(0) };
       },
       openAnalytics: (ass: Assessment) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
-      handleExportSheet: () => {}, // existing logic
+      handleExportSheet: () => {}, 
       toggleAssessmentVisibility: (id: string) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
       deleteAssessment, refreshAssessments, handleSort: (key: string) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
       openTool: (type: 'rapid' | 'voice', id: string) => setActiveTool({ type, assessmentId: id }),
       closeTool: () => setActiveTool({ type: null, assessmentId: null }),
       handleToolUpdate: (idx: number, val: string) => { 
           if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) {
-              handleMarkChange(activeTool.assessmentId, sortedAndFilteredLearners[idx].id!, val); 
+              validateAndCommitMark(activeTool.assessmentId, sortedAndFilteredLearners[idx].id!, val);
           }
       },
+      validateAndCommitMark,
       openRubricForLearner,
       handleRubricSave: handleRubricMark,
       handleNextRubric,

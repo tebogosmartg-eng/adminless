@@ -12,9 +12,10 @@ interface VoiceEntryDialogProps {
   onOpenChange: (open: boolean) => void;
   learners: Learner[];
   onUpdateMark: (index: number, mark: string) => void;
+  maxMark?: number;
 }
 
-export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }: VoiceEntryDialogProps) => {
+export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, maxMark }: VoiceEntryDialogProps) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isSupported, setIsSupported] = useState(true);
@@ -109,16 +110,28 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
         const numbers = remainder.match(/\d+/);
         
         if (numbers) {
-            const mark = numbers[0];
-            onUpdateMark(matchedLearnerIndex, mark);
+            const markStr = numbers[0];
+            const markNum = parseFloat(markStr);
+
+            if (markNum < 0) {
+                showError("Negative marks cannot be recorded via voice.");
+                return;
+            }
+
+            if (maxMark && markNum > maxMark) {
+                showError(`Dictated mark (${markNum}) exceeds assessment total (${maxMark}).`);
+                return;
+            }
+
+            onUpdateMark(matchedLearnerIndex, markStr);
             
             const entry = {
                 name: learners[matchedLearnerIndex].name,
-                mark: mark,
+                mark: markStr,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
             };
             setHistory(prev => [entry, ...prev].slice(0, 10));
-            showSuccess(`Recorded: ${entry.name} = ${mark}`);
+            showSuccess(`Recorded: ${entry.name} = ${markStr}`);
         }
     }
   };
@@ -151,8 +164,7 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
             Voice Entry Mode
           </DialogTitle>
           <DialogDescription>
-            Dictate marks for students. 
-            Say the <span className="font-bold text-foreground">Name</span> followed by the <span className="font-bold text-foreground">Mark</span>.
+            Dictate marks for students. {maxMark && `Total marks: ${maxMark}`}.
           </DialogDescription>
         </DialogHeader>
 

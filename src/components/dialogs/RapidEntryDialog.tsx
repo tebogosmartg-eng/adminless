@@ -4,18 +4,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState, useEffect } from 'react';
 import { Learner } from '@/lib/types';
-import { ArrowRight, Check, Calculator } from 'lucide-react';
+import { ArrowRight, Check, Calculator, AlertCircle } from 'lucide-react';
 import { parseMarkInput } from '@/utils/marks';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 
 interface RapidEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   learners: Learner[];
   onUpdateMark: (index: number, mark: string) => void;
+  maxMark?: number;
 }
 
-export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }: RapidEntryDialogProps) => {
+export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, maxMark }: RapidEntryDialogProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentMark, setCurrentMark] = useState('');
 
@@ -33,15 +34,42 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
   }, [currentIndex, learners]);
 
   const handleNext = () => {
-    // Parse input before saving
+    if (currentMark === "") {
+        onUpdateMark(currentIndex, "");
+        advance();
+        return;
+    }
+
     const { value, isCalculated, raw } = parseMarkInput(currentMark);
     
     if (isCalculated) {
-        showSuccess(`Calculated: ${raw} = ${value}%`);
+        const percent = parseFloat(value);
+        if (percent > 100) {
+            showError(`Calculated mark (${value}%) exceeds 100%.`);
+            return;
+        }
+        if (percent < 0) {
+            showError("Negative marks are not allowed.");
+            return;
+        }
+    } else {
+        const num = parseFloat(currentMark);
+        if (!isNaN(num)) {
+            if (num < 0) {
+                showError("Negative marks are not allowed.");
+                return;
+            } else if (maxMark && num > maxMark) {
+                showError(`Mark (${num}) exceeds the assessment total (${maxMark}).`);
+                return;
+            }
+        }
     }
 
-    onUpdateMark(currentIndex, value);
-    
+    onUpdateMark(currentIndex, currentMark);
+    advance();
+  };
+
+  const advance = () => {
     if (currentIndex < learners.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
@@ -63,7 +91,7 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
         <DialogHeader>
           <DialogTitle>Rapid Mark Entry</DialogTitle>
           <DialogDescription>
-            Quickly enter marks one by one. Supports calculations (e.g. "15/20").
+            Quickly enter marks one by one. {maxMark && `Total marks: ${maxMark}`}.
           </DialogDescription>
         </DialogHeader>
         
@@ -85,7 +113,7 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark }:
                         onChange={(e) => setCurrentMark(e.target.value)}
                         onKeyDown={handleKeyDown}
                         className="text-center text-lg w-32 h-12"
-                        placeholder="%"
+                        placeholder="-"
                         autoFocus
                     />
                     {currentMark.includes('/') && (

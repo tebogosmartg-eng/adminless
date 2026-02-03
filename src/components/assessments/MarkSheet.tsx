@@ -44,7 +44,6 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
       );
   }
 
-  // Find initial selections for rubric marking if any exist
   const currentMark = state.marks.find(m => 
     m.assessment_id === state.rubricMarking.assessmentId && 
     m.learner_id === state.rubricMarking.learner?.id
@@ -108,6 +107,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           onSort={actions.handleSort}
           onOpenTool={actions.openTool}
           onOpenRubric={actions.openRubricForLearner}
+          validateAndCommitMark={actions.validateAndCommitMark}
        />
 
        <MarkSheetDialogs 
@@ -132,6 +132,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
               onOpenChange={() => actions.closeTool()}
               learners={state.learnersForTools}
               onUpdateMark={actions.handleToolUpdate}
+              maxMark={state.activeAssessmentMax}
            />
        )}
 
@@ -141,6 +142,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
               onOpenChange={() => actions.closeTool()}
               learners={state.learnersForTools}
               onUpdateMark={actions.handleToolUpdate}
+              maxMark={state.activeAssessmentMax}
            />
        )}
 
