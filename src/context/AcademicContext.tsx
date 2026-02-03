@@ -19,6 +19,7 @@ interface AcademicContextType {
   setActiveYear: (year: AcademicYear | null) => void;
   setActiveTerm: (term: Term | null) => void;
   createYear: (name: string) => Promise<void>;
+  deleteYear: (yearId: string) => Promise<void>;
   updateTerm: (term: Term) => Promise<void>;
   createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<string>;
   deleteAssessment: (id: string) => Promise<void>;
@@ -165,6 +166,67 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     
     logActivity(`Created academic cycle: "${name}"`);
     showSuccess(`Academic Year ${name} created with 4 standard terms.`);
+  };
+
+  const deleteYear = async (yearId: string) => {
+    try {
+      const year = await db.academic_years.get(yearId);
+      if (!year) return;
+
+      // 1. Check for finalized terms
+      const yearTerms = await db.terms.where('year_id').equals(yearId).toArray();
+      if (yearTerms.some(t => t.closed)) {
+        showError("Blocked: This year contains finalized terms. Re-open them first if you wish to delete.");
+        return;
+      }
+
+      const termIds = yearTerms.map(t => t.id);
+
+      // 2. Check for assessments
+      const yearAssessments = await db.assessments.where('term_id').anyOf(termIds).toArray();
+      if (yearAssessments.length > 0) {
+        showError(`Blocked: This year contains ${yearAssessments.length} assessments. Delete them individually first.`);
+        return;
+      }
+
+      // 3. Check for evidence (reports/audit trail)
+      const yearEvidence = await db.evidence.where('term_id').anyOf(termIds).toArray();
+      if (yearEvidence.length > 0) {
+        showError("Blocked: This year has audit evidence (scripts/moderation notes) attached.");
+        return;
+      }
+
+      // 4. Check for marks (redundant if assessments are checked, but good for integrity)
+      const assessmentIds = yearAssessments.map(a => a.id);
+      const yearMarks = await db.assessment_marks.where('assessment_id').anyOf(assessmentIds).toArray();
+      if (yearMarks.length > 0) {
+        showError("Blocked: Assessment marks exist for this year.");
+        return;
+      }
+
+      // If all clean, delete terms and year
+      await db.transaction('rw', [db.academic_years, db.terms, db.sync_queue], async () => {
+        await db.terms.where('year_id').equals(yearId).delete();
+        await db.academic_years.delete(yearId);
+        
+        // Queue sync for terms
+        for (const termId of termIds) {
+          await queueAction('terms', 'delete', { id: termId });
+        }
+        // Queue sync for year
+        await queueAction('academic_years', 'delete', { id: yearId });
+      });
+
+      if (activeYearId === yearId) {
+        setActiveYear(null);
+      }
+
+      logActivity(`Deleted academic cycle: "${year.name}"`);
+      showSuccess(`Academic Year "${year.name}" deleted.`);
+    } catch (e) {
+      console.error(e);
+      showError("Failed to delete academic year.");
+    }
   };
 
   const updateTerm = async (term: Term) => {
@@ -337,6 +399,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       setActiveYear,
       setActiveTerm,
       createYear,
+      deleteYear,
       updateTerm,
       createAssessment,
       deleteAssessment,

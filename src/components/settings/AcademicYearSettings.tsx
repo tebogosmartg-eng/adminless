@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Lock, Unlock, Plus, AlertCircle, Loader2, Archive, Play } from "lucide-react";
+import { CalendarIcon, Lock, Unlock, Plus, AlertCircle, Loader2, Archive, Play, Trash2 } from "lucide-react";
 import { useAcademic } from '@/context/AcademicContext';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -17,7 +17,7 @@ import { TermClosureDialog } from '@/components/dialogs/TermClosureDialog';
 import { showError } from '@/utils/toast';
 
 export const AcademicYearSettings = () => {
-  const { years, terms, activeYear, setActiveYear, createYear, updateTerm, toggleTermStatus, closeYear } = useAcademic();
+  const { years, terms, activeYear, setActiveYear, createYear, deleteYear, updateTerm, toggleTermStatus, closeYear } = useAcademic();
   const [newYearName, setNewYearName] = useState("");
   
   // Validation State
@@ -31,6 +31,13 @@ export const AcademicYearSettings = () => {
     if (newYearName.trim()) {
       await createYear(newYearName.trim());
       setNewYearName("");
+    }
+  };
+
+  const handleDeleteYear = async () => {
+    if (!activeYear) return;
+    if (confirm(`Are you sure you want to delete the "${activeYear.name}" cycle? This is only possible if the year is empty of data.`)) {
+      await deleteYear(activeYear.id);
     }
   };
 
@@ -127,21 +134,33 @@ export const AcademicYearSettings = () => {
                     Work is restricted to one term at a time. Finalize a term to open the next one.
                 </CardDescription>
             </div>
-            {activeYear && !activeYear.closed && (
-                <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    onClick={handleFinalizeYear} 
-                    disabled={!allTermsClosed || !isWeightValid}
-                >
-                    <Archive className="mr-2 h-4 w-4" /> Finalize Year
-                </Button>
-            )}
-            {activeYear?.closed && (
-                <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 px-3 py-1">
-                    <Lock className="h-3 w-3 mr-2" /> Year Finalized
-                </Badge>
-            )}
+            <div className="flex gap-2">
+                {activeYear && !activeYear.closed && (
+                    <>
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={handleDeleteYear}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" /> Delete Cycle
+                        </Button>
+                        <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={handleFinalizeYear} 
+                            disabled={!allTermsClosed || !isWeightValid}
+                        >
+                            <Archive className="mr-2 h-4 w-4" /> Finalize Year
+                        </Button>
+                    </>
+                )}
+                {activeYear?.closed && (
+                    <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 px-3 py-1">
+                        <Lock className="h-3 w-3 mr-2" /> Year Finalized
+                    </Badge>
+                )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
