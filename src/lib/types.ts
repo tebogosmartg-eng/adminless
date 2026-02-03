@@ -91,6 +91,7 @@ export interface AcademicYear {
   id: string;
   name: string; // "2024"
   closed: boolean;
+  user_id?: string;
 }
 
 export interface Term {
@@ -101,6 +102,7 @@ export interface Term {
   end_date: string | null;
   closed: boolean;
   weight: number; // Percentage contribution to year mark
+  user_id?: string;
 }
 
 export interface Assessment {
@@ -112,6 +114,8 @@ export interface Assessment {
   max_mark: number;
   weight: number;
   date: string | null;
+  user_id?: string;
+  rubric_id?: string | null; // Link to a rubric
 }
 
 export interface AssessmentMark {
@@ -119,7 +123,9 @@ export interface AssessmentMark {
   assessment_id: string;
   learner_id: string;
   score: number | null;
-  comment?: string; // Added comment field
+  comment?: string;
+  rubric_selections?: Record<string, string>; // Maps Criterion ID -> Level ID
+  user_id?: string;
 }
 
 export interface TimetableEntry {
@@ -171,4 +177,29 @@ export interface Evidence {
   category: 'script' | 'moderation' | 'photo' | 'general';
   notes?: string;
   created_at?: string;
+}
+
+// --- RUBRIC TYPES ---
+
+export interface RubricLevel {
+  id: string;
+  label: string; // "Excellent", "Good", etc.
+  points: number;
+  descriptor?: string;
+}
+
+export interface RubricCriterion {
+  id: string;
+  title: string;
+  weight: number; // e.g. 10 points
+  levels: RubricLevel[];
+}
+
+export interface Rubric {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  criteria: RubricCriterion[];
+  total_points: number;
 }

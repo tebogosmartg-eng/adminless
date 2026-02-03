@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { 
-  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote, Evidence
+  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote, Evidence, Rubric
 } from '@/lib/types';
 
 // Extend types for DB storage (flattened structures where necessary)
@@ -37,13 +37,14 @@ export class SmaRegDB extends Dexie {
   timetable!: Table<TimetableEntry>;
   learner_notes!: Table<LearnerNote>;
   evidence!: Table<Evidence>;
+  rubrics!: Table<Rubric>;
 
   constructor() {
     super('SmaRegDB');
     
     this.version(1).stores({
       classes: 'id, user_id, sync_status',
-      learners: 'id, class_id, sync_status', // id is UUID from supabase
+      learners: 'id, class_id, sync_status', 
       academic_years: 'id, closed',
       terms: 'id, year_id',
       assessments: 'id, class_id, term_id',
@@ -59,27 +60,22 @@ export class SmaRegDB extends Dexie {
       terms: 'id, year_id, name'
     });
 
-    // Version 3: Add attendance table
     this.version(3).stores({
       attendance: '[learner_id+date], class_id, date'
     });
 
-    // Version 4: Add compound index for assessments
     this.version(4).stores({
       assessments: 'id, class_id, term_id, [class_id+term_id]'
     });
 
-    // Version 5: Add timetable
     this.version(5).stores({
       timetable: 'id, user_id, [day+period]'
     });
 
-    // Version 6: Add learner notes
     this.version(6).stores({
       learner_notes: 'id, learner_id, date'
     });
 
-    // Version 7: Add user_id index
     this.version(7).stores({
       academic_years: 'id, user_id, closed, name',
       terms: 'id, user_id, year_id, name',
@@ -89,19 +85,21 @@ export class SmaRegDB extends Dexie {
       learner_notes: 'id, user_id, learner_id, date'
     });
 
-    // Version 8: Add learner_notes querying indexes
     this.version(8).stores({
       learner_notes: 'id, user_id, learner_id, date, created_at, category'
     });
 
-    // Version 9: Add Evidence table
     this.version(9).stores({
       evidence: 'id, user_id, class_id, term_id, learner_id, category'
     });
 
-    // Version 10: Add created_at index for evidence audit sorting
     this.version(10).stores({
       evidence: 'id, user_id, class_id, term_id, learner_id, category, created_at'
+    });
+
+    this.version(11).stores({
+      rubrics: 'id, user_id, title',
+      assessment_marks: '[assessment_id+learner_id], assessment_id, learner_id, user_id'
     });
   }
 }
