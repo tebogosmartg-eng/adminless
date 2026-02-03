@@ -275,7 +275,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     try {
         await db.transaction('rw', [
             db.classes, db.assessments, db.activities, db.todos, 
-            db.learner_notes, db.evidence, db.attendance, db.sync_queue
+            db.learner_notes, db.evidence, db.attendance, db.sync_queue, db.learners
         ], async () => {
             for (const table of tables) {
                 // @ts-ignore
@@ -283,11 +283,22 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                 const legacy = all.filter((i: any) => !i.year_id || !i.term_id);
                 
                 if (legacy.length > 0) {
-                    const updates = legacy.map((item: any) => ({
-                        ...item,
-                        year_id: yearId,
-                        term_id: termId
-                    }));
+                    const updates = legacy.map((item: any) => {
+                        const newItem = {
+                            ...item,
+                            year_id: yearId,
+                            term_id: termId,
+                            user_id: item.user_id || session?.user.id
+                        };
+
+                        // Fix nomenclature discrepancy identified in validation
+                        if (table === 'classes' && newItem.class_name && !newItem.className) {
+                            newItem.className = newItem.class_name;
+                            delete newItem.class_name;
+                        }
+
+                        return newItem;
+                    });
 
                     // @ts-ignore
                     await db[table].bulkPut(updates);
@@ -299,8 +310,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             }
         });
 
+        // Post-Migration calculation repair
         if (report.total > 0) {
-            const auditMsg = `[MIGRATION] Restored ${report.total} legacy records to cycle. Detail: ${JSON.stringify(report.counts)}`;
+            await recalculateAllActiveAverages();
+            const auditMsg = `[MIGRATION] Finalized architectural alignment for ${report.total} records.`;
             await logInternalActivity(auditMsg, yearId, termId);
         }
 
