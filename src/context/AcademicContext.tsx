@@ -245,13 +245,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         
         if (!sourceTerm || !targetTerm) throw new Error("Invalid term context.");
 
-        // We use a transaction to ensure atomic clean slate creation
         await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
             for (const sClass of preparedClasses) {
-                // Ensure unique ID for the new term instance
                 const newClassId = crypto.randomUUID();
                 
-                // Create a completely clean class entry
                 const newClass = {
                     id: newClassId,
                     user_id: session.user.id,
@@ -268,13 +265,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                 await db.classes.add(newClass);
                 await queueAction('classes', 'create', newClass);
 
-                // Create clean learner instances (unique IDs, zero marks, zero comments)
                 const newLearners = sClass.learners.map((l: any) => ({
                     id: crypto.randomUUID(),
                     class_id: newClassId,
                     name: l.name,
-                    mark: "", // Clean Slate: No aggregate marks
-                    comment: "" // Clean Slate: No teacher observations
+                    mark: "", 
+                    comment: "" 
                 }));
 
                 if (newLearners.length > 0) {
@@ -284,12 +280,15 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             }
         });
 
-        // 1. Success Notification
-        logActivity(`Clean slate roll-forward: ${preparedClasses.length} classes migrated to ${targetTerm.name}`);
-        showSuccess(`Successfully migrated rosters to ${targetTerm.name}.`);
+        // Construct detailed audit message
+        const auditLog = `[AUDIT: ROLL_FORWARD]
+Source: ${sourceTerm.name} (${activeYear.name})
+Target: ${targetTerm.name} (${activeYear.name})
+Data Migrated: ${preparedClasses.length} Class Rosters
+Action by: ${session.user.email || session.user.id}`;
 
-        // 2. Automated Context Switch
-        // Since we created a clean slate, the user should now work in the new term
+        logActivity(auditLog);
+        showSuccess(`Successfully migrated rosters to ${targetTerm.name}.`);
         setActiveTerm(targetTerm);
         
     } catch (e: any) {

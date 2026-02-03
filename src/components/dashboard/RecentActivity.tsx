@@ -1,7 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Activity as ActivityIcon, CheckCircle2, FileText, UserPlus, Clock } from "lucide-react";
+import { Activity as ActivityIcon, CheckCircle2, FileText, UserPlus, Clock, ShieldCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAcademic } from "@/context/AcademicContext";
@@ -23,6 +23,7 @@ export default function RecentActivity() {
   );
 
   const getActivityIcon = (message: string) => {
+    if (message.includes("AUDIT")) return <ShieldCheck className="h-4 w-4 text-purple-600" />;
     if (message.includes("Created class")) return <UserPlus className="h-4 w-4 text-blue-500" />;
     if (message.includes("mark")) return <CheckCircle2 className="h-4 w-4 text-green-500" />;
     if (message.includes("assessment")) return <FileText className="h-4 w-4 text-purple-500" />;
@@ -52,7 +53,7 @@ export default function RecentActivity() {
                     {getActivityIcon(activity.message)}
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">
+                    <p className="text-sm font-medium leading-none whitespace-pre-wrap">
                       {activity.message}
                     </p>
                     <p className="text-xs text-muted-foreground">
