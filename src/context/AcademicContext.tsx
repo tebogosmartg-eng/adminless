@@ -28,7 +28,7 @@ interface AcademicContextType {
   toggleTermStatus: (termId: string, closed: boolean) => Promise<void>;
   closeYear: (yearId: string) => Promise<void>;
   recalculateAllActiveAverages: () => Promise<void>;
-  rollForwardClasses: (sourceTermId: string, targetTermId: string) => Promise<void>;
+  rollForwardClasses: (sourceTermId: string, targetTermId: string, classIds?: string[]) => Promise<void>;
 }
 
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
@@ -237,7 +237,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       showSuccess(`Term ${closed ? 'finalized' : 'activated'}.`);
   };
 
-  const rollForwardClasses = async (sourceTermId: string, targetTermId: string) => {
+  const rollForwardClasses = async (sourceTermId: string, targetTermId: string, classIds?: string[]) => {
     if (!session?.user.id || !activeYear) return;
     
     try {
@@ -251,14 +251,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             throw new Error("Target term must be open to receive data.");
         }
 
-        const sourceClasses = await db.classes.where('term_id').equals(sourceTermId).toArray();
+        let sourceClasses = await db.classes.where('term_id').equals(sourceTermId).toArray();
+        
+        // Filter by selection if provided
+        if (classIds && classIds.length > 0) {
+            sourceClasses = sourceClasses.filter(c => classIds.includes(c.id));
+        }
+
         if (sourceClasses.length === 0) {
-            showError("No classes found in the source term to roll forward.");
+            showError("No classes selected or found to roll forward.");
             return;
         }
 
-        const classIds = sourceClasses.map(c => c.id);
-        const sourceLearners = await db.learners.where('class_id').anyOf(classIds).toArray();
+        const sourceClassIds = sourceClasses.map(c => c.id);
+        const sourceLearners = await db.learners.where('class_id').anyOf(sourceClassIds).toArray();
 
         await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
             for (const sClass of sourceClasses) {

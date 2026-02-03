@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTermValidation, ValidationError } from '@/hooks/useTermValidation';
 import { TermClosureDialog } from '@/components/dialogs/TermClosureDialog';
+import { RollForwardDialog } from '@/components/dialogs/RollForwardDialog';
 import { showError, showSuccess } from '@/utils/toast';
 
 export const AcademicYearSettings = () => {
@@ -25,7 +26,8 @@ export const AcademicYearSettings = () => {
   const [selectedTermId, setSelectedTermId] = useState<string | null>(null);
   const [isValidToClose, setIsValidToClose] = useState(false);
 
-  const [isRollingForward, setIsRollingForward] = useState(false);
+  const [rollForwardOpen, setRollForwardOpen] = useState(false);
+  const [rollForwardSourceId, setRollForwardSourceId] = useState<string | null>(null);
 
   const handleCreateYear = async () => {
     if (newYearName.trim()) {
@@ -63,16 +65,21 @@ export const AcademicYearSettings = () => {
       }
   };
 
-  const handleRollForward = async (sourceTermId: string) => {
+  const initiateRollForward = (sourceId: string) => {
       const nextOpenTerm = terms.find(t => !t.closed);
       if (!nextOpenTerm) {
           showError("No open term found to receive data. Activate the next term first.");
           return;
       }
+      setRollForwardSourceId(sourceId);
+      setRollForwardOpen(true);
+  };
 
-      setIsRollingForward(true);
-      await rollForwardClasses(sourceTermId, nextOpenTerm.id);
-      setIsRollingForward(false);
+  const handleConfirmRollForward = async (selectedIds: string[]) => {
+      const nextOpenTerm = terms.find(t => !t.closed);
+      if (rollForwardSourceId && nextOpenTerm) {
+          await rollForwardClasses(rollForwardSourceId, nextOpenTerm.id, selectedIds);
+      }
   };
 
   const DatePicker = ({ date, onSelect, disabled }: { date: string | null, onSelect: (d: Date | undefined) => void, disabled: boolean }) => (
@@ -90,6 +97,8 @@ export const AcademicYearSettings = () => {
   const totalWeight = useMemo(() => terms.reduce((acc, t) => acc + Number(t.weight), 0), [terms]);
   const isWeightValid = totalWeight === 100;
   const allTermsClosed = terms.length > 0 && terms.every(t => t.closed);
+
+  const nextOpenTerm = terms.find(t => !t.closed);
 
   return (
     <div className="grid gap-6 md:grid-cols-1">
@@ -153,8 +162,8 @@ export const AcademicYearSettings = () => {
                                 </TableCell>
                                 <TableCell className="text-right">
                                     {term.closed && terms.some(t => !t.closed) ? (
-                                        <Button variant="outline" size="sm" onClick={() => handleRollForward(term.id)} disabled={isRollingForward} className="h-8 gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
-                                            {isRollingForward ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRightCircle className="h-3 w-3" />}
+                                        <Button variant="outline" size="sm" onClick={() => initiateRollForward(term.id)} className="h-8 gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
+                                            <ArrowRightCircle className="h-3 w-3" />
                                             Roll Forward Roster
                                         </Button>
                                     ) : !term.closed ? (
@@ -174,7 +183,27 @@ export const AcademicYearSettings = () => {
           )}
         </CardContent>
       </Card>
-      <TermClosureDialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen} termName={terms.find(t => t.id === selectedTermId)?.name || "Term"} errors={validationErrors} isValid={isValidToClose} onConfirm={confirmClosure} />
+      
+      <TermClosureDialog 
+        open={validationDialogOpen} 
+        onOpenChange={setValidationDialogOpen} 
+        termName={terms.find(t => t.id === selectedTermId)?.name || "Term"} 
+        errors={validationErrors} 
+        isValid={isValidToClose} 
+        onConfirm={confirmClosure} 
+      />
+
+      {rollForwardSourceId && nextOpenTerm && (
+          <RollForwardDialog
+            open={rollForwardOpen}
+            onOpenChange={setRollForwardOpen}
+            sourceTermId={rollForwardSourceId}
+            sourceTermName={terms.find(t => t.id === rollForwardSourceId)?.name || ""}
+            targetTermId={nextOpenTerm.id}
+            targetTermName={nextOpenTerm.name}
+            onConfirm={handleConfirmRollForward}
+          />
+      )}
     </div>
   );
 };
