@@ -4,7 +4,7 @@ import MobileSidebar from "./MobileSidebar";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { Button } from "@/components/ui/button";
-import { Search, CalendarDays, ChevronDown, Check, Clock } from "lucide-react";
+import { Search, CalendarDays, ChevronDown, Check, Clock, AlertTriangle } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
 import {
   DropdownMenu,
@@ -18,6 +18,7 @@ import {
   DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
+import { showSuccess } from "@/utils/toast";
 
 const Header = () => {
   const { teacherName } = useSettings();
@@ -32,6 +33,24 @@ const Header = () => {
     window.dispatchEvent(new Event("open-command-search"));
   };
 
+  const handleYearSwitch = (year: any) => {
+    if (year.id === activeYear?.id) return;
+    
+    if (confirm(`Switch working academic cycle to ${year.name}? This will update the context for your entire dashboard.`)) {
+        setActiveYear(year);
+        showSuccess(`Switched to ${year.name}`);
+    }
+  };
+
+  const handleTermSwitch = (term: any) => {
+    if (term.id === activeTerm?.id) return;
+
+    if (confirm(`Switch active term to ${term.name}?`)) {
+        setActiveTerm(term);
+        showSuccess(`Switched to ${term.name}`);
+    }
+  };
+
   return (
     <header className="flex h-16 items-center justify-between border-b bg-blue-700 dark:bg-blue-950 px-4 md:px-8 no-print shadow-md z-30 transition-all duration-300 text-white border-blue-800">
       <div className="flex items-center gap-4 md:hidden">
@@ -39,7 +58,6 @@ const Header = () => {
       </div>
       
       <div className="flex-1 flex justify-center md:justify-start items-center gap-4">
-        {/* Global Search Trigger */}
         <div className="relative group">
             <Button 
             variant="outline" 
@@ -55,7 +73,6 @@ const Header = () => {
             </Button>
         </div>
 
-        {/* Current Period Indicator */}
         {currentPeriod && (
             <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10 animate-in slide-in-from-top-1">
                 <Clock className="h-3.5 w-3.5 text-blue-200" />
@@ -72,27 +89,33 @@ const Header = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-9 px-3 gap-2 font-normal text-white/80 hover:bg-white/10">
                   <CalendarDays className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wider font-bold text-white">{activeYear?.name || "Year"}</span>
-                  <span className="text-xs font-medium text-white/70">{activeTerm?.name || "Term"}</span>
+                  <span className="text-xs uppercase tracking-wider font-bold text-white">{activeYear?.name || "Select Year"}</span>
+                  <span className="text-xs font-medium text-white/70">{activeTerm?.name || "Select Term"}</span>
                   <ChevronDown className="h-3 w-3 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Active Term</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Manual Context Switch</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {terms.map(term => (
-                  <DropdownMenuItem key={term.id} onClick={() => setActiveTerm(term)} className="justify-between text-sm py-2">
-                    {term.name}
-                    {activeTerm?.id === term.id && <Check className="h-4 w-4 text-primary" />}
-                  </DropdownMenuItem>
-                ))}
+                {terms.length > 0 ? (
+                    terms.map(term => (
+                        <DropdownMenuItem key={term.id} onClick={() => handleTermSwitch(term)} className="justify-between text-sm py-2 cursor-pointer">
+                            {term.name}
+                            {activeTerm?.id === term.id && <Check className="h-4 w-4 text-primary" />}
+                        </DropdownMenuItem>
+                    ))
+                ) : (
+                    <div className="px-2 py-4 text-center text-xs text-muted-foreground italic">
+                        Select a year first
+                    </div>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className="text-sm py-2">Switch Year</DropdownMenuSubTrigger>
+                  <DropdownMenuSubTrigger className="text-sm py-2">Switch Academic Cycle</DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
                     {years.map(year => (
-                      <DropdownMenuItem key={year.id} onClick={() => setActiveYear(year)} className="justify-between text-sm py-2">
-                        {year.name}
+                      <DropdownMenuItem key={year.id} onClick={() => handleYearSwitch(year)} className="justify-between text-sm py-2 cursor-pointer">
+                        {year.name} {year.closed ? "(Finalized)" : ""}
                         {activeYear?.id === year.id && <Check className="h-4 w-4" />}
                       </DropdownMenuItem>
                     ))}

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { AcademicYear, Term, Assessment, AssessmentMark } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
@@ -39,25 +39,14 @@ const STORAGE_KEYS = {
 export const AcademicProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
   
-  // Persistent State Initialization
   const [activeYearId, setActiveYearIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.YEAR));
   const [activeTermId, setActiveTermIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.TERM));
   
   const years = useLiveQuery(() => db.academic_years.orderBy('name').reverse().toArray()) || [];
   
-  // Year Resolution Logic
   const activeYear = useMemo(() => {
-    if (!years.length) return null;
-    const persisted = years.find(y => y.id === activeYearId);
-    if (persisted) return persisted;
-    
-    // Fallback logic if persisted year is gone or not yet set
-    const fallback = years.find(y => !y.closed) || years[0];
-    if (fallback && fallback.id !== activeYearId) {
-        localStorage.setItem(STORAGE_KEYS.YEAR, fallback.id);
-        setActiveYearIdState(fallback.id);
-    }
-    return fallback;
+    if (!years.length || !activeYearId) return null;
+    return years.find(y => y.id === activeYearId) || null;
   }, [years, activeYearId]);
 
   const terms = useLiveQuery(async () => {
@@ -65,22 +54,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return db.terms.where('year_id').equals(activeYear.id).sortBy('name');
   }, [activeYear?.id]) || [];
 
-  // Term Resolution Logic
-  useEffect(() => {
-      if (terms.length > 0) {
-          const persisted = terms.find(t => t.id === activeTermId);
-          if (!persisted) {
-              // Only auto-select if the persisted term doesn't exist in the current year
-              const openTerm = terms.find(t => !t.closed) || terms[0];
-              if (openTerm) {
-                  setActiveTermIdState(openTerm.id);
-                  localStorage.setItem(STORAGE_KEYS.TERM, openTerm.id);
-              }
-          }
-      }
+  const activeTerm = useMemo(() => {
+    if (!terms.length || !activeTermId) return null;
+    return terms.find(t => t.id === activeTermId) || null;
   }, [terms, activeTermId]);
-
-  const activeTerm = terms.find(t => t.id === activeTermId) || null;
 
   const setActiveYear = (year: AcademicYear | null) => {
     const id = year?.id || null;
@@ -88,9 +65,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (id) localStorage.setItem(STORAGE_KEYS.YEAR, id);
     else localStorage.removeItem(STORAGE_KEYS.YEAR);
     
-    // Reset term when year changes to force re-selection or auto-fallback
-    setActiveTermIdState(null);
-    localStorage.removeItem(STORAGE_KEYS.TERM);
+    // Clear term only if year actually changes to null
+    if (!id) {
+        setActiveTermIdState(null);
+        localStorage.removeItem(STORAGE_KEYS.TERM);
+    }
   };
 
   const setActiveTerm = (term: Term | null) => {
@@ -366,5 +345,3 @@ export const useAcademic = () => {
   }
   return context;
 };
-
-import { useMemo } from 'react';
