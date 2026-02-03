@@ -31,32 +31,74 @@ interface AcademicContextType {
 
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
 
+const STORAGE_KEYS = {
+  YEAR: 'adminless_active_year_id',
+  TERM: 'adminless_active_term_id'
+};
+
 export const AcademicProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
-  const [activeYearId, setActiveYearId] = useState<string | null>(null);
-  const [activeTermId, setActiveTermId] = useState<string | null>(null);
+  
+  // Persistent State Initialization
+  const [activeYearId, setActiveYearIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.YEAR));
+  const [activeTermId, setActiveTermIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.TERM));
   
   const years = useLiveQuery(() => db.academic_years.orderBy('name').reverse().toArray()) || [];
   
-  const activeYear = years.find(y => y.id === activeYearId) || years.find(y => !y.closed) || years[0] || null;
+  // Year Resolution Logic
+  const activeYear = useMemo(() => {
+    if (!years.length) return null;
+    const persisted = years.find(y => y.id === activeYearId);
+    if (persisted) return persisted;
+    
+    // Fallback logic if persisted year is gone or not yet set
+    const fallback = years.find(y => !y.closed) || years[0];
+    if (fallback && fallback.id !== activeYearId) {
+        localStorage.setItem(STORAGE_KEYS.YEAR, fallback.id);
+        setActiveYearIdState(fallback.id);
+    }
+    return fallback;
+  }, [years, activeYearId]);
 
   const terms = useLiveQuery(async () => {
       if (!activeYear) return [];
       return db.terms.where('year_id').equals(activeYear.id).sortBy('name');
   }, [activeYear?.id]) || [];
 
+  // Term Resolution Logic
   useEffect(() => {
       if (terms.length > 0) {
-          const openTerm = terms.find(t => !t.closed);
-          if (openTerm) {
-              setActiveTermId(openTerm.id);
-          } else if (!activeTermId) {
-              setActiveTermId(terms[terms.length - 1].id);
+          const persisted = terms.find(t => t.id === activeTermId);
+          if (!persisted) {
+              // Only auto-select if the persisted term doesn't exist in the current year
+              const openTerm = terms.find(t => !t.closed) || terms[0];
+              if (openTerm) {
+                  setActiveTermIdState(openTerm.id);
+                  localStorage.setItem(STORAGE_KEYS.TERM, openTerm.id);
+              }
           }
       }
   }, [terms, activeTermId]);
 
   const activeTerm = terms.find(t => t.id === activeTermId) || null;
+
+  const setActiveYear = (year: AcademicYear | null) => {
+    const id = year?.id || null;
+    setActiveYearIdState(id);
+    if (id) localStorage.setItem(STORAGE_KEYS.YEAR, id);
+    else localStorage.removeItem(STORAGE_KEYS.YEAR);
+    
+    // Reset term when year changes to force re-selection or auto-fallback
+    setActiveTermIdState(null);
+    localStorage.removeItem(STORAGE_KEYS.TERM);
+  };
+
+  const setActiveTerm = (term: Term | null) => {
+    const id = term?.id || null;
+    setActiveTermIdState(id);
+    if (id) localStorage.setItem(STORAGE_KEYS.TERM, id);
+    else localStorage.removeItem(STORAGE_KEYS.TERM);
+  };
 
   const [currentClassFilter, setCurrentClassFilter] = useState<{classId: string, termId: string} | null>(null);
   
@@ -117,7 +159,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       const allLearners = await db.learners.toArray();
       const ids = allLearners.map(l => l.id!);
       
-      // Perform batch update to ensure atomicity
       await db.transaction('rw', [db.learners, db.sync_queue], async () => {
           await updateLearnerActiveAverages(ids);
       });
@@ -189,7 +230,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       await queueAction('terms', 'update', { id: termId, closed });
       
       if (!closed) {
-          setActiveTermId(termId);
+          setActiveTerm(term);
       }
       
       logActivity(`${closed ? 'Finalized' : 'Re-opened'} academic term: "${term.name}"`);
@@ -285,7 +326,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     const learnerIds = Array.from(new Set(updates.map(u => u.learner_id)));
     await updateLearnerActiveAverages(learnerIds);
     
-    // Log the update with context
     const firstAss = targetAssessments[0];
     const classInfo = await db.classes.get(firstAss.class_id);
     logActivity(`Updated ${updates.length} marks in "${firstAss.title}" (${classInfo?.className})`);
@@ -302,8 +342,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       loading: !years,
       activeYear,
       activeTerm,
-      setActiveYear: (y) => setActiveYearId(y?.id || null),
-      setActiveTerm: (t) => setActiveTermId(t?.id || null),
+      setActiveYear,
+      setActiveTerm,
       createYear,
       updateTerm,
       createAssessment,
@@ -326,3 +366,5 @@ export const useAcademic = () => {
   }
   return context;
 };
+
+import { useMemo } from 'react';
