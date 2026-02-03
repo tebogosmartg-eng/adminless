@@ -7,8 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2 } from 'lucide-react';
-import { Assessment, Term, AcademicYear } from '@/lib/types';
+import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers } from 'lucide-react';
+import { Assessment, Term, AcademicYear, Rubric } from '@/lib/types';
 import { cn } from "@/lib/utils";
 
 interface MarkSheetToolbarProps {
@@ -39,6 +39,7 @@ interface MarkSheetToolbarProps {
   recalculateTotal: boolean;
   setRecalculateTotal: (recalc: boolean) => void;
   isAutoSaving?: boolean;
+  availableRubrics?: Rubric[];
 }
 
 export const MarkSheetToolbar = ({
@@ -48,8 +49,18 @@ export const MarkSheetToolbar = ({
   isAddOpen, setIsAddOpen, setIsImportOpen, setIsCopyOpen,
   newAss, setNewAss, handleAddAssessment,
   assessments, visibleAssessmentIds, toggleAssessmentVisibility, recalculateTotal, setRecalculateTotal,
-  isAutoSaving
+  isAutoSaving, availableRubrics = []
 }: MarkSheetToolbarProps) => {
+
+  const handleRubricSelect = (val: string) => {
+      const rubric = availableRubrics.find(r => r.id === val);
+      setNewAss({ 
+          ...newAss, 
+          rubricId: val,
+          // Auto-update Max Mark if a rubric is selected
+          max: rubric ? rubric.total_points : newAss.max 
+      });
+  };
 
   return (
     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b pb-4">
@@ -71,7 +82,6 @@ export const MarkSheetToolbar = ({
 
           {currentViewTerm?.closed && <Badge variant="secondary"><Eye className="mr-1 h-3 w-3" /> Read Only</Badge>}
           
-          {/* Tired Teacher UX: Status indicators instead of required clicks */}
           <div className="flex items-center gap-2 px-3 py-1 bg-muted/40 rounded-full border border-transparent transition-all">
             {isAutoSaving ? (
                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-primary animate-pulse">
@@ -156,24 +166,51 @@ export const MarkSheetToolbar = ({
         )}
 
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[450px]">
             <DialogHeader>
               <DialogTitle>New Assessment</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right text-xs">Title</Label>
-                <Input value={newAss.title} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Test 1" />
+                <Input value={newAss.title} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Oral Presentation" />
               </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right text-xs">Rubric (Opt)</Label>
+                <Select value={newAss.rubricId} onValueChange={handleRubricSelect}>
+                    <SelectTrigger className="col-span-3 h-9">
+                        <SelectValue placeholder="None (Standard Mark)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="none">-- Standard Score --</SelectItem>
+                        {availableRubrics.map(r => (
+                            <SelectItem key={r.id} value={r.id}>
+                                <div className="flex items-center gap-2">
+                                    <Layers className="h-3 w-3 text-muted-foreground" />
+                                    {r.title} ({r.total_points} pts)
+                                </div>
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right text-xs">Max Mark</Label>
-                <Input type="number" value={newAss.max} onChange={e => setNewAss({ ...newAss, max: parseInt(e.target.value) })} className="col-span-3 h-9" />
+                <Input 
+                    type="number" 
+                    value={newAss.max} 
+                    onChange={e => setNewAss({ ...newAss, max: parseInt(e.target.value) })} 
+                    className="col-span-3 h-9"
+                    disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
+                />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right text-xs">Weight (%)</Label>
                 <Input type="number" value={newAss.weight} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) })} className="col-span-3 h-9" />
               </div>
-              <Button onClick={handleAddAssessment} className="mt-2">Create Task</Button>
+              <Button onClick={handleAddAssessment} className="mt-2 w-full font-bold">Create Task</Button>
             </div>
           </DialogContent>
         </Dialog>

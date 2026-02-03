@@ -19,7 +19,7 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -52,13 +52,14 @@ interface MarkSheetTableProps {
   onViewLearnerProfile?: (learner: Learner) => void;
   onSort?: (key: string) => void;
   onOpenTool?: (type: 'rapid' | 'voice', assId: string) => void;
+  onOpenRubric?: (assId: string, learner: Learner) => void;
 }
 
 export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
   isLocked, isUsingVisibleTotal, atRiskThreshold, sortConfig, setIsAddOpen,
   openAnalytics, deleteAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
-  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool
+  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool, onOpenRubric
 }: MarkSheetTableProps) => {
 
   const [noteDialog, setNoteDialog] = useState<{ open: boolean; assId: string; learnerId: string; learnerName: string; comment: string }>({ 
@@ -97,7 +98,6 @@ export const MarkSheetTable = ({
            const scaledScore = (percent / 100) * assessment.max_mark;
            const finalScore = scaledScore % 1 === 0 ? scaledScore.toString() : scaledScore.toFixed(1);
            handleMarkChange(assId, learnerId, finalScore);
-           // Silent update (no toast) for better flow
        }
     }
   };
@@ -177,9 +177,12 @@ export const MarkSheetTable = ({
                                 <BarChart2 className="h-3 w-3" />
                             </button>
                         </div>
-                        <span className="text-[9px] text-muted-foreground font-normal">
-                          Max: {ass.max_mark} • {ass.weight}%
-                        </span>
+                        <div className="flex items-center gap-1 justify-center">
+                            <span className="text-[9px] text-muted-foreground font-normal">
+                              {ass.max_mark} • {ass.weight}%
+                            </span>
+                            {ass.rubric_id && <Layers className="h-2.5 w-2.5 text-primary opacity-60" />}
+                        </div>
                         {!isLocked && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -254,15 +257,15 @@ export const MarkSheetTable = ({
                         const markValue = getMarkValue(ass.id, learner.id || '');
                         
                         return (
-                        <TableCell key={ass.id} className="p-0 border-r last:border-r-0">
+                        <TableCell key={ass.id} className="p-0 border-r last:border-r-0 relative">
                             <ContextMenu>
                             <ContextMenuTrigger>
-                                <div className="flex items-center justify-center h-10 w-full relative">
+                                <div className="flex items-center justify-center h-10 w-full relative group/cell">
                                 <input
                                     id={`cell-${colIdx}-${rowIdx}`}
                                     className={cn(
                                         "h-full w-full bg-transparent text-center text-sm outline-none transition-all",
-                                        "border border-transparent hover:border-muted-foreground/20", // Tier-1 Tiredness fix: show visual edges
+                                        "border border-transparent hover:border-muted-foreground/20",
                                         "focus:bg-white dark:focus:bg-background focus:ring-2 focus:ring-primary focus:z-10",
                                         isLocked && "bg-muted/50 cursor-not-allowed text-muted-foreground",
                                         comment && "font-bold text-primary"
@@ -278,14 +281,33 @@ export const MarkSheetTable = ({
                                     disabled={!learner.id || !!isLocked}
                                     placeholder="-"
                                 />
+                                
+                                {/* Quick Rubric Access */}
+                                {ass.rubric_id && !isLocked && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 absolute right-0.5 opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-primary/10 hover:text-primary"
+                                        onClick={() => onOpenRubric && onOpenRubric(ass.id, learner)}
+                                        title="Mark with Rubric"
+                                    >
+                                        <Layers className="h-3 w-3" />
+                                    </Button>
+                                )}
+
                                 {comment && (
-                                    <div className="absolute top-1 right-1">
+                                    <div className="absolute top-1 left-1">
                                         <MessageSquare className="h-2 w-2 text-primary opacity-50" />
                                     </div>
                                 )}
                                 </div>
                             </ContextMenuTrigger>
                             <ContextMenuContent>
+                                {ass.rubric_id && (
+                                    <ContextMenuItem onClick={() => onOpenRubric && onOpenRubric(ass.id, learner)}>
+                                        <Layers className="mr-2 h-4 w-4" /> Open Rubric Grid
+                                    </ContextMenuItem>
+                                )}
                                 <ContextMenuItem onClick={() => learner.id && openNoteDialog(ass.id, learner.id, learner.name)}>
                                 <MessageSquare className="mr-2 h-4 w-4" /> Observation
                                 </ContextMenuItem>

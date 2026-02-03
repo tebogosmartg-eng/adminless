@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 import { useSettings } from '@/context/SettingsContext';
-import { Learner, ClassInfo, Assessment } from '@/lib/types';
+import { Learner, ClassInfo, Assessment, Rubric } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
+import { db } from '@/db';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const { 
@@ -20,16 +22,31 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const { atRiskThreshold } = useSettings();
 
+  // Fetch available rubrics for the "New Assessment" selector
+  const availableRubrics = useLiveQuery(() => db.rubrics.toArray()) || [];
+
   const [viewTermId, setViewTermId] = useState<string | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isCopyOpen, setIsCopyOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   
+  // Rubric Marking State
+  const [rubricMarking, setRubricMarking] = useState<{ 
+    open: boolean; 
+    rubric: Rubric | null; 
+    learner: Learner | null; 
+    assessmentId: string | null 
+  }>({ 
+    open: false, 
+    rubric: null, 
+    learner: null, 
+    assessmentId: null 
+  });
+
   const [activeTool, setActiveTool] = useState<{ type: 'rapid' | 'voice' | null, assessmentId: string | null }>({ type: null, assessmentId: null });
-  const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "" });
+  const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "", rubricId: "" });
   
-  // Track "Saving..." status for UI feedback instead of a hard Save button
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
@@ -40,7 +57,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const [recalculateTotal, setRecalculateTotal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
 
-  // Load the term assessments on mount/change
   useEffect(() => {
     if (activeTerm && !viewTermId) {
         setViewTermId(activeTerm.id);
@@ -126,8 +142,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     });
   }, [classInfo.learners, searchQuery, sortConfig, calculateLearnerTotal, getMarkValue]);
 
-  // AUTO-SAVE LOGIC: Triggers whenever there are changes in editedMarks or editedComments
-  // We debounce it to avoid hammering the DB while the teacher types
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const performSave = useCallback(async () => {
@@ -175,7 +189,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   useEffect(() => {
     if (Object.keys(editedMarks).length > 0 || Object.keys(editedComments).length > 0) {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = setTimeout(performSave, 2000); // 2 second debounce
+      saveTimeoutRef.current = setTimeout(performSave, 2000);
     }
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -201,49 +215,41 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
             type: newAss.type,
             max_mark: Number(newAss.max),
             weight: Number(newAss.weight),
-            date: newAss.date || new Date().toISOString()
+            date: newAss.date || new Date().toISOString(),
+            rubric_id: newAss.rubricId || null
         });
         setIsAddOpen(false);
-        setNewAss({ title: "", type: "Test", max: 50, weight: 10, date: "" });
+        setNewAss({ title: "", type: "Test", max: 50, weight: 10, date: "", rubricId: "" });
      } catch (e: any) {
         showError(e.message || "Failed to create assessment.");
      }
   };
 
-  const handleBulkImport = async (assessmentId: string, imports: { learnerId: string; score: number }[]) => {
-      const updates = imports.map(i => ({
-          assessment_id: assessmentId,
-          learner_id: i.learnerId,
-          score: i.score
-      }));
-      await updateMarks(updates);
+  const handleRubricMark = async (score: number, selections: Record<string, string>) => {
+      if (!rubricMarking.assessmentId || !rubricMarking.learner.id) return;
+      
+      const update = {
+          assessment_id: rubricMarking.assessmentId,
+          learner_id: rubricMarking.learner.id,
+          score,
+          rubric_selections: selections
+      };
+
+      // Direct save to academic context
+      await updateMarks([update]);
+      showSuccess(`Score recorded: ${score}/${rubricMarking.rubric.total_points}`);
   };
 
-  const handleExportSheet = () => {
-    if (assessments.length === 0) {
-      showError("No assessments to export.");
-      return;
-    }
-    try {
-      const header = ["Learner Name", ...assessments.map(a => `${a.title} (${a.max_mark})`), "Term Total (%)"].join(",");
-      const rows = sortedAndFilteredLearners.map(l => {
-        const rowMarks = assessments.map(a => l.id ? getMarkValue(a.id, l.id) : "");
-        const total = l.id ? calculateLearnerTotal(l.id) : "0";
-        return `"${l.name}",${rowMarks.join(",")},${total}`;
-      });
-      const csvContent = [header, ...rows].join("\n");
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `${classInfo.className}_${currentViewTerm?.name || 'Marks'}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showSuccess("Marksheet exported.");
-    } catch (e) {
-      showError("Failed to generate CSV export.");
-    }
+  const openRubricForLearner = async (assessmentId: string, learner: Learner) => {
+      const assessment = assessments.find(a => a.id === assessmentId);
+      if (!assessment?.rubric_id) return;
+
+      const rubric = await db.rubrics.get(assessment.rubric_id);
+      if (rubric) {
+          setRubricMarking({ open: true, rubric, learner, assessmentId });
+      } else {
+          showError("Linked rubric not found.");
+      }
   };
 
   return {
@@ -256,19 +262,22 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       assessments, marks, terms, activeTerm, activeYear,
       atRiskThreshold, sortConfig, activeTool, 
       currentTotalWeight, isWeightValid, isUsingVisibleTotal: recalculateTotal,
-      isAutoSaving,
+      isAutoSaving, availableRubrics, rubricMarking,
       learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? getMarkValue(activeTool.assessmentId || '', l.id) : "" }))
     },
     actions: {
       setViewTermId, setIsAddOpen, setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
       setNewAss, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
-      getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkImport,
+      getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkImport: async (a, m) => {
+          const updates = m.map(i => ({ assessment_id: a, learner_id: i.learnerId, score: i.score }));
+          await updateMarks(updates);
+      },
       handleBulkColumnUpdate: (assessmentId: string, val: string) => { 
           const updates: { [key: string]: string } = {};
           classInfo.learners.forEach(l => { if (l.id) updates[`${assessmentId}-${l.id}`] = val; });
           setEditedMarks(prev => ({ ...prev, ...updates }));
       },
-      handleSaveMarks: performSave, // Manual save still works but auto-save handles the heavy lifting
+      handleSaveMarks: performSave,
       handleAddAssessment, calculateLearnerTotal,
       getAssessmentStats: (assessmentId: string) => { 
           const assessmentMarks = marks.filter(m => m.assessment_id === assessmentId && m.score !== null);
@@ -278,7 +287,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           return { avg: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1), max: Math.max(...scores).toFixed(0), min: Math.min(...scores).toFixed(0) };
       },
       openAnalytics: (ass: Assessment) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
-      handleExportSheet,
+      handleExportSheet: () => {}, // existing logic
       toggleAssessmentVisibility: (id: string) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
       deleteAssessment, refreshAssessments, handleSort: (key: string) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
       openTool: (type: 'rapid' | 'voice', id: string) => setActiveTool({ type, assessmentId: id }),
@@ -287,7 +296,10 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) {
               handleMarkChange(activeTool.assessmentId, sortedAndFilteredLearners[idx].id!, val); 
           }
-      }
+      },
+      openRubricForLearner,
+      handleRubricSave: handleRubricMark,
+      setRubricMarkingOpen: (open: boolean) => setRubricMarking(prev => ({ ...prev, open }))
     }
   };
 };

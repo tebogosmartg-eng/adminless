@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { CalendarClock } from 'lucide-react';
 import { RapidEntryDialog } from '@/components/dialogs/RapidEntryDialog';
 import { VoiceEntryDialog } from '@/components/dialogs/VoiceEntryDialog';
+import { RubricMarkingDialog } from './RubricMarkingDialog';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
@@ -21,7 +22,6 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
       if (!onViewLearnerProfile) return;
       if (learner.id) {
           const calculatedTotal = actions.calculateLearnerTotal(learner.id);
-          // Pass a temporary learner object with the calculated mark for the current term context
           onViewLearnerProfile({
               ...learner,
               mark: calculatedTotal
@@ -43,6 +43,12 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
         </div>
       );
   }
+
+  // Find initial selections for rubric marking if any exist
+  const currentMark = state.marks.find(m => 
+    m.assessment_id === state.rubricMarking.assessmentId && 
+    m.learner_id === state.rubricMarking.learner?.id
+  );
 
   return (
     <div className="space-y-4">
@@ -73,6 +79,8 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           toggleAssessmentVisibility={actions.toggleAssessmentVisibility}
           recalculateTotal={state.recalculateTotal}
           setRecalculateTotal={actions.setRecalculateTotal}
+          isAutoSaving={state.isAutoSaving}
+          availableRubrics={state.availableRubrics}
        />
 
        <MarkSheetTable 
@@ -97,6 +105,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           onViewLearnerProfile={handleProfileClick}
           onSort={actions.handleSort}
           onOpenTool={actions.openTool}
+          onOpenRubric={actions.openRubricForLearner}
        />
 
        <MarkSheetDialogs 
@@ -130,6 +139,17 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
               onOpenChange={() => actions.closeTool()}
               learners={state.learnersForTools}
               onUpdateMark={actions.handleToolUpdate}
+           />
+       )}
+
+       {state.rubricMarking.open && state.rubricMarking.rubric && state.rubricMarking.learner && (
+           <RubricMarkingDialog 
+                open={state.rubricMarking.open}
+                onOpenChange={actions.setRubricMarkingOpen}
+                rubric={state.rubricMarking.rubric}
+                learner={state.rubricMarking.learner}
+                initialSelections={currentMark?.rubric_selections}
+                onSave={actions.handleRubricSave}
            />
        )}
     </div>
