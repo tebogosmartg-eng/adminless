@@ -59,7 +59,7 @@ export const DataManagementSettings = () => {
       const activities = await db.activities.where('user_id').equals(user.id).toArray();
 
       const backupData = {
-        version: '3.0',
+        version: '3.1',
         timestamp: new Date().toISOString(),
         profile, classes, learners, academic_years, terms,
         assessments, assessment_marks, attendance, timetable,
@@ -97,11 +97,26 @@ export const DataManagementSettings = () => {
 
         const restoreTable = async (tableName: string, items: any[]) => {
             if (!items || !Array.isArray(items) || items.length === 0) return 0;
-            const safeItems = items.map(item => ({ ...item, user_id: item.user_id ? user.id : undefined }));
+            
+            // Map items to ensure the current user owns them and fields match current schema
+            const mappedItems = items.map(item => {
+                const newItem = { ...item, user_id: user.id };
+                
+                // Handle naming consistency for classes (class_name vs className)
+                if (tableName === 'classes') {
+                    if (newItem.class_name && !newItem.className) {
+                        newItem.className = newItem.class_name;
+                        delete newItem.class_name;
+                    }
+                }
+                
+                return newItem;
+            });
+
             // @ts-ignore
-            await db[tableName].bulkPut(safeItems);
-            await queueAction(tableName, 'upsert', safeItems);
-            return safeItems.length;
+            await db[tableName].bulkPut(mappedItems);
+            await queueAction(tableName, 'upsert', mappedItems);
+            return mappedItems.length;
         };
 
         if (data.profile) {
@@ -110,14 +125,21 @@ export const DataManagementSettings = () => {
           await queueAction('profiles', 'upsert', profileData);
         }
 
+        // Sequential restoration to maintain dependencies
+        await restoreTable('academic_years', data.academic_years);
+        await restoreTable('terms', data.terms);
+        
         if (data.classes) {
-            if (data.classes.some((c: any) => c.learners)) {
+            // Support very old format where learners were nested
+            if (data.classes.some((c: any) => c.learners && Array.isArray(c.learners))) {
                 const flattenedClasses = data.classes.map((c: any) => {
                     const { learners, ...cls } = c;
                     return { ...cls, user_id: user.id };
                 });
                 await restoreTable('classes', flattenedClasses);
-                const flattenedLearners = data.classes.flatMap((c: any) => (c.learners || []).map((l: any) => ({ ...l, class_id: c.id })));
+                const flattenedLearners = data.classes.flatMap((c: any) => 
+                    (c.learners || []).map((l: any) => ({ ...l, class_id: c.id, user_id: user.id }))
+                );
                 await restoreTable('learners', flattenedLearners);
             } else {
                 await restoreTable('classes', data.classes);
@@ -125,8 +147,6 @@ export const DataManagementSettings = () => {
         }
 
         await restoreTable('learners', data.learners);
-        await restoreTable('academic_years', data.academic_years);
-        await restoreTable('terms', data.terms);
         await restoreTable('assessments', data.assessments);
         await restoreTable('assessment_marks', data.assessment_marks);
         await restoreTable('attendance', data.attendance);
@@ -134,10 +154,11 @@ export const DataManagementSettings = () => {
         await restoreTable('learner_notes', data.learner_notes);
         await restoreTable('todos', data.todos);
         
-        showSuccess("Data import complete. Reloading...");
+        showSuccess("Data restoration complete. Refreshing environment...");
         setTimeout(() => window.location.reload(), 1500);
       } catch (err) {
-        showError("Failed to import data.");
+        console.error("[restore] failed", err);
+        showError("Failed to import data. Check file format version.");
       } finally {
         setIsImporting(false);
       }
@@ -154,12 +175,13 @@ export const DataManagementSettings = () => {
       await db.transaction('rw', [
         db.classes, db.learners, db.todos, db.activities, db.sync_queue, 
         db.attendance, db.assessments, db.assessment_marks, db.academic_years, 
-        db.terms, db.timetable, db.learner_notes
+        db.terms, db.timetable, db.learner_notes, db.evidence, db.rubrics
       ], async () => {
           await db.learners.clear(); await db.classes.clear(); await db.todos.clear(); 
           await db.activities.clear(); await db.attendance.clear(); await db.assessments.clear(); 
           await db.assessment_marks.clear(); await db.academic_years.clear(); await db.terms.clear(); 
           await db.timetable.clear(); await db.learner_notes.clear(); await db.sync_queue.clear();
+          await db.evidence.clear(); await db.rubrics.clear();
       });
       if (isOnline) {
           await supabase.from('classes').delete().eq('user_id', user.id);
