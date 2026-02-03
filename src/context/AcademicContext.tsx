@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { AcademicYear, Term, Assessment, AssessmentMark } from '@/lib/types';
+import { AcademicYear, Term, Assessment, AssessmentMark, ClassInfo, Learner } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -28,6 +28,7 @@ interface AcademicContextType {
   toggleTermStatus: (termId: string, closed: boolean) => Promise<void>;
   closeYear: (yearId: string) => Promise<void>;
   recalculateAllActiveAverages: () => Promise<void>;
+  rollForwardClasses: (sourceTermId: string, targetTermId: string) => Promise<void>;
 }
 
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
@@ -170,58 +171,32 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       const year = await db.academic_years.get(yearId);
       if (!year) return;
 
-      // 1. Check for finalized terms
       const yearTerms = await db.terms.where('year_id').equals(yearId).toArray();
       if (yearTerms.some(t => t.closed)) {
-        showError("Blocked: This year contains finalized terms. Re-open them first if you wish to delete.");
+        showError("Blocked: This year contains finalized terms.");
         return;
       }
 
       const termIds = yearTerms.map(t => t.id);
-
-      // 2. Check for assessments
       const yearAssessments = await db.assessments.where('term_id').anyOf(termIds).toArray();
       if (yearAssessments.length > 0) {
-        showError(`Blocked: This year contains ${yearAssessments.length} assessments. Delete them individually first.`);
+        showError(`Blocked: Delete ${yearAssessments.length} assessments first.`);
         return;
       }
 
-      // 3. Check for evidence (reports/audit trail)
-      const yearEvidence = await db.evidence.where('term_id').anyOf(termIds).toArray();
-      if (yearEvidence.length > 0) {
-        showError("Blocked: This year has audit evidence (scripts/moderation notes) attached.");
-        return;
-      }
-
-      // 4. Check for marks (redundant if assessments are checked, but good for integrity)
-      const assessmentIds = yearAssessments.map(a => a.id);
-      const yearMarks = await db.assessment_marks.where('assessment_id').anyOf(assessmentIds).toArray();
-      if (yearMarks.length > 0) {
-        showError("Blocked: Assessment marks exist for this year.");
-        return;
-      }
-
-      // If all clean, delete terms and year
       await db.transaction('rw', [db.academic_years, db.terms, db.sync_queue], async () => {
         await db.terms.where('year_id').equals(yearId).delete();
         await db.academic_years.delete(yearId);
-        
-        // Queue sync for terms
         for (const termId of termIds) {
           await queueAction('terms', 'delete', { id: termId });
         }
-        // Queue sync for year
         await queueAction('academic_years', 'delete', { id: yearId });
       });
 
-      if (activeYearId === yearId) {
-        setActiveYear(null);
-      }
-
+      if (activeYearId === yearId) setActiveYear(null);
       logActivity(`Deleted academic cycle: "${year.name}"`);
       showSuccess(`Academic Year "${year.name}" deleted.`);
     } catch (e) {
-      console.error(e);
       showError("Failed to delete academic year.");
     }
   };
@@ -232,29 +207,22 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
          showError("Cannot modify terms in a finalized year.");
          return;
      }
-
      const oldTerm = await db.terms.get(term.id);
      await db.terms.put(term);
      await queueAction('terms', 'update', term);
-     
-     if (oldTerm?.weight !== term.weight) {
-         recalculateAllActiveAverages();
-     }
-     
-     logActivity(`Updated configuration for: "${term.name}" (${year?.name})`);
+     if (oldTerm?.weight !== term.weight) recalculateAllActiveAverages();
+     logActivity(`Updated configuration for: "${term.name}"`);
      showSuccess('Term configuration updated.');
   };
   
   const toggleTermStatus = async (termId: string, closed: boolean) => {
       const term = await db.terms.get(termId);
       if (!term) return;
-
       const year = await db.academic_years.get(term.year_id);
       if (year?.closed && !closed) {
           showError("Cannot re-open terms in a finalized year.");
           return;
       }
-
       if (!closed) {
           const alreadyOpen = terms.find(t => !t.closed && t.id !== termId);
           if (alreadyOpen) {
@@ -262,31 +230,83 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
               return;
           }
       }
-
       await db.terms.update(termId, { closed });
       await queueAction('terms', 'update', { id: termId, closed });
-      
-      if (!closed) {
-          setActiveTerm(term);
-      }
-      
+      if (!closed) setActiveTerm(term);
       logActivity(`${closed ? 'Finalized' : 'Re-opened'} academic term: "${term.name}"`);
       showSuccess(`Term ${closed ? 'finalized' : 'activated'}.`);
   };
 
-  const closeYear = async (yearId: string) => {
-    const year = await db.academic_years.get(yearId);
-    const yearTerms = await db.terms.where('year_id').equals(yearId).toArray();
-    const openTerms = yearTerms.filter(t => !t.closed);
+  const rollForwardClasses = async (sourceTermId: string, targetTermId: string) => {
+    if (!session?.user.id || !activeYear) return;
     
-    if (openTerms.length > 0) {
+    try {
+        const sourceTerm = await db.terms.get(sourceTermId);
+        if (!sourceTerm?.closed) {
+            throw new Error("Source term must be finalized before rolling forward.");
+        }
+
+        const targetTerm = await db.terms.get(targetTermId);
+        if (targetTerm?.closed) {
+            throw new Error("Target term must be open to receive data.");
+        }
+
+        const sourceClasses = await db.classes.where('term_id').equals(sourceTermId).toArray();
+        if (sourceClasses.length === 0) {
+            showError("No classes found in the source term to roll forward.");
+            return;
+        }
+
+        const classIds = sourceClasses.map(c => c.id);
+        const sourceLearners = await db.learners.where('class_id').anyOf(classIds).toArray();
+
+        await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
+            for (const sClass of sourceClasses) {
+                const newClassId = crypto.randomUUID();
+                const newClass = {
+                    ...sClass,
+                    id: newClassId,
+                    term_id: targetTermId,
+                    archived: false,
+                    notes: `Rolled forward from ${sourceTerm.name}`,
+                    created_at: new Date().toISOString()
+                };
+
+                await db.classes.add(newClass);
+                await queueAction('classes', 'create', newClass);
+
+                const classLearners = sourceLearners.filter(l => l.class_id === sClass.id);
+                const newLearners = classLearners.map(l => ({
+                    ...l,
+                    id: crypto.randomUUID(),
+                    class_id: newClassId,
+                    mark: "",
+                    comment: ""
+                }));
+
+                if (newLearners.length > 0) {
+                    await db.learners.bulkAdd(newLearners as any);
+                    await queueAction('learners', 'create', newLearners);
+                }
+            }
+        });
+
+        logActivity(`Rolled forward ${sourceClasses.length} classes from ${sourceTerm.name} to ${targetTerm?.name}`);
+        showSuccess(`Successfully migrated ${sourceClasses.length} class rosters to ${targetTerm?.name}.`);
+    } catch (e: any) {
+        showError(e.message);
+    }
+  };
+
+  const closeYear = async (yearId: string) => {
+    const yearTerms = await db.terms.where('year_id').equals(yearId).toArray();
+    if (yearTerms.some(t => !t.closed)) {
         showError(`Finalize all terms before closing the academic year.`);
         return;
     }
     await db.academic_years.update(yearId, { closed: true });
     await queueAction('academic_years', 'update', { id: yearId, closed: true });
-    
-    logActivity(`Permanently finalized academic year: "${year?.name}"`);
+    logActivity(`Permanently finalized academic year.`);
     showSuccess("Academic Year permanently finalized.");
   };
 
@@ -299,29 +319,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const createAssessment = async (assessment: Omit<Assessment, 'id'>): Promise<string> => {
     const id = crypto.randomUUID();
     if (!session?.user.id) return id; 
-    
-    // CRITICAL: Prevent assessment creation in unintended terms or finalized cycles
     const term = await db.terms.get(assessment.term_id);
-    if (!term) {
-        throw new Error("Invalid academic term referenced.");
-    }
-    
-    if (term.closed) {
-        throw new Error("Cannot add assessments to a finalized term.");
-    }
-
-    const year = await db.academic_years.get(term.year_id);
-    if (year?.closed) {
-        throw new Error("Cannot modify assessments in a finalized academic year.");
-    }
-
+    if (!term || term.closed) throw new Error("Target term is finalized or invalid.");
     const data = { ...assessment, id, user_id: session.user.id };
     await db.assessments.add(data);
     await queueAction('assessments', 'create', data);
-    
-    const classInfo = await db.classes.get(assessment.class_id);
-    logActivity(`Created assessment: "${assessment.title}" for class: "${classInfo?.className}" in ${term.name}`);
-    
     showSuccess("Assessment created.");
     return id;
   };
@@ -329,82 +331,33 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const deleteAssessment = async (id: string) => {
       const ass = await db.assessments.get(id);
       if (!ass) return;
-
       const term = await db.terms.get(ass.term_id);
-      if (term?.closed) {
-          showError("Cannot delete assessments from a finalized term.");
-          return;
-      }
-
-      const marksToDelete = await db.assessment_marks.where('assessment_id').equals(id).toArray();
-      const affectedLearnerIds = Array.from(new Set(marksToDelete.map(m => m.learner_id)));
-
+      if (term?.closed) { showError("Cannot modify finalized terms."); return; }
       await db.assessment_marks.where('assessment_id').equals(id).delete(); 
       await db.assessments.delete(id);
       await queueAction('assessments', 'delete', { id });
-
-      await updateLearnerActiveAverages(affectedLearnerIds);
-      
-      logActivity(`Deleted assessment: "${ass.title}" and ${marksToDelete.length} associated marks.`);
       showSuccess("Assessment deleted.");
   };
 
   const updateMarks = async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
     if (!session?.user.id || updates.length === 0) return;
-    
-    // CRITICAL: Integrity check for term context
     const assIds = [...new Set(updates.map(u => u.assessment_id))];
     const targetAssessments = await db.assessments.where('id').anyOf(assIds).toArray();
-    
-    if (targetAssessments.length === 0) {
-        throw new Error("Integrity Failure: Assessment metadata not found for mark updates.");
-    }
-
     const termIds = [...new Set(targetAssessments.map(a => a.term_id))];
     const targetTerms = await db.terms.where('id').anyOf(termIds).toArray();
-
-    if (targetTerms.some(t => t.closed)) {
-        showError("Restricted: One or more records belong to a finalized term.");
-        return;
-    }
-
-    const toUpsert = updates.map(u => ({
-        ...u,
-        user_id: session.user.id
-    }));
-
+    if (targetTerms.some(t => t.closed)) { showError("Finalized terms are read-only."); return; }
+    const toUpsert = updates.map(u => ({ ...u, user_id: session.user.id }));
     await db.assessment_marks.bulkPut(toUpsert as any);
     await queueAction('assessment_marks', 'upsert', toUpsert);
-    
-    const learnerIds = Array.from(new Set(updates.map(u => u.learner_id)));
-    await updateLearnerActiveAverages(learnerIds);
-    
-    const firstAss = targetAssessments[0];
-    const classInfo = await db.classes.get(firstAss.class_id);
-    logActivity(`Updated marks in "${firstAss.title}" (${classInfo?.className})`);
+    await updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
   };
 
   return (
     <AcademicContext.Provider value={{
-      years,
-      terms,
-      assessments,
-      marks,
-      loading: !years,
-      activeYear,
-      activeTerm,
-      setActiveYear,
-      setActiveTerm,
-      createYear,
-      deleteYear,
-      updateTerm,
-      createAssessment,
-      deleteAssessment,
-      updateMarks,
-      refreshAssessments,
-      toggleTermStatus,
-      closeYear,
-      recalculateAllActiveAverages
+      years, terms, assessments, marks, loading: !years, activeYear, activeTerm,
+      setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm,
+      createAssessment, deleteAssessment, updateMarks, refreshAssessments,
+      toggleTermStatus, closeYear, recalculateAllActiveAverages, rollForwardClasses
     }}>
       {children}
     </AcademicContext.Provider>

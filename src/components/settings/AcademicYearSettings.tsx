@@ -5,27 +5,27 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Lock, Unlock, Plus, AlertCircle, Loader2, Archive, Play, Trash2 } from "lucide-react";
+import { CalendarIcon, Lock, Unlock, Plus, AlertCircle, Loader2, Archive, Play, Trash2, ArrowRightCircle } from "lucide-react";
 import { useAcademic } from '@/context/AcademicContext';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTermValidation, ValidationError } from '@/hooks/useTermValidation';
 import { TermClosureDialog } from '@/components/dialogs/TermClosureDialog';
-import { showError } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
 
 export const AcademicYearSettings = () => {
-  const { years, terms, activeYear, setActiveYear, createYear, deleteYear, updateTerm, toggleTermStatus, closeYear } = useAcademic();
+  const { years, terms, activeYear, setActiveYear, createYear, deleteYear, updateTerm, toggleTermStatus, closeYear, rollForwardClasses } = useAcademic();
   const [newYearName, setNewYearName] = useState("");
   
-  // Validation State
   const { validateTerm, validating } = useTermValidation();
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [selectedTermId, setSelectedTermId] = useState<string | null>(null);
   const [isValidToClose, setIsValidToClose] = useState(false);
+
+  const [isRollingForward, setIsRollingForward] = useState(false);
 
   const handleCreateYear = async () => {
     if (newYearName.trim()) {
@@ -36,32 +36,18 @@ export const AcademicYearSettings = () => {
 
   const handleDeleteYear = async () => {
     if (!activeYear) return;
-    if (confirm(`Are you sure you want to delete the "${activeYear.name}" cycle? This is only possible if the year is empty of data.`)) {
+    if (confirm(`Delete "${activeYear.name}"? This is only possible if empty.`)) {
       await deleteYear(activeYear.id);
     }
   };
 
   const handleTermAction = async (termId: string, currentStatus: boolean) => {
     if (currentStatus) {
-        // Trying to OPEN a finalized term
-        if (activeYear?.closed) {
-            showError("Cannot re-open term because the academic year is finalized.");
-            return;
-        }
-        
+        if (activeYear?.closed) { showError("Year is finalized."); return; }
         const openTerm = terms.find(t => !t.closed);
-        if (openTerm) {
-            showError(`Cannot re-open. ${openTerm.name} is currently your active working term.`);
-            return;
-        }
-
-        try {
-            await toggleTermStatus(termId, false);
-        } catch (e: any) {
-            showError(e.message);
-        }
+        if (openTerm) { showError(`${openTerm.name} is still active.`); return; }
+        await toggleTermStatus(termId, false);
     } else {
-        // Trying to FINALIZE an open term
         setSelectedTermId(termId);
         const { isValid, errors } = await validateTerm(termId);
         setIsValidToClose(isValid);
@@ -77,51 +63,33 @@ export const AcademicYearSettings = () => {
       }
   };
 
-  const handleFinalizeYear = async () => {
-      if (!activeYear) return;
-      
-      const allTermsClosed = terms.every(t => t.closed);
-      if (!allTermsClosed) {
-          showError("All terms must be finalized before closing the academic year.");
+  const handleRollForward = async (sourceTermId: string) => {
+      const nextOpenTerm = terms.find(t => !t.closed);
+      if (!nextOpenTerm) {
+          showError("No open term found to receive data. Activate the next term first.");
           return;
       }
 
-      if (confirm(`Are you sure you want to finalize ${activeYear.name}? All editing for this year will be permanently disabled.`)) {
-          await closeYear(activeYear.id);
-      }
+      setIsRollingForward(true);
+      await rollForwardClasses(sourceTermId, nextOpenTerm.id);
+      setIsRollingForward(false);
   };
 
   const DatePicker = ({ date, onSelect, disabled }: { date: string | null, onSelect: (d: Date | undefined) => void, disabled: boolean }) => (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          variant={"outline"}
-          size="sm"
-          disabled={disabled}
-          className={cn(
-            "w-[130px] justify-start text-left font-normal h-8",
-            !date && "text-muted-foreground"
-          )}
-        >
+        <Button variant="outline" size="sm" disabled={disabled} className={cn("w-[130px] justify-start text-left font-normal h-8", !date && "text-muted-foreground")}>
           <CalendarIcon className="mr-2 h-4 w-4" />
           {date ? format(new Date(date), "dd/MM/yyyy") : <span>Pick date</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0">
-        <Calendar
-          mode="single"
-          selected={date ? new Date(date) : undefined}
-          onSelect={onSelect}
-          initialFocus
-        />
-      </PopoverContent>
+      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date ? new Date(date) : undefined} onSelect={onSelect} initialFocus /></PopoverContent>
     </Popover>
   );
 
   const totalWeight = useMemo(() => terms.reduce((acc, t) => acc + Number(t.weight), 0), [terms]);
   const isWeightValid = totalWeight === 100;
   const allTermsClosed = terms.length > 0 && terms.every(t => t.closed);
-  const currentOpenTerm = terms.find(t => !t.closed);
 
   return (
     <div className="grid gap-6 md:grid-cols-1">
@@ -130,67 +98,37 @@ export const AcademicYearSettings = () => {
           <div className="flex justify-between items-center">
             <div>
                 <CardTitle>Academic Configuration</CardTitle>
-                <CardDescription>
-                    Work is restricted to one term at a time. Finalize a term to open the next one.
-                </CardDescription>
+                <CardDescription>Finalize a term to lock data and enable Roll Forward migration.</CardDescription>
             </div>
             <div className="flex gap-2">
                 {activeYear && !activeYear.closed && (
                     <>
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={handleDeleteYear}
-                            className="text-muted-foreground hover:text-destructive transition-colors"
-                        >
+                        <Button variant="ghost" size="sm" onClick={handleDeleteYear} className="text-muted-foreground hover:text-destructive">
                             <Trash2 className="h-4 w-4 mr-2" /> Delete Cycle
                         </Button>
-                        <Button 
-                            variant="destructive" 
-                            size="sm" 
-                            onClick={handleFinalizeYear} 
-                            disabled={!allTermsClosed || !isWeightValid}
-                        >
+                        <Button variant="destructive" size="sm" onClick={() => { if(allTermsClosed && isWeightValid) closeYear(activeYear.id); }} disabled={!allTermsClosed || !isWeightValid}>
                             <Archive className="mr-2 h-4 w-4" /> Finalize Year
                         </Button>
                     </>
                 )}
-                {activeYear?.closed && (
-                    <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 px-3 py-1">
-                        <Lock className="h-3 w-3 mr-2" /> Year Finalized
-                    </Badge>
-                )}
+                {activeYear?.closed && <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 px-3 py-1"><Lock className="h-3 w-3 mr-2" /> Year Finalized</Badge>}
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Working Year</label>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground">Working Year</label>
                 <Select value={activeYear?.id} onValueChange={(val) => setActiveYear(years.find(y => y.id === val) || null)}>
-                    <SelectTrigger className="w-[240px]">
-                    <SelectValue placeholder="Select Year" />
-                    </SelectTrigger>
-                    <SelectContent>
-                    {years.map(y => (
-                        <SelectItem key={y.id} value={y.id}>{y.name} {y.closed ? "(Finalized)" : ""}</SelectItem>
-                    ))}
-                    </SelectContent>
+                    <SelectTrigger className="w-[240px]"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                    <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name} {y.closed ? "(Finalized)" : ""}</SelectItem>)}</SelectContent>
                 </Select>
              </div>
-             
              <div className="space-y-1.5 ml-auto">
-                 <label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">New Cycle</label>
+                 <label className="text-[10px] uppercase font-bold text-muted-foreground">New Cycle</label>
                  <div className="flex gap-2">
-                    <Input 
-                        placeholder="e.g. 2026" 
-                        value={newYearName}
-                        onChange={(e) => setNewYearName(e.target.value)}
-                        className="w-[120px]"
-                    />
-                    <Button onClick={handleCreateYear} variant="secondary">
-                        <Plus className="mr-2 h-4 w-4" /> Create
-                    </Button>
+                    <Input placeholder="e.g. 2026" value={newYearName} onChange={(e) => setNewYearName(e.target.value)} className="w-[120px]" />
+                    <Button onClick={handleCreateYear} variant="secondary"><Plus className="mr-2 h-4 w-4" /> Create</Button>
                  </div>
              </div>
           </div>
@@ -201,101 +139,42 @@ export const AcademicYearSettings = () => {
                     <TableHeader>
                         <TableRow className="bg-muted/30">
                             <TableHead className="font-bold">Term / Period</TableHead>
-                            <TableHead className="font-bold">Start Date</TableHead>
-                            <TableHead className="font-bold">End Date</TableHead>
-                            <TableHead className="font-bold">Year Weight</TableHead>
                             <TableHead className="font-bold">Status</TableHead>
+                            <TableHead className="text-right font-bold">Migration Gate</TableHead>
                             <TableHead className="text-right font-bold">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {terms.map(term => (
                             <TableRow key={term.id} className={cn("hover:bg-muted/10", !term.closed && "bg-primary/[0.02]")}>
-                                <TableCell className="font-bold">
-                                    <div className="flex items-center gap-2">
-                                        {term.name}
-                                        {!term.closed && <Badge className="text-[9px] h-4 px-1 bg-primary text-white">Active</Badge>}
-                                    </div>
-                                </TableCell>
+                                <TableCell className="font-bold">{term.name}</TableCell>
                                 <TableCell>
-                                    <DatePicker 
-                                        date={term.start_date} 
-                                        disabled={term.closed || !!activeYear.closed}
-                                        onSelect={(d) => d && updateTerm({ ...term, start_date: d.toISOString() })} 
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    <DatePicker 
-                                        date={term.end_date} 
-                                        disabled={term.closed || !!activeYear.closed}
-                                        onSelect={(d) => d && updateTerm({ ...term, end_date: d.toISOString() })} 
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-2">
-                                        <Input 
-                                            type="number" 
-                                            className="w-16 h-8 text-center"
-                                            value={term.weight}
-                                            disabled={term.closed || !!activeYear.closed}
-                                            onChange={(e) => updateTerm({ ...term, weight: parseFloat(e.target.value) })}
-                                        />
-                                        <span className="text-muted-foreground text-xs">%</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    {term.closed ? (
-                                        <Badge variant="secondary" className="bg-muted text-muted-foreground">Finalized</Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Open (Working)</Badge>
-                                    )}
+                                    {term.closed ? <Badge variant="secondary">Finalized (Locked)</Badge> : <Badge variant="outline" className="bg-green-50 text-green-700">Open (Working)</Badge>}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <Button 
-                                      variant={term.closed ? "ghost" : "outline"}
-                                      size="sm"
-                                      disabled={(validating && selectedTermId === term.id) || !!activeYear.closed}
-                                      onClick={() => handleTermAction(term.id, term.closed)}
-                                      className="h-8"
-                                    >
-                                        {validating && selectedTermId === term.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : term.closed ? (
-                                            <><Unlock className="h-4 w-4 mr-1 opacity-50" /> Re-open</>
-                                        ) : (
-                                            <><Lock className="h-4 w-4 mr-1 opacity-50" /> Finalize</>
-                                        )}
+                                    {term.closed && terms.some(t => !t.closed) ? (
+                                        <Button variant="outline" size="sm" onClick={() => handleRollForward(term.id)} disabled={isRollingForward} className="h-8 gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
+                                            {isRollingForward ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRightCircle className="h-3 w-3" />}
+                                            Roll Forward Roster
+                                        </Button>
+                                    ) : !term.closed ? (
+                                        <span className="text-[10px] text-muted-foreground italic">Finalize term to unlock migration.</span>
+                                    ) : null}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant={term.closed ? "ghost" : "outline"} size="sm" disabled={validating || !!activeYear.closed} onClick={() => handleTermAction(term.id, term.closed)} className="h-8">
+                                        {validating && selectedTermId === term.id ? <Loader2 className="h-4 w-4 animate-spin" /> : term.closed ? <><Unlock className="h-4 w-4 mr-1 opacity-50" /> Re-open</> : <><Lock className="h-4 w-4 mr-1 opacity-50" /> Finalize</>}
                                     </Button>
                                 </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
-                <div className="p-4 bg-muted/20 flex justify-between items-center border-t">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <AlertCircle className="h-3 w-3" />
-                        <span>Only one term can be open for editing at a time.</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold uppercase tracking-tighter text-muted-foreground">Combined Year Weight:</span>
-                        <span className={cn("text-sm font-bold", isWeightValid ? "text-green-600" : "text-amber-600")}>
-                            {totalWeight}%
-                        </span>
-                    </div>
-                </div>
              </div>
           )}
         </CardContent>
       </Card>
-
-      <TermClosureDialog 
-        open={validationDialogOpen}
-        onOpenChange={setValidationDialogOpen}
-        termName={terms.find(t => t.id === selectedTermId)?.name || "Term"}
-        errors={validationErrors}
-        isValid={isValidToClose}
-        onConfirm={confirmClosure}
-      />
+      <TermClosureDialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen} termName={terms.find(t => t.id === selectedTermId)?.name || "Term"} errors={validationErrors} isValid={isValidToClose} onConfirm={confirmClosure} />
     </div>
   );
 };

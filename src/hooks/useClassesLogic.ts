@@ -1,11 +1,13 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClasses } from "@/context/ClassesContext";
+import { useAcademic } from "@/context/AcademicContext";
 import { ClassInfo } from "@/lib/types";
-import { showSuccess } from "@/utils/toast";
+import { showSuccess, showError } from "@/utils/toast";
 
 export const useClassesLogic = () => {
   const { classes, addClass, toggleClassArchive, deleteClass } = useClasses();
+  const { activeTerm } = useAcademic();
   const navigate = useNavigate();
   
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -26,25 +28,26 @@ export const useClassesLogic = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleDeleteConfirm = (id: string) => {
-     deleteClass(id);
-     setIsDeleteOpen(false);
-  };
-
   const handleToggleArchive = (classItem: ClassInfo) => {
     const newStatus = !classItem.archived;
     toggleClassArchive(classItem.id, newStatus);
-    showSuccess(newStatus ? "Class archived." : "Class restored to active list.");
+    showSuccess(newStatus ? "Class archived." : "Class restored.");
   };
 
   const handleDuplicate = (classItem: ClassInfo) => {
+    if (activeTerm?.closed) {
+        showError("Restricted: Cannot manually duplicate classes in a finalized term. Use the Roll Forward tool in Settings.");
+        return;
+    }
+
     const newClass: ClassInfo = {
       ...classItem,
-      id: new Date().toISOString(),
+      id: crypto.randomUUID(),
       className: `${classItem.className} (Copy)`,
       archived: false,
       learners: classItem.learners.map(l => ({
-        name: l.name,
+        ...l,
+        id: crypto.randomUUID(),
         mark: "",
         comment: ""
       }))
@@ -69,9 +72,7 @@ export const useClassesLogic = () => {
       const matchesSearch = 
         (c.className || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (c.subject || "").toLowerCase().includes(searchQuery.toLowerCase());
-      
       const matchesGrade = selectedGrade === "all" || c.grade === selectedGrade;
-      
       return matchesArchive && matchesSearch && matchesGrade;
     });
   };
@@ -87,23 +88,10 @@ export const useClassesLogic = () => {
   const hasActiveFilters = searchQuery !== "" || selectedGrade !== "all";
 
   return {
-    classes,
-    addClass,
-    isEditOpen, setIsEditOpen,
-    isDeleteOpen, setIsDeleteOpen,
-    selectedClass,
-    searchQuery, setSearchQuery,
-    selectedGrade, setSelectedGrade,
-    activeTab, setActiveTab,
-    uniqueGrades,
-    activeClasses,
-    archivedClasses,
-    hasActiveFilters,
-    handleEdit,
-    handleDeleteClick,
-    handleToggleArchive,
-    handleDuplicate,
-    handleView,
-    clearFilters
+    classes, addClass, isEditOpen, setIsEditOpen, isDeleteOpen, setIsDeleteOpen,
+    selectedClass, searchQuery, setSearchQuery, selectedGrade, setSelectedGrade,
+    activeTab, setActiveTab, uniqueGrades, activeClasses, archivedClasses,
+    hasActiveFilters, handleEdit, handleDeleteClick, handleToggleArchive,
+    handleDuplicate, handleView, clearFilters
   };
 };
