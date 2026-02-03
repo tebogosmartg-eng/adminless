@@ -65,7 +65,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (id) localStorage.setItem(STORAGE_KEYS.YEAR, id);
     else localStorage.removeItem(STORAGE_KEYS.YEAR);
     
-    // Clear term only if year actually changes to null
     if (!id) {
         setActiveTermIdState(null);
         localStorage.removeItem(STORAGE_KEYS.TERM);
@@ -242,9 +241,19 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     const id = crypto.randomUUID();
     if (!session?.user.id) return id; 
     
+    // CRITICAL: Prevent assessment creation in unintended terms or finalized cycles
     const term = await db.terms.get(assessment.term_id);
-    if (!term || term.closed) {
+    if (!term) {
+        throw new Error("Invalid academic term referenced.");
+    }
+    
+    if (term.closed) {
         throw new Error("Cannot add assessments to a finalized term.");
+    }
+
+    const year = await db.academic_years.get(term.year_id);
+    if (year?.closed) {
+        throw new Error("Cannot modify assessments in a finalized academic year.");
     }
 
     const data = { ...assessment, id, user_id: session.user.id };
@@ -252,7 +261,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     await queueAction('assessments', 'create', data);
     
     const classInfo = await db.classes.get(assessment.class_id);
-    logActivity(`Created assessment: "${assessment.title}" for class: "${classInfo?.className}"`);
+    logActivity(`Created assessment: "${assessment.title}" for class: "${classInfo?.className}" in ${term.name}`);
     
     showSuccess("Assessment created.");
     return id;
@@ -284,13 +293,19 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const updateMarks = async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
     if (!session?.user.id || updates.length === 0) return;
     
+    // CRITICAL: Integrity check for term context
     const assIds = [...new Set(updates.map(u => u.assessment_id))];
     const targetAssessments = await db.assessments.where('id').anyOf(assIds).toArray();
+    
+    if (targetAssessments.length === 0) {
+        throw new Error("Integrity Failure: Assessment metadata not found for mark updates.");
+    }
+
     const termIds = [...new Set(targetAssessments.map(a => a.term_id))];
     const targetTerms = await db.terms.where('id').anyOf(termIds).toArray();
 
     if (targetTerms.some(t => t.closed)) {
-        showError("One or more marks belong to a finalized term and cannot be changed.");
+        showError("Restricted: One or more records belong to a finalized term.");
         return;
     }
 
@@ -307,9 +322,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     
     const firstAss = targetAssessments[0];
     const classInfo = await db.classes.get(firstAss.class_id);
-    logActivity(`Updated ${updates.length} marks in "${firstAss.title}" (${classInfo?.className})`);
-    
-    showSuccess("Marks saved.");
+    logActivity(`Updated marks in "${firstAss.title}" (${classInfo?.className})`);
   };
 
   return (

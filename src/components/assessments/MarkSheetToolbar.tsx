@@ -3,11 +3,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers } from 'lucide-react';
+import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info } from 'lucide-react';
 import { Assessment, Term, AcademicYear, Rubric } from '@/lib/types';
 import { cn } from "@/lib/utils";
 
@@ -57,10 +57,11 @@ export const MarkSheetToolbar = ({
       setNewAss({ 
           ...newAss, 
           rubricId: val,
-          // Auto-update Max Mark if a rubric is selected
           max: rubric ? rubric.total_points : newAss.max 
       });
   };
+
+  const targetTermName = terms.find(t => t.id === (newAss.termId || activeTerm?.id))?.name;
 
   return (
     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b pb-4">
@@ -169,8 +170,18 @@ export const MarkSheetToolbar = ({
           <DialogContent className="sm:max-w-[450px]">
             <DialogHeader>
               <DialogTitle>New Assessment</DialogTitle>
+              <DialogDescription className="flex items-center gap-2">
+                 <Calendar className="h-3 w-3" /> Target: <span className="font-bold text-foreground">{targetTermName}</span>
+              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg mb-2">
+                  <Info className="h-4 w-4 text-blue-600 shrink-0" />
+                  <p className="text-[11px] text-blue-900 leading-tight">
+                      This task will be locked to <strong>{targetTermName}</strong>. If you need to add to a different term, switch context first.
+                  </p>
+              </div>
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right text-xs">Title</Label>
                 <Input value={newAss.title} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Oral Presentation" />

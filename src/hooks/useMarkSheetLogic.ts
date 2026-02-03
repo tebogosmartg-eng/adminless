@@ -38,8 +38,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     assessmentId: string | null 
   }>({ open: false, rubric: null, learner: null, assessmentId: null });
 
-  const [activeTool, setActiveTool] = useState<{ type: 'rapid' | 'voice' | null, assessmentId: string | null }>({ type: null, assessmentId: null });
-  const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "", rubricId: "" });
+  const [activeTool, setActiveTool] = useState<{ type: 'rapid' | 'voice' | null, assessmentId: string | null, termId: string | null }>({ type: null, assessmentId: null, termId: null });
+  const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "", rubricId: "", termId: "" });
   
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
@@ -54,9 +54,12 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   useEffect(() => {
     if (activeTerm?.id) {
         refreshAssessments(classInfo.id, activeTerm.id);
-        // Clear buffers when context changes
+        // Clear buffers when context changes to prevent cross-term leakage
         setEditedMarks({}); 
         setEditedComments({});
+        
+        // Ensure new assessment dialog defaults to the currently visible term
+        setNewAss(prev => ({ ...prev, termId: activeTerm.id }));
     }
   }, [activeTerm?.id, classInfo.id]);
 
@@ -183,6 +186,29 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     }
   }, [updateMarks, marks]);
 
+  const handleAddAssessment = async () => {
+      // Use the locked termId from state to prevent drifting during creation
+      const targetTermId = newAss.termId || activeTerm?.id;
+      if (!targetTermId) {
+          showError("Target academic term is missing.");
+          return;
+      }
+      
+      try {
+          await createAssessment({ 
+              ...newAss, 
+              class_id: classInfo.id, 
+              term_id: targetTermId, 
+              max_mark: Number(newAss.max), 
+              weight: Number(newAss.weight), 
+              rubric_id: newAss.rubricId === 'none' ? null : (newAss.rubricId || null) 
+          });
+          setIsAddOpen(false);
+      } catch (e: any) {
+          showError(e.message);
+      }
+  };
+
   return {
     state: {
       viewTermId: activeTerm?.id || null, 
@@ -200,18 +226,20 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     },
     actions: {
       setViewTermId: handleTermChange, 
-      setIsAddOpen, setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
+      setIsAddOpen: (open: boolean) => {
+          if (open && activeTerm) {
+              setNewAss(prev => ({ ...prev, termId: activeTerm.id }));
+          }
+          setIsAddOpen(open);
+      },
+      setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
       setNewAss, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
       getMarkValue: (a, l) => editedMarks[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.score?.toString() ?? "",
       getMarkComment: (a, l) => editedComments[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.comment ?? "",
       handleMarkChange, 
       handleCommentChange,
       handleSaveMarks: () => {}, 
-      handleAddAssessment: async () => {
-          if (!activeTerm) return;
-          await createAssessment({ ...newAss, class_id: classInfo.id, term_id: activeTerm.id, max_mark: Number(newAss.max), weight: Number(newAss.weight), rubric_id: newAss.rubricId || null });
-          setIsAddOpen(false);
-      },
+      handleAddAssessment,
       calculateLearnerTotal,
       getAssessmentStats: (id) => {
           const assMarks = marks.filter(m => m.assessment_id === id && m.score !== null);
@@ -226,8 +254,11 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       deleteAssessment, 
       refreshAssessments, 
       handleSort: (key) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
-      openTool: (type, id) => setActiveTool({ type, assessmentId: id }),
-      closeTool: () => setActiveTool({ type: null, assessmentId: null }),
+      openTool: (type, id) => {
+          const ass = assessments.find(a => a.id === id);
+          setActiveTool({ type, assessmentId: id, termId: ass?.term_id || null });
+      },
+      closeTool: () => setActiveTool({ type: null, assessmentId: null, termId: null }),
       handleToolUpdate: (idx, val) => { 
           if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) validateAndCommitMark(activeTool.assessmentId, sortedAndFilteredLearners[idx].id!, val);
       },
