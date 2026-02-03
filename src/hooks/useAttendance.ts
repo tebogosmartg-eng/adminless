@@ -8,21 +8,22 @@ import autoTable from 'jspdf-autotable';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
+import { useAcademic } from '@/context/AcademicContext';
 
 export const useAttendance = (classId: string, learners: Learner[]) => {
+  const { activeTerm } = useAcademic();
   const [date, setDate] = useState<Date>(new Date());
-  // We use this local state to hold unsaved edits before they are committed to Dexie if desired,
-  // OR we can write directly to Dexie. Direct to Dexie is smoother for offline.
-  // However, the original UI had "Save Changes" button. Let's keep that pattern for batching updates?
-  // Actually, Dexie is fast. Writing immediately on click is better UX for offline apps usually (auto-save).
-  // But to minimize sync traffic, let's keep the "staging" state and save on button click.
   
   const formattedDate = format(date, 'yyyy-MM-dd');
 
-  // Live Query from Local DB
+  // Live Query from Local DB - strictly isolated by class and term
   const liveAttendance = useLiveQuery(
-    () => db.attendance.where('class_id').equals(classId).filter(r => r.date === formattedDate).toArray(),
-    [classId, formattedDate]
+    () => db.attendance
+        .where('class_id')
+        .equals(classId)
+        .filter(r => r.date === formattedDate && r.term_id === activeTerm?.id)
+        .toArray(),
+    [classId, formattedDate, activeTerm?.id]
   );
 
   const [attendanceData, setAttendanceData] = useState<Record<string, AttendanceRecord>>({});
@@ -30,7 +31,6 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   const [saving, setSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Sync local state when DB updates (e.g. initial load or sync pull)
   useEffect(() => {
     if (liveAttendance) {
         const map: Record<string, AttendanceRecord> = {};
@@ -43,23 +43,38 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   }, [liveAttendance]);
 
   const handleStatusChange = (learnerId: string, status: AttendanceStatus) => {
-    if (!learnerId) {
-      showError("Cannot mark attendance: Learner ID missing.");
+    if (!learnerId || !activeTerm) {
+      showError("Context missing: Learner or Term ID not found.");
       return;
     }
 
     setAttendanceData(prev => ({
       ...prev,
-      [learnerId]: { ...prev[learnerId], learner_id: learnerId, status, date: formattedDate, class_id: classId }
+      [learnerId]: { 
+          ...prev[learnerId], 
+          learner_id: learnerId, 
+          status, 
+          date: formattedDate, 
+          class_id: classId,
+          term_id: activeTerm.id
+      }
     }));
     setHasChanges(true);
   };
 
   const handleMarkAll = (status: AttendanceStatus) => {
+    if (!activeTerm) return;
     const newData = { ...attendanceData };
     learners.forEach(l => {
       if (l.id) {
-        newData[l.id] = { ...newData[l.id], learner_id: l.id, status, date: formattedDate, class_id: classId };
+        newData[l.id] = { 
+            ...newData[l.id], 
+            learner_id: l.id, 
+            status, 
+            date: formattedDate, 
+            class_id: classId,
+            term_id: activeTerm.id
+        };
       }
     });
     setAttendanceData(newData);
@@ -67,6 +82,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   };
 
   const saveAttendance = async () => {
+    if (!activeTerm) return;
     setSaving(true);
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -82,7 +98,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
         // 1. Save to Local DB
         await db.attendance.bulkPut(recordsToSave);
 
-        // 2. Queue for Sync (Upsert based on learner_id + date constraint in Supabase)
+        // 2. Queue for Sync
         await queueAction('attendance', 'upsert', recordsToSave);
 
         setHasChanges(false);
@@ -96,6 +112,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   };
 
   const handleExportReport = async (type: 'csv' | 'pdf') => {
+    if (!activeTerm) return;
     setIsExporting(true);
     try {
       const start = startOfMonth(date);
@@ -103,15 +120,12 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
       const sStr = format(start, 'yyyy-MM-dd');
       const eStr = format(end, 'yyyy-MM-dd');
 
-      // Query Local DB instead of Supabase for export
-      // Range query on date is tricky if date is part of compound key or just string.
-      // Dexie filtering:
+      // Scoped Query
       const data = await db.attendance
         .where('class_id').equals(classId)
-        .filter(r => r.date! >= sStr && r.date! <= eStr)
+        .filter(r => r.term_id === activeTerm.id && r.date! >= sStr && r.date! <= eStr)
         .toArray();
 
-      // Sort by date
       data.sort((a, b) => a.date!.localeCompare(b.date!));
 
       const recordMap: Record<string, Record<string, string>> = {}; 
@@ -126,7 +140,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
       const sortedDates = Array.from(datesSet).sort();
       
       if (sortedDates.length === 0) {
-        showError("No attendance records found locally for this month.");
+        showError("No attendance records found for this context.");
         setIsExporting(false);
         return;
       }

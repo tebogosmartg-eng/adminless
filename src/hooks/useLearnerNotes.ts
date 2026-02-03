@@ -4,8 +4,11 @@ import { LearnerNote } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
+import { useAcademic } from '@/context/AcademicContext';
 
 export const useLearnerNotes = (learnerId: string | undefined) => {
+  const { activeYear, activeTerm } = useAcademic();
+  
   const notes = useLiveQuery(
     () => learnerId 
       ? db.learner_notes.where('learner_id').equals(learnerId).reverse().sortBy('date') 
@@ -14,7 +17,7 @@ export const useLearnerNotes = (learnerId: string | undefined) => {
   );
 
   const addNote = async (content: string, category: LearnerNote['category'], date: string) => {
-    if (!learnerId) return;
+    if (!learnerId || !activeYear || !activeTerm) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -23,6 +26,8 @@ export const useLearnerNotes = (learnerId: string | undefined) => {
         id: crypto.randomUUID(),
         learner_id: learnerId,
         user_id: user.id,
+        year_id: activeYear.id,
+        term_id: activeTerm.id,
         content,
         category,
         date,

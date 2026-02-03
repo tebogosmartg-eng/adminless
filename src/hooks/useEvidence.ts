@@ -6,8 +6,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { uploadEvidenceFile, deleteEvidenceFile } from '@/services/storage';
 import { showSuccess, showError } from '@/utils/toast';
+import { useAcademic } from '@/context/AcademicContext';
 
 export const useEvidence = (filters: { classId?: string; learnerId?: string; termId?: string }) => {
+  const { activeYear } = useAcademic();
   const [isUploading, setIsUploading] = useState(false);
 
   const evidenceList = useLiveQuery(async () => {
@@ -23,7 +25,7 @@ export const useEvidence = (filters: { classId?: string; learnerId?: string; ter
   }, [filters.classId, filters.learnerId, filters.termId]) || [];
 
   const addEvidence = async (file: File, category: Evidence['category'], notes?: string) => {
-    if (!filters.classId) return;
+    if (!filters.classId || !activeYear) return;
     
     setIsUploading(true);
     try {
@@ -36,13 +38,14 @@ export const useEvidence = (filters: { classId?: string; learnerId?: string; ter
         id: crypto.randomUUID(),
         user_id: user.id,
         class_id: filters.classId,
+        year_id: activeYear.id,
         term_id: filters.termId || null,
         learner_id: filters.learnerId || null,
         file_path: path,
         file_name: file.name,
         file_type: file.type,
         category,
-        notes,
+        notes: notes || "",
         created_at: new Date().toISOString()
       };
 

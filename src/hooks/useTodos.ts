@@ -4,17 +4,26 @@ import { showSuccess, showError } from '@/utils/toast';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
+import { useAcademic } from '@/context/AcademicContext';
 
 export const useTodos = () => {
+  const { activeYear, activeTerm } = useAcademic();
   const [adding, setAdding] = useState(false);
 
-  // Live query automatically updates component when DB changes
+  // Strict Scoping: Load only items for the active term
   const todos = useLiveQuery(
-    () => db.todos.orderBy('completed').toArray()
+    async () => {
+        if (!activeTerm) return [];
+        return db.todos
+            .where('term_id')
+            .equals(activeTerm.id)
+            .toArray();
+    },
+    [activeTerm?.id]
   ) || [];
 
   const addTodo = async (title: string) => {
-    if (!title.trim()) return;
+    if (!title.trim() || !activeYear || !activeTerm) return;
     setAdding(true);
 
     try {
@@ -24,6 +33,8 @@ export const useTodos = () => {
         const newTodo = {
             id: crypto.randomUUID(),
             user_id: user.id,
+            year_id: activeYear.id,
+            term_id: activeTerm.id,
             title: title.trim(),
             completed: false,
             created_at: new Date().toISOString()

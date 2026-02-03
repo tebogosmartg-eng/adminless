@@ -101,6 +101,16 @@ export class SmaRegDB extends Dexie {
       rubrics: 'id, user_id, title',
       assessment_marks: '[assessment_id+learner_id], assessment_id, learner_id, user_id'
     });
+
+    // Version 12: Strict Physical Scoping by Year/Term
+    this.version(12).stores({
+      classes: 'id, user_id, year_id, term_id, sync_status',
+      activities: 'id, user_id, year_id, term_id, timestamp',
+      todos: 'id, user_id, year_id, term_id, completed',
+      learner_notes: 'id, user_id, year_id, term_id, learner_id, date',
+      attendance: '[learner_id+date], class_id, term_id, date',
+      evidence: 'id, user_id, class_id, year_id, term_id, learner_id, category, created_at'
+    });
   }
 }
 

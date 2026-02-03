@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
 import { useState, useEffect } from 'react';
+import { useAcademic } from '@/context/AcademicContext';
 
 export interface AlertWithLearner extends LearnerNote {
   learnerName: string;
@@ -13,24 +14,32 @@ export interface AlertWithLearner extends LearnerNote {
 }
 
 export const useNotesLogic = () => {
+  const { activeYear, activeTerm } = useAcademic();
   const [recentAlerts, setRecentAlerts] = useState<AlertWithLearner[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
 
-  // Live query for all notes to trigger updates, but we process manually for joins
+  // Trigger query when notes change
   const trigger = useLiveQuery(() => db.learner_notes.orderBy('created_at').reverse().limit(1).toArray());
 
   useEffect(() => {
     const fetchAlerts = async () => {
+      if (!activeTerm) {
+          setRecentAlerts([]);
+          setLoadingAlerts(false);
+          return;
+      }
+
       setLoadingAlerts(true);
       try {
-        // Fetch recent notes of specific categories
+        // Strict Isolation: Query by term_id
         const notes = await db.learner_notes
-          .where('category')
-          .anyOf('behavior', 'academic', 'parent')
+          .where('term_id')
+          .equals(activeTerm.id)
+          .and(n => ['behavior', 'academic', 'parent'].includes(n.category))
           .reverse()
           .sortBy('date');
         
-        const topNotes = notes.slice(0, 10); // Get top 10
+        const topNotes = notes.slice(0, 10);
 
         if (topNotes.length === 0) {
             setRecentAlerts([]);
@@ -38,12 +47,10 @@ export const useNotesLogic = () => {
             return;
         }
 
-        // Get unique learner IDs
         const learnerIds = [...new Set(topNotes.map(n => n.learner_id))];
         const learners = await db.learners.where('id').anyOf(learnerIds).toArray();
         const learnerMap = new Map(learners.map(l => [l.id, l]));
 
-        // Get class IDs for context
         const classIds = [...new Set(learners.map(l => l.class_id))];
         const classes = await db.classes.where('id').anyOf(classIds).toArray();
         const classMap = new Map(classes.map(c => [c.id, c.className]));
@@ -69,9 +76,14 @@ export const useNotesLogic = () => {
     };
 
     fetchAlerts();
-  }, [trigger]); // Re-run when DB changes
+  }, [trigger, activeTerm?.id]);
 
   const addNoteGlobal = async (learnerId: string, content: string, category: LearnerNote['category'], date: string) => {
+    if (!activeYear || !activeTerm) {
+        showError("Select an active term first.");
+        return false;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
@@ -80,6 +92,8 @@ export const useNotesLogic = () => {
         id: crypto.randomUUID(),
         learner_id: learnerId,
         user_id: user.id,
+        year_id: activeYear.id,
+        term_id: activeTerm.id,
         content,
         category,
         date,

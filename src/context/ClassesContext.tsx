@@ -6,6 +6,7 @@ import { showError } from '@/utils/toast';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
+import { useAcademic } from './AcademicContext';
 
 interface ClassesContextType {
   classes: ClassInfo[];
@@ -24,25 +25,25 @@ const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
 
 export const ClassesProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
+  const { activeYear, activeTerm } = useAcademic();
 
   const classes = useLiveQuery(async () => {
-    if (!session?.user.id) return [];
+    if (!session?.user.id || !activeTerm) return [];
     
-    const allClassesInDb = await db.classes.toArray();
-    const userClasses = allClassesInDb.filter(c => !c.user_id || c.user_id === session.user.id);
+    // Strict Scoping: Only load classes for the active term
+    const termClasses = await db.classes
+        .where('term_id')
+        .equals(activeTerm.id)
+        .toArray();
 
-    const itemsToUpdate = userClasses.filter(c => !c.user_id);
-    if (itemsToUpdate.length > 0) {
-        for (const c of itemsToUpdate) {
-            await db.classes.update(c.id, { user_id: session.user.id });
-            await queueAction('classes', 'update', { id: c.id, user_id: session.user.id });
-        }
-    }
+    const userClasses = termClasses.filter(c => !c.user_id || c.user_id === session.user.id);
 
     const allLearners = await db.learners.toArray();
 
     return userClasses.map(c => ({
         id: c.id,
+        year_id: c.year_id,
+        term_id: c.term_id,
         grade: c.grade,
         subject: c.subject,
         className: c.className || (c as any).class_name || "Untitled Class",
@@ -50,17 +51,22 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         notes: c.notes || '',
         learners: allLearners.filter(l => l.class_id === c.id)
     })) as ClassInfo[];
-  }, [session?.user.id]) || [];
+  }, [session?.user.id, activeTerm?.id]) || [];
 
   const loading = !classes && !!session?.user.id;
 
   const addClass = async (newClass: ClassInfo) => {
-    if (!session?.user.id) return;
+    if (!session?.user.id || !activeYear || !activeTerm) {
+        showError("Active year and term required to create a class.");
+        return;
+    }
 
     try {
       const classData = {
         id: newClass.id, 
         user_id: session.user.id,
+        year_id: activeYear.id,
+        term_id: activeTerm.id,
         grade: newClass.grade,
         subject: newClass.subject,
         className: newClass.className, 
@@ -85,7 +91,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         }
       });
 
-      logActivity(`Created class: "${newClass.subject} - ${newClass.className}"`);
+      logActivity(`Created class: "${newClass.subject} - ${newClass.className}" in ${activeTerm.name}`);
     } catch (e) {
       console.error(e);
       showError("Failed to create class locally.");
@@ -131,7 +137,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             }
         });
 
-        logActivity(`Updated learner roster/legacy marks for: "${classInfo.subject} - ${classInfo.className}"`);
+        logActivity(`Updated learner roster for: "${classInfo.subject} - ${classInfo.className}"`);
     } catch (e) {
         console.error(e);
         showError("Failed to save updates locally.");

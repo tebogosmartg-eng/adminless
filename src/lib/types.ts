@@ -3,10 +3,13 @@ export interface Learner {
   mark: string; // Legacy/Current Aggregate
   comment?: string;
   id?: string; 
+  class_id?: string;
 }
 
 export interface ClassInfo {
   id: string;
+  year_id: string;
+  term_id: string;
   grade: string;
   subject: string;
   className: string;
@@ -22,6 +25,7 @@ export interface AttendanceRecord {
   id?: string;
   learner_id: string;
   class_id?: string;
+  term_id?: string;
   status: AttendanceStatus;
   date?: string;
   user_id?: string;
@@ -51,12 +55,18 @@ export interface ScannedDetails {
 
 export interface Activity {
   id: string;
+  user_id: string;
+  year_id: string;
+  term_id: string;
   timestamp: string;
   message: string;
 }
 
 export interface Todo {
   id: string;
+  user_id: string;
+  year_id: string;
+  term_id: string;
   title: string;
   completed: boolean;
   created_at: string;
@@ -157,6 +167,8 @@ export interface LearnerNote {
   id: string;
   learner_id: string;
   user_id?: string;
+  year_id: string;
+  term_id: string;
   content: string;
   category: 'behavior' | 'academic' | 'parent' | 'general' | 'positive';
   date: string;
@@ -169,6 +181,7 @@ export interface Evidence {
   id: string;
   user_id?: string;
   class_id: string;
+  year_id: string;
   term_id?: string | null;
   learner_id?: string | null;
   file_path: string;

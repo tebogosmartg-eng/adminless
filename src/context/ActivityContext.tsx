@@ -4,6 +4,7 @@ import { Activity } from '@/lib/types';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
+import { useAcademic } from './AcademicContext';
 
 interface ActivityContextType {
   activities: Activity[];
@@ -13,23 +14,27 @@ interface ActivityContextType {
 const ActivityContext = createContext<ActivityContextType | undefined>(undefined);
 
 export const ActivityProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
+  const { activeYear, activeTerm } = useAcademic();
   
-  // Live Query from Dexie
+  // Strict Isolation: Query by term_id
   const activities = useLiveQuery(async () => {
-    if (!session?.user.id) return [];
+    if (!session?.user.id || !activeTerm) return [];
     return db.activities
-        .orderBy('timestamp')
+        .where('term_id')
+        .equals(activeTerm.id)
         .reverse()
         .limit(20)
         .toArray();
-  }, [session?.user.id]) || [];
+  }, [session?.user.id, activeTerm?.id]) || [];
 
   const logActivity = useCallback(async (message: string) => {
-    if (!session?.user.id) return;
+    if (!session?.user.id || !activeYear || !activeTerm) return;
 
-    const newActivity = {
+    const newActivity: Activity = {
       id: crypto.randomUUID(),
       user_id: session.user.id,
+      year_id: activeYear.id,
+      term_id: activeTerm.id,
       message,
       timestamp: new Date().toISOString(),
     };
@@ -40,7 +45,7 @@ export const ActivityProvider = ({ children, session }: { children: ReactNode; s
     // 2. Queue Sync
     await queueAction('activities', 'create', newActivity);
 
-  }, [session?.user.id]);
+  }, [session?.user.id, activeYear?.id, activeTerm?.id]);
 
   return (
     <ActivityContext.Provider value={{ activities, logActivity }}>

@@ -11,7 +11,7 @@ import { compressImage } from '@/utils/image';
 
 export const useScanLogic = () => {
   const { classes, updateLearners, addClass } = useClasses();
-  const { activeTerm, createAssessment, updateMarks } = useAcademic();
+  const { activeYear, activeTerm, createAssessment, updateMarks } = useAcademic();
   const { isOnline } = useSync();
   const navigate = useNavigate();
   const location = useLocation();
@@ -286,7 +286,7 @@ export const useScanLogic = () => {
   };
 
   const handleCreateNewClass = () => {
-    if (!scannedDetails || !newClassName) {
+    if (!scannedDetails || !newClassName || !activeYear || !activeTerm) {
       showError("Please ensure all class details are filled out.");
       return;
     }
@@ -298,10 +298,14 @@ export const useScanLogic = () => {
 
     addClass({
       id: crypto.randomUUID(),
+      year_id: activeYear.id,
+      term_id: activeTerm.id,
       grade: scannedDetails.grade,
       subject: scannedDetails.subject,
       className: newClassName,
-      learners: newLearners
+      learners: newLearners,
+      archived: false,
+      notes: ""
     });
 
     showSuccess(`Created new class "${newClassName}".`);

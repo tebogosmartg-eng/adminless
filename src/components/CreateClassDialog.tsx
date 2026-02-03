@@ -18,6 +18,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import { ClassInfo } from "@/lib/types";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "@/context/SettingsContext";
+import { useAcademic } from "@/context/AcademicContext";
 
 interface CreateClassDialogProps {
   onClassCreate: (classInfo: ClassInfo) => void;
@@ -32,15 +33,23 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { savedSubjects, savedGrades } = useSettings();
+  const { activeYear, activeTerm } = useAcademic();
 
   const handleSubmit = () => {
     if (grade && subject && className && learners) {
+      if (!activeYear || !activeTerm) {
+          showError("No active academic session found.");
+          return;
+      }
+
       const learnerList = learners.split('\n')
         .filter(name => name.trim() !== '')
         .map(name => ({ name: name.trim(), mark: '' }));
 
       onClassCreate({
-        id: new Date().toISOString(),
+        id: crypto.randomUUID(),
+        year_id: activeYear.id,
+        term_id: activeTerm.id,
         grade,
         subject,
         className,
