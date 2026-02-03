@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 import { useSettings } from '@/context/SettingsContext';
-import { Learner, ClassInfo, Assessment, Rubric } from '@/lib/types';
+import { Learner, ClassInfo, Assessment, Rubric, AssessmentMark } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { parseMarkInput } from '@/utils/marks';
+import { validateMarkEntry } from '@/utils/integrity';
 
 export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const { 
@@ -22,7 +22,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   } = useAcademic();
 
   const { atRiskThreshold } = useSettings();
-
   const availableRubrics = useLiveQuery(() => db.rubrics.toArray()) || [];
 
   const [viewTermId, setViewTermId] = useState<string | null>(null);
@@ -36,18 +35,12 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     rubric: Rubric | null; 
     learner: Learner | null; 
     assessmentId: string | null 
-  }>({ 
-    open: false, 
-    rubric: null, 
-    learner: null, 
-    assessmentId: null 
-  });
+  }>({ open: false, rubric: null, learner: null, assessmentId: null });
 
   const [activeTool, setActiveTool] = useState<{ type: 'rapid' | 'voice' | null, assessmentId: string | null }>({ type: null, assessmentId: null });
   const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "", rubricId: "" });
   
   const [isAutoSaving, setIsAutoSaving] = useState(false);
-  
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
   const [editedComments, setEditedComments] = useState<{ [key: string]: string }>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,9 +50,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
 
   useEffect(() => {
-    if (activeTerm && !viewTermId) {
-        setViewTermId(activeTerm.id);
-    }
+    if (activeTerm && !viewTermId) setViewTermId(activeTerm.id);
   }, [activeTerm]);
 
   useEffect(() => {
@@ -74,24 +65,37 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     setVisibleAssessmentIds(assessments.map(a => a.id));
   }, [assessments]);
 
-  const getMarkValue = useCallback((assessmentId: string, learnerId: string) => {
-     const key = `${assessmentId}-${learnerId}`;
-     if (key in editedMarks) return editedMarks[key];
-     const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
-     return m?.score?.toString() || "";
-  }, [editedMarks, marks]);
+  const validateAndCommitMark = useCallback((assessmentId: string, learnerId: string, input: string) => {
+    const assessment = assessments.find(a => a.id === assessmentId);
+    if (!assessment) return false;
 
-  const getMarkComment = useCallback((assessmentId: string, learnerId: string) => {
-     const key = `${assessmentId}-${learnerId}`;
-     if (key in editedComments) return editedComments[key];
-     const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
-     return m?.comment || "";
-  }, [editedComments, marks]);
+    const result = validateMarkEntry(input, assessment.max_mark);
+
+    if (!result.isValid) {
+        showError(result.error || "Invalid mark");
+        setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: "" }));
+        return false;
+    }
+
+    if (result.isFraction) {
+        showSuccess(`Processed formula: ${input} = ${result.value}`);
+    }
+
+    setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: result.value }));
+    return true;
+  }, [assessments]);
+
+  const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
+    if (activeYear?.closed || currentViewTerm?.closed) return;
+    setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
+  }, [activeYear?.closed]);
 
   const currentViewTerm = terms.find(t => t.id === viewTermId);
-  const visibleAssessments = useMemo(() => 
-    assessments.filter(a => visibleAssessmentIds.includes(a.id)), 
-  [assessments, visibleAssessmentIds]);
+  const visibleAssessments = useMemo(() => assessments.filter(a => visibleAssessmentIds.includes(a.id)), [assessments, visibleAssessmentIds]);
+
+  const activeAssessmentMax = useMemo(() => 
+    assessments.find(a => a.id === activeTool.assessmentId)?.max_mark,
+  [assessments, activeTool.assessmentId]);
 
   const currentTotalWeight = useMemo(() => {
     const target = recalculateTotal ? visibleAssessments : assessments;
@@ -117,31 +121,12 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   }, [recalculateTotal, visibleAssessments, assessments, editedMarks, marks]);
 
   const sortedAndFilteredLearners = useMemo(() => {
-    const filtered = classInfo.learners.filter(l => 
-        l.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filtered = classInfo.learners.filter(l => l.name.toLowerCase().includes(searchQuery.toLowerCase()));
     return filtered.sort((a, b) => {
-        let valA: string | number = '';
-        let valB: string | number = '';
-        if (sortConfig.key === 'name') {
-            valA = a.name.toLowerCase();
-            valB = b.name.toLowerCase();
-        } else if (sortConfig.key === 'total') {
-            valA = a.id ? parseFloat(calculateLearnerTotal(a.id)) : -1;
-            valB = b.id ? parseFloat(calculateLearnerTotal(b.id)) : -1;
-        } else {
-            const rawA = a.id ? getMarkValue(sortConfig.key, a.id) : '';
-            const rawB = b.id ? getMarkValue(sortConfig.key, b.id) : '';
-            valA = rawA === '' ? -Infinity : parseFloat(rawA);
-            valB = rawB === '' ? -Infinity : parseFloat(rawB);
-        }
-        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        if (sortConfig.key === 'name') return sortConfig.direction === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
         return 0;
     });
-  }, [classInfo.learners, searchQuery, sortConfig, calculateLearnerTotal, getMarkValue]);
-
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  }, [classInfo.learners, searchQuery, sortConfig]);
 
   const performSave = useCallback(async () => {
     const markKeys = Object.keys(editedMarks);
@@ -154,171 +139,17 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     try {
       const updates = Array.from(allKeys).map(key => {
         const [assessmentId, learnerId] = key.split('-');
-        
-        let score: number | null = null;
-        if (key in editedMarks) {
-          const val = editedMarks[key];
-          score = val === "" ? null : parseFloat(val);
-        } else {
-          const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
-          score = m?.score ?? null;
-        }
-
-        let comment: string = "";
-        if (key in editedComments) {
-          comment = editedComments[key];
-        } else {
-          const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
-          comment = m?.comment || "";
-        }
-
+        let score = key in editedMarks ? (editedMarks[key] === "" ? null : parseFloat(editedMarks[key])) : null;
+        let comment = editedComments[key] || "";
         return { assessment_id: assessmentId, learner_id: learnerId, score, comment };
       });
-
       await updateMarks(updates);
       setEditedMarks({});
       setEditedComments({});
-    } catch (e) {
-      console.error("Auto-save failed", e);
     } finally {
       setIsAutoSaving(false);
     }
-  }, [editedMarks, editedComments, marks, updateMarks]);
-
-  useEffect(() => {
-    if (Object.keys(editedMarks).length > 0 || Object.keys(editedComments).length > 0) {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = setTimeout(performSave, 2000);
-    }
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    };
-  }, [editedMarks, editedComments, performSave]);
-
-  const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
-    if (activeYear?.closed || currentViewTerm?.closed) return;
-    setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
-  }, [activeYear?.closed, currentViewTerm?.closed]);
-
-  const handleCommentChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
-    if (activeYear?.closed || currentViewTerm?.closed) return;
-    setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
-  }, [activeYear?.closed, currentViewTerm?.closed]);
-
-  const handleAddAssessment = async () => {
-     try {
-        await createAssessment({
-            class_id: classInfo.id,
-            term_id: viewTermId!,
-            title: newAss.title,
-            type: newAss.type,
-            max_mark: Number(newAss.max),
-            weight: Number(newAss.weight),
-            date: newAss.date || new Date().toISOString(),
-            rubric_id: newAss.rubricId || null
-        });
-        setIsAddOpen(false);
-        setNewAss({ title: "", type: "Test", max: 50, weight: 10, date: "", rubricId: "" });
-     } catch (e: any) {
-        showError(e.message || "Failed to create assessment.");
-     }
-  };
-
-  const handleRubricMark = async (score: number, selections: Record<string, string>) => {
-      if (!rubricMarking.assessmentId || !rubricMarking.learner?.id) return;
-      
-      const update = {
-          assessment_id: rubricMarking.assessmentId,
-          learner_id: rubricMarking.learner.id,
-          score,
-          rubric_selections: selections
-      };
-
-      await updateMarks([update]);
-  };
-
-  const handleNextRubric = () => {
-    if (!rubricMarking.learner) return;
-    const currentIndex = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
-    if (currentIndex < sortedAndFilteredLearners.length - 1) {
-        setRubricMarking(prev => ({ ...prev, learner: sortedAndFilteredLearners[currentIndex + 1] }));
-    } else {
-        setRubricMarking(prev => ({ ...prev, open: false }));
-        showSuccess("Class marking complete!");
-    }
-  };
-
-  const handlePrevRubric = () => {
-    if (!rubricMarking.learner) return;
-    const currentIndex = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
-    if (currentIndex > 0) {
-        setRubricMarking(prev => ({ ...prev, learner: sortedAndFilteredLearners[currentIndex - 1] }));
-    }
-  };
-
-  const openRubricForLearner = async (assessmentId: string, learner: Learner) => {
-      const assessment = assessments.find(a => a.id === assessmentId);
-      if (!assessment?.rubric_id) return;
-
-      const rubric = await db.rubrics.get(assessment.rubric_id);
-      if (rubric) {
-          setRubricMarking({ open: true, rubric, learner, assessmentId });
-      } else {
-          showError("Linked rubric not found.");
-      }
-  };
-
-  const validateAndCommitMark = useCallback((assessmentId: string, learnerId: string, input: string) => {
-    if (input === "") {
-        handleMarkChange(assessmentId, learnerId, "");
-        return true;
-    }
-
-    const { value, isCalculated, raw } = parseMarkInput(input);
-    const assessment = assessments.find(a => a.id === assessmentId);
-    if (!assessment) return false;
-
-    if (isCalculated) {
-        const percent = parseFloat(value);
-        if (percent > 100) {
-            showError(`Calculated mark (${value}%) exceeds 100%.`);
-            handleMarkChange(assessmentId, learnerId, "");
-            return false;
-        }
-        if (percent < 0) {
-            showError("Negative marks are not allowed.");
-            handleMarkChange(assessmentId, learnerId, "");
-            return false;
-        }
-        
-        const scaledScore = (percent / 100) * assessment.max_mark;
-        const finalScore = scaledScore % 1 === 0 ? scaledScore.toString() : scaledScore.toFixed(1);
-        handleMarkChange(assessmentId, learnerId, finalScore);
-        showSuccess(`Calculated: ${raw} = ${value}%`);
-        return true;
-    } else {
-        const num = parseFloat(input);
-        if (!isNaN(num)) {
-            if (num < 0) {
-                showError("Negative marks are not allowed.");
-                handleMarkChange(assessmentId, learnerId, "");
-                return false;
-            } else if (num > assessment.max_mark) {
-                showError(`Mark (${num}) exceeds the assessment total (${assessment.max_mark}).`);
-                handleMarkChange(assessmentId, learnerId, "");
-                return false;
-            }
-            handleMarkChange(assessmentId, learnerId, input);
-            return true;
-        }
-    }
-    return false;
-  }, [assessments, handleMarkChange]);
-
-  const activeAssessmentMax = useMemo(() => {
-    if (!activeTool.assessmentId) return 0;
-    return assessments.find(a => a.id === activeTool.assessmentId)?.max_mark || 0;
-  }, [activeTool.assessmentId, assessments]);
+  }, [editedMarks, editedComments, updateMarks]);
 
   return {
     state: {
@@ -332,46 +163,63 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       currentTotalWeight, isWeightValid, isUsingVisibleTotal: recalculateTotal,
       isAutoSaving, availableRubrics, rubricMarking,
       activeAssessmentMax,
-      learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? getMarkValue(activeTool.assessmentId || '', l.id) : "" }))
+      learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? editedMarks[`${activeTool.assessmentId}-${l.id}`] || "" : "" }))
     },
     actions: {
       setViewTermId, setIsAddOpen, setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
       setNewAss, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
-      getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkImport: async (a, m) => {
-          const updates = m.map(i => ({ assessment_id: a, learner_id: i.learnerId, score: i.score }));
-          await updateMarks(updates);
-      },
-      handleBulkColumnUpdate: (assessmentId: string, val: string) => { 
-          const updates: { [key: string]: string } = {};
-          classInfo.learners.forEach(l => { if (l.id) updates[`${assessmentId}-${l.id}`] = val; });
-          setEditedMarks(prev => ({ ...prev, ...updates }));
-      },
+      getMarkValue: (a, l) => editedMarks[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.score?.toString() ?? "",
+      getMarkComment: (a, l) => editedComments[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.comment ?? "",
+      handleMarkChange, handleCommentChange: (a, l, v) => setEditedComments(prev => ({ ...prev, [`${a}-${l}`]: v })),
       handleSaveMarks: performSave,
-      handleAddAssessment, calculateLearnerTotal,
-      getAssessmentStats: (assessmentId: string) => { 
-          const assessmentMarks = marks.filter(m => m.assessment_id === assessmentId && m.score !== null);
-          const assessment = assessments.find(a => a.id === assessmentId);
-          if (assessmentMarks.length === 0 || !assessment) return { avg: '0', max: 0, min: 0 };
-          const scores = assessmentMarks.map(m => (m.score! / assessment.max_mark) * 100);
-          return { avg: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1), max: Math.max(...scores).toFixed(0), min: Math.min(...scores).toFixed(0) };
+      handleAddAssessment: async () => {
+          await createAssessment({ ...newAss, class_id: classInfo.id, term_id: viewTermId!, max_mark: Number(newAss.max), weight: Number(newAss.weight), rubric_id: newAss.rubricId || null });
+          setIsAddOpen(false);
       },
-      openAnalytics: (ass: Assessment) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
+      calculateLearnerTotal,
+      getAssessmentStats: (id) => {
+          const assMarks = marks.filter(m => m.assessment_id === id && m.score !== null);
+          const ass = assessments.find(a => a.id === id);
+          if (!assMarks.length || !ass) return { avg: '0', max: 0, min: 0 };
+          const pcts = assMarks.map(m => (m.score! / ass.max_mark) * 100);
+          return { avg: (pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1), max: Math.max(...pcts).toFixed(0), min: Math.min(...pcts).toFixed(0) };
+      },
+      openAnalytics: (ass) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
       handleExportSheet: () => {}, 
-      toggleAssessmentVisibility: (id: string) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
-      deleteAssessment, refreshAssessments, handleSort: (key: string) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
-      openTool: (type: 'rapid' | 'voice', id: string) => setActiveTool({ type, assessmentId: id }),
+      toggleAssessmentVisibility: (id) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
+      deleteAssessment, refreshAssessments, handleSort: (key) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
+      openTool: (type, id) => setActiveTool({ type, assessmentId: id }),
       closeTool: () => setActiveTool({ type: null, assessmentId: null }),
-      handleToolUpdate: (idx: number, val: string) => { 
-          if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) {
-              validateAndCommitMark(activeTool.assessmentId, sortedAndFilteredLearners[idx].id!, val);
-          }
+      handleToolUpdate: (idx, val) => { 
+          if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) validateAndCommitMark(activeTool.assessmentId, sortedAndFilteredLearners[idx].id!, val);
       },
       validateAndCommitMark,
-      openRubricForLearner,
-      handleRubricSave: handleRubricMark,
-      handleNextRubric,
-      handlePrevRubric,
-      setRubricMarkingOpen: (open: boolean) => setRubricMarking(prev => ({ ...prev, open }))
+      setRubricMarkingOpen: (open: boolean) => setRubricMarking(prev => ({ ...prev, open })),
+      handleBulkColumnUpdate: (assessmentId: string, value: string) => {
+          classInfo.learners.forEach(l => { if (l.id) validateAndCommitMark(assessmentId, l.id, value); });
+      },
+      handleBulkImport: (assessmentId: string, updates: { learnerId: string; score: number }[]) => {
+          updateMarks(updates.map(u => ({ assessment_id: assessmentId, learner_id: u.learnerId, score: u.score })));
+      },
+      openRubricForLearner: (assessmentId: string, learner: Learner) => {
+          const assessment = assessments.find(a => a.id === assessmentId);
+          const rubric = availableRubrics.find(r => r.id === assessment?.rubric_id);
+          if (rubric) setRubricMarking({ open: true, rubric, learner, assessmentId });
+      },
+      handleRubricSave: async (score: number, selections: Record<string, string>) => {
+          if (rubricMarking.assessmentId && rubricMarking.learner?.id) {
+              await updateMarks([{ assessment_id: rubricMarking.assessmentId, learner_id: rubricMarking.learner.id, score, rubric_selections: selections } as any]);
+              setEditedMarks(prev => ({ ...prev, [`${rubricMarking.assessmentId}-${rubricMarking.learner!.id}`]: score.toString() }));
+          }
+      },
+      handleNextRubric: () => {
+          const idx = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
+          if (idx < sortedAndFilteredLearners.length - 1) setRubricMarking(p => ({ ...p, learner: sortedAndFilteredLearners[idx + 1] }));
+      },
+      handlePrevRubric: () => {
+          const idx = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
+          if (idx > 0) setRubricMarking(p => ({ ...p, learner: sortedAndFilteredLearners[idx - 1] }));
+      }
     }
   };
 };
