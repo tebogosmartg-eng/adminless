@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 import { useSettings } from '@/context/SettingsContext';
 import { Learner, ClassInfo, Assessment, Rubric, AssessmentMark } from '@/lib/types';
@@ -12,6 +12,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const { 
     terms,
     activeTerm, 
+    setActiveTerm,
     activeYear,
     assessments, 
     marks, 
@@ -24,7 +25,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const { atRiskThreshold } = useSettings();
   const availableRubrics = useLiveQuery(() => db.rubrics.toArray()) || [];
 
-  const [viewTermId, setViewTermId] = useState<string | null>(null);
+  // UI state
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isCopyOpen, setIsCopyOpen] = useState(false);
@@ -49,23 +50,26 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const [recalculateTotal, setRecalculateTotal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
 
+  // Sync the academic data layer with current class and global active term
   useEffect(() => {
-    if (activeTerm && !viewTermId) setViewTermId(activeTerm.id);
-  }, [activeTerm]);
-
-  useEffect(() => {
-    if (viewTermId) {
-        refreshAssessments(classInfo.id, viewTermId);
+    if (activeTerm?.id) {
+        refreshAssessments(classInfo.id, activeTerm.id);
+        // Clear buffers when context changes
         setEditedMarks({}); 
         setEditedComments({});
     }
-  }, [viewTermId, classInfo.id]);
+  }, [activeTerm?.id, classInfo.id]);
 
   useEffect(() => {
     setVisibleAssessmentIds(assessments.map(a => a.id));
   }, [assessments]);
 
-  // Unified Persistence Method
+  // Handle term switching globally
+  const handleTermChange = (termId: string) => {
+    const term = terms.find(t => t.id === termId);
+    if (term) setActiveTerm(term);
+  };
+
   const persistMark = useCallback(async (assessmentId: string, learnerId: string, value: string) => {
     setIsAutoSaving(true);
     try {
@@ -79,7 +83,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
             comment: editedComments[`${assessmentId}-${learnerId}`] || existingMark?.comment || ""
         }]);
         
-        // Clear from local "dirty" buffer once persisted to DB
         setEditedMarks(prev => {
             const next = { ...prev };
             delete next[`${assessmentId}-${learnerId}`];
@@ -108,21 +111,16 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
         showSuccess(`Processed formula: ${input} = ${result.value}`);
     }
 
-    // Update local state for immediate feedback
     setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: result.value }));
-    
-    // Auto-save to Database
     await persistMark(assessmentId, learnerId, result.value);
     return true;
   }, [assessments, persistMark]);
 
   const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
-    if (activeYear?.closed || currentViewTerm?.closed) return;
-    // Just update visual state while typing
+    if (activeYear?.closed || activeTerm?.closed) return;
     setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
-  }, [activeYear?.closed]);
+  }, [activeYear?.closed, activeTerm?.closed]);
 
-  const currentViewTerm = terms.find(t => t.id === viewTermId);
   const visibleAssessments = useMemo(() => assessments.filter(a => visibleAssessmentIds.includes(a.id)), [assessments, visibleAssessmentIds]);
 
   const activeAssessmentMax = useMemo(() => 
@@ -140,7 +138,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       const targetAssessments = recalculateTotal ? visibleAssessments : assessments;
       const combinedMarks = [...marks];
       
-      // Merge in any un-persisted "dirty" marks for real-time total calculation
       Object.entries(editedMarks).forEach(([key, val]) => {
           const [assId, lId] = key.split('-');
           if (lId === learnerId) {
@@ -166,7 +163,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const handleCommentChange = useCallback(async (assessmentId: string, learnerId: string, value: string) => {
     setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
     
-    // Auto-save comment
     setIsAutoSaving(true);
     try {
         const mark = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
@@ -189,10 +185,11 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   return {
     state: {
-      viewTermId, isAddOpen, isImportOpen, isCopyOpen, analyticsOpen,
+      viewTermId: activeTerm?.id || null, 
+      isAddOpen, isImportOpen, isCopyOpen, analyticsOpen,
       newAss, editedMarks, editedComments, searchQuery, selectedAssessment,
-      visibleAssessmentIds, recalculateTotal, currentViewTerm, visibleAssessments,
-      isLocked: activeYear?.closed || currentViewTerm?.closed || viewTermId !== activeTerm?.id, 
+      visibleAssessmentIds, recalculateTotal, currentViewTerm: activeTerm, visibleAssessments,
+      isLocked: activeYear?.closed || activeTerm?.closed, 
       filteredLearners: sortedAndFilteredLearners,
       assessments, marks, terms, activeTerm, activeYear,
       atRiskThreshold, sortConfig, activeTool, 
@@ -202,7 +199,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? editedMarks[`${activeTool.assessmentId}-${l.id}`] || (marks.find(m => m.assessment_id === activeTool.assessmentId && m.learner_id === l.id)?.score?.toString() || "") : "" }))
     },
     actions: {
-      setViewTermId, setIsAddOpen, setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
+      setViewTermId: handleTermChange, 
+      setIsAddOpen, setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
       setNewAss, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
       getMarkValue: (a, l) => editedMarks[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.score?.toString() ?? "",
       getMarkComment: (a, l) => editedComments[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.comment ?? "",
@@ -210,7 +208,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       handleCommentChange,
       handleSaveMarks: () => {}, 
       handleAddAssessment: async () => {
-          await createAssessment({ ...newAss, class_id: classInfo.id, term_id: viewTermId!, max_mark: Number(newAss.max), weight: Number(newAss.weight), rubric_id: newAss.rubricId || null });
+          if (!activeTerm) return;
+          await createAssessment({ ...newAss, class_id: classInfo.id, term_id: activeTerm.id, max_mark: Number(newAss.max), weight: Number(newAss.weight), rubric_id: newAss.rubricId || null });
           setIsAddOpen(false);
       },
       calculateLearnerTotal,
@@ -224,7 +223,9 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       openAnalytics: (ass) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
       handleExportSheet: () => {}, 
       toggleAssessmentVisibility: (id) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
-      deleteAssessment, refreshAssessments, handleSort: (key) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
+      deleteAssessment, 
+      refreshAssessments, 
+      handleSort: (key) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
       openTool: (type, id) => setActiveTool({ type, assessmentId: id }),
       closeTool: () => setActiveTool({ type: null, assessmentId: null }),
       handleToolUpdate: (idx, val) => { 

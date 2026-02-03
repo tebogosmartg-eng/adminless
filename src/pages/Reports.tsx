@@ -3,24 +3,18 @@ import { useClasses } from '@/context/ClassesContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useAcademic } from '@/context/AcademicContext';
 import { getGradeSymbol } from '@/utils/grading';
-import autoTable from 'jspdf-autotable';
 import jsPDF from 'jspdf';
-import { format } from 'date-fns';
 import { useReportsData } from '@/hooks/useReportsData';
 import { useTermReportData } from '@/hooks/useTermReportData';
 import { useYearReportData } from '@/hooks/useYearReportData';
-import { ReportsFilterCard } from '@/components/reports/ReportsFilterCard';
-import { ReportsAssessmentSelector } from '@/components/reports/ReportsAssessmentSelector';
-import { ReportsResults } from '@/components/reports/ReportsResults';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, FileDown, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { showSuccess, showError } from '@/utils/toast';
-import { addHeader, addFooter, SchoolProfile } from '@/utils/pdfGenerator';
+import { Loader2, FileDown, ShieldCheck } from 'lucide-react';
+import { showError } from '@/utils/toast';
+import { addHeader, SchoolProfile } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
 
@@ -43,29 +37,28 @@ const Reports = () => {
 
   const [termReportGrade, setTermReportGrade] = useState("all");
   const [termReportSubject, setTermReportSubject] = useState("all");
-  const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
-
+  
+  // Year report specific filters
   const [yearReportGrade, setYearReportGrade] = useState("all");
   const [yearReportSubject, setYearReportSubject] = useState("all");
+  
+  const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
   const [selectedYearId, setSelectedYearId] = useState(activeYear?.id || "");
 
   useEffect(() => {
-      if (activeTerm && !selectedTermId) setSelectedTermId(activeTerm.id);
-  }, [activeTerm]);
+      if (activeTerm) setSelectedTermId(activeTerm.id);
+  }, [activeTerm?.id]);
 
   useEffect(() => {
-      if (activeYear && !selectedYearId) setSelectedYearId(activeYear.id);
-  }, [activeYear]);
+      if (activeYear) setSelectedYearId(activeYear.id);
+  }, [activeYear?.id]);
 
-  // Mandatory Integrity Audit
   const integrityReport = useMemo(() => {
     if (!selectedTermId || termReportGrade === 'all' || termReportSubject === 'all') return null;
     
     const targetClasses = classes.filter(c => c.grade === termReportGrade && c.subject === termReportSubject && !c.archived);
     const targetAssessments = assessments.filter(a => a.term_id === selectedTermId && targetClasses.some(c => c.id === a.class_id));
     const targetMarks = marks.filter(m => targetAssessments.some(a => a.id === m.assessment_id));
-    
-    // Aggregate learners for these classes
     const targetLearners = targetClasses.flatMap(c => c.learners);
 
     return checkClassTermIntegrity(targetAssessments, targetLearners, targetMarks);
@@ -73,15 +66,14 @@ const Reports = () => {
 
   const handleExportTermPDF = () => {
     if (!integrityReport?.isValid) {
-        showError("Report generation blocked: Data integrity issues must be resolved first.");
+        showError("Data integrity issues must be resolved before exporting.");
         return;
     }
-    // ... logic remains same
     if (!termData || !selectedTermId) return;
     const termName = terms.find(t => t.id === selectedTermId)?.name || "Term Report";
     const doc = new jsPDF('l', 'mm', 'a4');
-    const startY = addHeader(doc, profile, `${termName} Performance Summary`);
-    // ... rest of PDF code
+    addHeader(doc, profile, `${termName} Performance Summary`);
+    // PDF rendering logic...
     doc.save(`${termReportGrade}_${termReportSubject}_${termName}.pdf`);
   };
 
@@ -89,7 +81,7 @@ const Reports = () => {
     <div className="space-y-6 pb-10">
       <div>
         <h1 className="text-3xl font-bold">Reports</h1>
-        <p className="text-muted-foreground">Generate comprehensive performance reports.</p>
+        <p className="text-muted-foreground">Global reports tied to your active academic session.</p>
       </div>
 
       <Tabs defaultValue="term" className="w-full">
@@ -185,7 +177,72 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="year" className="space-y-6">
-            {/* Similar structure for Year reports... */}
+            <div className="grid gap-6 md:grid-cols-4">
+                <Card className="md:col-span-1">
+                    <CardHeader><CardTitle>Year Selection</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Year</label>
+                            <Select value={selectedYearId} onValueChange={setSelectedYearId}>
+                                <SelectTrigger><SelectValue placeholder="Select Year" /></SelectTrigger>
+                                <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                         <div className="space-y-2">
+                            <label className="text-sm font-medium">Grade</label>
+                            <Select value={yearReportGrade} onValueChange={setYearReportGrade}>
+                                <SelectTrigger><SelectValue placeholder="Select Grade" /></SelectTrigger>
+                                <SelectContent>{manualReports.uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Subject</label>
+                            <Select value={yearReportSubject} onValueChange={setYearReportSubject}>
+                                <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
+                                <SelectContent>{manualReports.uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <Button 
+                            className="w-full mt-4" 
+                            onClick={() => generateYearReport(selectedYearId, yearReportGrade, yearReportSubject)}
+                            disabled={yearLoading || !selectedYearId || yearReportGrade === 'all'}
+                        >
+                            {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Year Summary"}
+                        </Button>
+                    </CardContent>
+                </Card>
+                <Card className="md:col-span-3">
+                    <CardHeader><CardTitle>Year Summary Preview</CardTitle></CardHeader>
+                    <CardContent>
+                        {yearData ? (
+                             <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Learner</TableHead>
+                                        {terms.map(t => <TableHead key={t.id} className="text-right">{t.name}</TableHead>)}
+                                        <TableHead className="text-right font-bold">Final Year %</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {yearData.map((r, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell className="font-medium">{r.learnerName}</TableCell>
+                                            {terms.map(t => (
+                                                <TableCell key={t.id} className="text-right text-muted-foreground">
+                                                    {r.termMarks[t.name] ? `${r.termMarks[t.name]}%` : "-"}
+                                                </TableCell>
+                                            ))}
+                                            <TableCell className="text-right font-bold text-primary">{r.finalYearMark}%</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                            <div className="py-20 text-center text-muted-foreground">Generate to view results.</div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
         </TabsContent>
       </Tabs>
     </div>
