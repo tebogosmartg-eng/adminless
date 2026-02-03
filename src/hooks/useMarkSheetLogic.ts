@@ -65,7 +65,34 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     setVisibleAssessmentIds(assessments.map(a => a.id));
   }, [assessments]);
 
-  const validateAndCommitMark = useCallback((assessmentId: string, learnerId: string, input: string) => {
+  // Unified Persistence Method
+  const persistMark = useCallback(async (assessmentId: string, learnerId: string, value: string) => {
+    setIsAutoSaving(true);
+    try {
+        const score = value === "" ? null : parseFloat(value);
+        const existingMark = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+        
+        await updateMarks([{ 
+            assessment_id: assessmentId, 
+            learner_id: learnerId, 
+            score,
+            comment: editedComments[`${assessmentId}-${learnerId}`] || existingMark?.comment || ""
+        }]);
+        
+        // Clear from local "dirty" buffer once persisted to DB
+        setEditedMarks(prev => {
+            const next = { ...prev };
+            delete next[`${assessmentId}-${learnerId}`];
+            return next;
+        });
+    } catch (e) {
+        console.error("Auto-save failed", e);
+    } finally {
+        setIsAutoSaving(false);
+    }
+  }, [updateMarks, editedComments, marks]);
+
+  const validateAndCommitMark = useCallback(async (assessmentId: string, learnerId: string, input: string) => {
     const assessment = assessments.find(a => a.id === assessmentId);
     if (!assessment) return false;
 
@@ -81,12 +108,17 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
         showSuccess(`Processed formula: ${input} = ${result.value}`);
     }
 
+    // Update local state for immediate feedback
     setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: result.value }));
+    
+    // Auto-save to Database
+    await persistMark(assessmentId, learnerId, result.value);
     return true;
-  }, [assessments]);
+  }, [assessments, persistMark]);
 
   const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
     if (activeYear?.closed || currentViewTerm?.closed) return;
+    // Just update visual state while typing
     setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
   }, [activeYear?.closed]);
 
@@ -107,6 +139,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const calculateLearnerTotal = useCallback((learnerId: string) => {
       const targetAssessments = recalculateTotal ? visibleAssessments : assessments;
       const combinedMarks = [...marks];
+      
+      // Merge in any un-persisted "dirty" marks for real-time total calculation
       Object.entries(editedMarks).forEach(([key, val]) => {
           const [assId, lId] = key.split('-');
           if (lId === learnerId) {
@@ -116,6 +150,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
               else combinedMarks.push(entry);
           }
       });
+      
       const result = calculateWeightedAverage(targetAssessments, combinedMarks, learnerId);
       return formatDisplayMark(result);
   }, [recalculateTotal, visibleAssessments, assessments, editedMarks, marks]);
@@ -128,28 +163,29 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     });
   }, [classInfo.learners, searchQuery, sortConfig]);
 
-  const performSave = useCallback(async () => {
-    const markKeys = Object.keys(editedMarks);
-    const commentKeys = Object.keys(editedComments);
-    const allKeys = new Set([...markKeys, ...commentKeys]);
-
-    if (allKeys.size === 0) return;
-
+  const handleCommentChange = useCallback(async (assessmentId: string, learnerId: string, value: string) => {
+    setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
+    
+    // Auto-save comment
     setIsAutoSaving(true);
     try {
-      const updates = Array.from(allKeys).map(key => {
-        const [assessmentId, learnerId] = key.split('-');
-        let score = key in editedMarks ? (editedMarks[key] === "" ? null : parseFloat(editedMarks[key])) : null;
-        let comment = editedComments[key] || "";
-        return { assessment_id: assessmentId, learner_id: learnerId, score, comment };
-      });
-      await updateMarks(updates);
-      setEditedMarks({});
-      setEditedComments({});
+        const mark = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+        await updateMarks([{ 
+            assessment_id: assessmentId, 
+            learner_id: learnerId, 
+            score: mark?.score ?? null,
+            comment: value
+        }]);
+        
+        setEditedComments(prev => {
+            const next = { ...prev };
+            delete next[`${assessmentId}-${learnerId}`];
+            return next;
+        });
     } finally {
-      setIsAutoSaving(false);
+        setIsAutoSaving(false);
     }
-  }, [editedMarks, editedComments, updateMarks]);
+  }, [updateMarks, marks]);
 
   return {
     state: {
@@ -163,15 +199,16 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       currentTotalWeight, isWeightValid, isUsingVisibleTotal: recalculateTotal,
       isAutoSaving, availableRubrics, rubricMarking,
       activeAssessmentMax,
-      learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? editedMarks[`${activeTool.assessmentId}-${l.id}`] || "" : "" }))
+      learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? editedMarks[`${activeTool.assessmentId}-${l.id}`] || (marks.find(m => m.assessment_id === activeTool.assessmentId && m.learner_id === l.id)?.score?.toString() || "") : "" }))
     },
     actions: {
       setViewTermId, setIsAddOpen, setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
       setNewAss, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
       getMarkValue: (a, l) => editedMarks[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.score?.toString() ?? "",
       getMarkComment: (a, l) => editedComments[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.comment ?? "",
-      handleMarkChange, handleCommentChange: (a, l, v) => setEditedComments(prev => ({ ...prev, [`${a}-${l}`]: v })),
-      handleSaveMarks: performSave,
+      handleMarkChange, 
+      handleCommentChange,
+      handleSaveMarks: () => {}, 
       handleAddAssessment: async () => {
           await createAssessment({ ...newAss, class_id: classInfo.id, term_id: viewTermId!, max_mark: Number(newAss.max), weight: Number(newAss.weight), rubric_id: newAss.rubricId || null });
           setIsAddOpen(false);
@@ -195,8 +232,13 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       },
       validateAndCommitMark,
       setRubricMarkingOpen: (open: boolean) => setRubricMarking(prev => ({ ...prev, open })),
-      handleBulkColumnUpdate: (assessmentId: string, value: string) => {
-          classInfo.learners.forEach(l => { if (l.id) validateAndCommitMark(assessmentId, l.id, value); });
+      handleBulkColumnUpdate: async (assessmentId: string, value: string) => {
+          const updates = classInfo.learners.filter(l => l.id).map(l => ({
+              assessment_id: assessmentId,
+              learner_id: l.id!,
+              score: value === "" ? null : parseFloat(value)
+          }));
+          if (updates.length > 0) await updateMarks(updates);
       },
       handleBulkImport: (assessmentId: string, updates: { learnerId: string; score: number }[]) => {
           updateMarks(updates.map(u => ({ assessment_id: assessmentId, learner_id: u.learnerId, score: u.score })));
@@ -209,7 +251,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       handleRubricSave: async (score: number, selections: Record<string, string>) => {
           if (rubricMarking.assessmentId && rubricMarking.learner?.id) {
               await updateMarks([{ assessment_id: rubricMarking.assessmentId, learner_id: rubricMarking.learner.id, score, rubric_selections: selections } as any]);
-              setEditedMarks(prev => ({ ...prev, [`${rubricMarking.assessmentId}-${rubricMarking.learner!.id}`]: score.toString() }));
           }
       },
       handleNextRubric: () => {

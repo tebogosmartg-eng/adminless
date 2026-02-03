@@ -53,7 +53,7 @@ interface MarkSheetTableProps {
   onSort?: (key: string) => void;
   onOpenTool?: (type: 'rapid' | 'voice', assId: string) => void;
   onOpenRubric?: (assId: string, learner: Learner) => void;
-  validateAndCommitMark?: (assId: string, lId: string, val: string) => boolean;
+  validateAndCommitMark?: (assId: string, lId: string, val: string) => Promise<boolean> | boolean;
 }
 
 export const MarkSheetTable = ({

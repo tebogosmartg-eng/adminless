@@ -22,7 +22,7 @@ interface AcademicContextType {
   updateTerm: (term: Term) => Promise<void>;
   createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<string>;
   deleteAssessment: (id: string) => Promise<void>;
-  updateMarks: (updates: Partial<AssessmentMark> & { assessment_id: string; learner_id: string }[]) => Promise<void>;
+  updateMarks: (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => Promise<void>;
   refreshAssessments: (classId: string, termId?: string) => Promise<void>;
   toggleTermStatus: (termId: string, closed: boolean) => Promise<void>;
   closeYear: (yearId: string) => Promise<void>;
@@ -252,7 +252,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       showSuccess("Assessment deleted.");
   };
 
-  const updateMarks = async (updates: Partial<AssessmentMark> & { assessment_id: string; learner_id: string }[]) => {
+  const updateMarks = async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
     if (!session?.user.id || updates.length === 0) return;
     
     const assIds = [...new Set(updates.map(u => u.assessment_id))];
