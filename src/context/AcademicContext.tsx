@@ -245,9 +245,13 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         
         if (!sourceTerm || !targetTerm) throw new Error("Invalid term context.");
 
+        // We use a transaction to ensure atomic clean slate creation
         await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
             for (const sClass of preparedClasses) {
+                // Ensure unique ID for the new term instance
                 const newClassId = crypto.randomUUID();
+                
+                // Create a completely clean class entry
                 const newClass = {
                     id: newClassId,
                     user_id: session.user.id,
@@ -257,19 +261,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                     subject: sClass.subject,
                     className: sClass.className,
                     archived: false,
-                    notes: `Rolled forward from ${sourceTerm.name}`,
+                    notes: `Clean roster rolled forward from ${sourceTerm.name}`,
                     created_at: new Date().toISOString()
                 };
 
                 await db.classes.add(newClass);
                 await queueAction('classes', 'create', newClass);
 
+                // Create clean learner instances (unique IDs, zero marks, zero comments)
                 const newLearners = sClass.learners.map((l: any) => ({
                     id: crypto.randomUUID(),
                     class_id: newClassId,
                     name: l.name,
-                    mark: "",
-                    comment: ""
+                    mark: "", // Clean Slate: No aggregate marks
+                    comment: "" // Clean Slate: No teacher observations
                 }));
 
                 if (newLearners.length > 0) {
@@ -279,8 +284,14 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             }
         });
 
-        logActivity(`Rolled forward ${preparedClasses.length} classes from ${sourceTerm.name} to ${targetTerm.name}`);
-        showSuccess(`Successfully migrated ${preparedClasses.length} class rosters to ${targetTerm.name}.`);
+        // 1. Success Notification
+        logActivity(`Clean slate roll-forward: ${preparedClasses.length} classes migrated to ${targetTerm.name}`);
+        showSuccess(`Successfully migrated rosters to ${targetTerm.name}.`);
+
+        // 2. Automated Context Switch
+        // Since we created a clean slate, the user should now work in the new term
+        setActiveTerm(targetTerm);
+        
     } catch (e: any) {
         showError(e.message);
     }
