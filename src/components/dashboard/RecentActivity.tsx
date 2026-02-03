@@ -4,10 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Activity as ActivityIcon, CheckCircle2, FileText, UserPlus, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAcademic } from "@/context/AcademicContext";
 
 export default function RecentActivity() {
+  const { activeTerm } = useAcademic();
+
   const activities = useLiveQuery(
-    () => db.activities.orderBy("timestamp").reverse().limit(20).toArray()
+    async () => {
+      if (!activeTerm) return [];
+      return db.activities
+        .where('term_id')
+        .equals(activeTerm.id)
+        .reverse()
+        .limit(20)
+        .toArray();
+    },
+    [activeTerm?.id]
   );
 
   const getActivityIcon = (message: string) => {
@@ -24,13 +36,13 @@ export default function RecentActivity() {
           <Clock className="h-5 w-5 text-primary" />
           Recent Activity
         </CardTitle>
-        <CardDescription>Latest updates across your classes.</CardDescription>
+        <CardDescription>Updates for {activeTerm?.name || 'current term'}.</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-[300px] px-6 pb-4">
           {!activities || activities.length === 0 ? (
             <div className="text-center text-sm text-muted-foreground py-8">
-              No recent activity recorded.
+              No recent activity recorded for this term.
             </div>
           ) : (
             <div className="space-y-6">

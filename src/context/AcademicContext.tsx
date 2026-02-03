@@ -96,16 +96,19 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [assessments]) || [];
 
   const updateLearnerActiveAverages = useCallback(async (learnerIds: string[]) => {
-    const currentOpenTerm = terms.find(t => !t.closed);
-    if (!currentOpenTerm || learnerIds.length === 0) return;
+    if (learnerIds.length === 0) return;
 
     for (const learnerId of learnerIds) {
         const learner = await db.learners.get(learnerId);
         if (!learner) continue;
 
+        const classInfo = await db.classes.get(learner.class_id);
+        if (!classInfo) continue;
+
+        // Scoping: Find assessments for the EXACT term this class belongs to
         const termAssessments = await db.assessments
             .where('[class_id+term_id]')
-            .equals([learner.class_id, currentOpenTerm.id])
+            .equals([learner.class_id, classInfo.term_id])
             .toArray();
         
         if (termAssessments.length === 0) {
@@ -126,19 +129,13 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         await db.learners.update(learnerId, { mark: newAverage });
         await queueAction('learners', 'update', { id: learnerId, mark: newAverage });
     }
-  }, [terms]);
+  }, []);
 
   const recalculateAllActiveAverages = async () => {
-      const openTerm = terms.find(t => !t.closed);
-      if (!openTerm) {
-          showError("No active term found to recalculate.");
-          return;
-      }
-
       const allLearners = await db.learners.toArray();
       const ids = allLearners.map(l => l.id!);
       
-      await db.transaction('rw', [db.learners, db.sync_queue], async () => {
+      await db.transaction('rw', [db.learners, db.classes, db.assessments, db.assessment_marks, db.sync_queue], async () => {
           await updateLearnerActiveAverages(ids);
       });
 
