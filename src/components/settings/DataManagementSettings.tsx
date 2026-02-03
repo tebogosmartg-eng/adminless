@@ -20,7 +20,6 @@ import { db } from "@/db";
 import { queueAction } from "@/services/sync";
 import { useSync } from "@/context/SyncContext";
 import { useAcademic } from "@/context/AcademicContext";
-import { subDays, format } from "date-fns";
 
 export const DataManagementSettings = () => {
   const { isOnline, forceSync, isSyncing } = useSync();
@@ -28,7 +27,6 @@ export const DataManagementSettings = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
 
   const handleRecalculate = async () => {

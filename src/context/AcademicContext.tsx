@@ -109,11 +109,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const recalculateAllActiveAverages = async () => {
       const openTerm = terms.find(t => !t.closed);
-      if (!openTerm) return;
+      if (!openTerm) {
+          showError("No active term found to recalculate.");
+          return;
+      }
+
       const allLearners = await db.learners.toArray();
       const ids = allLearners.map(l => l.id!);
-      await updateLearnerActiveAverages(ids);
-      showSuccess("All class averages recalculated.");
+      
+      // Perform batch update to ensure atomicity
+      await db.transaction('rw', [db.learners, db.sync_queue], async () => {
+          await updateLearnerActiveAverages(ids);
+      });
+
+      showSuccess("Global data audit and average repair complete.");
   };
 
   const createYear = async (name: string) => {

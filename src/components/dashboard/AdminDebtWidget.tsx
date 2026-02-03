@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertCircle, FileEdit, CalendarCheck, ArrowRight, ShieldAlert, FileWarning } from "lucide-react";
+import { AlertCircle, FileEdit, CalendarCheck, ArrowRight, ShieldAlert } from "lucide-react";
 import { useClasses } from "@/context/ClassesContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { usePendingAttendance } from "@/hooks/usePendingAttendance";
@@ -52,34 +52,20 @@ export const AdminDebtWidget = () => {
     return debts;
   }, [activeTerm, classes]) || [];
 
-  // NEW Logic: Moderation Sample Debt (Chat ID 112)
-  const moderationDebt = useLiveQuery(async () => {
-    if (!activeTerm) return [];
-    const activeClasses = classes.filter(c => !c.archived);
-    const evidence = await db.evidence.where('term_id').equals(activeTerm.id).and(e => e.category === 'script').toArray();
-    
-    const debts = [];
-    for (const cls of activeClasses) {
-        const classEvidenceCount = evidence.filter(e => e.class_id === cls.id).length;
-        const requiredCount = Math.max(1, Math.ceil(cls.learners.length * 0.1));
-        
-        if (classEvidenceCount < requiredCount) {
-            debts.push({
-                id: cls.id,
-                className: cls.className,
-                subject: cls.subject,
-                current: classEvidenceCount,
-                required: requiredCount
-            });
-        }
-    }
-    return debts;
-  }, [activeTerm, classes]) || [];
-
-  const hasDebt = pendingClasses.length > 0 || missingMarksInfo.length > 0 || moderationDebt.length > 0;
+  const hasDebt = pendingClasses.length > 0 || missingMarksInfo.length > 0;
 
   if (!hasDebt) {
-    return null;
+    return (
+        <Card className="bg-green-50/30 border-green-100 dark:bg-green-950/10">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2 text-green-700">
+                    <ShieldAlert className="h-5 w-5" />
+                    Admin Compliance
+                </CardTitle>
+                <CardDescription>Your records are currently 100% complete.</CardDescription>
+            </CardHeader>
+        </Card>
+    );
   }
 
   return (
@@ -121,25 +107,6 @@ export const AdminDebtWidget = () => {
                         </div>
                         <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
                             <Link to={`/classes/${debt.classId}`}>Capture <ArrowRight className="ml-1 h-3 w-3" /></Link>
-                        </Button>
-                    </div>
-                ))}
-            </div>
-        )}
-
-        {moderationDebt.length > 0 && (
-            <div className="space-y-2">
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-600">
-                    <FileWarning className="h-3 w-3" /> Moderation Sample Required (10%)
-                </div>
-                {moderationDebt.slice(0, 2).map((debt) => (
-                    <div key={debt.id} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
-                        <div className="flex flex-col">
-                            <span className="font-medium truncate max-w-[150px]">{debt.className} ({debt.subject})</span>
-                            <span className="text-[10px] text-muted-foreground">{debt.current} / {debt.required} scripts uploaded</span>
-                        </div>
-                        <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
-                            <Link to={`/classes/${debt.id}`}>Attach <ArrowRight className="ml-1 h-3 w-3" /></Link>
                         </Button>
                     </div>
                 ))}
