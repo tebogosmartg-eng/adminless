@@ -80,9 +80,9 @@ const App = () => {
           <Sonner />
           <SyncProvider>
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                <SettingsProvider session={session}>
-                    <AcademicProvider session={session}>
-                        <ActivityProvider session={session}>
+                <AcademicProvider session={session}>
+                    <ActivityProvider session={session}>
+                        <SettingsProvider session={session}>
                             <ClassesProvider session={session}>
                                 <OfflineIndicator />
                                 <ReloadPrompt />
@@ -106,9 +106,9 @@ const App = () => {
                                 <Route path="*" element={<NotFound />} />
                                 </Routes>
                             </ClassesProvider>
-                        </ActivityProvider>
-                    </AcademicProvider>
-                </SettingsProvider>
+                        </SettingsProvider>
+                    </ActivityProvider>
+                </AcademicProvider>
             </BrowserRouter>
           </SyncProvider>
         </TooltipProvider>
