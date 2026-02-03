@@ -5,10 +5,11 @@ import { MarkSheetTable } from './MarkSheetTable';
 import { MarkSheetDialogs } from './MarkSheetDialogs';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { RapidEntryDialog } from '@/components/dialogs/RapidEntryDialog';
 import { VoiceEntryDialog } from '@/components/dialogs/VoiceEntryDialog';
 import { RubricMarkingDialog } from './RubricMarkingDialog';
+import { useMemo } from 'react';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
@@ -17,6 +18,21 @@ interface MarkSheetProps {
 
 export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) => {
   const { state, actions } = useMarkSheetLogic(classInfo);
+
+  // Live Audit Summary
+  const audit = useMemo(() => {
+    if (state.assessments.length === 0) return null;
+    
+    const totalExpectedMarks = state.assessments.length * classInfo.learners.length;
+    const recordedMarks = state.marks.filter(m => m.score !== null).length;
+    const missing = totalExpectedMarks - recordedMarks;
+    
+    return {
+        missing,
+        isWeightValid: state.isWeightValid,
+        totalWeight: state.currentTotalWeight
+    };
+  }, [state.assessments, state.marks, classInfo.learners, state.isWeightValid, state.currentTotalWeight]);
 
   const handleProfileClick = (learner: Learner) => {
       if (!onViewLearnerProfile) return;
@@ -53,6 +69,40 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
 
   return (
     <div className="space-y-4">
+       {/* Data Health Header */}
+       {audit && (
+           <div className="flex flex-wrap items-center gap-4 p-2 px-4 bg-muted/20 border rounded-lg text-[10px] uppercase font-bold tracking-wider">
+               <div className="flex items-center gap-1.5">
+                   <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                   <span className="text-muted-foreground">Data Integrity Audit:</span>
+               </div>
+               
+               <div className="flex items-center gap-4 ml-2">
+                   <div className="flex items-center gap-1">
+                       {audit.missing === 0 ? (
+                           <CheckCircle2 className="h-3 w-3 text-green-600" />
+                       ) : (
+                           <AlertCircle className="h-3 w-3 text-amber-500" />
+                       )}
+                       <span className={audit.missing === 0 ? "text-green-600" : "text-amber-600"}>
+                           {audit.missing === 0 ? "Marks Complete" : `${audit.missing} Marks Missing`}
+                       </span>
+                   </div>
+
+                   <div className="flex items-center gap-1 border-l pl-4">
+                       {audit.isWeightValid ? (
+                           <CheckCircle2 className="h-3 w-3 text-green-600" />
+                       ) : (
+                           <AlertCircle className="h-3 w-3 text-red-500" />
+                       )}
+                       <span className={audit.isWeightValid ? "text-green-600" : "text-red-500"}>
+                           {audit.isWeightValid ? "Weighting Valid (100%)" : `Weighting Invalid (${audit.totalWeight}%)`}
+                       </span>
+                   </div>
+               </div>
+           </div>
+       )}
+
        <MarkSheetToolbar 
           terms={state.terms}
           activeTerm={state.activeTerm}

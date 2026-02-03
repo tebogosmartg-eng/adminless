@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useMemo } from 'react';
 import { Learner, Assessment } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
-import { Upload } from 'lucide-react';
+import { Upload, AlertCircle } from 'lucide-react';
 
 interface AssessmentImportDialogProps {
   open: boolean;
@@ -19,7 +19,10 @@ export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learne
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("");
   const [text, setText] = useState('');
 
-  // Map learner names to IDs for quick lookup (normalize to lowercase)
+  const targetAssessment = useMemo(() => 
+    assessments.find(a => a.id === selectedAssessmentId), 
+  [selectedAssessmentId, assessments]);
+
   const learnerMap = useMemo(() => {
     const map = new Map<string, string>();
     learners.forEach(l => {
@@ -29,17 +32,16 @@ export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learne
   }, [learners]);
 
   const handleImport = () => {
-    if (!selectedAssessmentId || !text.trim()) {
+    if (!selectedAssessmentId || !text.trim() || !targetAssessment) {
         showError("Please select an assessment and enter data.");
         return;
     }
 
     const lines = text.split('\n').filter(line => line.trim() !== '');
     const updates: { learnerId: string; score: number }[] = [];
-    const missingNames: string[] = [];
+    const errors: string[] = [];
 
     lines.forEach(line => {
-      // Expect CSV format: Name, Mark
       const parts = line.split(',');
       if (parts.length >= 2) {
           const name = parts[0].trim().toLowerCase();
@@ -48,25 +50,43 @@ export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learne
 
           const learnerId = learnerMap.get(name);
           
-          if (learnerId && !isNaN(score)) {
-              updates.push({ learnerId, score });
-          } else if (!learnerId) {
-              missingNames.push(parts[0].trim());
+          if (!learnerId) {
+              errors.push(`Learner not found: ${parts[0].trim()}`);
+              return;
           }
+
+          if (isNaN(score)) {
+              errors.push(`Invalid number for ${parts[0].trim()}: ${markStr}`);
+              return;
+          }
+
+          if (score < 0) {
+              errors.push(`${parts[0].trim()}: Negative marks not allowed (${score})`);
+              return;
+          }
+
+          if (score > targetAssessment.max_mark) {
+              errors.push(`${parts[0].trim()}: Score ${score} exceeds max ${targetAssessment.max_mark}`);
+              return;
+          }
+
+          updates.push({ learnerId, score });
       }
     });
 
     if (updates.length > 0) {
       onImport(selectedAssessmentId, updates);
       showSuccess(`Imported ${updates.length} marks.`);
-      if (missingNames.length > 0) {
-          console.warn("Could not find learners:", missingNames);
-          showError(`Skipped ${missingNames.length} names not found in class list.`);
+      
+      if (errors.length > 0) {
+          console.warn("Import issues:", errors);
+          showError(`Skipped ${errors.length} rows due to validation errors. Check console for details.`);
       }
+      
       setText('');
       onOpenChange(false);
     } else {
-      showError("No valid matching data found.");
+      showError("No valid matching data found that passed validation.");
     }
   };
 
@@ -100,15 +120,16 @@ export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learne
                 value={text}
                 onChange={(e) => setText(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                  Format: Learner Name, Score (Raw mark, not percentage)
-              </p>
+              <div className="flex items-center gap-2 p-2 bg-blue-50 text-blue-700 text-[10px] rounded border border-blue-100">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <span>Format: Learner Name, Score (Raw mark). System will validate against Max Mark.</span>
+              </div>
           </div>
           
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleImport} disabled={!selectedAssessmentId}>
-                <Upload className="mr-2 h-4 w-4" /> Import Marks
+            <Button onClick={handleImport} disabled={!selectedAssessmentId || !text.trim()}>
+                <Upload className="mr-2 h-4 w-4" /> Validate & Import
             </Button>
           </div>
         </div>
