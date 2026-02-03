@@ -226,7 +226,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   };
 
   const handleRubricMark = async (score: number, selections: Record<string, string>) => {
-      if (!rubricMarking.assessmentId || !rubricMarking.learner.id) return;
+      if (!rubricMarking.assessmentId || !rubricMarking.learner?.id) return;
       
       const update = {
           assessment_id: rubricMarking.assessmentId,
@@ -235,9 +235,26 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           rubric_selections: selections
       };
 
-      // Direct save to academic context
       await updateMarks([update]);
-      showSuccess(`Score recorded: ${score}/${rubricMarking.rubric.total_points}`);
+  };
+
+  const handleNextRubric = () => {
+    if (!rubricMarking.learner) return;
+    const currentIndex = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
+    if (currentIndex < sortedAndFilteredLearners.length - 1) {
+        setRubricMarking(prev => ({ ...prev, learner: sortedAndFilteredLearners[currentIndex + 1] }));
+    } else {
+        setRubricMarking(prev => ({ ...prev, open: false }));
+        showSuccess("Class marking complete!");
+    }
+  };
+
+  const handlePrevRubric = () => {
+    if (!rubricMarking.learner) return;
+    const currentIndex = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
+    if (currentIndex > 0) {
+        setRubricMarking(prev => ({ ...prev, learner: sortedAndFilteredLearners[currentIndex - 1] }));
+    }
   };
 
   const openRubricForLearner = async (assessmentId: string, learner: Learner) => {
@@ -299,6 +316,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       },
       openRubricForLearner,
       handleRubricSave: handleRubricMark,
+      handleNextRubric,
+      handlePrevRubric,
       setRubricMarkingOpen: (open: boolean) => setRubricMarking(prev => ({ ...prev, open }))
     }
   };

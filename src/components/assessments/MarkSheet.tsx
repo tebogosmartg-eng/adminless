@@ -50,6 +50,8 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
     m.learner_id === state.rubricMarking.learner?.id
   );
 
+  const currentIndex = state.filteredLearners.findIndex(l => l.id === state.rubricMarking.learner?.id);
+
   return (
     <div className="space-y-4">
        <MarkSheetToolbar 
@@ -150,6 +152,8 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
                 learner={state.rubricMarking.learner}
                 initialSelections={currentMark?.rubric_selections}
                 onSave={actions.handleRubricSave}
+                onNext={currentIndex < state.filteredLearners.length - 1 ? actions.handleNextRubric : undefined}
+                onPrev={currentIndex > 0 ? actions.handlePrevRubric : undefined}
            />
        )}
     </div>
