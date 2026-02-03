@@ -1,7 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileJson, Database, Download, Upload, AlertTriangle, Loader2, RefreshCw, Calculator } from "lucide-react";
-import { useClasses } from "@/context/ClassesContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -21,6 +20,7 @@ import { queueAction } from "@/services/sync";
 import { useSync } from "@/context/SyncContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { DataAuditTool } from "./DataAuditTool";
+import { DataRecoveryTool } from "./DataRecoveryTool";
 
 export const DataManagementSettings = () => {
   const { isOnline, forceSync, isSyncing } = useSync();
@@ -98,18 +98,14 @@ export const DataManagementSettings = () => {
         const restoreTable = async (tableName: string, items: any[]) => {
             if (!items || !Array.isArray(items) || items.length === 0) return 0;
             
-            // Map items to ensure the current user owns them and fields match current schema
             const mappedItems = items.map(item => {
                 const newItem = { ...item, user_id: user.id };
-                
-                // Handle naming consistency for classes (class_name vs className)
                 if (tableName === 'classes') {
                     if (newItem.class_name && !newItem.className) {
                         newItem.className = newItem.class_name;
                         delete newItem.class_name;
                     }
                 }
-                
                 return newItem;
             });
 
@@ -125,12 +121,10 @@ export const DataManagementSettings = () => {
           await queueAction('profiles', 'upsert', profileData);
         }
 
-        // Sequential restoration to maintain dependencies
         await restoreTable('academic_years', data.academic_years);
         await restoreTable('terms', data.terms);
         
         if (data.classes) {
-            // Support very old format where learners were nested
             if (data.classes.some((c: any) => c.learners && Array.isArray(c.learners))) {
                 const flattenedClasses = data.classes.map((c: any) => {
                     const { learners, ...cls } = c;
@@ -200,6 +194,7 @@ export const DataManagementSettings = () => {
 
   return (
     <div className="space-y-6">
+        <DataRecoveryTool />
         <DataAuditTool />
         
         <Card>
