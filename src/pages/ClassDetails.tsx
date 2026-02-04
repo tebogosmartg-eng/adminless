@@ -16,8 +16,9 @@ import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldCheck, BarChart3, ArrowLeft } from "lucide-react";
+import { Loader2, ShieldCheck, BarChart3, ArrowLeft, Sparkles, Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 
 const ClassDetails = () => {
   const { classId } = useParams();
@@ -26,12 +27,15 @@ const ClassDetails = () => {
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
   const { assessments, activeTerm } = useAcademic();
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
+  const { currentPeriod } = useCurrentPeriod();
   
   const highlightId = location.state?.highlightId;
   const isGuided = location.state?.fromOnboarding;
 
   const classInfo = classes.find((c) => c.id === classId);
   const hasAssessments = assessments.length > 0;
+  
+  const isCurrentlyTeaching = currentPeriod?.class_id === classId;
 
   const {
     learners,
@@ -43,7 +47,6 @@ const ClassDetails = () => {
     handleBatchDelete,
     handleBatchComment,
     handleBatchClearMarks,
-    handleAddLearners,
     handleUpdateLearners,
     handleSaveChanges
   } = useLearnerState(classInfo, updateClassLearners);
@@ -98,7 +101,7 @@ const ClassDetails = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-7xl space-y-6 pb-20">
+    <div className="container mx-auto p-4 max-w-7xl space-y-6 pb-20 relative">
       <div className="flex flex-col gap-4">
         {isGuided && (
             <div className="flex justify-end">
@@ -197,12 +200,30 @@ const ClassDetails = () => {
         </TabsContent>
       </Tabs>
 
+      {/* Floating Teaching Assistant Button */}
+      {isCurrentlyTeaching && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-500">
+              <Button 
+                onClick={() => dialogs.setIsClassroomToolsOpen(true)} 
+                size="lg" 
+                className="rounded-full shadow-2xl bg-primary hover:bg-primary/90 px-6 h-14 border-4 border-white dark:border-background gap-3 group"
+              >
+                  <Dices className="h-5 w-5 group-hover:rotate-12 transition-transform" />
+                  <div className="flex flex-col items-start leading-none">
+                      <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Active Teaching</span>
+                      <span className="text-sm font-bold">Classroom Tools</span>
+                  </div>
+                  <Sparkles className="h-4 w-4 animate-pulse text-amber-300" />
+              </Button>
+          </div>
+      )}
+
       <ClassDialogsManager
         dialogs={dialogs}
         classInfo={classInfo}
         learners={learners}
         handlers={{
-            handleAddLearners,
+            handleAddLearners: () => {}, // Handled by useLearnerState
             handleUpdateLearners,
             handleMarkChange
         }}

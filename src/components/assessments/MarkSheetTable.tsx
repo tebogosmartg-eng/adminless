@@ -19,7 +19,7 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -90,6 +90,13 @@ export const MarkSheetTable = ({
     if (validateAndCommitMark) {
         validateAndCommitMark(assId, learnerId, currentValue);
     }
+  };
+
+  const handleBulkUpdate = (assId: string, value: string, label: string) => {
+      if (confirm(`Set all marks in this column to ${label}? This will overwrite existing marks.`)) {
+          if (handleBulkColumnUpdate) handleBulkColumnUpdate(assId, value);
+          showSuccess(`Column updated to ${label}.`);
+      }
   };
 
   const handleGridKeyDown = (e: React.KeyboardEvent, colIdx: number, rowIdx: number) => {
@@ -184,7 +191,7 @@ export const MarkSheetTable = ({
                                 <MoreHorizontal className="h-3 w-3" />
                             </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="w-52">
                             {onOpenTool && (
                                 <>
                                     <DropdownMenuItem onClick={() => onOpenTool('rapid', ass.id)}>
@@ -196,9 +203,16 @@ export const MarkSheetTable = ({
                                     <DropdownMenuSeparator />
                                 </>
                             )}
+                            <DropdownMenuItem onClick={() => handleBulkUpdate(ass.id, ass.max_mark.toString(), 'Max Marks')}>
+                                <CheckSquare className="mr-2 h-4 w-4 text-green-600" /> Fill Max Marks
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleBulkUpdate(ass.id, "", 'Empty')}>
+                                <Eraser className="mr-2 h-4 w-4 text-orange-500" /> Clear Column
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             {onEditAssessment && (
                               <DropdownMenuItem onClick={() => onEditAssessment(ass)}>
-                                <Settings2 className="mr-2 h-4 w-4" /> Edit Settings
+                                <Settings2 className="mr-2 h-4 w-4" /> Column Settings
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => { deleteAssessment(ass.id); }} className="text-destructive">
