@@ -1,3 +1,5 @@
+"use client";
+
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +8,7 @@ import { Assessment, AssessmentMark, Learner, GradeSymbol } from '@/lib/types';
 import { useSettings } from '@/context/SettingsContext';
 import { getGradeSymbol } from '@/utils/grading';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, Users, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, CheckCircle2, AlertTriangle, AlertCircle, Scale, Target, XCircle } from 'lucide-react';
 import { useMemo } from 'react';
 
 interface AssessmentAnalyticsDialogProps {
@@ -29,7 +31,7 @@ export const AssessmentAnalyticsDialog = ({
   const stats = useMemo(() => {
     if (!assessment) return null;
 
-    // Filter marks for this assessment
+    // Filter marks for this assessment and map to percentages
     const relevantMarks = marks
       .filter(m => m.assessment_id === assessment.id && m.score !== null)
       .map(m => ({
@@ -44,17 +46,23 @@ export const AssessmentAnalyticsDialog = ({
     const sum = relevantMarks.reduce((acc, curr) => acc + curr.percentage, 0);
     const average = sum / count;
     
-    const passCount = relevantMarks.filter(m => m.percentage >= 50).length;
-    const passRate = (passCount / count) * 100;
+    // Median Calculation
+    const sortedByMark = [...relevantMarks].sort((a, b) => a.percentage - b.percentage);
+    const mid = Math.floor(sortedByMark.length / 2);
+    const median = sortedByMark.length % 2 !== 0 
+        ? sortedByMark[mid].percentage 
+        : (sortedByMark[mid - 1].percentage + sortedByMark[mid].percentage) / 2;
 
     const highest = Math.max(...relevantMarks.map(m => m.percentage));
     const lowest = Math.min(...relevantMarks.map(m => m.percentage));
 
+    const passCount = relevantMarks.filter(m => m.percentage >= 50).length;
+    const failCount = count - passCount;
+    const passRate = (passCount / count) * 100;
+
     // Distribution
     const distribution: { [symbol: string]: number } = {};
-    // Initialize with 0
     gradingScheme.forEach(g => distribution[g.symbol] = 0);
-    // Add "Ungraded" or "Fail" if not covered? Usually scheme covers 0-100.
 
     relevantMarks.forEach(m => {
       const sym = getGradeSymbol(m.percentage, gradingScheme);
@@ -64,14 +72,12 @@ export const AssessmentAnalyticsDialog = ({
     });
 
     const chartData = gradingScheme
-      .sort((a, b) => a.min - b.min) // Low to High
+      .sort((a, b) => a.min - b.min)
       .map(g => ({
         name: g.symbol,
-        count: distribution[g.symbol] || 0,
-        color: g.color // CSS class string, might need parsing for Recharts fill
+        count: distribution[g.symbol] || 0
       }));
 
-    // Learners needing attention (bottom 5 or below threshold)
     const atRisk = relevantMarks
       .filter(m => m.percentage < atRiskThreshold)
       .map(m => {
@@ -83,6 +89,9 @@ export const AssessmentAnalyticsDialog = ({
     return {
       count,
       average: average.toFixed(1),
+      median: median.toFixed(1),
+      passCount,
+      failCount,
       passRate: passRate.toFixed(0),
       highest: highest.toFixed(1),
       lowest: lowest.toFixed(1),
@@ -95,15 +104,15 @@ export const AssessmentAnalyticsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between pr-6">
              <div>
-                <DialogTitle>{assessment.title}</DialogTitle>
+                <DialogTitle className="text-xl font-bold">{assessment.title} Analytics</DialogTitle>
                 <DialogDescription>{assessment.type} • Max: {assessment.max_mark} • Weight: {assessment.weight}%</DialogDescription>
              </div>
              {stats && (
-                 <Badge variant={Number(stats.passRate) >= 80 ? "default" : Number(stats.passRate) >= 50 ? "secondary" : "destructive"}>
+                 <Badge variant={Number(stats.passRate) >= 80 ? "default" : Number(stats.passRate) >= 50 ? "secondary" : "destructive"} className="px-3 py-1">
                     Pass Rate: {stats.passRate}%
                  </Badge>
              )}
@@ -112,61 +121,79 @@ export const AssessmentAnalyticsDialog = ({
 
         {stats ? (
           <ScrollArea className="flex-1 pr-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <Card>
-                    <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                        <Users className="h-5 w-5 text-muted-foreground mb-1" />
-                        <span className="text-2xl font-bold">{stats.count}</span>
-                        <span className="text-xs text-muted-foreground">Assessed</span>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+                <Card className="bg-muted/30 border-none shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center text-center">
+                        <Users className="h-4 w-4 text-muted-foreground mb-1" />
+                        <span className="text-xl font-bold">{stats.count}</span>
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Learners</span>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                        <TrendingUp className="h-5 w-5 text-primary mb-1" />
-                        <span className="text-2xl font-bold">{stats.average}%</span>
-                        <span className="text-xs text-muted-foreground">Average</span>
+                <Card className="bg-primary/5 border-none shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center text-center">
+                        <Target className="h-4 w-4 text-primary mb-1" />
+                        <span className="text-xl font-bold text-primary">{stats.average}%</span>
+                        <span className="text-[10px] uppercase font-bold text-primary/60">Average</span>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                        <CheckCircle2 className="h-5 w-5 text-green-600 mb-1" />
-                        <span className="text-2xl font-bold">{stats.highest}%</span>
-                        <span className="text-xs text-muted-foreground">Highest</span>
+                <Card className="bg-muted/30 border-none shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center text-center">
+                        <Scale className="h-4 w-4 text-muted-foreground mb-1" />
+                        <span className="text-xl font-bold">{stats.median}%</span>
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Median</span>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                        <AlertTriangle className="h-5 w-5 text-red-600 mb-1" />
-                        <span className="text-2xl font-bold">{stats.lowest}%</span>
-                        <span className="text-xs text-muted-foreground">Lowest</span>
+                <Card className="bg-green-50 dark:bg-green-950/20 border-none shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center text-center">
+                        <CheckCircle2 className="h-4 w-4 text-green-600 mb-1" />
+                        <span className="text-xl font-bold text-green-600">{stats.passCount}</span>
+                        <span className="text-[10px] uppercase font-bold text-green-600/60">Passes</span>
+                    </CardContent>
+                </Card>
+                <Card className="bg-red-50 dark:bg-red-950/20 border-none shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center text-center">
+                        <XCircle className="h-4 w-4 text-red-600 mb-1" />
+                        <span className="text-xl font-bold text-red-600">{stats.failCount}</span>
+                        <span className="text-[10px] uppercase font-bold text-red-600/60">Fails</span>
+                    </CardContent>
+                </Card>
+                <Card className="bg-muted/30 border-none shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center text-center">
+                        <TrendingUp className="h-4 w-4 text-muted-foreground mb-1" />
+                        <span className="text-xl font-bold">{stats.highest}%</span>
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Highest</span>
+                    </CardContent>
+                </Card>
+                <Card className="bg-muted/30 border-none shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center text-center">
+                        <TrendingDown className="h-4 w-4 text-muted-foreground mb-1" />
+                        <span className="text-xl font-bold">{stats.lowest}%</span>
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Lowest</span>
                     </CardContent>
                 </Card>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-                <Card className="shadow-none border">
+            <div className="grid md:grid-cols-2 gap-6 pb-6">
+                <Card className="shadow-none border bg-muted/5">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Symbol Distribution</CardTitle>
+                        <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Symbol Distribution</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[200px] w-full">
+                        <div className="h-[250px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={stats.chartData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis dataKey="name" tick={{fontSize: 12}} />
-                                    <YAxis allowDecimals={false} />
+                                    <YAxis allowDecimals={false} hide />
                                     <Tooltip 
                                         cursor={{ fill: 'transparent' }}
-                                        contentStyle={{ borderRadius: '8px' }}
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                     />
-                                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]}>
-                                        {stats.chartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={
-                                                entry.name === 'F' || entry.name === 'FF' ? '#ef4444' : // Red
-                                                entry.name === 'A' ? '#16a34a' : // Green
-                                                'hsl(var(--primary))'
-                                            } />
-                                        ))}
+                                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                                        {stats.chartData.map((entry, index) => {
+                                            const grade = gradingScheme.find(g => g.symbol === entry.name);
+                                            return <Cell key={`cell-${index}`} fill={grade ? grade.color.replace('text-', 'var(--') : 'hsl(var(--primary))'} />;
+                                        })}
                                     </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
@@ -174,27 +201,30 @@ export const AssessmentAnalyticsDialog = ({
                     </CardContent>
                 </Card>
 
-                <Card className="shadow-none border flex flex-col">
+                <Card className="shadow-none border flex flex-col bg-muted/5">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <TrendingDown className="h-4 w-4 text-red-500" />
-                            Requiring Attention ({stats.atRisk.length})
+                        <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                            Requiring Intervention ({stats.atRisk.length})
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="flex-1 overflow-auto max-h-[220px]">
+                    <CardContent className="flex-1 overflow-auto max-h-[250px]">
                         {stats.atRisk.length > 0 ? (
                             <div className="space-y-2">
                                 {stats.atRisk.map((l, i) => (
-                                    <div key={i} className="flex justify-between items-center text-sm p-2 bg-red-50 rounded border border-red-100">
-                                        <span className="font-medium text-red-900">{l.name}</span>
-                                        <span className="font-bold text-red-700">{l.percentage.toFixed(0)}%</span>
+                                    <div key={i} className="flex justify-between items-center text-sm p-2 bg-background rounded border border-border shadow-sm group">
+                                        <span className="font-medium">{l.name}</span>
+                                        <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                                            {l.percentage.toFixed(0)}%
+                                        </Badge>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm">
-                                <CheckCircle2 className="h-8 w-8 text-green-200 mb-2" />
-                                <p>No learners below threshold.</p>
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm py-12">
+                                <CheckCircle2 className="h-10 w-10 text-green-200 mb-3" />
+                                <p className="font-medium text-foreground">Perfect Pass Rate</p>
+                                <p className="text-xs">No learners scoring below {atRiskThreshold}%</p>
                             </div>
                         )}
                     </CardContent>
@@ -202,8 +232,9 @@ export const AssessmentAnalyticsDialog = ({
             </div>
           </ScrollArea>
         ) : (
-            <div className="py-12 text-center text-muted-foreground">
-                <p>No marks recorded for this assessment yet.</p>
+            <div className="py-20 text-center text-muted-foreground flex flex-col items-center gap-3">
+                <AlertCircle className="h-10 w-10 opacity-20" />
+                <p>No marks have been recorded for this assessment yet.</p>
             </div>
         )}
       </DialogContent>
