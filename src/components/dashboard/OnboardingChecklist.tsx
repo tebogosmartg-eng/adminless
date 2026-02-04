@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { 
@@ -16,7 +16,8 @@ import {
     CalendarDays,
     ListChecks,
     ClipboardCheck,
-    FastForward
+    FastForward,
+    Play
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAcademic } from '@/context/AcademicContext';
@@ -26,6 +27,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+
+const LAST_STEP_KEY = 'adminless_setup_last_step';
 
 export const OnboardingChecklist = () => {
   const { activeYear, activeTerm, terms } = useAcademic();
@@ -35,8 +39,9 @@ export const OnboardingChecklist = () => {
 
   const totalAssessments = useLiveQuery(() => db.assessments.count()) || 0;
   const totalMarks = useLiveQuery(() => db.assessment_marks.count()) || 0;
-  const totalAttendance = useLiveQuery(() => db.attendance.count()) || 0;
   
+  const [lastStepId, setLastStepId] = useState<string | null>(() => localStorage.getItem(LAST_STEP_KEY));
+
   const steps = useMemo(() => {
     const step1Done = !!activeYear;
     const step2Done = !!activeTerm;
@@ -159,20 +164,21 @@ export const OnboardingChecklist = () => {
   const completedCount = steps.filter(s => s.isComplete).length;
   const progressPercent = Math.round((Math.min(completedCount, 9) / 9) * 100);
 
-  const feedbackMessage = useMemo(() => {
-    if (progressPercent === 0) return "Let's get your classroom set up for success.";
-    if (progressPercent <= 25) return "Great start! You're laying a solid foundation.";
-    if (progressPercent <= 50) return "You're making great progress. Almost halfway there!";
-    if (progressPercent <= 75) return "You’re ready to start marking. Just a few details left!";
-    if (progressPercent < 100) return "Almost there — just one step left!";
-    return "Your term is fully set up and compliant!";
-  }, [progressPercent]);
-
-  if (completedCount >= 9) return null;
+  // Auto-set the lastStepId if none exists to the first incomplete step
+  useEffect(() => {
+      if (!lastStepId) {
+          const firstIncomplete = steps.find(s => !s.isComplete && s.prereqMet);
+          if (firstIncomplete) setLastStepId(firstIncomplete.id);
+      }
+  }, [steps, lastStepId]);
 
   const handleStepClick = (step: any) => {
     if (!step.prereqMet && !step.isComplete) return;
     
+    // Persist progress
+    localStorage.setItem(LAST_STEP_KEY, step.id);
+    setLastStepId(step.id);
+
     navigate(step.target, { 
       state: { 
         highlightId: step.highlightId,
@@ -181,22 +187,38 @@ export const OnboardingChecklist = () => {
     });
   };
 
+  const handleResume = () => {
+      const stepToResume = steps.find(s => s.id === lastStepId) || steps.find(s => !s.isComplete && s.prereqMet);
+      if (stepToResume) handleStepClick(stepToResume);
+  };
+
+  if (completedCount >= 9) return null;
+
   return (
     <Card className="border-2 border-primary/20 bg-primary/[0.01] shadow-lg animate-in fade-in slide-in-from-top-4 duration-1000 overflow-hidden">
       <CardHeader className="pb-4 border-b bg-white dark:bg-card">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
-                <Badge className="bg-primary text-white border-none mb-1 uppercase tracking-tighter text-[10px] animate-pulse">
-                    <Sparkles className="h-3 w-3 mr-1 inline" /> Action Required
-                </Badge>
-                <CardTitle className="text-xl font-black">Get Started</CardTitle>
-                <CardDescription className="text-primary font-medium animate-in fade-in slide-in-from-left-2 duration-700">
-                    {feedbackMessage}
+                <div className="flex items-center gap-2 mb-1">
+                    <Badge className="bg-primary text-white border-none uppercase tracking-tighter text-[10px]">
+                        <Sparkles className="h-3 w-3 mr-1 inline" /> setup in progress
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">• Auto-saving progress</span>
+                </div>
+                <CardTitle className="text-xl font-black">Academic Setup Guide</CardTitle>
+                <CardDescription className="text-primary font-medium">
+                    Complete these steps to ensure your term data is compliant and ready for reporting.
                 </CardDescription>
             </div>
-            <div className="text-right">
-                <span className="text-3xl font-black text-primary">{progressPercent}%</span>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Workflow Progress</p>
+            
+            <div className="flex items-center gap-6">
+                <div className="text-right hidden md:block">
+                    <span className="text-3xl font-black text-primary tabular-nums">{progressPercent}%</span>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Completed</p>
+                </div>
+                <Button onClick={handleResume} className="gap-2 shadow-md bg-primary hover:bg-primary/90 px-6">
+                    <Play className="h-4 w-4 fill-current" /> Resume Setup
+                </Button>
             </div>
         </div>
         <Progress value={progressPercent} className="h-2 mt-4" />
@@ -206,6 +228,7 @@ export const OnboardingChecklist = () => {
             {steps.map((step, idx) => {
                 const isLocked = !step.prereqMet && !step.isComplete;
                 const isInProgress = step.prereqMet && !step.isComplete;
+                const isFocused = step.id === lastStepId;
                 
                 return (
                     <div 
@@ -214,7 +237,8 @@ export const OnboardingChecklist = () => {
                         className={cn(
                             "relative flex flex-col p-5 transition-all duration-300",
                             step.isComplete ? "bg-green-50/30 dark:bg-green-950/5 grayscale-[0.5]" : "bg-white dark:bg-card",
-                            isLocked ? "opacity-40 cursor-not-allowed" : "hover:bg-primary/[0.02] cursor-pointer group"
+                            isLocked ? "opacity-40 cursor-not-allowed" : "hover:bg-primary/[0.02] cursor-pointer group",
+                            isFocused && !step.isComplete && "ring-2 ring-inset ring-primary/40 bg-primary/[0.01]"
                         )}
                     >
                         <div className="flex justify-between items-start mb-4">
@@ -231,7 +255,10 @@ export const OnboardingChecklist = () => {
                             ) : isLocked ? (
                                 <Lock className="h-4 w-4 text-muted-foreground/30" />
                             ) : (
-                                <Circle className="h-5 w-5 text-primary/40 group-hover:text-primary transition-colors" />
+                                <Circle className={cn(
+                                    "h-5 w-5 transition-colors",
+                                    isFocused ? "text-primary scale-110" : "text-primary/40 group-hover:text-primary"
+                                )} />
                             )}
                         </div>
                         
@@ -256,6 +283,10 @@ export const OnboardingChecklist = () => {
                             <div className="absolute top-5 right-5 text-primary animate-bounce-horizontal opacity-0 group-hover:opacity-100 transition-opacity">
                                 <ArrowRight className="h-4 w-4" />
                             </div>
+                        )}
+
+                        {isFocused && !step.isComplete && (
+                            <div className="absolute bottom-0 left-0 w-full h-1 bg-primary/40" />
                         )}
                     </div>
                 );

@@ -99,7 +99,7 @@ export function HelpDialog() {
                 </section>
 
                 <section>
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-3 mt-2">
                     <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-full"><Search className="h-5 w-5 text-amber-600" /></div>
                     <h3 className="font-bold text-lg">Smart Entry Modes</h3>
                   </div>
