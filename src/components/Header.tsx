@@ -19,11 +19,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { showSuccess } from "@/utils/toast";
+import { useSetupStatus } from "@/hooks/useSetupStatus";
+import { Link } from "react-router-dom";
 
 const Header = () => {
   const { teacherName } = useSettings();
   const { years, activeYear, setActiveYear, terms, activeTerm, setActiveTerm } = useAcademic();
   const { currentPeriod } = useCurrentPeriod();
+  const { isReadyForFinalization } = useSetupStatus();
 
   const initials = teacherName
     ? teacherName.split(' ').map((n) => n[0]).join('').toUpperCase().substring(0, 2)
@@ -87,11 +90,18 @@ const Header = () => {
         <div className="hidden xl:flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-9 px-3 gap-2 font-normal text-white/80 hover:bg-white/10">
+                <Button variant="ghost" className="h-9 px-3 gap-2 font-normal text-white/80 hover:bg-white/10 relative">
                   <CalendarDays className="h-4 w-4" />
                   <span className="text-xs uppercase tracking-wider font-bold text-white">{activeYear?.name || "Select Year"}</span>
                   <span className="text-xs font-medium text-white/70">{activeTerm?.name || "Select Term"}</span>
                   <ChevronDown className="h-3 w-3 opacity-60" />
+                  
+                  {!isReadyForFinalization && activeYear && (
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                      </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
@@ -121,6 +131,17 @@ const Header = () => {
                     ))}
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
+                
+                {!isReadyForFinalization && activeYear && (
+                    <>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-2">
+                            <Button variant="outline" size="sm" className="w-full h-8 text-[10px] font-black uppercase text-amber-600 border-amber-200 bg-amber-50" asChild>
+                                <Link to="/">Setup Incomplete</Link>
+                            </Button>
+                        </div>
+                    </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
         </div>

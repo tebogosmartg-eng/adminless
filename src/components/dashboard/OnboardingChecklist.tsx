@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button';
 
 const LAST_STEP_KEY = 'adminless_setup_last_step';
 const MINIMIZED_KEY = 'adminless_setup_minimized';
+const CONTEXT_KEY = 'adminless_setup_context'; // Persists YearId-TermId
 
 export const OnboardingChecklist = () => {
   const { activeYear, activeTerm, terms } = useAcademic();
@@ -46,6 +47,25 @@ export const OnboardingChecklist = () => {
   
   const [lastStepId, setLastStepId] = useState<string | null>(() => localStorage.getItem(LAST_STEP_KEY));
   const [isMinimized, setIsMinimized] = useState<boolean>(() => localStorage.getItem(MINIMIZED_KEY) === 'true');
+
+  // Logic to detect context change (New Year or New Term)
+  useEffect(() => {
+    if (activeYear && activeTerm) {
+        const currentContext = `${activeYear.id}-${activeTerm.id}`;
+        const savedContext = localStorage.getItem(CONTEXT_KEY);
+
+        if (savedContext && savedContext !== currentContext) {
+            // Context has changed! Reset checklist state for the new period
+            setIsMinimized(false);
+            setLastStepId(null);
+            localStorage.setItem(MINIMIZED_KEY, 'false');
+            localStorage.removeItem(LAST_STEP_KEY);
+            console.log("[SetupGuide] New academic context detected. Resetting guide.");
+        }
+        
+        localStorage.setItem(CONTEXT_KEY, currentContext);
+    }
+  }, [activeYear?.id, activeTerm?.id]);
 
   const steps = useMemo(() => {
     const step1Done = !!activeYear;
@@ -209,6 +229,15 @@ export const OnboardingChecklist = () => {
       if (stepToResume) handleStepClick(stepToResume);
   };
 
+  const feedbackMessage = useMemo(() => {
+    if (progressPercent === 0) return "Let's get your classroom set up for success.";
+    if (progressPercent <= 25) return "Great start! You're laying a solid foundation.";
+    if (progressPercent <= 50) return "You're making great progress. Almost halfway there!";
+    if (progressPercent <= 75) return "You’re ready to start marking. Just a few details left!";
+    if (progressPercent < 100) return "Almost there — just one step left!";
+    return "Your term is fully set up and compliant!";
+  }, [progressPercent]);
+
   // Minimized View (Sticky Status Bar)
   if (isMinimized) {
     return (
@@ -261,9 +290,7 @@ export const OnboardingChecklist = () => {
                 </div>
                 <CardTitle className="text-xl font-black">Academic Setup Guide</CardTitle>
                 <CardDescription className="text-primary font-medium">
-                    {isFullyComplete 
-                        ? "Your term data is fully compliant and ready for departmental reporting."
-                        : "Complete these steps to ensure your term data is compliant and ready for reporting."}
+                    {feedbackMessage}
                 </CardDescription>
             </div>
             
