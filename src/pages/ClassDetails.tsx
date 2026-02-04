@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "react-router-dom";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
@@ -10,11 +10,12 @@ import { MarkSheet } from "@/components/assessments/MarkSheet";
 import { AttendanceView } from "@/components/AttendanceView";
 import { ClassDialogsManager } from "@/components/ClassDialogsManager";
 import { EvidenceManager } from "@/components/evidence/EvidenceManager";
+import { ClassAnalysisTab } from "@/components/analysis/ClassAnalysisTab";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldCheck, BarChart3 } from "lucide-react";
 
 const ClassDetails = () => {
   const { classId } = useParams();
@@ -64,7 +65,7 @@ const ClassDetails = () => {
 
   useEffect(() => {
     if (classInfo) {
-      document.title = `${classInfo.className} | SmaReg`;
+      document.title = `${classInfo.className} | AdminLess`;
     }
   }, [classInfo]);
 
@@ -77,7 +78,7 @@ const ClassDetails = () => {
             window.history.replaceState({}, document.title);
         }
     }
-  }, [location.state, learners]);
+  }, [location.state, learners, dialogs]);
 
   if (classesLoading) {
     return (
@@ -117,8 +118,11 @@ const ClassDetails = () => {
       />
 
       <Tabs defaultValue="assessments" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[500px]">
+        <TabsList className="grid w-full grid-cols-2 lg:w-[600px]">
           <TabsTrigger value="assessments">Assessments</TabsTrigger>
+          <TabsTrigger value="analysis" className="gap-2">
+            <BarChart3 className="h-3.5 w-3.5" /> Analysis
+          </TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
           <TabsTrigger value="evidence" className="gap-2">
             <ShieldCheck className="h-3.5 w-3.5" /> Evidence
@@ -130,6 +134,14 @@ const ClassDetails = () => {
              <MarkSheet 
                classInfo={classInfo} 
                onViewLearnerProfile={(l) => dialogs.setSelectedProfileLearner(l)}
+             />
+        </TabsContent>
+
+        <TabsContent value="analysis">
+             <ClassAnalysisTab 
+               classId={classId} 
+               termId={activeTerm?.id} 
+               learners={learners} 
              />
         </TabsContent>
 
