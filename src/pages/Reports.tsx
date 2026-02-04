@@ -35,7 +35,7 @@ const Reports = () => {
   };
 
   const manualReports = useReportsData(classes);
-  const { loading: termLoading, reportData: termData, generateTermReport } = useTermReportData();
+  const { loading: termLoading, reportData: termData, generateTermReport, allAssessmentTitles } = useTermReportData();
   const { loading: yearLoading, yearData, generateYearReport } = useYearReportData();
 
   const [termReportGrade, setTermReportGrade] = useState("all");
@@ -77,16 +77,14 @@ const Reports = () => {
         const tableBody = termData.map(r => [
             r.learnerName,
             r.className,
-            ...Object.values(r.assessments),
+            ...allAssessmentTitles.map(title => r.assessments[title] || "-"),
             `${r.termAverage}%`,
             getGradeSymbol(r.termAverage, gradingScheme)?.symbol || '-'
         ]);
 
-        const assessmentTitles = Object.keys(termData[0]?.assessments || {});
-
         autoTable(doc, {
             startY: startY + 5,
-            head: [['Learner', 'Class', ...assessmentTitles, 'Average', 'Symbol']],
+            head: [['Learner', 'Class', ...allAssessmentTitles, 'Average', 'Symbol']],
             body: tableBody,
             theme: 'grid',
             headStyles: { fillColor: [41, 37, 36], textColor: 255 },
@@ -105,20 +103,20 @@ const Reports = () => {
     if (!termData) return;
     
     try {
-        const assessmentTitles = Object.keys(termData[0]?.assessments || {});
-        let csv = 'Learner,Class,' + assessmentTitles.join(',') + ',Average,Symbol\n';
+        const termName = terms.find(t => t.id === selectedTermId)?.name || "Term Report";
+        let csv = 'Learner,Class,' + allAssessmentTitles.join(',') + ',Average,Symbol\n';
         
         termData.forEach(r => {
-            const marks = Object.values(r.assessments).join(',');
+            const assessmentValues = allAssessmentTitles.map(title => r.assessments[title] || "-").join(',');
             const symbol = getGradeSymbol(r.termAverage, gradingScheme)?.symbol || '-';
-            csv += `"${r.learnerName}","${r.className}",${marks},${r.termAverage}%,${symbol}\n`;
+            csv += `"${r.learnerName}","${r.className}",${assessmentValues},${r.termAverage}%,${symbol}\n`;
         });
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `Term_Report_${termReportGrade}_${termReportSubject}.csv`;
+        link.download = `Term_Report_${termReportGrade}_${termReportSubject}_${termName}.csv`;
         link.click();
         showSuccess("CSV exported successfully.");
     } catch (e) {
@@ -263,6 +261,9 @@ const Reports = () => {
                                     <TableRow>
                                         <TableHead>Learner</TableHead>
                                         <TableHead>Class</TableHead>
+                                        {allAssessmentTitles.map(title => (
+                                            <TableHead key={title} className="text-right whitespace-nowrap">{title}</TableHead>
+                                        ))}
                                         <TableHead className="text-right font-bold">Term %</TableHead>
                                         <TableHead className="text-center">Symbol</TableHead>
                                     </TableRow>
@@ -272,6 +273,11 @@ const Reports = () => {
                                         <TableRow key={i} className="hover:bg-muted/30">
                                             <TableCell className="font-medium">{r.learnerName}</TableCell>
                                             <TableCell className="text-xs text-muted-foreground font-mono">{r.className}</TableCell>
+                                            {allAssessmentTitles.map(title => (
+                                                <TableCell key={title} className="text-right text-xs">
+                                                    {r.assessments[title] || "-"}
+                                                </TableCell>
+                                            ))}
                                             <TableCell className="text-right font-bold text-primary">{r.termAverage}%</TableCell>
                                             <TableCell className="text-center">
                                                 {getGradeSymbol(r.termAverage, gradingScheme) && (
