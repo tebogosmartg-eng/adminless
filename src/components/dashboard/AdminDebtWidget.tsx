@@ -54,15 +54,15 @@ export const AdminDebtWidget = () => {
 
   const hasDebt = pendingClasses.length > 0 || missingMarksInfo.length > 0;
 
-  if (!hasDebt) {
+  if (!hasDebt && activeTerm) {
     return (
-        <Card className="bg-green-50/30 border-green-100 dark:bg-green-950/10">
+        <Card className="bg-green-50/30 border-green-100 dark:bg-green-950/10 shadow-sm border-2 border-dashed">
             <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2 text-green-700">
                     <ShieldAlert className="h-5 w-5" />
                     Admin Compliance
                 </CardTitle>
-                <CardDescription>Your records are currently 100% complete.</CardDescription>
+                <CardDescription>Your records are currently 100% complete. Data is secure.</CardDescription>
             </CardHeader>
         </Card>
     );

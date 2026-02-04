@@ -20,7 +20,8 @@ import {
     Play,
     ChevronDown,
     ChevronUp,
-    Settings2
+    Settings2,
+    Trophy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAcademic } from '@/context/AcademicContext';
@@ -31,10 +32,11 @@ import { db } from '@/db';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import confetti from 'canvas-confetti';
 
 const LAST_STEP_KEY = 'adminless_setup_last_step';
 const MINIMIZED_KEY = 'adminless_setup_minimized';
-const CONTEXT_KEY = 'adminless_setup_context'; // Persists YearId-TermId
+const CONTEXT_KEY = 'adminless_setup_context'; 
 
 export const OnboardingChecklist = () => {
   const { activeYear, activeTerm, terms } = useAcademic();
@@ -48,21 +50,17 @@ export const OnboardingChecklist = () => {
   const [lastStepId, setLastStepId] = useState<string | null>(() => localStorage.getItem(LAST_STEP_KEY));
   const [isMinimized, setIsMinimized] = useState<boolean>(() => localStorage.getItem(MINIMIZED_KEY) === 'true');
 
-  // Logic to detect context change (New Year or New Term)
   useEffect(() => {
     if (activeYear && activeTerm) {
         const currentContext = `${activeYear.id}-${activeTerm.id}`;
         const savedContext = localStorage.getItem(CONTEXT_KEY);
 
         if (savedContext && savedContext !== currentContext) {
-            // Context has changed! Reset checklist state for the new period
             setIsMinimized(false);
             setLastStepId(null);
             localStorage.setItem(MINIMIZED_KEY, 'false');
             localStorage.removeItem(LAST_STEP_KEY);
-            console.log("[SetupGuide] New academic context detected. Resetting guide.");
         }
-        
         localStorage.setItem(CONTEXT_KEY, currentContext);
     }
   }, [activeYear?.id, activeTerm?.id]);
@@ -190,14 +188,19 @@ export const OnboardingChecklist = () => {
   const progressPercent = Math.round((Math.min(completedCount, 9) / 9) * 100);
   const isFullyComplete = completedCount >= 9;
 
-  // Auto-minimize when 100% is first reached
   useEffect(() => {
-      if (isFullyComplete && localStorage.getItem(MINIMIZED_KEY) === null) {
+      if (isFullyComplete && localStorage.getItem('adminless_celebrated') !== 'true') {
+          confetti({
+              particleCount: 150,
+              spread: 70,
+              origin: { y: 0.6 },
+              colors: ['#2563eb', '#16a34a', '#fbbf24']
+          });
+          localStorage.setItem('adminless_celebrated', 'true');
           handleToggleMinimize(true);
       }
   }, [isFullyComplete]);
 
-  // Auto-set the lastStepId if none exists to the first incomplete step
   useEffect(() => {
       if (!lastStepId) {
           const firstIncomplete = steps.find(s => !s.isComplete && s.prereqMet);
@@ -235,10 +238,9 @@ export const OnboardingChecklist = () => {
     if (progressPercent <= 50) return "You're making great progress. Almost halfway there!";
     if (progressPercent <= 75) return "You’re ready to start marking. Just a few details left!";
     if (progressPercent < 100) return "Almost there — just one step left!";
-    return "Your term is fully set up and compliant!";
+    return "Perfect! Your term is fully set up, compliant, and healthy.";
   }, [progressPercent]);
 
-  // Minimized View (Sticky Status Bar)
   if (isMinimized) {
     return (
         <Card className={cn(
@@ -248,14 +250,14 @@ export const OnboardingChecklist = () => {
             <div className="px-6 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <div className="p-1.5 rounded-md bg-white/20">
-                        {isFullyComplete ? <CheckCircle2 className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}
+                        {isFullyComplete ? <Trophy className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}
                     </div>
                     <div>
                         <p className="text-[10px] uppercase font-black tracking-widest opacity-70 leading-none mb-1">
-                            Academic Setup Status
+                            Academic Workflow
                         </p>
                         <p className="text-sm font-bold">
-                            {isFullyComplete ? "Environment Fully Optimized" : `Setup in progress (${progressPercent}%)`}
+                            {isFullyComplete ? "System Optimization 100%" : `Configuration Progress (${progressPercent}%)`}
                         </p>
                     </div>
                 </div>
@@ -284,11 +286,11 @@ export const OnboardingChecklist = () => {
                 <div className="flex items-center gap-2 mb-1">
                     <Badge className={cn("border-none uppercase tracking-tighter text-[10px]", isFullyComplete ? "bg-green-600 text-white" : "bg-primary text-white")}>
                         {isFullyComplete ? <CheckCircle2 className="h-3 w-3 mr-1 inline" /> : <Sparkles className="h-3 w-3 mr-1 inline" />}
-                        {isFullyComplete ? "setup complete" : "setup in progress"}
+                        {isFullyComplete ? "workflow complete" : "workflow active"}
                     </Badge>
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">• Auto-saving progress</span>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">• All data healthy & synced</span>
                 </div>
-                <CardTitle className="text-xl font-black">Academic Setup Guide</CardTitle>
+                <CardTitle className="text-xl font-black">Professional Setup Guide</CardTitle>
                 <CardDescription className="text-primary font-medium">
                     {feedbackMessage}
                 </CardDescription>
@@ -297,11 +299,11 @@ export const OnboardingChecklist = () => {
             <div className="flex items-center gap-6">
                 <div className="text-right hidden md:block">
                     <span className="text-3xl font-black text-primary tabular-nums">{progressPercent}%</span>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Completed</p>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Calculated</p>
                 </div>
                 {!isFullyComplete && (
                     <Button onClick={handleResume} className="gap-2 shadow-md bg-primary hover:bg-primary/90 px-6">
-                        <Play className="h-4 w-4 fill-current" /> Resume Setup
+                        <Play className="h-4 w-4 fill-current" /> Resume Tasks
                     </Button>
                 )}
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleMinimize(true)}>
