@@ -159,6 +159,15 @@ export const OnboardingChecklist = () => {
   const completedCount = steps.filter(s => s.isComplete).length;
   const progressPercent = Math.round((Math.min(completedCount, 9) / 9) * 100);
 
+  const feedbackMessage = useMemo(() => {
+    if (progressPercent === 0) return "Let's get your classroom set up for success.";
+    if (progressPercent <= 25) return "Great start! You're laying a solid foundation.";
+    if (progressPercent <= 50) return "You're making great progress. Almost halfway there!";
+    if (progressPercent <= 75) return "You’re ready to start marking. Just a few details left!";
+    if (progressPercent < 100) return "Almost there — just one step left!";
+    return "Your term is fully set up and compliant!";
+  }, [progressPercent]);
+
   if (completedCount >= 9) return null;
 
   const handleStepClick = (step: any) => {
@@ -181,7 +190,9 @@ export const OnboardingChecklist = () => {
                     <Sparkles className="h-3 w-3 mr-1 inline" /> Action Required
                 </Badge>
                 <CardTitle className="text-xl font-black">Get Started</CardTitle>
-                <CardDescription>Click a step to jump directly to the required action.</CardDescription>
+                <CardDescription className="text-primary font-medium animate-in fade-in slide-in-from-left-2 duration-700">
+                    {feedbackMessage}
+                </CardDescription>
             </div>
             <div className="text-right">
                 <span className="text-3xl font-black text-primary">{progressPercent}%</span>

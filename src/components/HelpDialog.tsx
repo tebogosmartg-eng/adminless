@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HelpCircle, BookOpen, Camera, Settings, FileBarChart, ShieldCheck, Layers, ArrowRightCircle, AlertCircle, BadgeCheck, Search } from "lucide-react";
+import { HelpCircle, BookOpen, Camera, Settings, FileBarChart, ShieldCheck, Layers, AlertCircle, BadgeCheck, Search } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
