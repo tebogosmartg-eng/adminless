@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, ArrowRight, Clock, Notebook, ChevronRight } from "lucide-react";
+import { CalendarClock, ArrowRight, Clock, Notebook, ChevronRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export const TimetableWidget = () => {
-  const { periods, currentPeriod, nextPeriod } = useCurrentPeriod();
+  const { periods, currentPeriod } = useCurrentPeriod();
   const today = format(new Date(), 'EEEE');
   
   return (
@@ -17,78 +17,64 @@ export const TimetableWidget = () => {
         <div className="flex justify-between items-start">
             <div className="space-y-0.5">
                 <CardTitle className="text-lg flex items-center gap-2 font-bold">
-                    <Notebook className="h-5 w-5 text-primary" />
-                    Daily Routine
+                    <CalendarClock className="h-5 w-5 text-primary" />
+                    Daily Agenda
                 </CardTitle>
                 <CardDescription className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{today}</CardDescription>
             </div>
-            <Link to="/settings" className="p-1.5 hover:bg-muted rounded-md transition-colors" title="Edit Routine">
-                <CalendarClock className="h-4 w-4 text-muted-foreground" />
+            <Link to="/settings" className="p-1.5 hover:bg-muted rounded-md transition-colors" title="Edit Schedule">
+                <Notebook className="h-4 w-4 text-muted-foreground" />
             </Link>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-auto max-h-[400px] px-6 pb-6">
+      <CardContent className="flex-1 overflow-auto max-h-[500px] px-6 pb-6">
         {periods.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground text-sm text-center">
                 <Clock className="h-10 w-10 mb-4 opacity-10" />
-                <p className="font-medium">No routine set for today.</p>
+                <p className="font-medium">No schedule set for today.</p>
                 <Button variant="link" size="sm" asChild className="text-primary mt-1">
-                    <Link to="/settings">Set your teaching schedule</Link>
+                    <Link to="/settings">Set your teaching routine</Link>
                 </Button>
             </div>
         ) : (
-            <div className="space-y-4">
-                {currentPeriod && (
-                    <div className="bg-primary/[0.03] border-2 border-primary/10 rounded-xl p-4 transition-all">
-                        <div className="flex items-center justify-between mb-3">
-                            <Badge className="bg-primary text-white border-none text-[9px] font-black uppercase tracking-widest px-2 py-0.5 h-auto">
-                                Current Focus
-                            </Badge>
-                            <span className="text-[10px] font-black text-primary/60 uppercase">Session {currentPeriod.period}</span>
-                        </div>
-                        <h4 className="font-black text-xl tracking-tight leading-none mb-1">{currentPeriod.class_name}</h4>
-                        <p className="text-xs font-bold text-muted-foreground mb-4">{currentPeriod.subject}</p>
+            <div className="space-y-3">
+                {periods.map((entry) => {
+                    const isNext = !entry.isPast && !entry.isCurrent;
 
-                        {currentPeriod.class_id && (
-                             <Button size="sm" className="w-full h-9 rounded-lg font-bold shadow-sm" asChild>
-                                <Link to={`/classes/${currentPeriod.class_id}`}>
-                                    View Class Profile <ArrowRight className="ml-2 h-3.5 w-3.5" />
-                                </Link>
-                             </Button>
-                        )}
-                    </div>
-                )}
-
-                <div className="space-y-2">
-                    <h5 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Remaining Schedule</h5>
-                    {periods.map((entry) => {
-                        const isCurrent = entry.isCurrent;
-                        if (isCurrent) return null;
-
-                        const isNext = entry === nextPeriod;
-
-                        return (
-                            <div 
-                                key={entry.id} 
-                                className={cn(
-                                    "flex items-center gap-3 p-3 rounded-lg border transition-all",
-                                    isNext ? "border-primary/40 bg-primary/[0.01] shadow-sm" : "bg-muted/20 border-transparent hover:bg-muted/40"
-                                )}
-                            >
+                    return (
+                        <div 
+                            key={entry.id} 
+                            className={cn(
+                                "flex flex-col p-3 rounded-xl border transition-all duration-300",
+                                entry.isCurrent ? "border-primary bg-primary/[0.03] shadow-md ring-1 ring-primary/20 scale-[1.02]" : 
+                                entry.isPast ? "opacity-50 border-transparent bg-muted/20" : "border-border bg-card"
+                            )}
+                        >
+                            <div className="flex items-center gap-3">
                                 <div className={cn(
-                                    "flex flex-col items-center justify-center w-7 h-7 rounded text-[11px] font-black",
-                                    isNext ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                                    "flex flex-col items-center justify-center w-10 h-10 rounded-lg text-xs font-black shrink-0",
+                                    entry.isCurrent ? "bg-primary text-white" : "bg-muted text-muted-foreground"
                                 )}>
+                                    <span className="text-[10px] opacity-70 leading-none mb-1">P</span>
                                     {entry.period}
                                 </div>
+
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between">
-                                        <span className="font-bold text-sm truncate">{entry.class_name || "Free Period"}</span>
-                                        {isNext && <span className="text-[9px] font-black text-primary uppercase tracking-tighter">Up Next</span>}
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <span className={cn("font-bold text-sm truncate", entry.isCurrent && "text-primary")}>
+                                            {entry.class_name || "Free Session"}
+                                        </span>
+                                        {entry.isCurrent && <Badge className="h-4 text-[8px] uppercase tracking-tighter bg-primary">Active Now</Badge>}
                                     </div>
-                                    <p className="text-[10px] font-bold text-muted-foreground">{entry.subject}</p>
+                                    <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
+                                        <Clock className="h-2.5 w-2.5" />
+                                        <span>{entry.startTime} - {entry.endTime}</span>
+                                        <span className="opacity-30">•</span>
+                                        <span>{entry.subject}</span>
+                                    </div>
                                 </div>
-                                {entry.class_id && (
+
+                                {entry.class_id && !entry.isPast && (
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" asChild>
                                         <Link to={`/classes/${entry.class_id}`}>
                                             <ChevronRight className="h-4 w-4" />
@@ -96,9 +82,29 @@ export const TimetableWidget = () => {
                                     </Button>
                                 )}
                             </div>
-                        );
-                    })}
-                </div>
+
+                            {/* Pending Task Highlighting */}
+                            {entry.class_id && entry.isPendingAttendance && (
+                                <div className="mt-3 pt-2 border-t border-dashed border-amber-200 dark:border-amber-900/50 flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500">
+                                        <AlertCircle className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] font-black uppercase tracking-tighter">Register Missing</span>
+                                    </div>
+                                    <Button variant="link" size="sm" className="h-auto p-0 text-[10px] font-bold text-amber-700" asChild>
+                                        <Link to={`/classes/${entry.class_id}`}>Mark Now</Link>
+                                    </Button>
+                                </div>
+                            )}
+
+                            {entry.class_id && !entry.isPendingAttendance && !entry.isPast && (
+                                <div className="mt-2 pt-2 flex items-center gap-1.5 text-green-600 opacity-60">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    <span className="text-[9px] font-bold uppercase">Attendance Logged</span>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         )}
       </CardContent>

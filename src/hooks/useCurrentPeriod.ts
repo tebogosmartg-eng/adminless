@@ -1,26 +1,34 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTimetable } from './useTimetable';
 import { format, isBefore, isAfter, parse } from 'date-fns';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/db';
 
 export const useCurrentPeriod = () => {
   const { timetable } = useTimetable();
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60000); // Update every minute
+    const timer = setInterval(() => setNow(new Date()), 60000); 
     return () => clearInterval(timer);
   }, []);
 
   const today = format(now, 'EEEE');
-  
-  // Basic school hours assumption if start/end times aren't provided
-  // Period 1: 08:00, Period 2: 09:00, etc.
+  const todayStr = format(now, 'yyyy-MM-dd');
+
+  // Fetch all attendance for today to check which classes are missing registers
+  const attendanceToday = useLiveQuery(
+      () => db.attendance.where('date').equals(todayStr).toArray()
+  ) || [];
+
   const periods = useMemo(() => {
+    // Get unique class IDs that HAVE marked attendance today
+    const markedClassIds = new Set(attendanceToday.map(r => r.class_id));
+
     return timetable
       .filter(t => t.day === today)
       .sort((a, b) => a.period - b.period)
       .map(t => {
-          // If the user hasn't set specific times, we assume 50min periods starting at 8am
           const startBase = 8 * 60 + (t.period - 1) * 60;
           const endBase = startBase + 55;
           
@@ -34,14 +42,17 @@ export const useCurrentPeriod = () => {
               ...t,
               startParsed,
               endParsed,
+              startTime,
+              endTime,
               isCurrent: isAfter(now, startParsed) && isBefore(now, endParsed),
-              isNext: false
+              isPast: isAfter(now, endParsed),
+              isPendingAttendance: t.class_id ? !markedClassIds.has(t.class_id) : false
           };
       });
-  }, [timetable, today, now]);
+  }, [timetable, today, now, attendanceToday]);
 
   const currentPeriod = periods.find(p => p.isCurrent);
-  const nextPeriod = periods.find(p => isBefore(now, p.startParsed));
+  const nextPeriod = periods.find(p => !p.isPast && !p.isCurrent);
 
   return { currentPeriod, nextPeriod, periods };
 };
