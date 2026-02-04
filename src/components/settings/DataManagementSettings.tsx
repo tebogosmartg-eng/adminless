@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileJson, Database, Download, Upload, AlertTriangle, Loader2, RefreshCw, Calculator } from "lucide-react";
+import { FileJson, Database, Download, Upload, AlertTriangle, Loader2, RefreshCw, Calculator, Sparkles } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -21,6 +21,7 @@ import { useSync } from "@/context/SyncContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { DataAuditTool } from "./DataAuditTool";
 import { DataRecoveryTool } from "./DataRecoveryTool";
+import { importDemoData } from "@/services/demoData";
 
 export const DataManagementSettings = () => {
   const { isOnline, forceSync, isSyncing } = useSync();
@@ -29,11 +30,26 @@ export const DataManagementSettings = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   const handleRecalculate = async () => {
       setIsRepairing(true);
       await recalculateAllActiveAverages();
       setIsRepairing(false);
+  };
+
+  const handleLoadDemo = async () => {
+    setIsDemoLoading(true);
+    try {
+        await importDemoData();
+        await recalculateAllActiveAverages();
+        showSuccess("Demo data loaded. Redirecting to Dashboard...");
+        setTimeout(() => window.location.href = '/', 1500);
+    } catch (e: any) {
+        showError(e.message || "Failed to load demo data.");
+    } finally {
+        setIsDemoLoading(false);
+    }
   };
 
   const handleExportData = async () => {
@@ -197,6 +213,22 @@ export const DataManagementSettings = () => {
         <DataRecoveryTool />
         <DataAuditTool />
         
+        <Card className="border-primary/20 bg-primary/5">
+            <CardHeader>
+                <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    <CardTitle>Demo Environment</CardTitle>
+                </div>
+                <CardDescription>Populate your account with 2024 demo data to explore all features instantly.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={handleLoadDemo} disabled={isDemoLoading} className="w-full sm:w-auto font-bold">
+                    {isDemoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    Generate Full Demo Context
+                </Button>
+            </CardContent>
+        </Card>
+
         <Card>
         <CardHeader>
             <div className="flex items-center gap-2">
