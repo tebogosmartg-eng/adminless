@@ -82,7 +82,7 @@ export const useTermValidation = () => {
               });
             }
 
-            // 3. Advanced Audit Logic: 10% Moderation Sample (Rule from Chat ID 112)
+            // 3. Advanced Audit Logic: 10% Moderation Sample
             const classEvidence = termEvidence.filter(e => e.class_id === classId);
             const scriptEvidence = classEvidence.filter(e => e.category === 'script');
             
