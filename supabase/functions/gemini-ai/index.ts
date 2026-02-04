@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0"
 
 const corsHeaders = {
@@ -8,22 +9,53 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    // 1. Verify Authentication (Fixes High Security Finding)
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      console.error("[gemini-ai] Missing Authorization header")
+      return new Response(JSON.stringify({ error: "Unauthorized: Missing token" }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    })
+
+    // This verifies the JWT and ensures the user has a valid session
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      console.error("[gemini-ai] Invalid session token", { authError })
+      return new Response(JSON.stringify({ error: "Unauthorized: Invalid session" }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    console.log(`[gemini-ai] Processing request for user: ${user.id}`)
+
     const { action, payload } = await req.json()
     
     const apiKey = Deno.env.get('GEMINI_API_KEY')
     if (!apiKey) {
+      console.error("[gemini-ai] API key configuration missing")
       throw new Error('GEMINI_API_KEY not set.')
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
     const modelName = Deno.env.get('GEMINI_MODEL_NAME') || "gemini-1.5-flash"
     
-    // Set API version to v1beta
     const model = genAI.getGenerativeModel(
       { model: modelName },
       { apiVersion: "v1beta" }
@@ -52,6 +84,7 @@ serve(async (req) => {
 
     if (action === 'scan-images') {
         const { images } = payload;
+        console.log(`[gemini-ai] Action: scan-images, Image count: ${images?.length}`)
         
         const prompt = `
             Analyze these images of student test scripts, mark sheets, or class lists.
@@ -94,13 +127,14 @@ serve(async (req) => {
             const data = JSON.parse(jsonStr);
             return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         } catch (e) {
-            console.error("[gemini-ai] JSON Parse Error:", e, jsonStr);
+            console.error("[gemini-ai] JSON Parse Error in scan-images:", e, jsonStr);
             throw new Error("Failed to parse AI response as JSON.");
         }
     }
 
     if (action === 'generate-insights') {
         const { subject, grade, learners, assessmentData } = payload;
+        console.log(`[gemini-ai] Action: generate-insights for ${grade} ${subject}`)
         
         const prompt = `
             Analyze the performance of the following class.
@@ -132,6 +166,7 @@ serve(async (req) => {
 
     if (action === 'generate-report') {
         const { learner, classInfo, assessmentData } = payload;
+        console.log(`[gemini-ai] Action: generate-report for student ${learner?.name}`)
         
         const prompt = `
             Write a formal school report card comment for:
@@ -158,6 +193,7 @@ serve(async (req) => {
 
     if (action === 'generate-single-comment') {
         const { learner, tone } = payload;
+        console.log(`[gemini-ai] Action: generate-single-comment for student ${learner?.name}`)
         
         const prompt = `
             Write a short, single-sentence report card comment for:
@@ -178,6 +214,7 @@ serve(async (req) => {
 
     if (action === 'generate-bulk-comments') {
         const { learners, tone } = payload;
+        console.log(`[gemini-ai] Action: generate-bulk-comments for ${learners?.length} students`)
         
         const prompt = `
             Generate short, unique, single-sentence report card comments for the following students based on their marks.
@@ -206,7 +243,7 @@ serve(async (req) => {
     throw new Error(`Unknown action: ${action}`);
 
   } catch (error) {
-    console.error("[gemini-ai] Error:", error)
+    console.error("[gemini-ai] Error in function handler:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
