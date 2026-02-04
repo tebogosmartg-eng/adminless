@@ -14,6 +14,16 @@ export const useSetupStatus = () => {
 
   const totalAssessments = useLiveQuery(() => db.assessments.count()) || 0;
   const totalMarks = useLiveQuery(() => db.assessment_marks.count()) || 0;
+  
+  // Detect if any data exists that lacks architectural references
+  const hasLegacyData = useLiveQuery(async () => {
+    const counts = await Promise.all([
+        db.classes.filter(c => !c.year_id || !c.term_id).count(),
+        db.assessments.filter(a => !a.term_id).count(),
+        db.learner_notes.filter(n => !n.term_id).count()
+    ]);
+    return counts.some(c => c > 0);
+  }) || false;
 
   const status = useMemo(() => {
     const step1 = !!activeYear;
@@ -23,11 +33,7 @@ export const useSetupStatus = () => {
     const step5 = classes.length > 0 && classes.every(c => c.learners.length > 0);
     const step6 = totalAssessments > 0;
     const step7 = totalMarks > 0;
-    const step8 = classes.length > 0 && totalAssessments > 0 && classes.every(c => {
-        // Logic to check if this class specifically has its weighting and marks done
-        // For brevity in global hook, we use the global totals
-        return totalMarks > 0;
-    });
+    const step8 = classes.length > 0 && totalAssessments > 0 && classes.some(c => totalMarks > 0); 
 
     const coreSteps = [
         { id: 1, title: 'Select Academic Year', done: step1 },
@@ -48,9 +54,10 @@ export const useSetupStatus = () => {
         missingRequired,
         isReadyForFinalization,
         hasInitialSetup: step1 && step2 && step3 && step4,
-        hasMarksCaptured: step7
+        hasMarksCaptured: step7,
+        hasLegacyData // NEW: architectural gap detection
     };
-  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks]);
+  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, hasLegacyData]);
 
   return status;
 };

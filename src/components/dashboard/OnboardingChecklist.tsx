@@ -21,7 +21,8 @@ import {
     ChevronDown,
     ChevronUp,
     Settings2,
-    Trophy
+    Trophy,
+    DatabaseZap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAcademic } from '@/context/AcademicContext';
@@ -33,6 +34,7 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import confetti from 'canvas-confetti';
+import { useSetupStatus } from '@/hooks/useSetupStatus';
 
 const LAST_STEP_KEY = 'adminless_setup_last_step';
 const MINIMIZED_KEY = 'adminless_setup_minimized';
@@ -43,6 +45,7 @@ export const OnboardingChecklist = () => {
   const { classes } = useClasses();
   const { savedSubjects } = useSettings();
   const navigate = useNavigate();
+  const { hasLegacyData } = useSetupStatus();
 
   const totalAssessments = useLiveQuery(() => db.assessments.count()) || 0;
   const totalMarks = useLiveQuery(() => db.assessment_marks.count()) || 0;
@@ -79,7 +82,7 @@ export const OnboardingChecklist = () => {
 
     const firstClassId = classes[0]?.id;
 
-    return [
+    const list = [
       {
         id: 'step-1',
         title: 'Select Academic Year',
@@ -169,24 +172,29 @@ export const OnboardingChecklist = () => {
         prereqMet: step8Done,
         target: '/settings',
         highlightId: 'finalize-term-btn'
-      },
-      {
-        id: 'step-10',
-        title: 'Roll Forward',
-        description: 'Migrate rosters to the next term.',
-        icon: FastForward,
-        isComplete: step10Done,
-        prereqMet: step9Done,
-        target: '/settings',
-        highlightId: 'roll-forward-btn',
-        optional: true
       }
     ];
-  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, terms]);
+
+    // If legacy data detected, add a high-priority architectural step at the start
+    if (hasLegacyData) {
+        list.unshift({
+            id: 'step-legacy',
+            title: 'Align Legacy Data',
+            description: 'Link your historical classes to the new term structure.',
+            icon: DatabaseZap,
+            isComplete: false,
+            prereqMet: true,
+            target: '/settings',
+            highlightId: 'data-recovery-tool'
+        });
+    }
+
+    return list;
+  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, terms, hasLegacyData]);
 
   const completedCount = steps.filter(s => s.isComplete).length;
-  const progressPercent = Math.round((Math.min(completedCount, 9) / 9) * 100);
-  const isFullyComplete = completedCount >= 9;
+  const progressPercent = Math.round((Math.min(completedCount, steps.length) / steps.length) * 100);
+  const isFullyComplete = completedCount >= steps.length;
 
   useEffect(() => {
       if (isFullyComplete && localStorage.getItem('adminless_celebrated') !== 'true') {
@@ -233,13 +241,14 @@ export const OnboardingChecklist = () => {
   };
 
   const feedbackMessage = useMemo(() => {
+    if (hasLegacyData) return "Historical data found. Let's align it with your current term.";
     if (progressPercent === 0) return "Let's get your classroom set up for success.";
     if (progressPercent <= 25) return "Great start! You're laying a solid foundation.";
     if (progressPercent <= 50) return "You're making great progress. Almost halfway there!";
     if (progressPercent <= 75) return "You’re ready to start marking. Just a few details left!";
     if (progressPercent < 100) return "Almost there — just one step left!";
     return "Perfect! Your term is fully set up, compliant, and healthy.";
-  }, [progressPercent]);
+  }, [progressPercent, hasLegacyData]);
 
   if (isMinimized) {
     return (

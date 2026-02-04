@@ -70,7 +70,7 @@ export function HelpDialog() {
                     <h3 className="font-bold text-lg">Academic Context</h3>
                   </div>
                   <p className="text-sm text-muted-foreground mb-3">
-                    AdminLess usesDiscovery scope. This means you will only see data (classes, tasks, alerts) belonging to the year and term selected in the top bar.
+                    AdminLess uses strict scoping. This means you will only see data (classes, tasks, alerts) belonging to the year and term selected in the top bar.
                   </p>
                   <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
                     <li><strong>Global Search:</strong> Press <kbd className="px-1.5 py-0.5 rounded border bg-muted text-[10px] font-mono">Cmd + K</kbd> to find any student, even those in different classes.</li>
