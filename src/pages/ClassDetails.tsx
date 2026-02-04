@@ -1,4 +1,4 @@
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
@@ -15,17 +15,22 @@ import { useLearnerState } from "@/hooks/useLearnerState";
 import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
-import { Loader2, ShieldCheck, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, ShieldCheck, BarChart3, ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const ClassDetails = () => {
   const { classId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
   const { assessments, activeTerm } = useAcademic();
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   
+  const highlightId = location.state?.highlightId;
+  const isGuided = location.state?.fromOnboarding;
+
   const classInfo = classes.find((c) => c.id === classId);
-  
   const hasAssessments = assessments.length > 0;
 
   const {
@@ -94,28 +99,37 @@ const ClassDetails = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-7xl space-y-6 pb-20">
-      <ClassHeader 
-        classInfo={classInfo}
-        onBack={() => window.history.back()}
-        onEdit={(details) => updateClassDetails(classInfo.id, details)}
-        onSave={handleSaveChanges}
-        onExport={{
-            csv: handleExportCsv,
-            pdf: handleExportPdf,
-            bulkPdf: handleExportBulkPdf,
-            blankList: handleExportBlankPdf,
-            share: handleShareSummary
-        }}
-        onDialogs={{
-            import: () => dialogs.setIsImportOpen(true),
-            voice: () => dialogs.setIsVoiceEntryOpen(true),
-            rapid: () => dialogs.setIsRapidEntryOpen(true),
-            editLearners: () => dialogs.setIsEditLearnersOpen(true),
-            aiInsights: () => dialogs.setIsAiInsightsOpen(true),
-            moderation: () => dialogs.setIsModerationOpen(true),
-            classroomTools: () => dialogs.setIsClassroomToolsOpen(true)
-        }}
-      />
+      <div className="flex flex-col gap-4">
+        {isGuided && (
+            <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2 border-primary text-primary">
+                    <ArrowLeft className="h-4 w-4" /> Back to Checklist
+                </Button>
+            </div>
+        )}
+        <ClassHeader 
+            classInfo={classInfo}
+            onBack={() => window.history.back()}
+            onEdit={(details) => updateClassDetails(classInfo.id, details)}
+            onSave={handleSaveChanges}
+            onExport={{
+                csv: handleExportCsv,
+                pdf: handleExportPdf,
+                bulkPdf: handleExportBulkPdf,
+                blankList: handleExportBlankPdf,
+                share: handleShareSummary
+            }}
+            onDialogs={{
+                import: () => dialogs.setIsImportOpen(true),
+                voice: () => dialogs.setIsVoiceEntryOpen(true),
+                rapid: () => dialogs.setIsRapidEntryOpen(true),
+                editLearners: () => dialogs.setIsEditLearnersOpen(true),
+                aiInsights: () => dialogs.setIsAiInsightsOpen(true),
+                moderation: () => dialogs.setIsModerationOpen(true),
+                classroomTools: () => dialogs.setIsClassroomToolsOpen(true)
+            }}
+        />
+      </div>
 
       <Tabs defaultValue="assessments" className="w-full">
         <TabsList className="grid w-full grid-cols-2 lg:w-[600px]">
@@ -131,10 +145,12 @@ const ClassDetails = () => {
         </TabsList>
         
         <TabsContent value="assessments">
-             <MarkSheet 
-               classInfo={classInfo} 
-               onViewLearnerProfile={(l) => dialogs.setSelectedProfileLearner(l)}
-             />
+             <div className={cn(highlightId === 'new-task-btn' || highlightId === 'mark-sheet-grid' || highlightId === 'integrity-guard' ? "guide-highlight rounded-lg p-1" : "")}>
+                <MarkSheet 
+                    classInfo={classInfo} 
+                    onViewLearnerProfile={(l) => dialogs.setSelectedProfileLearner(l)}
+                />
+             </div>
         </TabsContent>
 
         <TabsContent value="analysis">

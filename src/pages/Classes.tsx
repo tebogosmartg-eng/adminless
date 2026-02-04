@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateClassDialog } from "@/components/CreateClassDialog";
 import { EditClassDialog } from "@/components/dialogs/EditClassDialog";
 import { DeleteClassDialog } from "@/components/dialogs/DeleteClassDialog";
-import { Search, Filter, X, Archive } from "lucide-react";
+import { Search, Filter, X, Archive, ArrowLeft } from "lucide-react";
 import { useClassesLogic } from "@/hooks/useClassesLogic";
 import { ClassCard } from "@/components/ClassCard";
+import { cn } from "@/lib/utils";
 
 const Classes = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const highlightId = location.state?.highlightId;
+  const isGuided = location.state?.fromOnboarding;
+
   const {
     addClass,
     isEditOpen, setIsEditOpen,
@@ -35,8 +41,17 @@ const Classes = () => {
   return (
     <>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-        <h1 className="text-3xl font-bold">Classes</h1>
-        <CreateClassDialog onClassCreate={addClass} />
+        <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold">Classes</h1>
+            {isGuided && (
+                <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2 border-primary text-primary">
+                    <ArrowLeft className="h-4 w-4" /> Back to Checklist
+                </Button>
+            )}
+        </div>
+        <div className={cn(highlightId === 'create-class-btn' ? "guide-highlight rounded-md" : "")}>
+            <CreateClassDialog onClassCreate={addClass} />
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
@@ -46,7 +61,6 @@ const Classes = () => {
         </TabsList>
       </Tabs>
 
-      {/* Search and Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -92,16 +106,17 @@ const Classes = () => {
             </Card>
          ) : (
            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-             {activeClasses.map((classItem) => (
-               <ClassCard 
-                 key={classItem.id} 
-                 classItem={classItem}
-                 onView={handleView}
-                 onEdit={handleEdit}
-                 onDelete={handleDeleteClick}
-                 onDuplicate={handleDuplicate}
-                 onToggleArchive={handleToggleArchive}
-               />
+             {activeClasses.map((classItem, idx) => (
+               <div key={classItem.id} className={cn(idx === 0 && highlightId === 'class-list-roster' ? "guide-highlight rounded-xl" : "")}>
+                    <ClassCard 
+                        classItem={classItem}
+                        onView={handleView}
+                        onEdit={handleEdit}
+                        onDelete={handleDeleteClick}
+                        onDuplicate={handleDuplicate}
+                        onToggleArchive={handleToggleArchive}
+                    />
+               </div>
              ))}
            </div>
          )

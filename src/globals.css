@@ -36,14 +36,12 @@
     --sidebar-ring: 217 91% 60%;
   }
 
-  /* Morning Contextual Theme (Fresh/Greenish Tint) */
   .theme-morning {
     --background: 140 20% 98%;
     --primary: 142 76% 36%;
     --ring: 142 76% 36%;
   }
 
-  /* Afternoon Contextual Theme (Warm/Amber Tint) */
   .theme-afternoon {
     --background: 30 20% 98%;
     --primary: 25 95% 45%;
@@ -51,7 +49,6 @@
   }
 
   .dark {
-    /* Night Marker - Dark Mode */
     --background: 222 47% 4%;
     --foreground: 210 20% 85%;
     --card: 222 47% 6%;
@@ -90,4 +87,17 @@
   body {
     @apply bg-background text-foreground antialiased transition-colors duration-700;
   }
+}
+
+@keyframes guide-pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
+  70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+.guide-highlight {
+  animation: guide-pulse 2s infinite;
+  border-color: hsl(var(--primary)) !important;
+  border-width: 2px !important;
+  z-index: 50;
 }
