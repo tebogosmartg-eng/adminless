@@ -4,7 +4,7 @@ import MobileSidebar from "./MobileSidebar";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { Button } from "@/components/ui/button";
-import { Search, CalendarDays, ChevronDown, Check, Clock, AlertTriangle } from "lucide-react";
+import { Search, CalendarDays, ChevronDown, Check, Clock, AlertTriangle, BookMarked } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
 import {
   DropdownMenu,
@@ -78,12 +78,12 @@ const Header = () => {
 
         {currentPeriod && (
             <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10 animate-in slide-in-from-top-1">
-                <Clock className="h-3.5 w-3.5 text-blue-200" />
-                <span className="text-[10px] font-black uppercase tracking-tighter text-blue-100">
-                    Period {currentPeriod.period}
+                <BookMarked className="h-3.5 w-3.5 text-blue-200" />
+                <span className="text-[9px] font-black uppercase tracking-tight text-blue-100">
+                    Teaching Session {currentPeriod.period}
                 </span>
-                <span className="w-1 h-1 rounded-full bg-blue-300 animate-pulse" />
-                <span className="text-[10px] font-medium truncate max-w-[80px]">{currentPeriod.class_name}</span>
+                <span className="w-1 h-1 rounded-full bg-blue-300" />
+                <span className="text-[10px] font-bold truncate max-w-[120px]">{currentPeriod.class_name}</span>
             </div>
         )}
 

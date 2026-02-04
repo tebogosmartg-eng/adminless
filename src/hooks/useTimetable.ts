@@ -25,17 +25,17 @@ export const useTimetable = () => {
         class_name: entry.class_name || '',
         class_id: entry.class_id || null,
         start_time: entry.start_time || '',
-        end_time: entry.end_time || ''
+        end_time: entry.end_time || '',
+        notes: entry.notes !== undefined ? entry.notes : (existing?.notes || '')
       };
 
       await db.timetable.put(payload);
       await queueAction('timetable', 'upsert', payload);
       
-      // showSuccess("Timetable updated."); 
-      // Commented out to prevent toast spam on bulk edits
+      // We avoid excessive toasts for routine updates
     } catch (e) {
       console.error(e);
-      showError("Failed to update timetable.");
+      showError("Failed to update routine entry.");
     }
   };
 

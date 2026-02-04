@@ -148,6 +148,7 @@ export interface TimetableEntry {
   class_id?: string | null; // Link to actual ClassInfo if available
   start_time?: string;
   end_time?: string;
+  notes?: string; // New field for personal reminders
 }
 
 export interface AssessmentResult {

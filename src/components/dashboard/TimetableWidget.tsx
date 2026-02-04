@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, ArrowRight, Clock, BookOpen, Timer } from "lucide-react";
+import { CalendarClock, ArrowRight, Clock, StickyNote, Notebook, ChevronRight } from "lucide-react";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -12,44 +12,56 @@ export const TimetableWidget = () => {
   const today = format(new Date(), 'EEEE');
   
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="pb-3">
+    <Card className="h-full flex flex-col border-none shadow-sm bg-white dark:bg-card">
+      <CardHeader className="pb-3 px-6">
         <div className="flex justify-between items-start">
-            <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                    <CalendarClock className="h-5 w-5 text-primary" />
-                    Today's Schedule
+            <div className="space-y-0.5">
+                <CardTitle className="text-lg flex items-center gap-2 font-bold">
+                    <Notebook className="h-5 w-5 text-primary" />
+                    Daily Routine
                 </CardTitle>
-                <CardDescription>{today}</CardDescription>
+                <CardDescription className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{today}</CardDescription>
             </div>
-            <Link to="/settings" className="text-xs text-muted-foreground hover:underline">
-                Edit
+            <Link to="/settings" className="p-1.5 hover:bg-muted rounded-md transition-colors" title="Edit Routine">
+                <CalendarClock className="h-4 w-4 text-muted-foreground" />
             </Link>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-auto max-h-[350px] pr-2">
+      <CardContent className="flex-1 overflow-auto max-h-[400px] px-6 pb-6">
         {periods.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
-                <Clock className="h-8 w-8 mb-2 opacity-20" />
-                <p>No classes scheduled for today.</p>
-                <Button variant="link" size="sm" asChild>
-                    <Link to="/settings">Configure Timetable</Link>
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground text-sm text-center">
+                <Clock className="h-10 w-10 mb-4 opacity-10" />
+                <p className="font-medium">No routine set for today.</p>
+                <Button variant="link" size="sm" asChild className="text-primary mt-1">
+                    <Link to="/settings">Set your teaching schedule</Link>
                 </Button>
             </div>
         ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
                 {currentPeriod && (
-                    <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-3 animate-pulse-slow">
-                        <div className="flex items-center justify-between mb-2">
-                            <Badge className="bg-primary text-white">LIVE NOW</Badge>
-                            <span className="text-[10px] font-bold text-primary uppercase">Period {currentPeriod.period}</span>
+                    <div className="bg-primary/[0.03] border-2 border-primary/10 rounded-xl p-4 transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                            <Badge className="bg-primary text-white border-none text-[9px] font-black uppercase tracking-widest px-2 py-0.5 h-auto">
+                                Current Focus
+                            </Badge>
+                            <span className="text-[10px] font-black text-primary/60 uppercase">Session {currentPeriod.period}</span>
                         </div>
-                        <h4 className="font-bold text-lg">{currentPeriod.class_name}</h4>
-                        <p className="text-xs text-muted-foreground">{currentPeriod.subject}</p>
+                        <h4 className="font-black text-xl tracking-tight leading-none mb-1">{currentPeriod.class_name}</h4>
+                        <p className="text-xs font-bold text-muted-foreground mb-4">{currentPeriod.subject}</p>
+                        
+                        {currentPeriod.notes && (
+                            <div className="mb-4 p-3 bg-white dark:bg-background rounded-lg border border-dashed border-primary/20 relative">
+                                <StickyNote className="absolute -top-2 -right-1 h-4 w-4 text-primary/30 rotate-12" />
+                                <p className="text-xs italic text-foreground/80 leading-relaxed font-medium">
+                                    "{currentPeriod.notes}"
+                                </p>
+                            </div>
+                        )}
+
                         {currentPeriod.class_id && (
-                             <Button size="sm" className="w-full mt-3 h-8 text-xs" asChild>
+                             <Button size="sm" className="w-full h-9 rounded-lg font-bold shadow-sm" asChild>
                                 <Link to={`/classes/${currentPeriod.class_id}`}>
-                                    Open Register <ArrowRight className="ml-2 h-3 w-3" />
+                                    View Class Profile <ArrowRight className="ml-2 h-3.5 w-3.5" />
                                 </Link>
                              </Button>
                         )}
@@ -57,39 +69,49 @@ export const TimetableWidget = () => {
                 )}
 
                 <div className="space-y-2">
+                    <h5 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Remaining Schedule</h5>
                     {periods.map((entry) => {
                         const isCurrent = entry.isCurrent;
-                        if (isCurrent) return null; // Already shown above
+                        if (isCurrent) return null;
+
+                        const isNext = entry === nextPeriod;
 
                         return (
                             <div 
                                 key={entry.id} 
                                 className={cn(
-                                    "flex items-center gap-3 p-2 rounded-lg border bg-card transition-colors",
-                                    entry === nextPeriod ? "border-primary/30 bg-primary/[0.02]" : "hover:bg-muted/50"
+                                    "flex flex-col p-3 rounded-lg border transition-all",
+                                    isNext ? "border-primary/40 bg-primary/[0.01] shadow-sm" : "bg-muted/20 border-transparent hover:bg-muted/40"
                                 )}
                             >
-                                <div className={cn(
-                                    "flex flex-col items-center justify-center w-8 h-8 rounded text-sm font-bold",
-                                    entry === nextPeriod ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                                )}>
-                                    {entry.period}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between">
-                                        <span className="font-semibold text-sm truncate">{entry.class_name || "Untitled"}</span>
-                                        {entry === nextPeriod && <span className="text-[10px] font-bold text-primary uppercase">Next</span>}
+                                <div className="flex items-center gap-3">
+                                    <div className={cn(
+                                        "flex flex-col items-center justify-center w-7 h-7 rounded text-[11px] font-black",
+                                        isNext ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                                    )}>
+                                        {entry.period}
                                     </div>
-                                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                                        <span>{entry.subject}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-bold text-sm truncate">{entry.class_name || "Free Period"}</span>
+                                            {isNext && <span className="text-[9px] font-black text-primary uppercase tracking-tighter">Up Next</span>}
+                                        </div>
+                                        <p className="text-[10px] font-bold text-muted-foreground">{entry.subject}</p>
                                     </div>
+                                    {entry.class_id && (
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" asChild>
+                                            <Link to={`/classes/${entry.class_id}`}>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Link>
+                                        </Button>
+                                    )}
                                 </div>
-                                {entry.class_id && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild>
-                                        <Link to={`/classes/${entry.class_id}`}>
-                                            <ArrowRight className="h-4 w-4" />
-                                        </Link>
-                                    </Button>
+                                {isNext && entry.notes && (
+                                    <div className="mt-2 pl-10 border-l-2 border-primary/20">
+                                        <p className="text-[10px] text-muted-foreground line-clamp-1 italic">
+                                            Reminder: {entry.notes}
+                                        </p>
+                                    </div>
                                 )}
                             </div>
                         );
