@@ -17,13 +17,13 @@ export const TimetableWidget = () => {
         <div className="flex justify-between items-start">
             <div className="space-y-0.5">
                 <CardTitle className="text-lg flex items-center gap-2 font-bold">
-                    <CalendarClock className="h-5 w-5 text-primary" />
+                    <Notebook className="h-5 w-5 text-primary" />
                     Daily Agenda
                 </CardTitle>
                 <CardDescription className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{today}</CardDescription>
             </div>
             <Link to="/settings" className="p-1.5 hover:bg-muted rounded-md transition-colors" title="Edit Schedule">
-                <Notebook className="h-4 w-4 text-muted-foreground" />
+                <CalendarClock className="h-4 w-4 text-muted-foreground" />
             </Link>
         </div>
       </CardHeader>
@@ -83,15 +83,15 @@ export const TimetableWidget = () => {
                                 )}
                             </div>
 
-                            {/* Pending Task Highlighting */}
-                            {entry.class_id && entry.isPendingAttendance && (
+                            {/* Pending Task Contextual Hint (Non-enforcement) */}
+                            {entry.class_id && entry.isPendingAttendance && !entry.isPast && (
                                 <div className="mt-3 pt-2 border-t border-dashed border-amber-200 dark:border-amber-900/50 flex items-center justify-between">
                                     <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500">
                                         <AlertCircle className="h-3.5 w-3.5" />
-                                        <span className="text-[10px] font-black uppercase tracking-tighter">Register Missing</span>
+                                        <span className="text-[10px] font-black uppercase tracking-tighter">Attendance Contextual Reminder</span>
                                     </div>
                                     <Button variant="link" size="sm" className="h-auto p-0 text-[10px] font-bold text-amber-700" asChild>
-                                        <Link to={`/classes/${entry.class_id}`}>Mark Now</Link>
+                                        <Link to={`/classes/${entry.class_id}`}>Open Register</Link>
                                     </Button>
                                 </div>
                             )}
@@ -99,7 +99,7 @@ export const TimetableWidget = () => {
                             {entry.class_id && !entry.isPendingAttendance && !entry.isPast && (
                                 <div className="mt-2 pt-2 flex items-center gap-1.5 text-green-600 opacity-60">
                                     <CheckCircle2 className="h-3 w-3" />
-                                    <span className="text-[9px] font-bold uppercase">Attendance Logged</span>
+                                    <span className="text-[9px] font-bold uppercase">Work Logged</span>
                                 </div>
                             )}
                         </div>
