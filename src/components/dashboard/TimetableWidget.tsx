@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, ArrowRight, Clock, StickyNote, Notebook, ChevronRight } from "lucide-react";
+import { CalendarClock, ArrowRight, Clock, Notebook, ChevronRight } from "lucide-react";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -48,15 +48,6 @@ export const TimetableWidget = () => {
                         </div>
                         <h4 className="font-black text-xl tracking-tight leading-none mb-1">{currentPeriod.class_name}</h4>
                         <p className="text-xs font-bold text-muted-foreground mb-4">{currentPeriod.subject}</p>
-                        
-                        {currentPeriod.notes && (
-                            <div className="mb-4 p-3 bg-white dark:bg-background rounded-lg border border-dashed border-primary/20 relative">
-                                <StickyNote className="absolute -top-2 -right-1 h-4 w-4 text-primary/30 rotate-12" />
-                                <p className="text-xs italic text-foreground/80 leading-relaxed font-medium">
-                                    "{currentPeriod.notes}"
-                                </p>
-                            </div>
-                        )}
 
                         {currentPeriod.class_id && (
                              <Button size="sm" className="w-full h-9 rounded-lg font-bold shadow-sm" asChild>
@@ -80,38 +71,29 @@ export const TimetableWidget = () => {
                             <div 
                                 key={entry.id} 
                                 className={cn(
-                                    "flex flex-col p-3 rounded-lg border transition-all",
+                                    "flex items-center gap-3 p-3 rounded-lg border transition-all",
                                     isNext ? "border-primary/40 bg-primary/[0.01] shadow-sm" : "bg-muted/20 border-transparent hover:bg-muted/40"
                                 )}
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className={cn(
-                                        "flex flex-col items-center justify-center w-7 h-7 rounded text-[11px] font-black",
-                                        isNext ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                                    )}>
-                                        {entry.period}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between">
-                                            <span className="font-bold text-sm truncate">{entry.class_name || "Free Period"}</span>
-                                            {isNext && <span className="text-[9px] font-black text-primary uppercase tracking-tighter">Up Next</span>}
-                                        </div>
-                                        <p className="text-[10px] font-bold text-muted-foreground">{entry.subject}</p>
-                                    </div>
-                                    {entry.class_id && (
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" asChild>
-                                            <Link to={`/classes/${entry.class_id}`}>
-                                                <ChevronRight className="h-4 w-4" />
-                                            </Link>
-                                        </Button>
-                                    )}
+                                <div className={cn(
+                                    "flex flex-col items-center justify-center w-7 h-7 rounded text-[11px] font-black",
+                                    isNext ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                                )}>
+                                    {entry.period}
                                 </div>
-                                {isNext && entry.notes && (
-                                    <div className="mt-2 pl-10 border-l-2 border-primary/20">
-                                        <p className="text-[10px] text-muted-foreground line-clamp-1 italic">
-                                            Reminder: {entry.notes}
-                                        </p>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-bold text-sm truncate">{entry.class_name || "Free Period"}</span>
+                                        {isNext && <span className="text-[9px] font-black text-primary uppercase tracking-tighter">Up Next</span>}
                                     </div>
+                                    <p className="text-[10px] font-bold text-muted-foreground">{entry.subject}</p>
+                                </div>
+                                {entry.class_id && (
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" asChild>
+                                        <Link to={`/classes/${entry.class_id}`}>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
                                 )}
                             </div>
                         );
