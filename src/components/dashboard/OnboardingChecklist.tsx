@@ -17,7 +17,10 @@ import {
     ListChecks,
     ClipboardCheck,
     FastForward,
-    Play
+    Play,
+    ChevronDown,
+    ChevronUp,
+    Settings2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAcademic } from '@/context/AcademicContext';
@@ -30,6 +33,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 const LAST_STEP_KEY = 'adminless_setup_last_step';
+const MINIMIZED_KEY = 'adminless_setup_minimized';
 
 export const OnboardingChecklist = () => {
   const { activeYear, activeTerm, terms } = useAcademic();
@@ -41,6 +45,7 @@ export const OnboardingChecklist = () => {
   const totalMarks = useLiveQuery(() => db.assessment_marks.count()) || 0;
   
   const [lastStepId, setLastStepId] = useState<string | null>(() => localStorage.getItem(LAST_STEP_KEY));
+  const [isMinimized, setIsMinimized] = useState<boolean>(() => localStorage.getItem(MINIMIZED_KEY) === 'true');
 
   const steps = useMemo(() => {
     const step1Done = !!activeYear;
@@ -163,6 +168,14 @@ export const OnboardingChecklist = () => {
 
   const completedCount = steps.filter(s => s.isComplete).length;
   const progressPercent = Math.round((Math.min(completedCount, 9) / 9) * 100);
+  const isFullyComplete = completedCount >= 9;
+
+  // Auto-minimize when 100% is first reached
+  useEffect(() => {
+      if (isFullyComplete && localStorage.getItem(MINIMIZED_KEY) === null) {
+          handleToggleMinimize(true);
+      }
+  }, [isFullyComplete]);
 
   // Auto-set the lastStepId if none exists to the first incomplete step
   useEffect(() => {
@@ -172,10 +185,14 @@ export const OnboardingChecklist = () => {
       }
   }, [steps, lastStepId]);
 
+  const handleToggleMinimize = (val: boolean) => {
+      setIsMinimized(val);
+      localStorage.setItem(MINIMIZED_KEY, val.toString());
+  };
+
   const handleStepClick = (step: any) => {
     if (!step.prereqMet && !step.isComplete) return;
     
-    // Persist progress
     localStorage.setItem(LAST_STEP_KEY, step.id);
     setLastStepId(step.id);
 
@@ -192,7 +209,43 @@ export const OnboardingChecklist = () => {
       if (stepToResume) handleStepClick(stepToResume);
   };
 
-  if (completedCount >= 9) return null;
+  // Minimized View (Sticky Status Bar)
+  if (isMinimized) {
+    return (
+        <Card className={cn(
+            "border-none shadow-sm transition-all duration-300",
+            isFullyComplete ? "bg-green-600 text-white" : "bg-primary text-white"
+        )}>
+            <div className="px-6 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="p-1.5 rounded-md bg-white/20">
+                        {isFullyComplete ? <CheckCircle2 className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}
+                    </div>
+                    <div>
+                        <p className="text-[10px] uppercase font-black tracking-widest opacity-70 leading-none mb-1">
+                            Academic Setup Status
+                        </p>
+                        <p className="text-sm font-bold">
+                            {isFullyComplete ? "Environment Fully Optimized" : `Setup in progress (${progressPercent}%)`}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    {!isFullyComplete && (
+                        <Button size="sm" variant="secondary" onClick={handleResume} className="h-7 text-[10px] font-black uppercase px-3">
+                            Resume Tasks
+                        </Button>
+                    )}
+                    <div className="h-4 w-px bg-white/20 mx-1" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => handleToggleMinimize(false)}>
+                        <ChevronDown className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+        </Card>
+    );
+  }
 
   return (
     <Card className="border-2 border-primary/20 bg-primary/[0.01] shadow-lg animate-in fade-in slide-in-from-top-4 duration-1000 overflow-hidden">
@@ -200,14 +253,17 @@ export const OnboardingChecklist = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
                 <div className="flex items-center gap-2 mb-1">
-                    <Badge className="bg-primary text-white border-none uppercase tracking-tighter text-[10px]">
-                        <Sparkles className="h-3 w-3 mr-1 inline" /> setup in progress
+                    <Badge className={cn("border-none uppercase tracking-tighter text-[10px]", isFullyComplete ? "bg-green-600 text-white" : "bg-primary text-white")}>
+                        {isFullyComplete ? <CheckCircle2 className="h-3 w-3 mr-1 inline" /> : <Sparkles className="h-3 w-3 mr-1 inline" />}
+                        {isFullyComplete ? "setup complete" : "setup in progress"}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">• Auto-saving progress</span>
                 </div>
                 <CardTitle className="text-xl font-black">Academic Setup Guide</CardTitle>
                 <CardDescription className="text-primary font-medium">
-                    Complete these steps to ensure your term data is compliant and ready for reporting.
+                    {isFullyComplete 
+                        ? "Your term data is fully compliant and ready for departmental reporting."
+                        : "Complete these steps to ensure your term data is compliant and ready for reporting."}
                 </CardDescription>
             </div>
             
@@ -216,8 +272,13 @@ export const OnboardingChecklist = () => {
                     <span className="text-3xl font-black text-primary tabular-nums">{progressPercent}%</span>
                     <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Completed</p>
                 </div>
-                <Button onClick={handleResume} className="gap-2 shadow-md bg-primary hover:bg-primary/90 px-6">
-                    <Play className="h-4 w-4 fill-current" /> Resume Setup
+                {!isFullyComplete && (
+                    <Button onClick={handleResume} className="gap-2 shadow-md bg-primary hover:bg-primary/90 px-6">
+                        <Play className="h-4 w-4 fill-current" /> Resume Setup
+                    </Button>
+                )}
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleMinimize(true)}>
+                    <ChevronUp className="h-4 w-4" />
                 </Button>
             </div>
         </div>
