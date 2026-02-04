@@ -41,8 +41,14 @@ export const DataManagementSettings = () => {
   const handleLoadDemo = async () => {
     setIsDemoLoading(true);
     try {
-        await importDemoData();
+        const { yearId, activeTermId } = await importDemoData();
+        
+        // Critical Fix: Set the active context in localStorage so the app switches on reload
+        localStorage.setItem('adminless_active_year_id', yearId);
+        localStorage.setItem('adminless_active_term_id', activeTermId);
+        
         await recalculateAllActiveAverages();
+        
         showSuccess("Demo data loaded. Redirecting to Dashboard...");
         setTimeout(() => window.location.href = '/', 1500);
     } catch (e: any) {
