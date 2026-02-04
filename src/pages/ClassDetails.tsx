@@ -132,16 +132,16 @@ const ClassDetails = () => {
       </div>
 
       <Tabs defaultValue="assessments" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[600px]">
-          <TabsTrigger value="assessments">Assessments</TabsTrigger>
-          <TabsTrigger value="analysis" className="gap-2">
+        <TabsList className="flex items-center justify-start w-full h-12 bg-muted/50 border p-1 overflow-x-auto no-scrollbar gap-1">
+          <TabsTrigger value="assessments" className="flex-none h-10 px-6">Assessments</TabsTrigger>
+          <TabsTrigger value="analysis" className="flex-none h-10 px-6 gap-2">
             <BarChart3 className="h-3.5 w-3.5" /> Analysis
           </TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-          <TabsTrigger value="evidence" className="gap-2">
+          <TabsTrigger value="attendance" className="flex-none h-10 px-6">Attendance</TabsTrigger>
+          <TabsTrigger value="evidence" className="flex-none h-10 px-6 gap-2">
             <ShieldCheck className="h-3.5 w-3.5" /> Evidence
           </TabsTrigger>
-          {!hasAssessments && <TabsTrigger value="legacy">Legacy Marks</TabsTrigger>}
+          {!hasAssessments && <TabsTrigger value="legacy" className="flex-none h-10 px-6">Legacy Marks</TabsTrigger>}
         </TabsList>
         
         <TabsContent value="assessments">
