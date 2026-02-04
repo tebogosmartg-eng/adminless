@@ -29,6 +29,7 @@ interface AcademicContextType {
   deleteYear: (yearId: string) => Promise<void>;
   updateTerm: (term: Term) => Promise<void>;
   createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<string>;
+  updateAssessment: (assessment: Assessment) => Promise<void>;
   deleteAssessment: (id: string) => Promise<void>;
   updateMarks: (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => Promise<void>;
   refreshAssessments: (classId: string, termId?: string) => Promise<void>;
@@ -411,6 +412,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     return id;
   };
 
+  const updateAssessment = async (assessment: Assessment) => {
+    if (!session?.user.id) return;
+    const term = await db.terms.get(assessment.term_id);
+    if (!term || term.closed) throw new Error("Target term is finalized.");
+    
+    await db.assessments.put(assessment);
+    await queueAction('assessments', 'update', assessment);
+    
+    if (activeYear) {
+      logInternalActivity(`Updated assessment settings: "${assessment.title}"`, activeYear.id, assessment.term_id);
+    }
+    showSuccess("Assessment updated.");
+  };
+
   const deleteAssessment = async (id: string) => {
       const ass = await db.assessments.get(id);
       if (!ass) return;
@@ -439,7 +454,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     <AcademicContext.Provider value={{
       years, terms, assessments, marks, loading: !years, activeYear, activeTerm,
       setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm,
-      createAssessment, deleteAssessment, updateMarks, refreshAssessments,
+      createAssessment, updateAssessment, deleteAssessment, updateMarks, refreshAssessments,
       toggleTermStatus, closeYear, recalculateAllActiveAverages, rollForwardClasses, migrateLegacyData
     }}>
       {children}

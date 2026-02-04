@@ -3,6 +3,7 @@ import { useMarkSheetLogic } from '@/hooks/useMarkSheetLogic';
 import { MarkSheetToolbar } from './MarkSheetToolbar';
 import { MarkSheetTable } from './MarkSheetTable';
 import { MarkSheetDialogs } from './MarkSheetDialogs';
+import { EditAssessmentDialog } from './EditAssessmentDialog';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
 import { CalendarClock, ShieldCheck } from 'lucide-react';
@@ -116,8 +117,12 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           setIsAddOpen={actions.setIsAddOpen}
           openAnalytics={actions.openAnalytics}
           deleteAssessment={actions.deleteAssessment}
+          onEditAssessment={(ass) => {
+            actions.setEditingAssessment(ass);
+            actions.setIsEditOpen(true);
+          }}
           getMarkValue={actions.getMarkValue}
-          getMarkComment={actions.getMarkComment}
+          getMarkComment={(a, l) => actions.getMarkComment(a, l)}
           handleMarkChange={actions.handleMarkChange}
           handleCommentChange={actions.handleCommentChange}
           handleBulkColumnUpdate={actions.handleBulkColumnUpdate}
@@ -144,6 +149,14 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           setIsCopyOpen={actions.setIsCopyOpen}
           viewTermId={state.viewTermId}
           refreshAssessments={actions.refreshAssessments}
+       />
+
+       <EditAssessmentDialog
+          open={state.isEditOpen}
+          onOpenChange={actions.setIsEditOpen}
+          assessment={state.editingAssessment}
+          onSave={actions.handleUpdateAssessment}
+          availableRubrics={state.availableRubrics}
        />
 
        {state.activeTool.type === 'rapid' && (

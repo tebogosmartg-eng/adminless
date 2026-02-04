@@ -19,7 +19,7 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -42,6 +42,7 @@ interface MarkSheetTableProps {
   setIsAddOpen: (open: boolean) => void;
   openAnalytics: (ass: Assessment) => void;
   deleteAssessment: (id: string) => void;
+  onEditAssessment?: (ass: Assessment) => void;
   getMarkValue: (assId: string, lId: string) => string;
   getMarkComment: (assId: string, lId: string) => string;
   handleMarkChange: (assId: string, lId: string, val: string) => void;
@@ -59,7 +60,7 @@ interface MarkSheetTableProps {
 export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
   isLocked, isUsingVisibleTotal, atRiskThreshold, sortConfig, setIsAddOpen,
-  openAnalytics, deleteAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
+  openAnalytics, deleteAssessment, onEditAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
   calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool, onOpenRubric,
   validateAndCommitMark
 }: MarkSheetTableProps) => {
@@ -194,6 +195,11 @@ export const MarkSheetTable = ({
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                 </>
+                            )}
+                            {onEditAssessment && (
+                              <DropdownMenuItem onClick={() => onEditAssessment(ass)}>
+                                <Settings2 className="mr-2 h-4 w-4" /> Edit Settings
+                              </DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => { deleteAssessment(ass.id); }} className="text-destructive">
                                 <Trash2 className="mr-2 h-4 w-4" /> Delete Column

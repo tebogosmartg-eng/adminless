@@ -16,7 +16,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     activeYear,
     assessments, 
     marks, 
-    createAssessment, 
+    createAssessment,
+    updateAssessment,
     deleteAssessment, 
     refreshAssessments,
     updateMarks
@@ -27,6 +28,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   // UI state
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isCopyOpen, setIsCopyOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
@@ -40,6 +42,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const [activeTool, setActiveTool] = useState<{ type: 'rapid' | 'voice' | null, assessmentId: string | null, termId: string | null }>({ type: null, assessmentId: null, termId: null });
   const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "", rubricId: "", termId: "" });
+  const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
   
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
@@ -209,11 +212,21 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       }
   };
 
+  const handleUpdateAssessment = async (assessment: Assessment) => {
+    try {
+      await updateAssessment(assessment);
+      setIsEditOpen(false);
+      setEditingAssessment(null);
+    } catch (e: any) {
+      showError(e.message);
+    }
+  };
+
   return {
     state: {
       viewTermId: activeTerm?.id || null, 
-      isAddOpen, isImportOpen, isCopyOpen, analyticsOpen,
-      newAss, editedMarks, editedComments, searchQuery, selectedAssessment,
+      isAddOpen, isEditOpen, isImportOpen, isCopyOpen, analyticsOpen,
+      newAss, editingAssessment, editedMarks, editedComments, searchQuery, selectedAssessment,
       visibleAssessmentIds, recalculateTotal, currentViewTerm: activeTerm, visibleAssessments,
       isLocked: activeYear?.closed || activeTerm?.closed, 
       filteredLearners: sortedAndFilteredLearners,
@@ -232,14 +245,16 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           }
           setIsAddOpen(open);
       },
+      setIsEditOpen,
       setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
-      setNewAss, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
+      setNewAss, setEditingAssessment, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
       getMarkValue: (a, l) => editedMarks[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.score?.toString() ?? "",
       getMarkComment: (a, l) => editedComments[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.comment ?? "",
       handleMarkChange, 
       handleCommentChange,
       handleSaveMarks: () => {}, 
       handleAddAssessment,
+      handleUpdateAssessment,
       calculateLearnerTotal,
       getAssessmentStats: (id) => {
           const assMarks = marks.filter(m => m.assessment_id === id && m.score !== null);
