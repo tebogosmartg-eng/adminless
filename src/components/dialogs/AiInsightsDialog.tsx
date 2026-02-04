@@ -1,10 +1,11 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Brain, Sparkles, TrendingUp, AlertTriangle, Lightbulb, Copy, Check, Loader2, Download } from 'lucide-react';
+import { Brain, Sparkles, TrendingUp, AlertTriangle, Lightbulb, Copy, Check, Loader2, Download, ClipboardCheck } from 'lucide-react';
 import { ClassInfo, ClassInsight, Learner } from '@/lib/types';
 import { useState } from 'react';
 import { showSuccess } from '@/utils/toast';
+import { useSetupStatus } from '@/hooks/useSetupStatus';
 
 interface AiInsightsDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ export const AiInsightsDialog = ({
   onSimulate
 }: AiInsightsDialogProps) => {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  const { hasMarksCaptured } = useSetupStatus();
 
   const handleCopy = (text: string, section: string) => {
     navigator.clipboard.writeText(text);
@@ -106,15 +108,28 @@ ${insights.recommendations.map(s => `- ${s}`).join('\n')}
                   Analyze learner performance to identify trends, strengths, and areas for intervention using AI.
                 </p>
               </div>
-              <div className="flex gap-2 mt-4">
-                 <Button onClick={onGenerate} disabled={isLoading} className="min-w-[140px]">
-                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                   Generate Analysis
-                 </Button>
-                 <Button variant="outline" onClick={onSimulate} disabled={isLoading}>
-                    Demo Mode
-                 </Button>
-              </div>
+
+              {!hasMarksCaptured ? (
+                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg flex items-start gap-3 max-w-sm">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                    <div className="text-left">
+                        <p className="text-sm font-bold text-amber-900">Setup Incomplete</p>
+                        <p className="text-xs text-amber-800 leading-tight">
+                            AI analysis requires at least one task with captured marks to function accurately.
+                        </p>
+                    </div>
+                  </div>
+              ) : (
+                <div className="flex gap-2 mt-4">
+                    <Button onClick={onGenerate} disabled={isLoading} className="min-w-[140px]">
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                        Generate Analysis
+                    </Button>
+                    <Button variant="outline" onClick={onSimulate} disabled={isLoading}>
+                        Demo Mode
+                    </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-6 py-2">
