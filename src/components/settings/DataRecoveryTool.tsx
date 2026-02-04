@@ -58,17 +58,22 @@ export const DataRecoveryTool = () => {
 
     setIsMigrating(true);
     
-    const report = await migrateLegacyData(selectedYearId, selectedTermId);
-    
-    if (report.success) {
-        showSuccess(`Recovery successful! ${report.total} records have been aligned with your active cycle.`);
-        setCandidates(null);
-        setTimeout(() => window.location.reload(), 1500);
-    } else {
-        showError("Migration failed. Please check your data integrity and try again.");
+    try {
+        const report = await migrateLegacyData(selectedYearId, selectedTermId);
+        
+        if (report.success) {
+            showSuccess(`Recovery successful! ${report.total} records have been aligned with your active cycle.`);
+            setCandidates(null);
+            // Short delay before reload to let sync queue settle
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showError("Migration failed. Please check your data integrity and try again.");
+        }
+    } catch (e) {
+        showError("An unexpected error occurred during migration.");
+    } finally {
+        setIsMigrating(false);
     }
-    
-    setIsMigrating(false);
   };
 
   return (

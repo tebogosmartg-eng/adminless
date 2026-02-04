@@ -16,6 +16,7 @@ import {
     RefreshCw,
     Info
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface AuditResult {
     table: string;
@@ -111,7 +112,7 @@ export const DataAuditTool = () => {
   const totalHidden = results.reduce((acc, r) => acc + r.hidden + r.orphaned, 0);
 
   return (
-    <Card className="border-amber-200 bg-amber-50/10">
+    <Card className="border-amber-200 bg-amber-50/10 shadow-none">
       <CardHeader>
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -186,7 +187,7 @@ export const DataAuditTool = () => {
                     <div className="text-xs text-blue-900 space-y-1">
                         <p className="font-bold">Why is this data hidden?</p>
                         <p>The app now uses strict filtering to ensure you only see data relevant to your selected **Academic Year** and **Term**. Data created before this version might lack these references.</p>
-                        <p className="pt-1 italic">Contact support if you need to manually patch legacy records to a specific Term.</p>
+                        <p className="pt-1 italic">Use the Recovery Tool below to manually patch legacy records.</p>
                     </div>
                 </div>
             </div>
@@ -195,5 +196,3 @@ export const DataAuditTool = () => {
     </Card>
   );
 };
-
-import { cn } from '@/lib/utils';
