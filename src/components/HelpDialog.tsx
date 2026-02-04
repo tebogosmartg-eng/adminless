@@ -1,4 +1,3 @@
-' character in the settings documentation.">
 import {
   Dialog,
   DialogContent,

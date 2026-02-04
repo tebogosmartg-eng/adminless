@@ -23,6 +23,7 @@ import { TodoList } from './TodoList';
 import { AdminDebtWidget } from './AdminDebtWidget';
 import { EvidenceComplianceWidget } from './EvidenceComplianceWidget';
 import { DailyGoalWidget } from './DailyGoalWidget';
+import { OnboardingChecklist } from './OnboardingChecklist';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -39,6 +40,8 @@ export const DashboardOverviewTab = ({
 }: DashboardOverviewTabProps) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      <OnboardingChecklist />
+
       <div className="grid gap-6 md:grid-cols-3">
          <div className="md:col-span-2">
             <ActiveTermStats />
