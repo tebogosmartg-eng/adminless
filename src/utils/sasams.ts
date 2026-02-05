@@ -1,4 +1,4 @@
-import { Learner, Assessment, AssessmentMark } from "@/lib/types";
+import { Learner } from "@/lib/types";
 import { format } from "date-fns";
 
 /**
@@ -8,6 +8,7 @@ import { format } from "date-fns";
 export const generateSASAMSExport = (
   learners: Learner[],
   className: string,
+  grade: string,
   subject: string,
   termName: string,
   yearName: string,
@@ -34,7 +35,7 @@ export const generateSASAMSExport = (
 
   // 2. Process rows
   const rows = learners.map(learner => {
-    // Split name into Name and Surname (Assuming "First Last" or "First Middle Last")
+    // Split name into Name and Surname (Assuming "First Last")
     const nameParts = learner.name.trim().split(/\s+/);
     const surname = nameParts.length > 1 ? nameParts.pop() : "";
     const firstName = nameParts.join(" ");
@@ -43,14 +44,13 @@ export const generateSASAMSExport = (
     const isPass = markValue >= 50;
     const result = isPass ? "Pass" : "Fail";
     
-    // We use the current date as the "Finalised" reference for the export audit
     const dateFinalised = format(new Date(), 'yyyy-MM-dd');
 
     const row = [
       `"${yearName}"`,
       `"${termName}"`,
       `"${schoolCode}"`,
-      `"${learner.class_id ? 'Grade ' + learner.class_id : ''}"`, // Placeholder if grade is missing in object
+      `"${grade}"`,
       `"${className}"`,
       `"${subject}"`,
       `"${learner.id || 'N/A'}"`,

@@ -14,145 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, ShieldAlert, GraduationCap } from 'lucide-react';
-import { showSuccess, showError } from '@/utils/toast';
-import { addHeader, SchoolProfile, addFooter } from '@/utils/pdfGenerator';
-import { checkClassTermIntegrity } from '@/utils/integrity';
-import { IntegrityGuard } from '@/components/IntegrityGuard';
-import { useSetupStatus } from '@/hooks/useSetupStatus';
-import { Link } from 'react-router-dom';
-import { generateSASAMSExport } from '@/utils/sasams';
-import { cn } from '@/lib/utils';
-
-const Reports = () => {
-  const { classes } = useClasses();
-  const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
-  const { terms, years, activeYear, activeTerm, assessments, marks } = useAcademic();
-  const { isReadyForFinalization, missingRequired } = useSetupStatus();
-
-  const profile: SchoolProfile = { 
-    name: schoolName, 
-    teacher: teacherName, 
-    logo: schoolLogo, 
-    email: contactEmail, 
-    phone: contactPhone 
-  };
-
-  const manualReports = useReportsData(classes);
-  const { loading: termLoading, reportData: termData, generateTermReport, allAssessmentTitles } = useTermReportData();
-  const { loading: yearLoading, yearData, generateYearReport } = useYearReportData();
-
-  const [termReportGrade, setTermReportGrade] = useState("all");
-  const [termReportSubject, setTermReportSubject] = useState("all");
-  
-  const [yearReportGrade, setYearReportGrade] = useState("all");
-  const [yearReportSubject, setYearReportSubject] = useState("all");
-  
-  const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
-  const [selectedYearId, setSelectedYearId] = useState(activeYear?.id || "");
-
-  useEffect(() => {
-      if (activeTerm) setSelectedTermId(activeTerm.id);
-  }, [activeTerm?.id]);
-
-  useEffect(() => {
-      if (activeYear) setSelectedYearId(activeYear.id);
-  }, [activeYear?.id]);
-
-  const selectedTerm = useMemo(() => terms.find(t => t.id === selectedTermId), [terms, selectedTermId]);
-  const isTermClosed = !!selectedTerm?.closed;
-
-  const integrityReport = useMemo(() => {
-    if (!selectedTermId || termReportGrade === 'all' || termReportSubject === 'all') return null;
-    
-    const targetClasses = classes.filter(c => c.grade === termReportGrade && c.subject === termReportSubject && !c.archived);
-    const targetAssessments = assessments.filter(a => a.term_id === selectedTermId && targetClasses.some(c => c.id === a.class_id));
-    const targetMarks = marks.filter(m => targetAssessments.some(a => a.id === m.assessment_id));
-    const targetLearners = targetClasses.flatMap(c => c.learners);
-
-    return checkClassTermIntegrity(targetAssessments, targetLearners, targetMarks);
-  }, [selectedTermId, termReportGrade, termReportSubject, classes, assessments, marks]);
-
-  const handleExportTermPDF = () => {
-    if (!termData || !selectedTermId) return;
-    
-    try {
-        const termName = selectedTerm?.name || "Term Report";
-        const doc = new jsPDF('l', 'mm', 'a4');
-        const startY = addHeader(doc, profile, `${termName} Performance Summary: ${termReportGrade} ${termReportSubject}`);
-        
-        const tableBody = termData.map(r => [
-            r.learnerName,
-            r.className,
-            ...allAssessmentTitles.map(title => r.assessments[title] || "-"),
-            `${r.termAverage}%`,
-            getGradeSymbol(r.termAverage, gradingScheme)?.symbol || '-'
-        ]);
-
-        autoTable(doc, {
-            startY: startY + 5,
-            head: [['Learner', 'Class', ...allAssessmentTitles, 'Average', 'Symbol']],
-            body: tableBody,
-            theme: 'grid',
-            headStyles: { fillColor: [41, 37, 36], textColor: 255 },
-            styles: { fontSize: 8 },
-        });
-
-        addFooter(doc);
-        doc.save(`${termReportGrade}_${termReportSubject}_${termName}_Report.pdf`);
-        showSuccess("PDF exported successfully.");
-    } catch (e) {
-        showError("Failed to generate PDF.");
-    }
-  };
-
-  const handleExportTermCSV = () => {
-    if (!termData) return;
-    
-    try {
-        const termName = selectedTerm?.name || "Term Report";
-        let csv = 'Learner,Class,' + allAssessmentTitles.join(',') + ',Average,Symbol\n';
-        
-        termData.forEach(r => {
-            const assessmentValues = allAssessmentTitles.map(title => r.assessments[title] || "-").join(',');
-            const symbol = getGradeSymbol(r.termAverage, gradingScheme)?.symbol || '-';
-            csv += `"${r.learnerName}","${r.className}",${assessmentValues},${r.termAverage}%,${symbol}\n<dyad-problem-report summary="1 problems">
-<problem file="src/pages/Reports.tsx" line="414" column="90" code="2339">Property 'termAverage' does not exist on type 'YearReportResult'.</problem>
-</dyad-problem-report><think>**Analyzing TypeScript Error**
-
-I'm currently focused on a TypeScript error within `src/pages/Reports.tsx` concerning a missing property, 'termAverage', on the `YearReportResult` type. I'm investigating the type definition of `YearReportResult` to identify where this property is missing. I will look for any recent changes that might have removed it, or for instances where it might be present under a slightly different name.
-
-
-**Correcting Data Display**
-
-I've pinpointed the issue in `Reports.tsx`. The code incorrectly attempts to access `r.termAverage`. The intended value resides within `r.termMarks`, a dictionary keyed by term name. My update involves correcting the incorrect data access on line with the error. The fix substitutes `r.termAverage` with `r.termMarks[t.name]` to accurately display term-specific marks within the table.
-
-
-**Verifying Other Errors**
-
-I'm now cross-referencing my fix in `Reports.tsx` with the context provided and confirming the original assessment. It appears the codebase previously used `r.termAverage`, a likely carry-over from similar logic. I need to make sure to check for any other related issues within the project, given the user's initial prompt about all errors.
-
-
-</think>I've fixed the TypeScript error in the Year End Consolidation table where `termAverage` was being incorrectly accessed on the `YearReportResult` type. I've updated the logic to correctly pull the mark for each specific term from the result dictionary.
-
-<dyad-write path="src/pages/Reports.tsx" description="Fixing TypeScript property access error in the Year End Summary table">
-import { useState, useEffect, useMemo } from 'react';
-import { useClasses } from '@/context/ClassesContext';
-import { useSettings } from '@/context/SettingsContext';
-import { useAcademic } from '@/context/AcademicContext';
-import { getGradeSymbol } from '@/utils/grading';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { useReportsData } from '@/hooks/useReportsData';
-import { useTermReportData } from '@/hooks/useTermReportData';
-import { useYearReportData } from '@/hooks/useYearReportData';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, ShieldAlert, GraduationCap } from 'lucide-react';
+import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, GraduationCap } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { addHeader, SchoolProfile, addFooter } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
@@ -261,7 +123,7 @@ const Reports = () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `Term_Report_${termReportGrade}_${termReportSubject}_${termName}.csv`;
+        link.download = `Term_Report_${termReportGrade}_${termReportSubject}_${termName}.csv`.replace(/\s+/g, '_');
         link.click();
         showSuccess("CSV exported successfully.");
     } catch (e) {
@@ -272,13 +134,11 @@ const Reports = () => {
   const handleSASAMSExport = () => {
     if (!termData || !selectedTerm || !activeYear) return;
 
-    // RULE 1: Term must be finalised
     if (!selectedTerm.closed) {
         showError("Export Blocked: Term must be finalised in Settings before SA-SAMS export.");
         return;
     }
 
-    // RULE 2: Marks must be complete
     if (integrityReport && !integrityReport.isValid) {
         showError(`Export Blocked: ${integrityReport.errors[0] || "Marks are incomplete or invalid."}`);
         return;
@@ -294,6 +154,7 @@ const Reports = () => {
             generateSASAMSExport(
                 targetClass.learners, 
                 clsName, 
+                targetClass.grade,
                 termReportSubject, 
                 selectedTerm.name,
                 activeYear.name,
@@ -302,7 +163,7 @@ const Reports = () => {
             );
         });
 
-        showSuccess(`Generated ${classesInReport.length} audit-ready SA-SAMS files.`);
+        showSuccess(`Generated SA-SAMS summary files for ${classesInReport.length} classes.`);
     } catch (e) {
         showError("SA-SAMS export failed.");
     }

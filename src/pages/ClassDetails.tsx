@@ -104,6 +104,7 @@ const ClassDetails = () => {
       generateSASAMSExport(
           learners,
           classInfo.className,
+          classInfo.grade,
           classInfo.subject,
           activeTerm.name,
           activeYear.name,
