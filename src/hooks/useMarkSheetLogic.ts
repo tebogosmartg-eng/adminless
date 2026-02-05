@@ -162,8 +162,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     });
   }, [classInfo.learners, searchQuery, sortConfig]);
 
-  // STABLE LEARNERS LIST FOR TOOLS
-  // This ensures the student order doesn't shift while a dialog is open
   const learnersForTools = useMemo(() => {
       return sortedAndFilteredLearners.map(l => ({
           ...l,
@@ -226,6 +224,30 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     }
   };
 
+  const handleExportSheet = () => {
+    if (!visibleAssessments.length) {
+        showError("No assessments to export.");
+        return;
+    }
+
+    const header = ["Learner Name", ...visibleAssessments.map(a => a.title), "Total %"].join(",");
+    const rows = sortedAndFilteredLearners.map(l => {
+        if (!l.id) return `"${l.name}"`;
+        const assMarks = visibleAssessments.map(a => editedMarks[`${a.id}-${l.id}`] || marks.find(m => m.assessment_id === a.id && m.learner_id === l.id)?.score?.toString() || "");
+        const total = calculateLearnerTotal(l.id);
+        return [`"${l.name}"`, ...assMarks, total].join(",");
+    });
+
+    const csvContent = [header, ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${classInfo.className}_Marksheet_${activeTerm?.name || 'Report'}.csv`;
+    link.click();
+    showSuccess("Marksheet exported to CSV.");
+  };
+
   return {
     state: {
       viewTermId: activeTerm?.id || null, 
@@ -268,7 +290,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           return { avg: (pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1), max: Math.max(...pcts).toFixed(0), min: Math.min(...pcts).toFixed(0) };
       },
       openAnalytics: (ass) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
-      handleExportSheet: () => {}, 
+      handleExportSheet, 
       toggleAssessmentVisibility: (id) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
       deleteAssessment, 
       refreshAssessments, 

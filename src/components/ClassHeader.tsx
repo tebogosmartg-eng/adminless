@@ -68,16 +68,17 @@ export const ClassHeader = ({
       </div>
 
       <div className="flex items-center flex-wrap gap-2 pt-2 md:pt-0">
-        <Button onClick={onSave} className="px-5 shadow-sm active:scale-95 transition-transform">
+        <Button onClick={onSave} className="flex-1 sm:flex-none px-5 shadow-sm active:scale-95 transition-transform">
             <Save className="mr-2 h-4 w-4" />
-            Save Changes
+            <span className="hidden sm:inline">Save Changes</span>
+            <span className="sm:hidden">Save</span>
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="flex-1 sm:flex-none gap-2">
               <FileDown className="h-4 w-4 text-muted-foreground" />
-              Export
+              <span className="hidden sm:inline">Export</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

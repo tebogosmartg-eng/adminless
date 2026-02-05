@@ -65,10 +65,10 @@ export const MarkSheetToolbar = ({
 
   return (
     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b pb-4">
-      <div className="space-y-2">
+      <div className="space-y-2 w-full xl:w-auto">
         <div className="flex flex-wrap items-center gap-2">
           <Select value={viewTermId || ""} onValueChange={setViewTermId}>
-            <SelectTrigger className="w-[180px] h-9">
+            <SelectTrigger className="w-full sm:w-[180px] h-9">
               <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
               <SelectValue placeholder="Select Term" />
             </SelectTrigger>
@@ -108,63 +108,69 @@ export const MarkSheetToolbar = ({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-wrap justify-end gap-2 w-full xl:w-auto">
-        <div className="relative w-full md:w-48">
+      <div className="flex flex-1 flex-wrap items-center gap-2 w-full xl:w-auto justify-start sm:justify-end">
+        <div className="relative w-full sm:w-48">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Find learner..."
-            className="pl-8 h-9 text-sm"
+            className="pl-8 h-9 text-sm w-full"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9">
-              <Settings2 className="mr-2 h-4 w-4" /> View
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="text-xs">Visible Columns</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {assessments.map(ass => (
-                <DropdownMenuCheckboxItem
-                    key={ass.id}
-                    checked={visibleAssessmentIds.includes(ass.id)}
-                    onCheckedChange={() => toggleAssessmentVisibility(ass.id)}
-                >
-                    {ass.title}
-                </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <Button variant="outline" size="sm" className="h-9" onClick={handleExportSheet} title="Export to CSV">
-          <FileSpreadsheet className="mr-2 h-4 w-4" /> Export
-        </Button>
-
-        {!isLocked && (
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" className="h-9 bg-primary shadow-sm">
-                <Plus className="mr-1 h-4 w-4" /> Formal Assessment
+              <Button variant="outline" size="sm" className="h-9 flex-1 sm:flex-none">
+                <Settings2 className="mr-2 h-4 w-4" /> 
+                <span className="hidden sm:inline">View</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => setIsAddOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" /> New FAT
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setIsCopyOpen(true)}>
-                <Copy className="mr-2 h-4 w-4" /> Copy Structure
-              </DropdownMenuItem>
+              <DropdownMenuLabel className="text-xs">Visible Columns</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" /> Import CSV Marks
-              </DropdownMenuItem>
+              {assessments.map(ass => (
+                  <DropdownMenuCheckboxItem
+                      key={ass.id}
+                      checked={visibleAssessmentIds.includes(ass.id)}
+                      onCheckedChange={() => toggleAssessmentVisibility(ass.id)}
+                  >
+                      {ass.title}
+                  </DropdownMenuCheckboxItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
+
+          <Button variant="outline" size="sm" className="h-9 flex-1 sm:flex-none" onClick={handleExportSheet} title="Export to CSV">
+            <FileSpreadsheet className="mr-2 h-4 w-4" /> 
+            <span className="hidden sm:inline">Export</span>
+          </Button>
+
+          {!isLocked && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="h-9 bg-primary shadow-sm flex-1 sm:flex-none">
+                  <Plus className="mr-1 h-4 w-4" /> 
+                  <span className="hidden sm:inline">Formal Task</span>
+                  <span className="sm:hidden">Task</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => setIsAddOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" /> New FAT
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsCopyOpen(true)}>
+                  <Copy className="mr-2 h-4 w-4" /> Copy Structure
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
+                  <Upload className="mr-2 h-4 w-4" /> Import CSV Marks
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
 
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogContent className="sm:max-w-[450px]">
