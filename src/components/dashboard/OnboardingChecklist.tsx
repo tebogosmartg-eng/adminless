@@ -172,10 +172,19 @@ export const OnboardingChecklist = () => {
         prereqMet: step8Done,
         target: '/settings',
         highlightId: 'finalize-term-btn'
+      },
+      {
+        id: 'step-10',
+        title: 'Roll Forward Roster',
+        description: 'Copy student lists to the next term.',
+        icon: FastForward,
+        isComplete: step10Done,
+        prereqMet: step9Done,
+        target: '/settings',
+        highlightId: 'roll-forward-btn'
       }
     ];
 
-    // If legacy data detected, add a high-priority architectural step at the start
     if (hasLegacyData) {
         list.unshift({
             id: 'step-legacy',
