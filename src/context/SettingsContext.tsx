@@ -43,16 +43,38 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
+// Official DBE Subject Naming for SA-SAMS Alignment
+const DEFAULT_DBE_SUBJECTS = [
+  "English Home Language",
+  "English First Additional Language",
+  "Afrikaans Huistaal",
+  "Afrikaans Eerste Addisionele Taal",
+  "Mathematics",
+  "Mathematical Literacy",
+  "Life Orientation",
+  "Natural Sciences",
+  "Social Sciences",
+  "Economic and Management Sciences",
+  "Life Sciences",
+  "Physical Sciences",
+  "History",
+  "Geography",
+  "Accounting",
+  "Business Studies",
+  "Economics",
+  "Tourism",
+  "Computer Applications Technology",
+  "Information Technology"
+];
+
 export const SettingsProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
   
-  // Live Query for Profile
   const profile = useLiveQuery(
     () => session?.user.id ? db.profiles.get(session.user.id) : undefined,
     [session?.user.id]
   );
 
-  // Local state initialized with defaults, updated when profile loads
   const [gradingScheme, setGradingSchemeState] = useState<GradeSymbol[]>(defaultGradingScheme);
   const [schoolName, setSchoolNameState] = useState<string>("My School");
   const [teacherName, setTeacherNameState] = useState<string>("");
@@ -61,12 +83,11 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [schoolLogo, setSchoolLogoState] = useState<string | null>(null);
   const [atRiskThreshold, setAtRiskThresholdState] = useState<number>(50);
   const [commentBank, setCommentBankState] = useState<string[]>([]);
-  const [savedSubjects, setSavedSubjectsState] = useState<string[]>([]);
+  const [savedSubjects, setSavedSubjectsState] = useState<string[]>(DEFAULT_DBE_SUBJECTS);
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
 
   useEffect(() => {
     if (profile) {
-        // Critical Fix: Only update state if the value from DB is a valid array
         if (Array.isArray(profile.grading_scheme)) setGradingSchemeState(profile.grading_scheme);
         if (profile.school_name !== undefined) setSchoolNameState(profile.school_name || "My School");
         if (profile.teacher_name !== undefined) setTeacherNameState(profile.teacher_name || "");
@@ -75,21 +96,17 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
         if (profile.school_logo !== undefined) setSchoolLogoState(profile.school_logo || null);
         if (profile.at_risk_threshold !== undefined) setAtRiskThresholdState(profile.at_risk_threshold ?? 50);
         if (Array.isArray(profile.comment_bank)) setCommentBankState(profile.comment_bank);
-        if (Array.isArray(profile.subjects)) setSavedSubjectsState(profile.subjects);
+        // Only override if user has custom subjects, otherwise keep official DBE list
+        if (Array.isArray(profile.subjects) && profile.subjects.length > 0) setSavedSubjectsState(profile.subjects);
         if (Array.isArray(profile.grades)) setSavedGradesState(profile.grades);
     }
   }, [profile]);
 
   const updateProfile = async (updates: any) => {
     if (!session?.user.id) return;
-
-    // 1. Update Local DB (Upsert)
     const current = await db.profiles.get(session.user.id) || { id: session.user.id };
     const updated = { ...current, ...updates, updated_at: new Date().toISOString() };
-    
     await db.profiles.put(updated);
-
-    // 2. Queue Sync
     await queueAction('profiles', 'upsert', updated);
   };
 
@@ -101,8 +118,6 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     atRiskThreshold?: number;
   }) => {
     if (!session?.user.id) return;
-
-    // Map keys to DB field names
     const dbUpdates: any = {};
     if (updates.schoolName !== undefined) dbUpdates.school_name = updates.schoolName;
     if (updates.teacherName !== undefined) dbUpdates.teacher_name = updates.teacherName;
@@ -110,7 +125,6 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     if (updates.contactPhone !== undefined) dbUpdates.contact_phone = updates.contactPhone;
     if (updates.atRiskThreshold !== undefined) dbUpdates.at_risk_threshold = updates.atRiskThreshold;
 
-    // Update local state immediately for snappy UI
     if (updates.schoolName !== undefined) setSchoolNameState(updates.schoolName);
     if (updates.teacherName !== undefined) setTeacherNameState(updates.teacherName);
     if (updates.contactEmail !== undefined) setContactEmailState(updates.contactEmail);

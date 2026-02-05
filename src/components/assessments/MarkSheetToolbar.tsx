@@ -148,19 +148,19 @@ export const MarkSheetToolbar = ({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" className="h-9 bg-primary shadow-sm">
-                <Plus className="mr-1 h-4 w-4" /> Task
+                <Plus className="mr-1 h-4 w-4" /> Formal Assessment
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem onClick={() => setIsAddOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" /> New Assessment
+                <Plus className="mr-2 h-4 w-4" /> New FAT
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setIsCopyOpen(true)}>
                 <Copy className="mr-2 h-4 w-4" /> Copy Structure
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" /> Import CSV
+                <Upload className="mr-2 h-4 w-4" /> Import CSV Marks
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -169,22 +169,22 @@ export const MarkSheetToolbar = ({
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogContent className="sm:max-w-[450px]">
             <DialogHeader>
-              <DialogTitle>New Assessment</DialogTitle>
+              <DialogTitle>New Formal Assessment Task (FAT)</DialogTitle>
               <DialogDescription className="flex items-center gap-2">
-                 <Calendar className="h-3 w-3" /> Target: <span className="font-bold text-foreground">{targetTermName}</span>
+                 <Calendar className="h-3 w-3" /> Target Term: <span className="font-bold text-foreground">{targetTermName}</span>
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg mb-2">
                   <Info className="h-4 w-4 text-blue-600 shrink-0" />
                   <p className="text-[11px] text-blue-900 leading-tight">
-                      This task will be locked to <strong>{targetTermName}</strong>. If you need to add to a different term, switch context first.
+                      This formal assessment will be locked to <strong>{targetTermName}</strong>. Ensure weighting aligns with DBE policy.
                   </p>
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-xs">Title</Label>
-                <Input value={newAss.title} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Oral Presentation" />
+                <Label className="text-right text-xs">Task Title</Label>
+                <Input value={newAss.title} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Investigation 1" />
               </div>
               
               <div className="grid grid-cols-4 items-center gap-4">
@@ -208,7 +208,7 @@ export const MarkSheetToolbar = ({
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-xs">Max Mark</Label>
+                <Label className="text-right text-xs">Total Marks</Label>
                 <Input 
                     type="number" 
                     value={newAss.max} 
@@ -218,10 +218,10 @@ export const MarkSheetToolbar = ({
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-xs">Weight (%)</Label>
+                <Label className="text-right text-xs">Weighting %</Label>
                 <Input type="number" value={newAss.weight} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) })} className="col-span-3 h-9" />
               </div>
-              <Button onClick={handleAddAssessment} className="mt-2 w-full font-bold">Create Task</Button>
+              <Button onClick={handleAddAssessment} className="mt-2 w-full font-bold">Record Assessment</Button>
             </div>
           </DialogContent>
         </Dialog>
