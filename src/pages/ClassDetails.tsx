@@ -1,5 +1,5 @@
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
@@ -20,6 +20,8 @@ import { Loader2, ShieldCheck, BarChart3, ArrowLeft, Sparkles, Dices } from "luc
 import { cn } from "@/lib/utils";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { generateSASAMSExport } from "@/utils/sasams";
+import { checkClassTermIntegrity } from "@/utils/integrity";
+import { showError } from "@/utils/toast";
 
 const ClassDetails = () => {
   const { classId } = useParams();
@@ -41,6 +43,7 @@ const ClassDetails = () => {
   const {
     learners,
     setLearners,
+    hasUnsavedChanges,
     handleMarkChange,
     handleCommentChange,
     handleRenameLearner,
@@ -72,11 +75,31 @@ const ClassDetails = () => {
     handleExportBlankPdf
   } = useClassExport(classInfo, learners, gradingScheme, schoolName, teacherName, schoolLogo);
 
+  // PRE-EXPORT VALIDATION
   const handleSASAMSExportAction = () => {
       if (!classInfo || !activeTerm) return;
+
+      // 1. Block if term not finalised
+      if (!activeTerm.closed) {
+          showError("Export Blocked: Term must be finalised in Settings before SA-SAMS export.");
+          return;
+      }
+
+      // 2. Block if draft data exists
+      if (hasUnsavedChanges) {
+          showError("Export Blocked: You have unsaved changes. Please save your work before exporting.");
+          return;
+      }
       
       const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm.id);
       const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
+
+      // 3. Block if marks are incomplete
+      const integrity = checkClassTermIntegrity(termAssessments, learners, termMarks);
+      if (!integrity.isValid) {
+          showError(`Export Blocked: ${integrity.errors[0]}`);
+          return;
+      }
 
       generateSASAMSExport(
           learners,

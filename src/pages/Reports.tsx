@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download } from 'lucide-react';
+import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, ShieldAlert } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { addHeader, SchoolProfile, addFooter } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
@@ -22,6 +22,7 @@ import { IntegrityGuard } from '@/components/IntegrityGuard';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { Link } from 'react-router-dom';
 import { generateSASAMSExport } from '@/utils/sasams';
+import { cn } from '@/lib/utils';
 
 const Reports = () => {
   const { classes } = useClasses();
@@ -132,10 +133,20 @@ const Reports = () => {
 
   const handleSASAMSExport = () => {
     if (!termData || !selectedTerm) return;
+
+    // RULE: Term must be finalised
+    if (!selectedTerm.closed) {
+        showError("Export Blocked: Term must be finalised in Settings before SA-SAMS export.");
+        return;
+    }
+
+    // RULE: Marks must be complete
+    if (integrityReport && !integrityReport.isValid) {
+        showError(`Export Blocked: ${integrityReport.errors[0] || "Marks are incomplete or invalid."}`);
+        return;
+    }
     
     try {
-        // SA-SAMS usually expects data per Class/Subject. 
-        // We iterate through classes in this report and trigger an export for each.
         const classesInReport = Array.from(new Set(termData.map(r => r.className)));
         
         classesInReport.forEach(clsName => {
@@ -264,7 +275,7 @@ const Reports = () => {
                         <Button 
                             className="w-full mt-4 h-11 font-bold" 
                             onClick={() => generateTermReport(selectedTermId, termReportGrade, termReportSubject)}
-                            disabled={termLoading || !selectedTermId || termReportGrade === 'all' || !integrityReport?.isValid}
+                            disabled={termLoading || !selectedTermId || termReportGrade === 'all' || (integrityReport && !integrityReport.isValid)}
                         >
                             {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Report"}
                         </Button>
@@ -275,11 +286,17 @@ const Reports = () => {
                         <CardTitle className="text-lg">Results Preview</CardTitle>
                         {termData && (
                             <div className="flex gap-2">
-                                {isTermClosed && (
-                                    <Button variant="outline" size="sm" onClick={handleSASAMSExport} className="h-8 gap-2 border-primary text-primary hover:bg-primary/5">
-                                        <Download className="h-3.5 w-3.5" /> SA-SAMS
-                                    </Button>
-                                )}
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={handleSASAMSExport} 
+                                    className={cn(
+                                        "h-8 gap-2 transition-all",
+                                        isTermClosed ? "border-primary text-primary hover:bg-primary/5" : "opacity-50"
+                                    )}
+                                >
+                                    <Download className="h-3.5 w-3.5" /> SA-SAMS
+                                </Button>
                                 <Button variant="outline" size="sm" onClick={handleExportTermCSV} className="h-8 gap-2">
                                     <FileSpreadsheet className="h-3.5 w-3.5 text-green-600"/> CSV
                                 </Button>
