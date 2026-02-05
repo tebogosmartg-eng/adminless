@@ -29,7 +29,7 @@ const ClassDetails = () => {
   const navigate = useNavigate();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
   const { assessments, activeTerm, activeYear, marks } = useAcademic();
-  const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
+  const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo } = useSettings();
   const { currentPeriod } = useCurrentPeriod();
   
   const highlightId = location.state?.highlightId;
@@ -108,7 +108,7 @@ const ClassDetails = () => {
           activeTerm.name,
           activeYear.name,
           teacherName,
-          "" // School Code placeholder
+          schoolCode
       );
   };
 
