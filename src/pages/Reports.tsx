@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, ShieldAlert } from 'lucide-react';
+import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, ShieldAlert, GraduationCap } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { addHeader, SchoolProfile, addFooter } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
@@ -49,10 +49,15 @@ const Reports = () => {
   const [yearReportSubject, setYearReportSubject] = useState("all");
   
   const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
+  const [selectedYearId, setSelectedYearId] = useState(activeYear?.id || "");
 
   useEffect(() => {
       if (activeTerm) setSelectedTermId(activeTerm.id);
   }, [activeTerm?.id]);
+
+  useEffect(() => {
+      if (activeYear) setSelectedYearId(activeYear.id);
+  }, [activeYear?.id]);
 
   const selectedTerm = useMemo(() => terms.find(t => t.id === selectedTermId), [terms, selectedTermId]);
   const isTermClosed = !!selectedTerm?.closed;
@@ -343,6 +348,88 @@ const Reports = () => {
                                 <div className="space-y-1">
                                     <h3 className="font-semibold text-foreground">Ready to Aggregate</h3>
                                     <p className="text-xs max-w-xs">Select your filters and verify data integrity to generate a term-wide performance summary.</p>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        </TabsContent>
+
+        <TabsContent value="year" className="space-y-6 mt-6">
+            <div className="grid gap-6 md:grid-cols-4">
+                <Card className="md:col-span-1">
+                    <CardHeader>
+                        <CardTitle className="text-sm font-bold uppercase text-muted-foreground">Year Settings</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-muted-foreground">Academic Cycle</label>
+                            <Select value={selectedYearId} onValueChange={setSelectedYearId}>
+                                <SelectTrigger><SelectValue placeholder="Select Year" /></SelectTrigger>
+                                <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-muted-foreground">Grade</label>
+                            <Select value={yearReportGrade} onValueChange={setYearReportGrade}>
+                                <SelectTrigger><SelectValue placeholder="Select Grade" /></SelectTrigger>
+                                <SelectContent>{manualReports.uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-muted-foreground">Subject</label>
+                            <Select value={yearReportSubject} onValueChange={setYearReportSubject}>
+                                <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
+                                <SelectContent>{manualReports.uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <Button className="w-full mt-4" onClick={() => generateYearReport(selectedYearId, yearReportGrade, yearReportSubject)} disabled={yearLoading}>
+                            {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Calculate Year End"}
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="md:col-span-3 min-h-[500px] flex flex-col">
+                    <CardHeader className="flex flex-row justify-between items-center bg-muted/5 border-b">
+                        <CardTitle>Year End Consolidation</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 p-0 overflow-auto">
+                        {yearData ? (
+                            <Table>
+                                <TableHeader className="bg-muted/30">
+                                    <TableRow>
+                                        <TableHead>Learner Name</TableHead>
+                                        {terms.map(t => <TableHead key={t.id} className="text-right">{t.name}</TableHead>)}
+                                        <TableHead className="text-right font-bold bg-primary/5">Year Final %</TableHead>
+                                        <TableHead className="text-center bg-primary/5">Status</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {yearData.map((r, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell className="font-medium">{r.learnerName}</TableCell>
+                                            {terms.map(t => (
+                                                <TableCell key={t.id} className="text-right text-xs">
+                                                    {r.termMarks[t.name] !== null ? `${r.termMarks[t.name]}%` : "-"}
+                                                </TableCell>
+                                            ))}
+                                            <TableCell className="text-right font-bold text-primary bg-primary/[0.02]">{r.finalYearMark}%</TableCell>
+                                            <TableCell className="text-center bg-primary/[0.02]">
+                                                <Badge variant={r.finalYearMark >= 50 ? "outline" : "destructive"} className={r.finalYearMark >= 50 ? "bg-green-50 text-green-700 border-green-200" : ""}>
+                                                    {r.finalYearMark >= 50 ? "Pass" : "Fail"}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 p-12 text-center">
+                                <GraduationCap className="h-16 w-16 opacity-10" />
+                                <div className="space-y-1">
+                                    <h3 className="font-semibold text-foreground">Annual Summary</h3>
+                                    <p className="text-xs max-w-xs">Consolidate all term marks into a final year-end performance report.</p>
                                 </div>
                             </div>
                         )}
