@@ -13,8 +13,6 @@ interface SettingsContextType {
   resetGradingScheme: () => void;
   schoolName: string;
   setSchoolName: (name: string) => void;
-  schoolCode: string;
-  setSchoolCode: (code: string) => void;
   teacherName: string;
   setTeacherName: (name: string) => void;
   contactEmail: string;
@@ -36,7 +34,6 @@ interface SettingsContextType {
   removeGrade: (grade: string) => void;
   updateProfileSettings: (updates: {
     schoolName?: string;
-    schoolCode?: string;
     teacherName?: string;
     contactEmail?: string;
     contactPhone?: string;
@@ -46,6 +43,7 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
+// Official DBE Subject Naming for SA-SAMS Alignment
 const DEFAULT_DBE_SUBJECTS = [
   "English Home Language",
   "English First Additional Language",
@@ -79,7 +77,6 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   const [gradingScheme, setGradingSchemeState] = useState<GradeSymbol[]>(defaultGradingScheme);
   const [schoolName, setSchoolNameState] = useState<string>("My School");
-  const [schoolCode, setSchoolCodeState] = useState<string>("");
   const [teacherName, setTeacherNameState] = useState<string>("");
   const [contactEmail, setContactEmailState] = useState<string>("");
   const [contactPhone, setContactPhoneState] = useState<string>("");
@@ -93,13 +90,13 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     if (profile) {
         if (Array.isArray(profile.grading_scheme)) setGradingSchemeState(profile.grading_scheme);
         if (profile.school_name !== undefined) setSchoolNameState(profile.school_name || "My School");
-        if (profile.school_code !== undefined) setSchoolCodeState(profile.school_code || "");
         if (profile.teacher_name !== undefined) setTeacherNameState(profile.teacher_name || "");
         if (profile.contact_email !== undefined) setContactEmailState(profile.contact_email || "");
         if (profile.contact_phone !== undefined) setContactPhoneState(profile.contact_phone || "");
         if (profile.school_logo !== undefined) setSchoolLogoState(profile.school_logo || null);
         if (profile.at_risk_threshold !== undefined) setAtRiskThresholdState(profile.at_risk_threshold ?? 50);
         if (Array.isArray(profile.comment_bank)) setCommentBankState(profile.comment_bank);
+        // Only override if user has custom subjects, otherwise keep official DBE list
         if (Array.isArray(profile.subjects) && profile.subjects.length > 0) setSavedSubjectsState(profile.subjects);
         if (Array.isArray(profile.grades)) setSavedGradesState(profile.grades);
     }
@@ -115,7 +112,6 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   const updateProfileSettings = async (updates: {
     schoolName?: string;
-    schoolCode?: string;
     teacherName?: string;
     contactEmail?: string;
     contactPhone?: string;
@@ -124,14 +120,12 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     if (!session?.user.id) return;
     const dbUpdates: any = {};
     if (updates.schoolName !== undefined) dbUpdates.school_name = updates.schoolName;
-    if (updates.schoolCode !== undefined) dbUpdates.school_code = updates.schoolCode;
     if (updates.teacherName !== undefined) dbUpdates.teacher_name = updates.teacherName;
     if (updates.contactEmail !== undefined) dbUpdates.contact_email = updates.contactEmail;
     if (updates.contactPhone !== undefined) dbUpdates.contact_phone = updates.contactPhone;
     if (updates.atRiskThreshold !== undefined) dbUpdates.at_risk_threshold = updates.atRiskThreshold;
 
     if (updates.schoolName !== undefined) setSchoolNameState(updates.schoolName);
-    if (updates.schoolCode !== undefined) setSchoolCodeState(updates.schoolCode);
     if (updates.teacherName !== undefined) setTeacherNameState(updates.teacherName);
     if (updates.contactEmail !== undefined) setContactEmailState(updates.contactEmail);
     if (updates.contactPhone !== undefined) setContactPhoneState(updates.contactPhone);
@@ -143,21 +137,18 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const updateGradingScheme = (newScheme: GradeSymbol[]) => {
     setGradingSchemeState(newScheme);
     updateProfile({ grading_scheme: newScheme });
+    logActivity("Updated grading scheme configuration");
   };
 
   const resetGradingScheme = () => {
     setGradingSchemeState(defaultGradingScheme);
     updateProfile({ grading_scheme: defaultGradingScheme });
+    logActivity("Reset grading scheme to defaults");
   };
 
   const setSchoolName = (name: string) => {
     setSchoolNameState(name);
     updateProfile({ school_name: name });
-  };
-
-  const setSchoolCode = (code: string) => {
-    setSchoolCodeState(code);
-    updateProfile({ school_code: code });
   };
 
   const setTeacherName = (name: string) => {
@@ -236,8 +227,6 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
       resetGradingScheme,
       schoolName,
       setSchoolName,
-      schoolCode,
-      setSchoolCode,
       teacherName,
       setTeacherName,
       contactEmail,
