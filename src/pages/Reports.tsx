@@ -49,15 +49,10 @@ const Reports = () => {
   const [yearReportSubject, setYearReportSubject] = useState("all");
   
   const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
-  const [selectedYearId, setSelectedYearId] = useState(activeYear?.id || "");
 
   useEffect(() => {
       if (activeTerm) setSelectedTermId(activeTerm.id);
   }, [activeTerm?.id]);
-
-  useEffect(() => {
-      if (activeYear) setSelectedYearId(activeYear.id);
-  }, [activeYear?.id]);
 
   const selectedTerm = useMemo(() => terms.find(t => t.id === selectedTermId), [terms, selectedTermId]);
   const isTermClosed = !!selectedTerm?.closed;
@@ -134,13 +129,13 @@ const Reports = () => {
   const handleSASAMSExport = () => {
     if (!termData || !selectedTerm || !activeYear) return;
 
-    // RULE: Term must be finalised
+    // RULE 1: Term must be finalised
     if (!selectedTerm.closed) {
         showError("Export Blocked: Term must be finalised in Settings before SA-SAMS export.");
         return;
     }
 
-    // RULE: Marks must be complete
+    // RULE 2: Marks must be complete
     if (integrityReport && !integrityReport.isValid) {
         showError(`Export Blocked: ${integrityReport.errors[0] || "Marks are incomplete or invalid."}`);
         return;
@@ -161,7 +156,7 @@ const Reports = () => {
             const classMarks = marks.filter(m => classAss.some(a => a.id === m.assessment_id));
 
             generateSASAMSExport(
-                clsLearners, 
+                targetClass.learners, // Use actual learners to get stable IDs
                 classAss, 
                 classMarks, 
                 clsName, 
@@ -172,7 +167,7 @@ const Reports = () => {
             );
         });
 
-        showSuccess(`Generated SA-SAMS export files for ${classesInReport.length} classes.`);
+        showSuccess(`Generated ${classesInReport.length} audit-ready SA-SAMS files.`);
     } catch (e) {
         showError("SA-SAMS export failed.");
     }
@@ -277,7 +272,7 @@ const Reports = () => {
                         <Button 
                             className="w-full mt-4 h-11 font-bold" 
                             onClick={() => generateTermReport(selectedTermId, termReportGrade, termReportSubject)}
-                            disabled={termLoading || !selectedTermId || termReportGrade === 'all' || (integrityReport && !integrityReport.isValid)}
+                            disabled={termLoading || !selectedTermId || termReportGrade === 'all' || !integrityReport?.isValid}
                         >
                             {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Report"}
                         </Button>
