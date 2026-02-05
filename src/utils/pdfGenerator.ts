@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { ClassInfo, Learner, GradeSymbol } from '@/lib/types';
+import { ClassInfo, Learner, GradeSymbol, AttendanceRecord } from '@/lib/types';
 import { getGradeSymbol } from './grading';
 import { format } from 'date-fns';
 
@@ -393,4 +393,85 @@ export const generateBulkLearnerReportsPDF = (
 
   addFooter(doc);
   doc.save(`${classInfo.className}_Term_Reports.pdf`);
+};
+
+/**
+ * Generates a monthly attendance register PDF
+ */
+export const generateAttendancePDF = (
+    learners: Learner[],
+    recordMap: Record<string, Record<string, string>>,
+    dates: string[],
+    monthName: string,
+    profile: SchoolProfile
+) => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const startY = addHeader(doc, profile, `Attendance Register: ${monthName}`);
+    
+    const head = [['Name', ...dates.map(d => format(new Date(d), 'dd')), 'P', 'A', 'L']];
+    const body = learners.map(l => {
+       if (!l.id) return [];
+       const records = recordMap[l.id] || {};
+       let present = 0, absent = 0, late = 0;
+       
+       const statuses = dates.map(d => {
+          const s = records[d];
+          if (s === 'present') { present++; return 'P'; }
+          if (s === 'absent') { absent++; return 'A'; }
+          if (s === 'late') { late++; return 'L'; }
+          if (s === 'excused') return 'E';
+          return '-';
+       });
+       
+       return [l.name, ...statuses, present, absent, late];
+    }).filter(row => row.length > 0);
+
+    autoTable(doc, {
+      startY: startY + 5,
+      head: head,
+      body: body,
+      theme: 'grid',
+      styles: { fontSize: 7, cellPadding: 1 },
+      headStyles: { fillColor: [41, 37, 36], textColor: 255 },
+      columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' } }
+    });
+    
+    addFooter(doc);
+    doc.save(`Attendance_${monthName.replace(/\s+/g, '_')}.pdf`);
+};
+
+/**
+ * Generates a term-wide performance summary PDF
+ */
+export const generateTermSummaryPDF = (
+    reportData: any[],
+    allAssessmentTitles: string[],
+    termName: string,
+    grade: string,
+    subject: string,
+    gradingScheme: GradeSymbol[],
+    profile: SchoolProfile
+) => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const startY = addHeader(doc, profile, `${termName} Performance Summary: ${grade} ${subject}`);
+    
+    const tableBody = reportData.map(r => [
+        r.learnerName,
+        r.className,
+        ...allAssessmentTitles.map(title => r.assessments[title] || "-"),
+        `${r.termAverage}%`,
+        getGradeSymbol(r.termAverage, gradingScheme)?.symbol || '-'
+    ]);
+
+    autoTable(doc, {
+        startY: startY + 5,
+        head: [['Learner', 'Class', ...allAssessmentTitles, 'Average', 'Symbol']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 37, 36], textColor: 255 },
+        styles: { fontSize: 8 },
+    });
+
+    addFooter(doc);
+    doc.save(`${grade}_${subject}_${termName}_Summary.pdf`);
 };
