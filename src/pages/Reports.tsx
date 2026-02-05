@@ -8,14 +8,13 @@ import autoTable from 'jspdf-autotable';
 import { useReportsData } from '@/hooks/useReportsData';
 import { useTermReportData } from '@/hooks/useTermReportData';
 import { useYearReportData } from '@/hooks/useYearReportData';
-import { useGlobalAttendanceReports } from '@/hooks/useGlobalAttendanceReports';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, GraduationCap, CalendarCheck } from 'lucide-react';
+import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, GraduationCap } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { addHeader, SchoolProfile, addFooter } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
@@ -42,16 +41,12 @@ const Reports = () => {
   const manualReports = useReportsData(classes);
   const { loading: termLoading, reportData: termData, generateTermReport, allAssessmentTitles } = useTermReportData();
   const { loading: yearLoading, yearData, generateYearReport } = useYearReportData();
-  const { loading: attLoading, data: attData, generateReport: generateAttReport } = useGlobalAttendanceReports();
 
   const [termReportGrade, setTermReportGrade] = useState("all");
   const [termReportSubject, setTermReportSubject] = useState("all");
   
   const [yearReportGrade, setYearReportGrade] = useState("all");
   const [yearReportSubject, setYearReportSubject] = useState("all");
-
-  const [attReportGrade, setAttReportGrade] = useState("all");
-  const [attReportSubject, setAttReportSubject] = useState("all");
   
   const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
   const [selectedYearId, setSelectedYearId] = useState(activeYear?.id || "");
@@ -77,39 +72,6 @@ const Reports = () => {
 
     return checkClassTermIntegrity(targetAssessments, targetLearners, targetMarks);
   }, [selectedTermId, termReportGrade, termReportSubject, classes, assessments, marks]);
-
-  const handleExportAttPDF = () => {
-    if (!attData || !selectedTerm) return;
-    try {
-        const doc = new jsPDF('p', 'mm', 'a4');
-        const startY = addHeader(doc, profile, `Term Attendance Summary: ${selectedTerm.name}`);
-        
-        doc.setFontSize(10);
-        doc.text(`Grade: ${attReportGrade}  |  Subject: ${attReportSubject}`, 14, startY + 5);
-
-        const tableBody = attData.map(r => [
-            r.learnerName,
-            r.className,
-            r.present,
-            r.absent,
-            r.late,
-            `${r.rate}%`
-        ]);
-
-        autoTable(doc, {
-            startY: startY + 10,
-            head: [['Learner', 'Class', 'Present', 'Absent', 'Late', 'Rate']],
-            body: tableBody,
-            theme: 'grid',
-            headStyles: { fillColor: [41, 37, 36] },
-        });
-
-        addFooter(doc);
-        doc.save(`Attendance_Report_${attReportGrade}_${selectedTerm.name}.pdf`);
-    } catch (e) {
-        showError("PDF export failed.");
-    }
-  };
 
   const handleExportTermPDF = () => {
     if (!termData || !selectedTermId) return;
@@ -265,7 +227,6 @@ const Reports = () => {
       <Tabs defaultValue="term" className="w-full">
         <TabsList className="bg-muted/50 p-1 border">
             <TabsTrigger value="term" className="px-6">Term Reports</TabsTrigger>
-            <TabsTrigger value="attendance" className="px-6">Attendance Summary</TabsTrigger>
             <TabsTrigger value="year" className="px-6">Year End Summary</TabsTrigger>
         </TabsList>
 
@@ -380,99 +341,6 @@ const Reports = () => {
                                 <div className="space-y-1">
                                     <h3 className="font-semibold text-foreground">Ready to Aggregate</h3>
                                     <p className="text-xs max-w-xs">Select your filters and verify data integrity to generate a term-wide performance summary.</p>
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-        </TabsContent>
-
-        <TabsContent value="attendance" className="space-y-6 mt-6">
-            <div className="grid gap-6 md:grid-cols-4">
-                <Card className="md:col-span-1">
-                    <CardHeader><CardTitle className="text-sm font-bold uppercase text-muted-foreground">Filter Context</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                         <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-muted-foreground">Select Term</label>
-                            <Select value={selectedTermId} onValueChange={setSelectedTermId}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>{terms.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-muted-foreground">Grade</label>
-                            <Select value={attReportGrade} onValueChange={setAttReportGrade}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>{manualReports.uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-muted-foreground">Subject (Optional)</label>
-                            <Select value={attReportSubject} onValueChange={setAttReportSubject}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Subjects</SelectItem>
-                                    {manualReports.uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <Button className="w-full mt-2" onClick={() => generateAttReport(selectedTermId, attReportGrade, attReportSubject)} disabled={attLoading || attReportGrade === 'all'}>
-                            {attLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Aggregate Attendance"}
-                        </Button>
-                    </CardContent>
-                </Card>
-                <Card className="md:col-span-3 flex flex-col min-h-[500px]">
-                    <CardHeader className="flex flex-row justify-between items-center bg-muted/5 border-b">
-                        <div>
-                            <CardTitle>Attendance Audit</CardTitle>
-                            <CardDescription>Term aggregation across all classes.</CardDescription>
-                        </div>
-                        {attData && (
-                            <Button variant="outline" size="sm" onClick={handleExportAttPDF}>
-                                <FileDown className="mr-2 h-4 w-4 text-blue-600" /> Export PDF
-                            </Button>
-                        )}
-                    </CardHeader>
-                    <CardContent className="flex-1 p-0 overflow-auto">
-                        {attData ? (
-                            <Table>
-                                <TableHeader className="bg-muted/30">
-                                    <TableRow>
-                                        <TableHead>Learner</TableHead>
-                                        <TableHead>Class</TableHead>
-                                        <TableHead className="text-center">P</TableHead>
-                                        <TableHead className="text-center">A</TableHead>
-                                        <TableHead className="text-center">L</TableHead>
-                                        <TableHead className="text-right">Term Rate %</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {attData.map((r, i) => (
-                                        <TableRow key={i}>
-                                            <TableCell className="font-medium">{r.learnerName}</TableCell>
-                                            <TableCell className="text-xs text-muted-foreground">{r.className}</TableCell>
-                                            <TableCell className="text-center text-green-700 font-bold">{r.present}</TableCell>
-                                            <TableCell className="text-center text-red-700 font-bold">{r.absent}</TableCell>
-                                            <TableCell className="text-center text-orange-700 font-bold">{r.late}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Badge variant="outline" className={cn(
-                                                    "font-bold",
-                                                    r.rate >= 90 ? "bg-green-50 text-green-700" : r.rate >= 80 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"
-                                                )}>
-                                                    {r.rate}%
-                                                </Badge>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 p-12 text-center">
-                                <CalendarCheck className="h-16 w-16 opacity-10" />
-                                <div className="space-y-1">
-                                    <h3 className="font-semibold text-foreground">Attendance Consolidation</h3>
-                                    <p className="text-xs max-w-xs">Generate a high-level summary of student presence for the selected term and grade.</p>
                                 </div>
                             </div>
                         )}
