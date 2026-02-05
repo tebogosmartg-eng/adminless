@@ -132,7 +132,7 @@ const Reports = () => {
   };
 
   const handleSASAMSExport = () => {
-    if (!termData || !selectedTerm) return;
+    if (!termData || !selectedTerm || !activeYear) return;
 
     // RULE: Term must be finalised
     if (!selectedTerm.closed) {
@@ -166,7 +166,9 @@ const Reports = () => {
                 classMarks, 
                 clsName, 
                 termReportSubject, 
-                selectedTerm.name
+                selectedTerm.name,
+                activeYear.name,
+                true // isFinalised
             );
         });
 

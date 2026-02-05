@@ -1,8 +1,8 @@
-import { Assessment, Learner, AssessmentMark, Term } from "@/lib/types";
+import { Assessment, Learner, AssessmentMark } from "@/lib/types";
+import { format } from "date-fns";
 
 /**
- * Generates a standardized CSV for SA-SAMS import.
- * Structure: LearnerID, Learner Name, FAT 1, FAT 2... FinalAverage
+ * Generates a standardized CSV for SA-SAMS import with audit metadata.
  */
 export const generateSASAMSExport = (
   learners: Learner[],
@@ -10,19 +10,33 @@ export const generateSASAMSExport = (
   marks: AssessmentMark[],
   className: string,
   subject: string,
-  termName: string
+  termName: string,
+  yearName: string,
+  isFinalised: boolean
 ) => {
-  // SA-SAMS Standardised Header
-  // Format: LearnerID, Name, [Task Title (Total)]..., Calculated Term Average (%)
-  const header = [
+  // 1. Audit Metadata Headers
+  const metadata = [
+    ["REPORT TYPE", "SA-SAMS Export (Formal Assessment)"],
+    ["SOURCE", "Prepared by AdminLess"],
+    ["ACADEMIC YEAR", yearName],
+    ["TERM", termName],
+    ["SUBJECT", subject],
+    ["CLASS", className],
+    ["GENERATED", format(new Date(), 'yyyy-MM-dd HH:mm:ss')],
+    ["STATUS", isFinalised ? "FINALISED / AUDIT-LOCKED" : "DRAFT / UNVERIFIED"],
+    [], // Spacer row
+  ].map(row => row.join(",")).join("\n");
+
+  // 2. Data Headers
+  const dataHeader = [
     "LearnerID",
     "Learner Name",
     ...assessments.map(a => `"${a.title} (/${a.max_mark})"`),
     "Term Average (%)"
   ].join(",");
 
+  // 3. Data Rows
   const rows = learners.map(learner => {
-    // Escape learner name for CSV
     const name = `"${learner.name.replace(/"/g, '""')}"`;
     const learnerId = learner.id || "NEW";
     
@@ -35,19 +49,17 @@ export const generateSASAMSExport = (
       return mark?.score !== null && mark?.score !== undefined ? mark.score : "";
     });
 
-    // Final term average based on the calculated weighted aggregate
     const finalAvg = learner.mark || "0"; 
 
     return [learnerId, name, ...learnerMarks, finalAvg].join(",");
   });
 
-  const csvContent = [header, ...rows].join("\n");
+  const csvContent = metadata + "\n" + dataHeader + "\n" + rows.join("\n");
   
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   
-  // Predictable filename for SA-SAMS import mapping
   const safeSubject = subject.replace(/\s+/g, '_');
   const safeClass = className.replace(/\s+/g, '_');
   const safeTerm = termName.replace(/\s+/g, '_');

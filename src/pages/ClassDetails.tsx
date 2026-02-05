@@ -28,7 +28,7 @@ const ClassDetails = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
-  const { assessments, activeTerm, marks } = useAcademic();
+  const { assessments, activeTerm, activeYear, marks } = useAcademic();
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   const { currentPeriod } = useCurrentPeriod();
   
@@ -77,7 +77,7 @@ const ClassDetails = () => {
 
   // PRE-EXPORT VALIDATION
   const handleSASAMSExportAction = () => {
-      if (!classInfo || !activeTerm) return;
+      if (!classInfo || !activeTerm || !activeYear) return;
 
       // 1. Block if term not finalised
       if (!activeTerm.closed) {
@@ -107,7 +107,9 @@ const ClassDetails = () => {
           termMarks,
           classInfo.className,
           classInfo.subject,
-          activeTerm.name
+          activeTerm.name,
+          activeYear.name,
+          true // isFinalised
       );
   };
 
