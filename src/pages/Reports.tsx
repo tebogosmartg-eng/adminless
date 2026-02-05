@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 
 const Reports = () => {
   const { classes } = useClasses();
-  const { gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
+  const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   const { terms, years, activeYear, activeTerm, assessments, marks } = useAcademic();
   const { isReadyForFinalization, missingRequired } = useSetupStatus();
 
@@ -150,17 +150,22 @@ const Reports = () => {
         const classesInReport = Array.from(new Set(termData.map(r => r.className)));
         
         classesInReport.forEach(clsName => {
+            const originalClass = classes.find(c => c.className === clsName && c.subject === termReportSubject);
+            if (!originalClass) return;
+
             const clsLearners = termData
                 .filter(r => r.className === clsName)
-                .map(r => ({ 
-                    name: r.learnerName, 
-                    mark: r.termAverage.toString(), 
-                    // Attempt to find original learner for ID retrieval
-                    id: classes.find(c => c.className === clsName)?.learners.find(l => l.name === r.learnerName)?.id || ""
-                }));
+                .map(r => {
+                    const l = originalClass.learners.find(student => student.name === r.learnerName);
+                    return { 
+                        ...l,
+                        name: r.learnerName, 
+                        mark: r.termAverage.toString()
+                    };
+                });
             
             generateSASAMSExport(
-                clsLearners, 
+                clsLearners as any, 
                 clsName, 
                 termReportSubject, 
                 selectedTerm.name,
@@ -311,7 +316,7 @@ const Reports = () => {
                             <Table>
                                 <TableHeader className="bg-muted/30">
                                     <TableRow>
-                                        <TableHead>Learner</TableHead>
+                                        <TableHead>Learner Name</TableHead>
                                         <TableHead>Class</TableHead>
                                         {allAssessmentTitles.map(title => (
                                             <TableHead key={title} className="text-right whitespace-nowrap">{title}</TableHead>
@@ -380,7 +385,7 @@ const Reports = () => {
                         <div className="space-y-2">
                             <label className="text-xs font-bold uppercase text-muted-foreground">Subject</label>
                             <Select value={yearReportSubject} onValueChange={setYearReportSubject}>
-                                <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
+                                <SelectTrigger className="h-10"><SelectValue placeholder="Select Subject" /></SelectTrigger>
                                 <SelectContent>{manualReports.uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>

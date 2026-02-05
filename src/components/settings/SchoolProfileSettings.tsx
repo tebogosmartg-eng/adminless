@@ -3,13 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { School, User, AlertCircle, Save, Trash2, ImagePlus, Mail, Phone, Loader2 } from "lucide-react";
+import { School, User, AlertCircle, Save, Trash2, ImagePlus, Mail, Phone, Loader2, Hash } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { showSuccess, showError } from "@/utils/toast";
 
 export const SchoolProfileSettings = () => {
   const { 
     schoolName,
+    schoolCode,
     teacherName,
     contactEmail,
     contactPhone,
@@ -19,6 +20,7 @@ export const SchoolProfileSettings = () => {
   } = useSettings();
 
   const [tempSchoolName, setTempSchoolName] = useState(schoolName);
+  const [tempSchoolCode, setTempSchoolCode] = useState(schoolCode);
   const [tempTeacherName, setTempTeacherName] = useState(teacherName);
   const [tempContactEmail, setTempContactEmail] = useState(contactEmail);
   const [tempContactPhone, setTempContactPhone] = useState(contactPhone);
@@ -27,14 +29,14 @@ export const SchoolProfileSettings = () => {
   
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // Update local state when context updates (initial load or background sync)
   useEffect(() => {
     setTempSchoolName(schoolName);
+    setTempSchoolCode(schoolCode);
     setTempTeacherName(teacherName);
     setTempContactEmail(contactEmail);
     setTempContactPhone(contactPhone);
     setTempThreshold(atRiskThreshold.toString());
-  }, [schoolName, teacherName, contactEmail, contactPhone, atRiskThreshold]);
+  }, [schoolName, schoolCode, teacherName, contactEmail, contactPhone, atRiskThreshold]);
 
   const handleSaveProfile = async () => {
     const thresh = parseInt(tempThreshold);
@@ -47,6 +49,7 @@ export const SchoolProfileSettings = () => {
     try {
         await updateProfileSettings({
             schoolName: tempSchoolName,
+            schoolCode: tempSchoolCode,
             teacherName: tempTeacherName,
             contactEmail: tempContactEmail,
             contactPhone: tempContactPhone,
@@ -63,7 +66,7 @@ export const SchoolProfileSettings = () => {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 500 * 1024) { // 500KB limit
+      if (file.size > 500 * 1024) {
         showError("Image too large. Please use a logo smaller than 500KB.");
         return;
       }
@@ -92,12 +95,11 @@ export const SchoolProfileSettings = () => {
           <CardTitle>School & Report Profile</CardTitle>
         </div>
         <CardDescription>
-          These details will appear on your generated PDF reports.
+          These details will appear on your generated PDF reports and SA-SAMS exports.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Logo Section */}
           <div className="flex flex-col items-center gap-2">
              <Label>School Logo</Label>
              <div className="h-32 w-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/30 overflow-hidden relative group">
@@ -128,12 +130,8 @@ export const SchoolProfileSettings = () => {
                   </label>
                 </Button>
              </div>
-             <p className="text-[10px] text-muted-foreground max-w-[150px] text-center">
-               Max 500KB. PNG or JPG. Used in PDF reports.
-             </p>
           </div>
 
-          {/* Fields Section */}
           <div className="flex-1 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid w-full items-center gap-1.5">
@@ -149,6 +147,21 @@ export const SchoolProfileSettings = () => {
                   />
                 </div>
               </div>
+
+              <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="school-code">School Code / EMIS No.</Label>
+                <div className="relative">
+                  <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="school-code"
+                    placeholder="Official 9-digit EMIS number"
+                    value={tempSchoolCode}
+                    onChange={(e) => setTempSchoolCode(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
               <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="teacher-name">Teacher Name</Label>
                 <div className="relative">
@@ -176,45 +189,25 @@ export const SchoolProfileSettings = () => {
                   />
                 </div>
               </div>
-              <div className="grid w-full items-center gap-1.5">
-                <Label htmlFor="contact-phone">Contact Phone</Label>
-                <div className="relative">
-                  <Phone className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="contact-phone"
-                    placeholder="+1 234 567 8900"
-                    value={tempContactPhone}
-                    onChange={(e) => setTempContactPhone(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-               <div className="grid w-full items-center gap-1.5 sm:col-span-2">
+            </div>
+            
+            <div className="grid w-full items-center gap-1.5 pt-2">
                 <Label htmlFor="threshold" className="flex items-center gap-2">
-                  At Risk Threshold (%)
-                  <AlertCircle className="h-3 w-3 text-muted-foreground" />
+                    At Risk Threshold (%)
+                    <AlertCircle className="h-3 w-3 text-muted-foreground" />
                 </Label>
-                <div className="relative">
-                  <Input
+                <Input
                     id="threshold"
                     type="number"
-                    placeholder="50"
-                    min={0}
-                    max={100}
                     value={tempThreshold}
                     onChange={(e) => setTempThreshold(e.target.value)}
                     className="w-full sm:w-[120px]"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Learners scoring below this percentage will be highlighted as "At Risk".
-                  </p>
-                </div>
-              </div>
+                />
             </div>
+
             <Button onClick={handleSaveProfile} className="w-full sm:w-auto" disabled={isSaving}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Profile & Settings
+              Save Profile & Identifiers
             </Button>
           </div>
         </div>
