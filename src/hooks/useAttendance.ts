@@ -1,22 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Learner, AttendanceRecord, AttendanceStatus } from '@/lib/types';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
 import { useAcademic } from '@/context/AcademicContext';
+import { useSettings } from '@/context/SettingsContext';
+import { generateAttendancePDF, SchoolProfile } from '@/utils/pdfGenerator';
 
 export const useAttendance = (classId: string, learners: Learner[]) => {
   const { activeTerm } = useAcademic();
+  const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   const [date, setDate] = useState<Date>(new Date());
   
   const formattedDate = format(date, 'yyyy-MM-dd');
 
-  // Live Query from Local DB - strictly isolated by class and term
   const liveAttendance = useLiveQuery(
     () => db.attendance
         .where('class_id')
@@ -95,10 +95,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
 
         if (recordsToSave.length === 0) return;
 
-        // 1. Save to Local DB
         await db.attendance.bulkPut(recordsToSave);
-
-        // 2. Queue for Sync
         await queueAction('attendance', 'upsert', recordsToSave);
 
         setHasChanges(false);
@@ -117,36 +114,23 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
     try {
       const start = startOfMonth(date);
       const end = endOfMonth(date);
-      const sStr = format(start, 'yyyy-MM-dd');
-      const eStr = format(end, 'yyyy-MM-dd');
+      const allDays = eachDayOfInterval({ start, end });
+      const sortedDates = allDays.map(d => format(d, 'yyyy-MM-dd'));
+      const monthName = format(date, 'MMMM yyyy');
 
-      // Scoped Query
       const data = await db.attendance
         .where('class_id').equals(classId)
-        .filter(r => r.term_id === activeTerm.id && r.date! >= sStr && r.date! <= eStr)
+        .filter(r => r.term_id === activeTerm.id && r.date! >= sortedDates[0] && r.date! <= sortedDates[sortedDates.length - 1])
         .toArray();
 
-      data.sort((a, b) => a.date!.localeCompare(b.date!));
-
       const recordMap: Record<string, Record<string, string>> = {}; 
-      const datesSet = new Set<string>();
-
       data.forEach((record) => {
         if (!recordMap[record.learner_id]) recordMap[record.learner_id] = {};
         recordMap[record.learner_id][record.date!] = record.status;
-        datesSet.add(record.date!);
       });
 
-      const sortedDates = Array.from(datesSet).sort();
-      
-      if (sortedDates.length === 0) {
-        showError("No attendance records found for this context.");
-        setIsExporting(false);
-        return;
-      }
-
       if (type === 'csv') {
-        let csv = 'Learner Name,' + sortedDates.join(',') + ',Present,Absent,Late\n';
+        let csv = 'Learner Name,' + allDays.map(d => format(d, 'dd/MM')).join(',') + ',Present,Absent,Late\n';
         
         learners.forEach(l => {
           if (!l.id) return;
@@ -175,39 +159,15 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
         URL.revokeObjectURL(url);
         
       } else {
-        const doc = new jsPDF('l', 'mm', 'a4'); 
-        doc.setFontSize(16);
-        doc.text(`Attendance Register: ${format(date, 'MMMM yyyy')}`, 14, 15);
-        
-        const head = [['Name', ...sortedDates.map(d => format(new Date(d), 'dd')), 'P', 'A', 'L']];
-        const body = learners.map(l => {
-           if (!l.id) return [];
-           const records = recordMap[l.id] || {};
-           let present = 0, absent = 0, late = 0;
-           
-           const statuses = sortedDates.map(d => {
-              const s = records[d];
-              if (s === 'present') { present++; return 'P'; }
-              if (s === 'absent') { absent++; return 'A'; }
-              if (s === 'late') { late++; return 'L'; }
-              if (s === 'excused') return 'E';
-              return '-';
-           });
-           
-           return [l.name, ...statuses, present, absent, late];
-        }).filter(row => row.length > 0);
+        const profile: SchoolProfile = {
+            name: schoolName,
+            teacher: teacherName,
+            logo: schoolLogo,
+            email: contactEmail,
+            phone: contactPhone
+        };
 
-        autoTable(doc, {
-          startY: 25,
-          head: head,
-          body: body,
-          theme: 'grid',
-          styles: { fontSize: 8, cellPadding: 1 },
-          headStyles: { fillColor: [41, 37, 36], textColor: 255 },
-          columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' } }
-        });
-        
-        doc.save(`Attendance_${format(date, 'MMM_yyyy')}.pdf`);
+        generateAttendancePDF(learners, recordMap, sortedDates, monthName, profile);
       }
 
       showSuccess("Attendance report exported.");

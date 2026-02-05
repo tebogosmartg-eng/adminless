@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ClassInfo, Learner, GradeSymbol, AttendanceRecord } from '@/lib/types';
 import { getGradeSymbol } from './grading';
-import { format } from 'date-fns';
+import { format, isWeekend } from 'date-fns';
 
 export interface SchoolProfile {
   name: string;
@@ -433,7 +433,26 @@ export const generateAttendancePDF = (
       theme: 'grid',
       styles: { fontSize: 7, cellPadding: 1 },
       headStyles: { fillColor: [41, 37, 36], textColor: 255 },
-      columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' } }
+      columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' } },
+      didParseCell: (data) => {
+          if (data.section === 'head' && data.column.index > 0 && data.column.index <= dates.length) {
+              const dateStr = dates[data.column.index - 1];
+              if (isWeekend(new Date(dateStr))) {
+                  data.cell.styles.fillColor = [100, 100, 100];
+              }
+          }
+          if (data.section === 'body' && data.column.index > 0 && data.column.index <= dates.length) {
+              const dateStr = dates[data.column.index - 1];
+              if (isWeekend(new Date(dateStr))) {
+                  data.cell.styles.fillColor = [240, 240, 240];
+              }
+              // Status coloring
+              const status = data.cell.text[0];
+              if (status === 'P') data.cell.styles.textColor = [22, 163, 74];
+              if (status === 'A') data.cell.styles.textColor = [220, 38, 38];
+              if (status === 'L') data.cell.styles.textColor = [217, 119, 6];
+          }
+      }
     });
     
     addFooter(doc);

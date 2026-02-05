@@ -198,7 +198,19 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
         <TabsContent value="monthly" className="mt-4">
            <Card>
               <CardHeader className="pb-2">
-                 <CardTitle>Monthly Overview</CardTitle>
+                 <div className="flex justify-between items-center">
+                    <CardTitle>Monthly Overview</CardTitle>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleExportReport('pdf')} disabled={isExporting}>
+                            {isExporting ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <FileText className="h-3 w-3 mr-2" />}
+                            Export Grid (PDF)
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleExportReport('csv')} disabled={isExporting}>
+                            <FileSpreadsheet className="h-3 w-3 mr-2" />
+                            Export CSV
+                        </Button>
+                    </div>
+                 </div>
                  <CardDescription>
                     Viewing attendance records for {format(date, 'MMMM yyyy')}. Click a column header to switch to that day.
                  </CardDescription>
