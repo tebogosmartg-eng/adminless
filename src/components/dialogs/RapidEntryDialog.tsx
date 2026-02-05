@@ -2,11 +2,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Learner } from '@/lib/types';
-import { ArrowRight, Check, Calculator, AlertCircle } from 'lucide-react';
-import { parseMarkInput } from '@/utils/marks';
-import { showSuccess, showError } from '@/utils/toast';
+import { ArrowRight, Check, Calculator } from 'lucide-react';
 
 interface RapidEntryDialogProps {
   open: boolean;
@@ -19,57 +17,34 @@ interface RapidEntryDialogProps {
 export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, maxMark }: RapidEntryDialogProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentMark, setCurrentMark] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Initialize only when the dialog is opened
   useEffect(() => {
     if (open) {
       setCurrentIndex(0);
       setCurrentMark(learners[0]?.mark || '');
+      // Ensure focus after dialog animation
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [open, learners]);
+  }, [open]);
 
+  // Update local input when navigating between students
   useEffect(() => {
-    if (learners[currentIndex]) {
+    if (open && learners[currentIndex]) {
         setCurrentMark(learners[currentIndex].mark || '');
+        inputRef.current?.focus();
+        inputRef.current?.select();
     }
-  }, [currentIndex, learners]);
+  }, [currentIndex, open]);
 
   const handleNext = () => {
-    if (currentMark === "") {
-        onUpdateMark(currentIndex, "");
-        advance();
-        return;
-    }
-
-    const { value, isCalculated, raw } = parseMarkInput(currentMark);
+    if (!learners[currentIndex]) return;
     
-    if (isCalculated) {
-        const percent = parseFloat(value);
-        if (percent > 100) {
-            showError(`Calculated mark (${value}%) exceeds 100%.`);
-            return;
-        }
-        if (percent < 0) {
-            showError("Negative marks are not allowed.");
-            return;
-        }
-    } else {
-        const num = parseFloat(currentMark);
-        if (!isNaN(num)) {
-            if (num < 0) {
-                showError("Negative marks are not allowed.");
-                return;
-            } else if (maxMark && num > maxMark) {
-                showError(`Mark (${num}) exceeds the assessment total (${maxMark}).`);
-                return;
-            }
-        }
-    }
-
+    // Pass the mark to the parent for validation and saving
     onUpdateMark(currentIndex, currentMark);
-    advance();
-  };
-
-  const advance = () => {
+    
+    // Move to next student or close if done
     if (currentIndex < learners.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
@@ -79,53 +54,66 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
       handleNext();
     }
   };
 
-  const progress = Math.round(((currentIndex + 1) / learners.length) * 100);
+  const progress = learners.length > 0 ? Math.round(((currentIndex + 1) / learners.length) * 100) : 0;
+  const currentLearner = learners[currentIndex];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Rapid Mark Entry</DialogTitle>
           <DialogDescription>
-            Quickly enter marks one by one. {maxMark && `Total marks: ${maxMark}`}.
+            Enter marks sequentially. {maxMark && `Total marks: ${maxMark}`}.
           </DialogDescription>
         </DialogHeader>
         
         <div className="py-4 space-y-4">
             <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                <div className="bg-primary h-full transition-all duration-300" style={{ width: `${progress}%` }} />
+                <div 
+                    className="bg-primary h-full transition-all duration-300" 
+                    style={{ width: `${progress}%` }} 
+                />
             </div>
-            <p className="text-xs text-right text-muted-foreground">
-                {currentIndex + 1} of {learners.length}
+            <p className="text-[10px] uppercase font-bold text-right text-muted-foreground tracking-widest">
+                Student {currentIndex + 1} of {learners.length}
             </p>
 
-            <div className="flex flex-col items-center justify-center space-y-4 py-4">
-                <h3 className="text-2xl font-bold">{learners[currentIndex]?.name}</h3>
+            <div className="flex flex-col items-center justify-center space-y-6 py-6">
+                <div className="text-center">
+                    <h3 className="text-2xl font-black text-foreground">{currentLearner?.name || "End of List"}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">Status: {currentLearner?.mark ? "Has Mark" : "Empty"}</p>
+                </div>
+                
                 <div className="flex items-center gap-2 relative">
                     <Label htmlFor="rapid-mark" className="sr-only">Mark</Label>
                     <Input 
                         id="rapid-mark"
+                        ref={inputRef}
                         value={currentMark}
                         onChange={(e) => setCurrentMark(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="text-center text-lg w-32 h-12"
+                        className="text-center text-2xl font-bold w-40 h-16 shadow-inner"
                         placeholder="-"
-                        autoFocus
+                        autoComplete="off"
                     />
                     {currentMark.includes('/') && (
-                        <div className="absolute -right-8 text-muted-foreground animate-in fade-in">
-                            <Calculator className="h-5 w-5" />
+                        <div className="absolute -right-10 text-primary animate-pulse">
+                            <Calculator className="h-6 w-6" />
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="flex justify-end">
-                <Button onClick={handleNext}>
+            <div className="flex justify-between items-center pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))} disabled={currentIndex === 0}>
+                    Previous
+                </Button>
+                <Button onClick={handleNext} className="min-w-[120px] font-bold">
                     {currentIndex === learners.length - 1 ? (
                         <>Finish <Check className="ml-2 h-4 w-4" /></>
                     ) : (

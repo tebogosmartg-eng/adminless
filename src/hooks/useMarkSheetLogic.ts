@@ -53,15 +53,12 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const [recalculateTotal, setRecalculateTotal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
 
-  // Sync the academic data layer with current class and global active term
+  // Sync assessments when context changes
   useEffect(() => {
     if (activeTerm?.id) {
         refreshAssessments(classInfo.id, activeTerm.id);
-        // Clear buffers when context changes to prevent cross-term leakage
         setEditedMarks({}); 
         setEditedComments({});
-        
-        // Ensure new assessment dialog defaults to the currently visible term
         setNewAss(prev => ({ ...prev, termId: activeTerm.id }));
     }
   }, [activeTerm?.id, classInfo.id]);
@@ -70,7 +67,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     setVisibleAssessmentIds(assessments.map(a => a.id));
   }, [assessments]);
 
-  // Handle term switching globally
   const handleTermChange = (termId: string) => {
     const term = terms.find(t => t.id === termId);
     if (term) setActiveTerm(term);
@@ -166,6 +162,15 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     });
   }, [classInfo.learners, searchQuery, sortConfig]);
 
+  // STABLE LEARNERS LIST FOR TOOLS
+  // This ensures the student order doesn't shift while a dialog is open
+  const learnersForTools = useMemo(() => {
+      return sortedAndFilteredLearners.map(l => ({
+          ...l,
+          mark: l.id ? editedMarks[`${activeTool.assessmentId}-${l.id}`] || (marks.find(m => m.assessment_id === activeTool.assessmentId && m.learner_id === l.id)?.score?.toString() || "") : ""
+      }));
+  }, [activeTool.assessmentId, sortedAndFilteredLearners, editedMarks, marks]);
+
   const handleCommentChange = useCallback(async (assessmentId: string, learnerId: string, value: string) => {
     setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
     
@@ -190,7 +195,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   }, [updateMarks, marks]);
 
   const handleAddAssessment = async () => {
-      // Use the locked termId from state to prevent drifting during creation
       const targetTermId = newAss.termId || activeTerm?.id;
       if (!targetTermId) {
           showError("Target academic term is missing.");
@@ -235,7 +239,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       currentTotalWeight, isWeightValid, isUsingVisibleTotal: recalculateTotal,
       isAutoSaving, availableRubrics, rubricMarking,
       activeAssessmentMax,
-      learnersForTools: sortedAndFilteredLearners.map(l => ({ ...l, mark: l.id ? editedMarks[`${activeTool.assessmentId}-${l.id}`] || (marks.find(m => m.assessment_id === activeTool.assessmentId && m.learner_id === l.id)?.score?.toString() || "") : "" }))
+      learnersForTools
     },
     actions: {
       setViewTermId: handleTermChange, 
@@ -275,7 +279,9 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       },
       closeTool: () => setActiveTool({ type: null, assessmentId: null, termId: null }),
       handleToolUpdate: (idx, val) => { 
-          if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) validateAndCommitMark(activeTool.assessmentId, sortedAndFilteredLearners[idx].id!, val);
+          if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) {
+              validateAndCommitMark(activeTool.assessmentId, sortedAndFilteredLearners[idx].id!, val);
+          }
       },
       validateAndCommitMark,
       setRubricMarkingOpen: (open: boolean) => setRubricMarking(prev => ({ ...prev, open })),
