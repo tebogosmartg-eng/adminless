@@ -103,13 +103,12 @@ const ClassDetails = () => {
 
       generateSASAMSExport(
           learners,
-          termAssessments,
-          termMarks,
           classInfo.className,
           classInfo.subject,
           activeTerm.name,
           activeYear.name,
-          true // isFinalised
+          teacherName,
+          "" // School Code placeholder
       );
   };
 

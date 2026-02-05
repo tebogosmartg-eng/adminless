@@ -147,27 +147,25 @@ const Reports = () => {
         classesInReport.forEach(clsName => {
             const clsLearners = termData
                 .filter(r => r.className === clsName)
-                .map(r => ({ name: r.learnerName, mark: r.termAverage.toString(), id: 'exists' }));
+                .map(r => ({ 
+                    name: r.learnerName, 
+                    mark: r.termAverage.toString(), 
+                    // Attempt to find original learner for ID retrieval
+                    id: classes.find(c => c.className === clsName)?.learners.find(l => l.name === r.learnerName)?.id || ""
+                }));
             
-            const targetClass = classes.find(c => c.className === clsName && c.subject === termReportSubject);
-            if (!targetClass) return;
-
-            const classAss = assessments.filter(a => a.class_id === targetClass.id && a.term_id === selectedTerm.id);
-            const classMarks = marks.filter(m => classAss.some(a => a.id === m.assessment_id));
-
             generateSASAMSExport(
-                targetClass.learners, // Use actual learners to get stable IDs
-                classAss, 
-                classMarks, 
+                clsLearners, 
                 clsName, 
                 termReportSubject, 
                 selectedTerm.name,
                 activeYear.name,
-                true // isFinalised
+                teacherName,
+                "" // School Code placeholder
             );
         });
 
-        showSuccess(`Generated ${classesInReport.length} audit-ready SA-SAMS files.`);
+        showSuccess(`Generated SA-SAMS summary files for ${classesInReport.length} classes.`);
     } catch (e) {
         showError("SA-SAMS export failed.");
     }

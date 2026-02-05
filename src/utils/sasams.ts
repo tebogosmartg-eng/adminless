@@ -1,80 +1,78 @@
-import { Assessment, Learner, AssessmentMark } from "@/lib/types";
+import { Learner, Assessment, AssessmentMark } from "@/lib/types";
 import { format } from "date-fns";
 
 /**
- * Generates a standardised CSV for SA-SAMS import or reference.
- * Designed to be a 'source of truth' document for audit purposes.
+ * Generates the official SA-SAMS summary export.
+ * This format is restricted to one row per learner with finalized totals only.
  */
 export const generateSASAMSExport = (
   learners: Learner[],
-  assessments: Assessment[],
-  marks: AssessmentMark[],
   className: string,
   subject: string,
   termName: string,
   yearName: string,
-  isFinalised: boolean
+  teacherName: string,
+  schoolCode: string = ""
 ) => {
-  // 1. Audit Metadata Block (Top-level context)
-  const metadata = [
-    ["DOCUMENT TYPE", "SA-SAMS DATA PREPARATION SHEET"],
-    ["PLATFORM SOURCE", "AdminLess v3.1"],
-    ["ACADEMIC YEAR", yearName],
-    ["ACADEMIC TERM", termName],
-    ["OFFICIAL SUBJECT", subject],
-    ["CLASS GROUP", className],
-    ["GENERATION DATE", format(new Date(), 'yyyy-MM-dd HH:mm:ss')],
-    ["AUDIT STATUS", isFinalised ? "VERIFIED & FINALISED" : "DRAFT - NOT FOR CAPTURING"],
-    [], // Spacer
-  ].map(row => row.join(",")).join("\n");
-
-  // 2. Column Headers (Import-friendly)
-  // We include Task Titles with their total marks for easy cross-referencing
-  const dataHeader = [
-    "LearnerID",
-    "Surname and Initials",
-    ...assessments.map(a => `"${a.title} (Max: ${a.max_mark})"`),
-    "Calculated Term %"
+  // 1. Define exact header structure
+  const headers = [
+    "Academic Year",
+    "Term",
+    "School Code",
+    "Grade",
+    "Class",
+    "Subject",
+    "Learner ID",
+    "Learner Surname",
+    "Learner Name",
+    "Final Mark",
+    "Percentage",
+    "Result",
+    "Teacher",
+    "Date Finalised"
   ].join(",");
 
-  // 3. Row Construction
+  // 2. Process rows
   const rows = learners.map(learner => {
-    const name = `"${learner.name.replace(/"/g, '""')}"`;
-    const learnerId = learner.id || "NEW_ENTRY";
+    // Split name into Name and Surname (Assuming "First Last" or "First Middle Last")
+    const nameParts = learner.name.trim().split(/\s+/);
+    const surname = nameParts.length > 1 ? nameParts.pop() : "";
+    const firstName = nameParts.join(" ");
     
-    // Extract raw marks for each assessment
-    const rawScores = assessments.map(ass => {
-      const markRecord = marks.find(m => m.assessment_id === ass.id && m.learner_id === learner.id);
-      return markRecord?.score !== null && markRecord?.score !== undefined ? markRecord.score : "";
-    });
+    const markValue = parseFloat(learner.mark) || 0;
+    const isPass = markValue >= 50;
+    const result = isPass ? "Pass" : "Fail";
+    
+    // We use the current date as the "Finalised" reference for the export audit
+    const dateFinalised = format(new Date(), 'yyyy-MM-dd');
 
-    // The calculated aggregate for the term
-    const finalMark = learner.mark || "0"; 
+    const row = [
+      `"${yearName}"`,
+      `"${termName}"`,
+      `"${schoolCode}"`,
+      `"${learner.class_id ? 'Grade ' + learner.class_id : ''}"`, // Placeholder if grade is missing in object
+      `"${className}"`,
+      `"${subject}"`,
+      `"${learner.id || 'N/A'}"`,
+      `"${surname?.replace(/"/g, '""')}"`,
+      `"${firstName.replace(/"/g, '""')}"`,
+      markValue,
+      `"${markValue}%"`,
+      `"${result}"`,
+      `"${teacherName.replace(/"/g, '""')}"`,
+      `"${dateFinalised}"`
+    ];
 
-    return [learnerId, name, ...rawScores, finalMark].join(",");
+    return row.join(",");
   });
 
-  // 4. Verification Footer (For paper-trail audits)
-  const footer = [
-    [],
-    ["--- OFFICIAL AUDIT SIGN-OFF ---"],
-    ["Educator Name:", "", "Signature:", "____________________", "Date:", "__________"],
-    ["HOD Name:", "", "Signature:", "____________________", "Date:", "__________"],
-    ["Principal Name:", "", "Signature:", "____________________", "Date:", "__________"],
-    [],
-    ["End of Report"]
-  ].map(row => row.join(",")).join("\n");
-
-  const csvContent = metadata + "\n" + dataHeader + "\n" + rows.join("\n") + "\n" + footer;
+  const csvContent = headers + "\n" + rows.join("\n");
   
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   
-  // Clean filename for system compatibility
-  const safeSubject = subject.replace(/[^a-z0-9]/gi, '_');
-  const safeClass = className.replace(/[^a-z0-9]/gi, '_');
-  const filename = `AdminLess_to_SASAMS_${safeSubject}_${safeClass}_${termName.replace(/\s/g, '')}.csv`;
+  const filename = `SASAMS_SUMMARY_${subject.replace(/\s+/g, '_')}_${className}_${termName.replace(/\s+/g, '')}.csv`;
   
   link.setAttribute("href", url);
   link.setAttribute("download", filename);
