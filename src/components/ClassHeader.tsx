@@ -1,4 +1,4 @@
-import { ArrowLeft, Save, MoreVertical, FileDown, Mic, Zap, Users, Brain, Sliders, Upload, Share2, FileText, Download, Edit, Dices } from 'lucide-react';
+import { ArrowLeft, Save, MoreVertical, FileDown, Mic, Zap, Users, Brain, Sliders, Upload, Share2, FileText, Download, Edit, Dices, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClassInfo } from '@/lib/types';
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useAcademic } from '@/context/AcademicContext';
 
 interface ClassHeaderProps {
   classInfo: ClassInfo;
@@ -21,6 +22,7 @@ interface ClassHeaderProps {
     bulkPdf: () => void;
     blankList: () => void;
     share: () => void;
+    sasams: () => void;
   };
   onDialogs: {
     import: () => void;
@@ -41,6 +43,9 @@ export const ClassHeader = ({
   onExport,
   onDialogs
 }: ClassHeaderProps) => {
+  const { activeTerm } = useAcademic();
+  const isTermClosed = !!activeTerm?.closed;
+
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white dark:bg-card p-6 rounded-lg border shadow-sm transition-all duration-300">
       <div className="flex items-center gap-4">
@@ -86,6 +91,10 @@ export const ClassHeader = ({
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onExport.csv} className="py-2.5">
                 <FileText className="mr-2 h-4 w-4 text-slate-500" /> Export Data (CSV)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onExport.sasams} disabled={!isTermClosed} className="py-2.5">
+                <Download className="mr-2 h-4 w-4 text-primary" /> SA-SAMS Export (CSV)
+                {!isTermClosed && <Lock className="ml-auto h-3 w-3 opacity-30" />}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onExport.blankList} className="py-2.5">
                 <FileText className="mr-2 h-4 w-4 text-orange-500" /> Blank List (PDF)

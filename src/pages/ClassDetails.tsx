@@ -19,13 +19,14 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ShieldCheck, BarChart3, ArrowLeft, Sparkles, Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
+import { generateSASAMSExport } from "@/utils/sasams";
 
 const ClassDetails = () => {
   const { classId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
-  const { assessments, activeTerm } = useAcademic();
+  const { assessments, activeTerm, marks } = useAcademic();
   const { gradingScheme, schoolName, teacherName, schoolLogo } = useSettings();
   const { currentPeriod } = useCurrentPeriod();
   
@@ -70,6 +71,22 @@ const ClassDetails = () => {
     handleExportBulkPdf,
     handleExportBlankPdf
   } = useClassExport(classInfo, learners, gradingScheme, schoolName, teacherName, schoolLogo);
+
+  const handleSASAMSExportAction = () => {
+      if (!classInfo || !activeTerm) return;
+      
+      const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm.id);
+      const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
+
+      generateSASAMSExport(
+          learners,
+          termAssessments,
+          termMarks,
+          classInfo.className,
+          classInfo.subject,
+          activeTerm.name
+      );
+  };
 
   useEffect(() => {
     if (classInfo) {
@@ -120,7 +137,8 @@ const ClassDetails = () => {
                 pdf: handleExportPdf,
                 bulkPdf: handleExportBulkPdf,
                 blankList: handleExportBlankPdf,
-                share: handleShareSummary
+                share: handleShareSummary,
+                sasams: handleSASAMSExportAction
             }}
             onDialogs={{
                 import: () => dialogs.setIsImportOpen(true),
@@ -200,7 +218,6 @@ const ClassDetails = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Floating Teaching Assistant Button */}
       {isCurrentlyTeaching && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-500">
               <Button 
@@ -223,7 +240,7 @@ const ClassDetails = () => {
         classInfo={classInfo}
         learners={learners}
         handlers={{
-            handleAddLearners: () => {}, // Handled by useLearnerState
+            handleAddLearners: () => {}, 
             handleUpdateLearners,
             handleMarkChange
         }}

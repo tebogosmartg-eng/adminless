@@ -14,13 +14,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight } from 'lucide-react';
+import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { addHeader, SchoolProfile, addFooter } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { Link } from 'react-router-dom';
+import { generateSASAMSExport } from '@/utils/sasams';
 
 const Reports = () => {
   const { classes } = useClasses();
@@ -57,6 +58,9 @@ const Reports = () => {
       if (activeYear) setSelectedYearId(activeYear.id);
   }, [activeYear?.id]);
 
+  const selectedTerm = useMemo(() => terms.find(t => t.id === selectedTermId), [terms, selectedTermId]);
+  const isTermClosed = !!selectedTerm?.closed;
+
   const integrityReport = useMemo(() => {
     if (!selectedTermId || termReportGrade === 'all' || termReportSubject === 'all') return null;
     
@@ -72,7 +76,7 @@ const Reports = () => {
     if (!termData || !selectedTermId) return;
     
     try {
-        const termName = terms.find(t => t.id === selectedTermId)?.name || "Term Report";
+        const termName = selectedTerm?.name || "Term Report";
         const doc = new jsPDF('l', 'mm', 'a4');
         const startY = addHeader(doc, profile, `${termName} Performance Summary: ${termReportGrade} ${termReportSubject}`);
         
@@ -105,7 +109,7 @@ const Reports = () => {
     if (!termData) return;
     
     try {
-        const termName = terms.find(t => t.id === selectedTermId)?.name || "Term Report";
+        const termName = selectedTerm?.name || "Term Report";
         let csv = 'Learner,Class,' + allAssessmentTitles.join(',') + ',Average,Symbol\n';
         
         termData.forEach(r => {
@@ -123,6 +127,41 @@ const Reports = () => {
         showSuccess("CSV exported successfully.");
     } catch (e) {
         showError("Failed to generate CSV.");
+    }
+  };
+
+  const handleSASAMSExport = () => {
+    if (!termData || !selectedTerm) return;
+    
+    try {
+        // SA-SAMS usually expects data per Class/Subject. 
+        // We iterate through classes in this report and trigger an export for each.
+        const classesInReport = Array.from(new Set(termData.map(r => r.className)));
+        
+        classesInReport.forEach(clsName => {
+            const clsLearners = termData
+                .filter(r => r.className === clsName)
+                .map(r => ({ name: r.learnerName, mark: r.termAverage.toString(), id: 'exists' }));
+            
+            const targetClass = classes.find(c => c.className === clsName && c.subject === termReportSubject);
+            if (!targetClass) return;
+
+            const classAss = assessments.filter(a => a.class_id === targetClass.id && a.term_id === selectedTerm.id);
+            const classMarks = marks.filter(m => classAss.some(a => a.id === m.assessment_id));
+
+            generateSASAMSExport(
+                clsLearners, 
+                classAss, 
+                classMarks, 
+                clsName, 
+                termReportSubject, 
+                selectedTerm.name
+            );
+        });
+
+        showSuccess(`Generated SA-SAMS export files for ${classesInReport.length} classes.`);
+    } catch (e) {
+        showError("SA-SAMS export failed.");
     }
   };
 
@@ -187,7 +226,6 @@ const Reports = () => {
             <TabsTrigger value="year" className="px-6">Year End Summary</TabsTrigger>
         </TabsList>
 
-        {/* ... rest of the component remains same ... */}
         <TabsContent value="term" className="space-y-6 mt-6">
             <div className="grid gap-6 md:grid-cols-4">
                 <Card className="md:col-span-1 border-none shadow-sm">
@@ -237,6 +275,11 @@ const Reports = () => {
                         <CardTitle className="text-lg">Results Preview</CardTitle>
                         {termData && (
                             <div className="flex gap-2">
+                                {isTermClosed && (
+                                    <Button variant="outline" size="sm" onClick={handleSASAMSExport} className="h-8 gap-2 border-primary text-primary hover:bg-primary/5">
+                                        <Download className="h-3.5 w-3.5" /> SA-SAMS
+                                    </Button>
+                                )}
                                 <Button variant="outline" size="sm" onClick={handleExportTermCSV} className="h-8 gap-2">
                                     <FileSpreadsheet className="h-3.5 w-3.5 text-green-600"/> CSV
                                 </Button>
@@ -295,7 +338,6 @@ const Reports = () => {
                 </Card>
             </div>
         </TabsContent>
-        {/* Tab Year content hidden for brevity but logic is enforced globally via the early return */}
       </Tabs>
     </div>
   );
