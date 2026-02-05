@@ -14,15 +14,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, GraduationCap } from 'lucide-react';
+import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, GraduationCap, Printer, FileStack } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { addHeader, SchoolProfile, addFooter } from '@/utils/pdfGenerator';
+import { addHeader, SchoolProfile, addFooter, generateBulkLearnerReportsPDF } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { Link } from 'react-router-dom';
 import { generateSASAMSExport } from '@/utils/sasams';
 import { cn } from '@/lib/utils';
+import { db } from '@/db';
 
 const Reports = () => {
   const { classes } = useClasses();
@@ -51,6 +52,8 @@ const Reports = () => {
   const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
   const [selectedYearId, setSelectedYearId] = useState(activeYear?.id || "");
 
+  const [isBulkExporting, setIsBulkExporting] = useState(false);
+
   useEffect(() => {
       if (activeTerm) setSelectedTermId(activeTerm.id);
   }, [activeTerm?.id]);
@@ -62,16 +65,19 @@ const Reports = () => {
   const selectedTerm = useMemo(() => terms.find(t => t.id === selectedTermId), [terms, selectedTermId]);
   const isTermClosed = !!selectedTerm?.closed;
 
+  const filteredClasses = useMemo(() => {
+    return classes.filter(c => c.grade === termReportGrade && c.subject === termReportSubject && !c.archived);
+  }, [classes, termReportGrade, termReportSubject]);
+
   const integrityReport = useMemo(() => {
     if (!selectedTermId || termReportGrade === 'all' || termReportSubject === 'all') return null;
     
-    const targetClasses = classes.filter(c => c.grade === termReportGrade && c.subject === termReportSubject && !c.archived);
-    const targetAssessments = assessments.filter(a => a.term_id === selectedTermId && targetClasses.some(c => c.id === a.class_id));
+    const targetAssessments = assessments.filter(a => a.term_id === selectedTermId && filteredClasses.some(c => c.id === a.class_id));
     const targetMarks = marks.filter(m => targetAssessments.some(a => a.id === m.assessment_id));
-    const targetLearners = targetClasses.flatMap(c => c.learners);
+    const targetLearners = filteredClasses.flatMap(c => c.learners);
 
     return checkClassTermIntegrity(targetAssessments, targetLearners, targetMarks);
-  }, [selectedTermId, termReportGrade, termReportSubject, classes, assessments, marks]);
+  }, [selectedTermId, termReportGrade, termReportSubject, filteredClasses, assessments, marks]);
 
   const handleExportTermPDF = () => {
     if (!termData || !selectedTermId) return;
@@ -103,6 +109,63 @@ const Reports = () => {
         showSuccess("PDF exported successfully.");
     } catch (e) {
         showError("Failed to generate PDF.");
+    }
+  };
+
+  const handleExportBulkReportCards = async () => {
+    if (!termData || !selectedTerm || !activeYear) return;
+    setIsBulkExporting(true);
+
+    try {
+        // Fetch attendance stats for all students in these classes to enrich the reports
+        const classIds = filteredClasses.map(c => c.id);
+        const allAttRecords = await db.attendance
+            .where('class_id')
+            .anyOf(classIds)
+            .filter(r => r.term_id === selectedTerm.id)
+            .toArray();
+
+        for (const cls of filteredClasses) {
+            // Map averages from our termData to the learners
+            const learnersWithMarks = cls.learners.map(l => {
+                const match = termData.find(d => d.learnerName === l.name && d.className === cls.className);
+                return {
+                    ...l,
+                    mark: match ? match.termAverage.toString() : "0"
+                };
+            });
+
+            // Create attendance map for this class
+            const attMap: any = {};
+            learnersWithMarks.forEach(l => {
+                if (!l.id) return;
+                const lRecs = allAttRecords.filter(r => r.learner_id === l.id);
+                attMap[l.id] = {
+                    present: lRecs.filter(r => r.status === 'present').length,
+                    absent: lRecs.filter(r => r.status === 'absent').length,
+                    late: lRecs.filter(r => r.status === 'late').length,
+                    total: lRecs.length,
+                    rate: lRecs.length > 0 ? Math.round(((lRecs.filter(r => r.status === 'present' || r.status === 'late').length) / lRecs.length) * 100) : 0
+                };
+            });
+
+            generateBulkLearnerReportsPDF(
+                learnersWithMarks,
+                { subject: cls.subject, grade: cls.grade, className: cls.className },
+                gradingScheme,
+                schoolName,
+                teacherName,
+                schoolLogo,
+                contactEmail,
+                contactPhone,
+                attMap
+            );
+        }
+        showSuccess(`Generated report card batches for ${filteredClasses.length} classes.`);
+    } catch (e) {
+        showError("Failed to generate bulk reports.");
+    } finally {
+        setIsBulkExporting(false);
     }
   };
 
@@ -151,8 +214,17 @@ const Reports = () => {
             const targetClass = classes.find(c => c.className === clsName && c.subject === termReportSubject);
             if (!targetClass) return;
 
+            // Map weighted averages from termData back to the learners for the export
+            const exportLearners = targetClass.learners.map(l => {
+                const match = termData.find(d => d.learnerName === l.name && d.className === clsName);
+                return {
+                    ...l,
+                    mark: match ? match.termAverage.toString() : "0"
+                };
+            });
+
             generateSASAMSExport(
-                targetClass.learners, 
+                exportLearners, 
                 clsName, 
                 targetClass.grade,
                 termReportSubject, 
@@ -270,15 +342,25 @@ const Reports = () => {
                             onClick={() => generateTermReport(selectedTermId, termReportGrade, termReportSubject)}
                             disabled={termLoading || !selectedTermId || termReportGrade === 'all' || !integrityReport?.isValid}
                         >
-                            {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Report"}
+                            {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Summary"}
                         </Button>
                     </CardContent>
                 </Card>
                 <Card className="md:col-span-3 min-h-[600px] flex flex-col border-none shadow-sm overflow-hidden">
-                    <CardHeader className="flex flex-row justify-between items-center border-b bg-muted/5">
+                    <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b bg-muted/5 gap-4">
                         <CardTitle className="text-lg">Results Preview</CardTitle>
                         {termData && (
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={handleExportBulkReportCards} 
+                                    disabled={isBulkExporting}
+                                    className="h-8 gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+                                >
+                                    {isBulkExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileStack className="h-3.5 w-3.5" />}
+                                    Bulk Report Cards
+                                </Button>
                                 <Button 
                                     variant="outline" 
                                     size="sm" 
