@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, FileDown, ShieldCheck, FileSpreadsheet, Lock, ChevronRight, AlertCircle, ArrowRight, Download, GraduationCap, FileStack, LayoutGrid } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { addHeader, SchoolProfile, addFooter, generateBulkLearnerReportsPDF } from '@/utils/pdfGenerator';
+import { addHeader, SchoolProfile, addFooter } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
@@ -39,7 +39,7 @@ const Reports = () => {
   };
 
   const { loading: termLoading, reportData: termData, generateTermReport, allAssessmentTitles, setReportData } = useTermReportData();
-  const { loading: yearLoading, yearData, generateYearReport } = useYearReportData();
+  const { loading: yearLoading, yearData, generateYearReport, setYearData } = useYearReportData();
 
   // Context Selection State
   const [selectedYearId, setSelectedYearId] = useState(activeYear?.id || "");
@@ -72,7 +72,8 @@ const Reports = () => {
   useEffect(() => {
       setSelectedClassId("all");
       setReportData(null);
-  }, [selectedGrade, selectedSubject, selectedTermId, setReportData]);
+      setYearData(null);
+  }, [selectedGrade, selectedSubject, selectedTermId, setReportData, setYearData]);
 
   const selectedTerm = useMemo(() => terms.find(t => t.id === selectedTermId), [terms, selectedTermId]);
   const isTermClosed = !!selectedTerm?.closed;
@@ -90,9 +91,14 @@ const Reports = () => {
     return checkClassTermIntegrity(targetAssessments, targetLearners, targetMarks);
   }, [isContextComplete, selectedTermId, selectedClassId, assessments, marks, classes]);
 
-  const handleGenerate = () => {
+  const handleGenerateTerm = () => {
     if (!isContextComplete) return;
     generateTermReport(selectedTermId, selectedGrade, selectedSubject);
+  };
+
+  const handleGenerateYear = () => {
+      if (!selectedYearId || selectedClassId === 'all') return;
+      generateYearReport(selectedYearId, selectedClassId);
   };
 
   const handleExportTermCSV = () => {
@@ -136,7 +142,6 @@ const Reports = () => {
         const doc = new jsPDF('l', 'mm', 'a4');
         const startY = addHeader(doc, profile, `${termName} Performance Summary: ${selectedGrade} ${selectedSubject}`);
         
-        // Filter data to only include the selected class
         const targetClassName = classes.find(c => c.id === selectedClassId)?.className;
         const displayData = termData.filter(r => r.className === targetClassName);
 
@@ -307,7 +312,7 @@ const Reports = () => {
 
                         <Button 
                             className="w-full mt-4 h-11 font-bold" 
-                            onClick={handleGenerate}
+                            onClick={handleGenerateTerm}
                             disabled={termLoading || !isContextComplete || !integrityReport?.isValid}
                         >
                             {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load Analytical Data"}
@@ -381,9 +386,9 @@ const Reports = () => {
 
         <TabsContent value="year" className="space-y-6 mt-6">
             <div className="grid gap-6 md:grid-cols-4">
-                <Card className="md:col-span-1">
+                <Card className="md:col-span-1 border-none shadow-sm">
                     <CardHeader>
-                        <CardTitle className="text-sm font-bold uppercase text-muted-foreground">Yearly Parameters</CardTitle>
+                        <CardTitle className="text-sm font-bold uppercase text-muted-foreground">Yearly Context</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
@@ -407,18 +412,27 @@ const Reports = () => {
                                 <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
-                        <Button className="w-full mt-4" onClick={() => generateYearReport(selectedYearId, selectedGrade, selectedSubject)} disabled={yearLoading || selectedGrade === 'all' || selectedSubject === 'all'}>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-muted-foreground">Specific Class</label>
+                            <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={selectedSubject === 'all' || selectedGrade === 'all'}>
+                                <SelectTrigger className="h-10"><SelectValue placeholder="Choose Class..." /></SelectTrigger>
+                                <SelectContent>
+                                    {availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button className="w-full mt-4 h-11 font-bold" onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'}>
                             {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Consolidate Year Data"}
                         </Button>
                     </CardContent>
                 </Card>
 
-                <Card className="md:col-span-3 min-h-[500px] flex flex-col">
+                <Card className="md:col-span-3 min-h-[500px] flex flex-col border-none shadow-sm overflow-hidden">
                     <CardHeader className="flex flex-row justify-between items-center bg-muted/5 border-b">
                         <CardTitle>Year End Consolidation</CardTitle>
                     </CardHeader>
                     <CardContent className="flex-1 p-0 overflow-auto">
-                        {yearData ? (
+                        {yearData && selectedClassId !== 'all' ? (
                             <Table>
                                 <TableHeader className="bg-muted/30">
                                     <TableRow>
@@ -430,7 +444,7 @@ const Reports = () => {
                                 </TableHeader>
                                 <TableBody>
                                     {yearData.map((r, i) => (
-                                        <TableRow key={i}>
+                                        <TableRow key={i} className="hover:bg-muted/30">
                                             <TableCell className="font-medium">{r.learnerName}</TableCell>
                                             {terms.map(t => (
                                                 <TableCell key={t.id} className="text-right text-xs">
@@ -452,7 +466,7 @@ const Reports = () => {
                                 <GraduationCap className="h-16 w-16 opacity-10" />
                                 <div className="space-y-1">
                                     <h3 className="font-semibold text-foreground">Annual Summary</h3>
-                                    <p className="text-xs max-w-xs">Consolidate all term marks into a final year-end performance report. Requires Grade and Subject context.</p>
+                                    <p className="text-xs max-w-xs">Consolidate all term marks into a final year-end performance report. Select a specific class to view analytical results.</p>
                                 </div>
                             </div>
                         )}

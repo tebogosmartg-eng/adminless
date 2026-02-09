@@ -11,10 +11,8 @@ import ClassSummaryCard from '@/components/ClassSummaryCard';
 import { QuickActions } from './QuickActions';
 import { TermProgressWidget } from './TermProgressWidget';
 import { TimetableWidget } from './TimetableWidget';
-import { DailyAttendanceCard } from './DailyAttendanceCard';
 import { TodoList } from './TodoList';
 import { AdminDebtWidget } from './AdminDebtWidget';
-import { EvidenceComplianceWidget } from './EvidenceComplianceWidget';
 import { DailyGoalWidget } from './DailyGoalWidget';
 import { OnboardingChecklist } from './OnboardingChecklist';
 
@@ -51,11 +49,6 @@ export const DashboardOverviewTab = ({
           {activeClasses.length > 0 ? (
             <>
               <AdminDebtWidget />
-              
-              <div className="grid gap-6 md:grid-cols-2">
-                <DailyAttendanceCard />
-                <EvidenceComplianceWidget />
-              </div>
               
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Class Access</h3>

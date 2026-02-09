@@ -13,9 +13,9 @@ export const useYearReportData = () => {
   const [loading, setLoading] = useState(false);
   const [yearData, setYearData] = useState<YearReportResult[] | null>(null);
 
-  const generateYearReport = async (yearId: string, grade: string, subject: string) => {
-    if (!yearId || grade === "all" || subject === "all") {
-      showError("Please select an Academic Year, Grade, and Subject.");
+  const generateYearReport = async (yearId: string, classId: string) => {
+    if (!yearId || !classId || classId === 'all') {
+      showError("Please select an Academic Year and a specific Class.");
       return;
     }
 
@@ -27,30 +27,26 @@ export const useYearReportData = () => {
         .equals(yearId)
         .toArray();
       
-      // 2. Get Classes
-      const classesData = await db.classes
-        .filter(c => c.grade === grade && c.subject === subject && !c.archived)
-        .toArray();
+      // 2. Get Class
+      const classInfo = await db.classes.get(classId);
 
-      if (!classesData || classesData.length === 0) {
-        showError("No classes found.");
+      if (!classInfo) {
+        showError("Class not found.");
         setLoading(false);
         return;
       }
 
-      const classIds = classesData.map(c => c.id);
-
-      // Get Learners for Classes
+      // Get Learners for this specific Class
       const learnersData = await db.learners
         .where('class_id')
-        .anyOf(classIds)
+        .equals(classId)
         .toArray();
 
-      // 3. Get Assessments for ALL terms in this year for these classes
+      // 3. Get Assessments for ALL terms in this year for this class
       const termIds = terms.map(t => t.id);
       const assessmentsData = await db.assessments
         .where('class_id')
-        .anyOf(classIds)
+        .equals(classId)
         .filter(a => termIds.includes(a.term_id))
         .toArray();
 
@@ -64,17 +60,14 @@ export const useYearReportData = () => {
       // 5. Calculation
       const learnerResults: { [id: string]: YearReportResult } = {};
 
-      classesData.forEach(cls => {
-        const classLearners = learnersData.filter(l => l.class_id === cls.id);
-        classLearners.forEach((l) => {
-            if (l.id) {
-                learnerResults[l.id] = {
-                    learnerName: l.name,
-                    termMarks: {},
-                    finalYearMark: 0
-                };
-            }
-        });
+      learnersData.forEach((l) => {
+          if (l.id) {
+              learnerResults[l.id] = {
+                  learnerName: l.name,
+                  termMarks: {},
+                  finalYearMark: 0
+              };
+          }
       });
 
       // Calculate Term Marks for each learner
@@ -84,10 +77,8 @@ export const useYearReportData = () => {
           const termAssessments = assessmentsData.filter(a => a.term_id === term.id);
 
           learnerIds.forEach(lId => {
-              // AUDIT FIX: Calculate normalized term average first
               const termAvg = calculateWeightedAverage(termAssessments, marksData, lId);
               
-              // Only assign if there were actually assessments in this term for this learner
               const hasMarks = termAssessments.some(ass => 
                 marksData.some(m => m.assessment_id === ass.id && m.learner_id === lId && m.score !== null)
               );
@@ -109,7 +100,6 @@ export const useYearReportData = () => {
               }
           });
 
-          // Final Mark is normalized to the active weight of terms completed
           const final = activeWeight > 0 ? (yearSum / activeWeight) : 0;
           learnerResults[lId].finalYearMark = parseFloat(final.toFixed(1));
       });
@@ -126,5 +116,5 @@ export const useYearReportData = () => {
     }
   };
 
-  return { loading, yearData, generateYearReport };
+  return { loading, yearData, generateYearReport, setYearData };
 };
