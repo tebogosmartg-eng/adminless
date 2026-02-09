@@ -1,0 +1,28 @@
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db, LessonLog } from '@/db';
+import { useAcademic } from '@/context/AcademicContext';
+
+export const useClassLessonLogs = (classId: string) => {
+  const { activeTerm } = useAcademic();
+
+  const logs = useLiveQuery(async () => {
+    if (!activeTerm) return [];
+
+    // 1. Get all timetable slots for this class
+    const slots = await db.timetable.where('class_id').equals(classId).toArray();
+    const slotIds = slots.map(s => s.id);
+
+    if (slotIds.length === 0) return [];
+
+    // 2. Get all logs linked to these slots
+    const allLogs = await db.lesson_logs
+        .where('timetable_id')
+        .anyOf(slotIds)
+        .reverse()
+        .sortBy('date');
+    
+    return allLogs as LessonLog[];
+  }, [classId, activeTerm?.id]) || [];
+
+  return { logs, loading: !logs };
+};

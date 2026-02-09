@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, Clock, Notebook, ChevronRight, AlertCircle, CheckCircle2, FileEdit } from "lucide-react";
+import { CalendarClock, Clock, Notebook, ChevronRight, AlertCircle, CheckCircle2, FileEdit, History } from "lucide-react";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -49,7 +49,7 @@ export const TimetableWidget = () => {
                         className={cn(
                             "flex flex-col p-2 rounded-lg border transition-all duration-300",
                             entry.isCurrent ? "border-primary bg-primary/[0.03] shadow-sm ring-1 ring-primary/10" : 
-                            entry.isPast ? "opacity-50 border-transparent bg-muted/20" : "border-border bg-card"
+                            entry.isPast ? "opacity-50 border-transparent bg-muted/10" : "border-border bg-card"
                         )}
                     >
                         <div className="flex items-center gap-2">
@@ -80,10 +80,14 @@ export const TimetableWidget = () => {
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                        className={cn(
+                                            "h-6 w-6 transition-colors",
+                                            entry.isPast ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground hover:text-primary"
+                                        )}
                                         onClick={() => setLogSession({ id: entry.id, name: entry.class_name })}
+                                        title={entry.isPast ? "Review lesson record" : "Record work covered"}
                                     >
-                                        <FileEdit className="h-3 w-3" />
+                                        {entry.isPast ? <History className="h-3 w-3" /> : <FileEdit className="h-3 w-3" />}
                                     </Button>
                                 )}
                                 {entry.class_id && !entry.isPast && (

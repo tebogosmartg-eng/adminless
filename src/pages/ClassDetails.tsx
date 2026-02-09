@@ -11,12 +11,13 @@ import { AttendanceView } from "@/components/AttendanceView";
 import { ClassDialogsManager } from "@/components/ClassDialogsManager";
 import { EvidenceManager } from "@/components/evidence/EvidenceManager";
 import { ClassAnalysisTab } from "@/components/analysis/ClassAnalysisTab";
+import { ClassLessonJournal } from "@/components/ClassLessonJournal";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldCheck, BarChart3, ArrowLeft, Sparkles, Dices } from "lucide-react";
+import { Loader2, ShieldCheck, BarChart3, ArrowLeft, Sparkles, Dices, BookText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { generateSASAMSExport } from "@/utils/sasams";
@@ -89,13 +90,11 @@ const ClassDetails = () => {
   const handleSASAMSExportAction = () => {
       if (!classInfo || !activeTerm || !activeYear) return;
 
-      // 1. Block if term not finalised
       if (!activeTerm.closed) {
           showError("Export Blocked: Term must be finalised in Settings before SA-SAMS export.");
           return;
       }
 
-      // 2. Block if draft data exists
       if (hasUnsavedChanges) {
           showError("Export Blocked: You have unsaved changes. Please save your work before exporting.");
           return;
@@ -104,7 +103,6 @@ const ClassDetails = () => {
       const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm.id);
       const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
 
-      // 3. Block if marks are incomplete
       const integrity = checkClassTermIntegrity(termAssessments, learners, termMarks);
       if (!integrity.isValid) {
           showError(`Export Blocked: ${integrity.errors[0]}`);
@@ -194,6 +192,9 @@ const ClassDetails = () => {
             <BarChart3 className="h-3.5 w-3.5" /> Analysis
           </TabsTrigger>
           <TabsTrigger value="attendance" className="flex-none h-10 px-6">Attendance</TabsTrigger>
+          <TabsTrigger value="journal" className="flex-none h-10 px-6 gap-2">
+            <BookText className="h-3.5 w-3.5" /> Journal
+          </TabsTrigger>
           <TabsTrigger value="evidence" className="flex-none h-10 px-6 gap-2">
             <ShieldCheck className="h-3.5 w-3.5" /> Evidence
           </TabsTrigger>
@@ -215,6 +216,10 @@ const ClassDetails = () => {
                termId={activeTerm?.id} 
                learners={learners} 
              />
+        </TabsContent>
+
+        <TabsContent value="journal">
+            <ClassLessonJournal classId={classId} />
         </TabsContent>
 
         <TabsContent value="evidence">
