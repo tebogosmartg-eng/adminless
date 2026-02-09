@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { ClassInfo, GradeSymbol, Assessment, AssessmentMark, AcademicYear } from '@/lib/types';
 import { getGradeSymbol } from '../grading';
 import { calculateWeightedAverage } from '../calculations';
-import { addHeader, addFooter, SchoolProfile, AttendanceStats } from './base';
+import { addHeader, addFooter, addSignatures, SchoolProfile, AttendanceStats } from './base';
 
 export const generateClassPDF = (
   classInfo: ClassInfo, 
@@ -98,7 +98,7 @@ export const generateClassPDF = (
     margin: { left: pageWidth / 2, right: margin }
   });
 
-  // At Risk Learners (Optional List)
+  // At Risk Learners
   const atRiskList = learnerData.filter(l => l.avg > 0 && l.avg < atRiskThreshold);
   if (atRiskList.length > 0) {
       const atRiskY = (doc as any).lastAutoTable.finalY + 10;
@@ -187,7 +187,24 @@ export const generateClassPDF = (
     styles: { fontSize: 8, cellPadding: 2 },
     columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 45 } },
     margin: { bottom: 20, left: margin, right: margin },
+    didParseCell: (data) => {
+        // Red alert for failing marks
+        if (data.section === 'body') {
+            const valStr = data.cell.text[0];
+            if (valStr.includes('%')) {
+                const val = parseFloat(valStr);
+                if (val > 0 && val < atRiskThreshold) {
+                    data.cell.styles.textColor = [220, 38, 38];
+                    data.cell.styles.fontStyle = 'bold';
+                }
+            }
+        }
+    }
   });
+
+  // Final Audit Sign-off
+  const lastY = (doc as any).lastAutoTable.finalY;
+  addSignatures(doc, lastY);
 
   addFooter(doc);
 };

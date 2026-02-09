@@ -4,6 +4,7 @@ import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReports
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateClassStats } from '@/utils/stats';
 import { useSettings } from '@/context/SettingsContext';
+import { useAcademic } from '@/context/AcademicContext';
 import { db } from '@/db';
 import { calculateWeightedAverage } from '@/utils/calculations';
 
@@ -18,9 +19,9 @@ export const useClassExport = (
   assessments: Assessment[],
   marks: AssessmentMark[]
 ) => {
-  const { contactEmail, contactPhone } = useSettings();
+  const { contactEmail, contactPhone, atRiskThreshold } = useSettings();
+  const { activeYear } = useAcademic();
 
-  // Helper to fetch attendance for all learners in the class
   const fetchAttendanceMap = async (): Promise<Record<string, AttendanceStats>> => {
     if (!classInfo) return {};
     
@@ -28,7 +29,6 @@ export const useClassExport = (
         const records = await db.attendance.where('class_id').equals(classInfo.id).toArray();
         const map: Record<string, AttendanceStats> = {};
         
-        // Initialize for all learners
         learners.forEach(l => {
             if (l.id) map[l.id] = { present: 0, absent: 0, late: 0, total: 0, rate: 0 };
         });
@@ -43,7 +43,6 @@ export const useClassExport = (
             }
         });
 
-        // Calculate rates
         Object.values(map).forEach(s => {
             s.rate = s.total > 0 ? Math.round(((s.present + s.late) / s.total) * 100) : 0;
         });
@@ -85,7 +84,6 @@ Lowest Mark: ${stats.lowestMark}%
     const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm?.id);
     const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
 
-    // 1. Build Metadata Header Rows
     const metadata = [
         `"Report Type","Marksheet Analytical Export (${isDraft ? 'DRAFT' : 'OFFICIAL RECORD'})"`,
         `"School","${schoolName}"`,
@@ -97,7 +95,6 @@ Lowest Mark: ${stats.lowestMark}%
         `""` 
     ];
 
-    // 2. Build Table Headers
     const headers = [
         "Learner Name",
         ...termAssessments.map(ass => `"${ass.title} (/${ass.max_mark})"`),
@@ -107,7 +104,6 @@ Lowest Mark: ${stats.lowestMark}%
         "Comment"
     ].join(",");
 
-    // 3. Build Learner Rows & Collect Analytics Data
     const learnerAvgs: number[] = [];
     const csvRows = learners.map(learner => {
         const termAvg = learner.id ? calculateWeightedAverage(termAssessments, termMarks, learner.id) : 0;
@@ -129,7 +125,6 @@ Lowest Mark: ${stats.lowestMark}%
         ].join(",");
     });
 
-    // 4. Calculate Analytics Summary Block
     const classAvg = learnerAvgs.length > 0 ? (learnerAvgs.reduce((a, b) => a + b, 0) / learnerAvgs.length).toFixed(1) : "0.0";
     const passCount = learnerAvgs.filter(a => a >= 50).length;
     const passRate = learnerAvgs.length > 0 ? Math.round((passCount / learnerAvgs.length) * 100) : 0;
@@ -205,7 +200,9 @@ Lowest Mark: ${stats.lowestMark}%
           attMap,
           isDraft,
           termAssessments,
-          termMarks
+          termMarks,
+          activeYear,
+          atRiskThreshold
       );
       
       showSuccess(isDraft ? "Draft PDF generated." : "Official PDF generated.");

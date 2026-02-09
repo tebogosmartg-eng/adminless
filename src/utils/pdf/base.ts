@@ -73,6 +73,40 @@ export const addHeader = (doc: jsPDF, profile: SchoolProfile, title: string) => 
 };
 
 /**
+ * Adds a standard sign-off section for moderation/audit
+ */
+export const addSignatures = (doc: jsPDF, startY: number) => {
+    const pageWidth = doc.internal.pageSize.width;
+    const margin = 14;
+    const sigY = startY + 20;
+
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.setFont("helvetica", "bold");
+    
+    // Check if we need a new page
+    if (sigY > doc.internal.pageSize.height - 30) {
+        doc.addPage();
+        return addSignatures(doc, 20);
+    }
+
+    const colWidth = (pageWidth - (margin * 2)) / 3;
+
+    // Signature Lines
+    doc.setDrawColor(200);
+    doc.line(margin, sigY, margin + colWidth - 10, sigY);
+    doc.line(margin + colWidth, sigY, margin + (colWidth * 2) - 10, sigY);
+    doc.line(margin + (colWidth * 2), sigY, pageWidth - margin, sigY);
+
+    // Labels
+    doc.text("Teacher Signature & Date", margin, sigY + 5);
+    doc.text("HOD Signature & Date", margin + colWidth, sigY + 5);
+    doc.text("Principal Signature & Date", margin + (colWidth * 2), sigY + 5);
+
+    return sigY + 15;
+};
+
+/**
  * Standard Footer for all PDF documents
  */
 export const addFooter = (doc: jsPDF) => {
