@@ -1,7 +1,3 @@
-import GlobalStats from './GlobalStats';
-import ClassComparisonChart from '@/components/charts/ClassComparisonChart';
-import MarkDistributionChart from '@/components/charts/MarkDistributionChart';
-import AtRiskLearners from './AtRiskLearners';
 import RecentActivity from './RecentActivity';
 import { PendingActions } from './PendingActions';
 import { UpcomingAssessments } from './UpcomingAssessments';
@@ -13,10 +9,7 @@ import { Link } from 'react-router-dom';
 import { PlusCircle, Camera } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import { QuickActions } from './QuickActions';
-import { TopLearnersPerGrade } from './TopLearnersPerGrade';
-import { ActiveTermStats } from './ActiveTermStats';
 import { TermProgressWidget } from './TermProgressWidget';
-import { YearPerformanceTrend } from './YearPerformanceTrend';
 import { TimetableWidget } from './TimetableWidget';
 import { DailyAttendanceCard } from './DailyAttendanceCard';
 import { TodoList } from './TodoList';
@@ -44,49 +37,40 @@ export const DashboardOverviewTab = ({
 
       <div className="grid gap-6 md:grid-cols-3">
          <div className="md:col-span-2">
-            <ActiveTermStats />
+            <QuickActions onAddNote={onAddNote} />
          </div>
          <div className="space-y-6">
             <TermProgressWidget />
             <DailyGoalWidget />
          </div>
       </div>
-
-      <GlobalStats classes={activeClasses} />
       
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content Column */}
         <div className="lg:col-span-2 space-y-6">
           {activeClasses.length > 0 ? (
             <>
-              <div className="grid gap-6 md:grid-cols-2">
-                <AdminDebtWidget />
-                <QuickActions onAddNote={onAddNote} />
-              </div>
-              
-              <YearPerformanceTrend />
+              <AdminDebtWidget />
               
               <div className="grid gap-6 md:grid-cols-2">
                 <DailyAttendanceCard />
                 <EvidenceComplianceWidget />
               </div>
-
-              <ClassComparisonChart classes={activeClasses} />
               
-              <div className="grid gap-6 md:grid-cols-2">
-                <MarkDistributionChart 
-                  learners={allActiveLearners} 
-                  title="Global Symbol Spread" 
-                  description="Aggregate distribution across all classes."
-                />
-                <AtRiskLearners />
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Class Access</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {activeClasses.map(c => (
+                    <ClassSummaryCard key={c.id} classInfo={c} />
+                  ))}
+                </div>
               </div>
             </>
           ) : (
             <Card className="border-dashed border-2 bg-transparent flex flex-col items-center justify-center py-16 text-center">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xl">Welcome to AdminLess</CardTitle>
-                <CardDescription>Start by creating your first class to see analytics.</CardDescription>
+                <CardDescription>Start by creating your first class to begin management.</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col sm:flex-row gap-4 mt-4">
                 <Button asChild>
@@ -102,17 +86,6 @@ export const DashboardOverviewTab = ({
               </CardContent>
             </Card>
           )}
-
-          {activeClasses.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Quick Class Access</h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                {activeClasses.map(c => (
-                  <ClassSummaryCard key={c.id} classInfo={c} />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Sidebar Column */}
@@ -120,7 +93,6 @@ export const DashboardOverviewTab = ({
           <TimetableWidget />
           <UpcomingAssessments />
           <TodoList />
-          <TopLearnersPerGrade classes={activeClasses} />
           <RecentAlerts />
           <RecentActivity />
         </div>
