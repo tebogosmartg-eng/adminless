@@ -3,9 +3,17 @@ import {
   ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote, Evidence, Rubric
 } from '@/lib/types';
 
-// Extend types for DB storage (flattened structures where necessary)
+export interface LessonLog {
+  id: string;
+  user_id: string;
+  timetable_id: string;
+  date: string; // YYYY-MM-DD
+  content: string;
+  homework?: string;
+  created_at: string;
+}
+
 export interface DBClass extends Omit<ClassInfo, 'learners'> {
-  // Learners are stored in separate table
   sync_status?: 'synced' | 'pending';
 }
 
@@ -38,6 +46,7 @@ export class SmaRegDB extends Dexie {
   learner_notes!: Table<LearnerNote>;
   evidence!: Table<Evidence>;
   rubrics!: Table<Rubric>;
+  lesson_logs!: Table<LessonLog>;
 
   constructor() {
     super('SmaRegDB');
@@ -111,9 +120,12 @@ export class SmaRegDB extends Dexie {
       evidence: 'id, user_id, class_id, year_id, term_id, learner_id, category, created_at'
     });
 
-    // Version 13: Added missing created_at index for learner_notes
     this.version(13).stores({
       learner_notes: 'id, user_id, year_id, term_id, learner_id, date, created_at'
+    });
+
+    this.version(14).stores({
+      lesson_logs: 'id, user_id, timetable_id, date, [timetable_id+date]'
     });
   }
 }

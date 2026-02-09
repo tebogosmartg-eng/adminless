@@ -3,10 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 
 let isPushing = false;
 
-/**
- * Pushes local changes from the sync_queue to Supabase.
- * Uses a lock to prevent concurrent executions.
- */
 export const pushChanges = async () => {
   if (isPushing || !navigator.onLine) return;
   
@@ -21,12 +17,9 @@ export const pushChanges = async () => {
     
     for (const item of queue) {
       const { table, action, data, id } = item;
-      
-      // Clean payload: remove local-only metadata
       const payload = { ...data };
       delete payload.sync_status;
 
-      // Map camelCase UI properties to snake_case DB columns where needed
       if (table === 'classes' && payload.className !== undefined) {
         payload.class_name = payload.className;
         delete payload.className;
@@ -34,7 +27,6 @@ export const pushChanges = async () => {
 
       let error = null;
 
-      // Execute appropriate Supabase action
       if (action === 'create' || action === 'upsert') {
         const { error: e } = await supabase.from(table as any).upsert(payload);
         error = e;
@@ -48,10 +40,8 @@ export const pushChanges = async () => {
 
       if (error) {
         console.error(`[sync] Failed to sync ${table} item:`, error);
-        // We stop processing the queue if a request fails to maintain order/dependency
         break; 
       } else {
-        // Success: Remove from queue
         await db.sync_queue.delete(id!);
       }
     }
@@ -62,10 +52,6 @@ export const pushChanges = async () => {
   }
 };
 
-/**
- * Pulls latest data from Supabase into the local Dexie DB.
- * Safely avoids overwriting records with pending local changes.
- */
 export const pullData = async (userId: string) => {
   try {
     const pending = await db.sync_queue.toArray();
@@ -79,14 +65,12 @@ export const pullData = async (userId: string) => {
       const { data } = await query;
       if (!data) return;
 
-      // Filter out items that have pending local changes to prevent overwriting "dirty" data
       const itemsToPut = data.filter((item: any) => {
         const id = item[idKey];
         return !pendingIdsByTable[tableName]?.has(id);
       });
 
       if (itemsToPut.length > 0) {
-        // Handle specific mapping for classes
         if (tableName === 'classes') {
           const mapped = itemsToPut.map((c: any) => ({
             ...c,
@@ -103,7 +87,6 @@ export const pullData = async (userId: string) => {
 
     await pullTable('classes', supabase.from('classes').select('*').eq('user_id', userId));
     
-    // Get class IDs for related data
     const localClasses = await db.classes.toArray();
     const classIds = localClasses.map(c => c.id);
 
@@ -118,7 +101,7 @@ export const pullData = async (userId: string) => {
       }
 
       await pullTable('attendance', supabase.from('attendance').select('*').in('class_id', classIds), 'learner_id');
-      await pullTable('learner_notes', supabase.from('learner_notes').select('*').in('learner_id', classIds)); // notes tied to learners
+      await pullTable('learner_notes', supabase.from('learner_notes').select('*').in('learner_id', classIds));
     }
 
     await pullTable('academic_years', supabase.from('academic_years').select('*').eq('user_id', userId));
@@ -126,6 +109,7 @@ export const pullData = async (userId: string) => {
     await pullTable('profiles', supabase.from('profiles').select('*').eq('id', userId));
     await pullTable('todos', supabase.from('todos').select('*').eq('user_id', userId));
     await pullTable('timetable', supabase.from('timetable').select('*').eq('user_id', userId));
+    await pullTable('lesson_logs', supabase.from('lesson_logs').select('*').eq('user_id', userId));
 
     console.log("[sync] Data pull complete.");
   } catch (error) {
@@ -133,12 +117,7 @@ export const pullData = async (userId: string) => {
   }
 };
 
-/**
- * Adds an action to the sync queue.
- * Deduplicates the queue for updates to the same record.
- */
 export const queueAction = async (table: string, action: 'create' | 'update' | 'delete' | 'upsert', data: any) => {
-  // If this is an update/upsert, check if we already have a pending action for this item
   const dataItems = Array.isArray(data) ? data : [data];
   
   for (const item of dataItems) {
@@ -149,7 +128,6 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
         .first();
       
       if (existing) {
-        // Update existing queue item instead of adding a new one
         await db.sync_queue.update(existing.id!, {
           data: { ...existing.data, ...item },
           timestamp: Date.now()
@@ -166,7 +144,6 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
     });
   }
   
-  // Try to push immediately if online
   if (navigator.onLine) {
     pushChanges();
   }
