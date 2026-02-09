@@ -5,6 +5,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { calculateClassStats } from '@/utils/stats';
 import { useSettings } from '@/context/SettingsContext';
 import { db } from '@/db';
+import { calculateWeightedAverage } from '@/utils/calculations';
 
 export const useClassExport = (
   classInfo: ClassInfo | undefined,
@@ -80,23 +81,61 @@ Lowest Mark: ${stats.lowestMark}%
       return;
     }
 
-    const csvHeader = "Learner Name,Mark,Symbol,Level,Comment\n";
-    const csvRows = learners
-      .map(learner => {
-        const gradeSymbol = getGradeSymbol(learner.mark, gradingScheme);
-        const symbol = gradeSymbol?.symbol || '';
-        const level = gradeSymbol?.level || '';
-        return `"${learner.name.replace(/"/g, '""')}",${learner.mark},${symbol},${level},"${(learner.comment || '').replace(/"/g, '""')}"`;
-      })
-      .join("\n");
-    const csvContent = csvHeader + csvRows;
+    const isDraft = !activeTerm?.closed;
+    const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm?.id);
+    const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
 
+    // 1. Build Metadata Header Rows
+    const metadata = [
+        `"Report Type","SA-SAMS aligned Marksheet (${isDraft ? 'DRAFT' : 'OFFICIAL'})"`,
+        `"School","${schoolName}"`,
+        `"Teacher","${teacherName}"`,
+        `"Subject","${classInfo.subject}"`,
+        `"Grade/Class","${classInfo.grade} - ${classInfo.className}"`,
+        `"Term","${activeTerm?.name || 'N/A'}"`,
+        `"Status","${isDraft ? 'Draft / Working Copy' : 'Finalised'}"`,
+        `""` // Empty row for spacing
+    ];
+
+    // 2. Build Table Headers
+    const headers = [
+        "Learner Name",
+        ...termAssessments.map(ass => `"${ass.title} (${ass.max_mark})"`),
+        "Term Percentage",
+        "Symbol",
+        "Level",
+        "Comment"
+    ].join(",");
+
+    // 3. Build Learner Rows
+    const csvRows = learners.map(learner => {
+        const termAvg = learner.id ? calculateWeightedAverage(termAssessments, termMarks, learner.id) : 0;
+        const symbolObj = getGradeSymbol(termAvg, gradingScheme);
+        
+        const individualMarks = termAssessments.map(ass => {
+            const markEntry = termMarks.find(m => m.assessment_id === ass.id && m.learner_id === learner.id);
+            return markEntry && markEntry.score !== null ? markEntry.score : "";
+        });
+
+        return [
+            `"${learner.name.replace(/"/g, '""')}"`,
+            ...individualMarks,
+            `"${termAvg.toFixed(1)}%"`,
+            `"${symbolObj?.symbol || '-'}"`,
+            `"${symbolObj?.level || '-'}"`,
+            `"${(learner.comment || '').replace(/"/g, '""')}"`
+        ].join(",");
+    });
+
+    const csvContent = [...metadata, headers, ...csvRows].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
 
     if (link.download !== undefined) {
       const url = URL.createObjectURL(blob);
-      const filename = `${classInfo.grade}_${classInfo.subject}_${classInfo.className}_Marks.csv`.replace(/\s+/g, '_');
+      const prefix = isDraft ? "DRAFT_" : "OFFICIAL_";
+      const filename = `${prefix}${classInfo.grade}_${classInfo.subject}_${classInfo.className}_Marks.csv`.replace(/\s+/g, '_');
+      
       link.setAttribute("href", url);
       link.setAttribute("download", filename);
       link.style.visibility = 'hidden';
@@ -104,7 +143,7 @@ Lowest Mark: ${stats.lowestMark}%
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showSuccess("CSV exported successfully!");
+      showSuccess(isDraft ? "Draft CSV exported." : "Official CSV exported.");
     } else {
       showError("Export feature is not supported in your browser.");
     }
