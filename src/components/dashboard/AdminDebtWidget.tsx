@@ -56,38 +56,38 @@ export const AdminDebtWidget = () => {
 
   if (!hasDebt && activeTerm) {
     return (
-        <Card className="bg-green-50/30 border-green-100 dark:bg-green-950/10 shadow-sm border-2 border-dashed">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2 text-green-700">
-                    <ShieldAlert className="h-5 w-5" />
+        <Card className="bg-green-50/20 border-green-100 dark:bg-green-950/10 shadow-sm border-2 border-dashed">
+            <CardHeader className="pb-1 pt-3">
+                <CardTitle className="text-base flex items-center gap-2 text-green-700">
+                    <ShieldAlert className="h-4 w-4" />
                     Administrative Compliance
                 </CardTitle>
-                <CardDescription>Records are current. No outstanding captures required for {activeTerm.name}.</CardDescription>
+                <CardDescription className="text-[11px]">Records are current for {activeTerm.name}.</CardDescription>
             </CardHeader>
         </Card>
     );
   }
 
   return (
-    <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 shadow-sm">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center gap-2 text-amber-700 dark:text-amber-500">
-          <ClipboardCheck className="h-5 w-5" />
+    <Card className="border-amber-200 bg-amber-50/20 dark:bg-amber-950/10 shadow-sm">
+      <CardHeader className="pb-1 pt-3">
+        <CardTitle className="text-base flex items-center gap-2 text-amber-700 dark:text-amber-500">
+          <ClipboardCheck className="h-4 w-4" />
           Pending Data Capture
         </CardTitle>
-        <CardDescription>Required administrative tasks for {activeTerm?.name}.</CardDescription>
+        <CardDescription className="text-[11px]">Outstanding tasks for {activeTerm?.name}.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-3 pb-3">
         {pendingClasses.length > 0 && (
-            <div className="space-y-2">
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-600">
-                    <CalendarCheck className="h-3 w-3" /> Attendance Registers
+            <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-amber-600">
+                    <CalendarCheck className="h-3 w-3" /> Registers
                 </div>
                 {pendingClasses.slice(0, 2).map(cls => (
-                    <div key={cls.id} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
-                        <span className="truncate max-w-[150px] font-medium">{cls.className}</span>
-                        <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
-                            <Link to={`/classes/${cls.id}`}>Open Register <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                    <div key={cls.id} className="flex items-center justify-between text-xs bg-background/50 p-1.5 px-2 rounded border border-amber-100/50">
+                        <span className="truncate max-w-[140px] font-semibold">{cls.className}</span>
+                        <Button variant="ghost" size="sm" className="h-6 text-[9px] font-bold uppercase hover:bg-amber-100" asChild>
+                            <Link to={`/classes/${cls.id}`}>Open <ArrowRight className="ml-1 h-2.5 w-2.5" /></Link>
                         </Button>
                     </div>
                 ))}
@@ -95,18 +95,18 @@ export const AdminDebtWidget = () => {
         )}
 
         {missingMarksInfo.length > 0 && (
-            <div className="space-y-2">
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-600">
-                    <FileEdit className="h-3 w-3" /> Missing Task Entries
+            <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-amber-600">
+                    <FileEdit className="h-3 w-3" /> Task Entries
                 </div>
                 {missingMarksInfo.slice(0, 2).map((debt, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
-                        <div className="flex flex-col">
-                            <span className="font-medium truncate max-w-[150px]">{debt.title}</span>
-                            <span className="text-[10px] text-muted-foreground">{debt.className} • {debt.count} students unmarked</span>
+                    <div key={idx} className="flex items-center justify-between text-xs bg-background/50 p-1.5 px-2 rounded border border-amber-100/50">
+                        <div className="flex flex-col min-w-0">
+                            <span className="font-semibold truncate max-w-[140px]">{debt.title}</span>
+                            <span className="text-[9px] text-muted-foreground font-medium uppercase">{debt.className} • {debt.count} missing</span>
                         </div>
-                        <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
-                            <Link to={`/classes/${debt.classId}`}>Update Marksheet <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                        <Button variant="ghost" size="sm" className="h-6 text-[9px] font-bold uppercase hover:bg-amber-100" asChild>
+                            <Link to={`/classes/${debt.classId}`}>Mark <ArrowRight className="ml-1 h-2.5 w-2.5" /></Link>
                         </Button>
                     </div>
                 ))}

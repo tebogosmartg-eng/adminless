@@ -27,56 +27,57 @@ export const TodoList = () => {
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2 pt-4">
         <div className="flex justify-between items-center">
           <div>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CheckSquare className="h-5 w-5 text-primary" />
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CheckSquare className="h-4 w-4 text-primary" />
               Tasks
             </CardTitle>
-            <CardDescription>
-              {completedCount} of {todos.length} completed
+            <CardDescription className="text-xs">
+              {completedCount} of {todos.length} done
             </CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col gap-4 min-h-[300px]">
-        <div className="flex gap-2">
+      <CardContent className="flex-1 flex flex-col gap-3 min-h-[250px] pb-4">
+        <div className="flex gap-1.5">
           <Input 
-            placeholder="Add a new task..." 
+            placeholder="Add task..." 
             value={newTodo} 
             onChange={(e) => setNewTodo(e.target.value)}
             onKeyDown={handleKeyDown}
+            className="h-8 text-xs"
           />
-          <Button onClick={handleAddTodo} disabled={adding || !newTodo.trim()} size="icon">
-            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          <Button onClick={handleAddTodo} disabled={adding || !newTodo.trim()} size="icon" className="h-8 w-8">
+            {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
           </Button>
         </div>
 
-        <ScrollArea className="flex-1 -mx-2 px-2">
+        <ScrollArea className="flex-1 -mx-1 px-1">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground opacity-30" />
             </div>
           ) : todos.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">
-              <p>No tasks yet. Stay organized!</p>
+            <div className="text-center py-8 text-muted-foreground text-xs">
+              <p>No tasks yet.</p>
             </div>
           ) : (
-            <ul className="space-y-2 pb-2">
+            <ul className="space-y-1 pb-1">
               {todos.map((todo) => (
-                <li key={todo.id} className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 group transition-colors">
+                <li key={todo.id} className="flex items-start gap-2 p-1.5 rounded-md hover:bg-muted/40 group transition-colors">
                   <Checkbox 
                     id={`todo-${todo.id}`} 
                     checked={todo.completed}
                     onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
-                    className="mt-1"
+                    className="mt-0.5 h-3.5 w-3.5"
                   />
                   <div className="flex-1 min-w-0">
                     <label 
                       htmlFor={`todo-${todo.id}`}
                       className={cn(
-                        "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 break-words cursor-pointer",
+                        "text-[12px] font-medium leading-tight peer-disabled:cursor-not-allowed peer-disabled:opacity-70 break-words cursor-pointer",
                         todo.completed && "line-through text-muted-foreground"
                       )}
                     >

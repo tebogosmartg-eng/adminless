@@ -7,6 +7,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
+import { cn } from '@/lib/utils';
 
 export const DailyGoalWidget = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -48,45 +49,41 @@ export const DailyGoalWidget = () => {
   return (
     <Card className={cn(
         "overflow-hidden transition-all duration-500",
-        stats.isDone ? "bg-green-600 text-white border-none shadow-lg scale-[1.02]" : "bg-white dark:bg-card border-dashed"
+        stats.isDone ? "bg-green-600 text-white border-none shadow-lg scale-[1.01]" : "bg-white dark:bg-card border-dashed"
     )}>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-                <div className={cn("p-1.5 rounded-full", stats.isDone ? "bg-white/20" : "bg-primary/10")}>
-                    {stats.isDone ? <Trophy className="h-4 w-4" /> : <Target className="h-4 w-4 text-primary" />}
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+                <div className={cn("p-1 rounded-md", stats.isDone ? "bg-white/20" : "bg-primary/10")}>
+                    {stats.isDone ? <Trophy className="h-3.5 w-3.5" /> : <Target className="h-3.5 w-3.5 text-primary" />}
                 </div>
-                <h4 className="font-bold text-xs uppercase tracking-widest">
-                    {stats.isDone ? "Daily Goal Achieved!" : "Daily Progress"}
+                <h4 className="font-black text-[10px] uppercase tracking-widest leading-none">
+                    {stats.isDone ? "Goal Achieved" : "Daily Goal"}
                 </h4>
             </div>
-            {stats.isDone && <Sparkles className="h-4 w-4 animate-pulse" />}
+            {stats.isDone && <Sparkles className="h-3 w-3 animate-pulse" />}
         </div>
 
-        <div className="space-y-2">
-            <div className="flex justify-between text-[10px] font-bold">
+        <div className="space-y-1.5">
+            <div className="flex justify-between text-[9px] font-black uppercase">
                 <span className={stats.isDone ? "text-white/80" : "text-muted-foreground"}>
-                    {stats.classesCompleted}/{stats.classesTotal} Registers • {stats.todosCompleted}/{stats.todosTotal} Tasks
+                    {stats.classesCompleted}/{stats.classesTotal} Reg • {stats.todosCompleted}/{stats.todosTotal} Tasks
                 </span>
                 <span>{stats.percent}%</span>
             </div>
             <Progress 
                 value={stats.percent} 
-                className={cn("h-1.5", stats.isDone ? "bg-white/20" : "bg-muted")} 
-                // @ts-ignore
-                indicatorClassName={stats.isDone ? "bg-white" : "bg-primary"}
+                className={cn("h-1", stats.isDone ? "bg-white/20" : "bg-muted")} 
             />
         </div>
 
         {stats.isDone && (
-            <p className="mt-3 text-[11px] font-medium text-white/90 flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                All administrative tasks completed for today.
+            <p className="mt-2 text-[10px] font-bold text-white/90 flex items-center gap-1 leading-none">
+                <CheckCircle2 className="h-2.5 w-2.5" />
+                Administrative tasks complete.
             </p>
         )}
       </CardContent>
     </Card>
   );
 };
-
-import { cn } from '@/lib/utils';

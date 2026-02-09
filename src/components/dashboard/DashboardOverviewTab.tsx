@@ -27,45 +27,45 @@ export const DashboardOverviewTab = ({
   onAddNote
 }: DashboardOverviewTabProps) => {
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-4 animate-in fade-in duration-500">
       <OnboardingChecklist />
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3">
          <div className="md:col-span-2">
             <QuickActions onAddNote={onAddNote} />
          </div>
-         <div className="space-y-6">
+         <div className="space-y-4">
             <TermProgressWidget />
             <DailyGoalWidget />
          </div>
       </div>
       
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {/* Informational Feed Column */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4">
           <AdminDebtWidget />
           
-          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
               <DailyAttendanceCard />
               <Card>
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <Users className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Users className="h-4 w-4 text-primary" />
                         Class Roster Access
                     </CardTitle>
-                    <CardDescription>Quick navigation to your active class lists.</CardDescription>
+                    <CardDescription className="text-xs">Quick navigation to your active class lists.</CardDescription>
                 </CardHeader>
-                <CardContent className="pt-2">
-                    <div className="grid gap-2">
+                <CardContent className="pt-0">
+                    <div className="grid gap-1.5">
                         {activeClasses.slice(0, 4).map(c => (
-                            <Button key={c.id} variant="outline" className="justify-start text-xs font-medium h-9" asChild>
+                            <Button key={c.id} variant="outline" className="justify-start text-[11px] font-medium h-8" asChild>
                                 <Link to={`/classes/${c.id}`}>
                                     {c.className} • {c.subject}
                                 </Link>
                             </Button>
                         ))}
                         {activeClasses.length > 4 && (
-                            <Button variant="link" size="sm" asChild className="text-[10px] uppercase font-bold text-muted-foreground">
+                            <Button variant="link" size="sm" asChild className="text-[10px] uppercase font-bold text-muted-foreground h-6">
                                 <Link to="/classes">View all classes</Link>
                             </Button>
                         )}
@@ -74,12 +74,12 @@ export const DashboardOverviewTab = ({
               </Card>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
+          <div className="space-y-3">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
                 <LayoutDashboard className="h-3 w-3" /> 
                 Administrative Context
             </h3>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
                 {activeClasses.map(c => (
                 <ClassSummaryCard key={c.id} classInfo={c} />
                 ))}
@@ -88,7 +88,7 @@ export const DashboardOverviewTab = ({
         </div>
 
         {/* Schedule & Reminders Column */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           <TimetableWidget />
           <TodoList />
           <RecentAlerts />
