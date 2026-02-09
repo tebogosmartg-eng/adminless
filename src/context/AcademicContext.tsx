@@ -160,6 +160,29 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, []);
 
   const recalculateAllActiveAverages = async () => {
+      // Data Integrity Check: Resolve duplicate marks that might have been created due to ID mismatches
+      const allMarks = await db.assessment_marks.toArray();
+      const markGroups: Record<string, string[]> = {};
+      
+      allMarks.forEach(m => {
+          const key = `${m.assessment_id}-${m.learner_id}`;
+          if (!markGroups[key]) markGroups[key] = [];
+          markGroups[key].push(m.id);
+      });
+
+      // Delete duplicates locally to clean up state
+      const toDeleteLocally: string[] = [];
+      Object.values(markGroups).forEach(ids => {
+          if (ids.length > 1) {
+              // Keep the latest one, delete others
+              toDeleteLocally.push(...ids.slice(0, ids.length - 1));
+          }
+      });
+
+      if (toDeleteLocally.length > 0) {
+          await db.assessment_marks.bulkDelete(toDeleteLocally);
+      }
+
       const allLearners = await db.learners.toArray();
       const ids = allLearners.map(l => l.id!);
       
@@ -439,14 +462,41 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const updateMarks = async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
     if (!session?.user.id || updates.length === 0) return;
+
+    // 1. Resolve architectural context and finalized status
     const assIds = [...new Set(updates.map(u => u.assessment_id))];
     const targetAssessments = await db.assessments.where('id').anyOf(assIds).toArray();
     const termIds = [...new Set(targetAssessments.map(a => a.term_id))];
     const targetTerms = await db.terms.where('id').anyOf(termIds).toArray();
-    if (targetTerms.some(t => t.closed)) { showError("Finalized terms are read-only."); return; }
-    const toUpsert = updates.map(u => ({ ...u, user_id: session.user.id }));
-    await db.assessment_marks.bulkPut(toUpsert as any);
+    
+    if (targetTerms.some(t => t.closed)) { 
+        showError("Finalized terms are read-only."); 
+        return; 
+    }
+
+    // 2. Critical Fix: Preserve unique record ID to prevent duplicate rows on server sync
+    // This ensures that corrected marks overwrite previous invalid marks.
+    const toUpsert: AssessmentMark[] = [];
+    
+    for (const update of updates) {
+        // Try to find existing mark ID for this specific learner/assessment combo
+        const existingMark = await db.assessment_marks
+            .where('[assessment_id+learner_id]')
+            .equals([update.assessment_id, update.learner_id])
+            .first();
+        
+        toUpsert.push({
+            ...update,
+            id: existingMark?.id || update.id || crypto.randomUUID(),
+            user_id: session.user.id
+        } as AssessmentMark);
+    }
+
+    // 3. Save locally and queue for sync
+    await db.assessment_marks.bulkPut(toUpsert);
     await queueAction('assessment_marks', 'upsert', toUpsert);
+    
+    // 4. Update the aggregate summary marks in the background
     await updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
   };
 

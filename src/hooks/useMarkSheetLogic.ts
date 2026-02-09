@@ -74,6 +74,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const persistMark = useCallback(async (assessmentId: string, learnerId: string, value: string) => {
     setIsAutoSaving(true);
+    const key = `${assessmentId}-${learnerId}`;
     try {
         const score = value === "" ? null : parseFloat(value);
         const existingMark = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
@@ -82,16 +83,19 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
             assessment_id: assessmentId, 
             learner_id: learnerId, 
             score,
-            comment: editedComments[`${assessmentId}-${learnerId}`] || existingMark?.comment || ""
+            comment: editedComments[key] || existingMark?.comment || ""
         }]);
         
+        // Critical: Only clear local edit state AFTER database promise resolves
+        // This prevents the UI from flickering back to the old value during the async save.
         setEditedMarks(prev => {
             const next = { ...prev };
-            delete next[`${assessmentId}-${learnerId}`];
+            delete next[key];
             return next;
         });
     } catch (e) {
-        console.error("Auto-save failed", e);
+        console.error("Persistence failed:", e);
+        showError("Failed to save mark. Please check your connection.");
     } finally {
         setIsAutoSaving(false);
     }
@@ -105,6 +109,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
     if (!result.isValid) {
         showError(result.error || "Invalid mark");
+        // Revert UI state locally if invalid
         setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: "" }));
         return false;
     }
@@ -113,7 +118,10 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
         showSuccess(`Processed formula: ${input} = ${result.value}`);
     }
 
+    // Update UI state immediately for responsiveness
     setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: result.value }));
+    
+    // Commit to source of truth
     await persistMark(assessmentId, learnerId, result.value);
     return true;
   }, [assessments, persistMark]);
