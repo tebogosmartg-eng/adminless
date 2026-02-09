@@ -73,7 +73,17 @@ const ClassDetails = () => {
     handleExportPdf,
     handleExportBulkPdf,
     handleExportBlankPdf
-  } = useClassExport(classInfo, learners, gradingScheme, schoolName, teacherName, schoolLogo);
+  } = useClassExport(
+      classInfo, 
+      learners, 
+      gradingScheme, 
+      schoolName, 
+      teacherName, 
+      schoolLogo,
+      activeTerm,
+      assessments,
+      marks
+  );
 
   // PRE-EXPORT VALIDATION
   const handleSASAMSExportAction = () => {

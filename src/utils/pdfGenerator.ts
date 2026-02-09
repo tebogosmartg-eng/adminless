@@ -1,8 +1,9 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { ClassInfo, Learner, GradeSymbol, AttendanceRecord } from '@/lib/types';
+import { ClassInfo, Learner, GradeSymbol, AttendanceRecord, Assessment, AssessmentMark } from '@/lib/types';
 import { getGradeSymbol } from './grading';
 import { format, isWeekend } from 'date-fns';
+import { calculateWeightedAverage } from './calculations';
 
 export interface SchoolProfile {
   name: string;
@@ -223,14 +224,26 @@ export const generateClassPDF = (
   schoolLogo: string | null = null,
   contactEmail: string = "",
   contactPhone: string = "",
-  attendanceMap?: Record<string, AttendanceStats>
+  attendanceMap?: Record<string, AttendanceStats>,
+  isDraft: boolean = true,
+  assessments: Assessment[] = [],
+  marks: AssessmentMark[] = []
 ) => {
-  const doc = new jsPDF();
+  const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for SA-SAMS alignment
   const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
   const margin = 14;
   const pageWidth = doc.internal.pageSize.width;
   
-  const startY = addHeader(doc, profile, "Class Performance Report");
+  const title = isDraft ? "SA-SAMS Marksheet (Working Draft)" : "SA-SAMS Official Marksheet";
+  const startY = addHeader(doc, profile, title);
+
+  // SA-SAMS Draft Watermark
+  if (isDraft) {
+      doc.setFontSize(60);
+      doc.setTextColor(240, 240, 240);
+      doc.setFont("helvetica", "bold");
+      doc.text("DRAFT", pageWidth / 2, doc.internal.pageSize.height / 2, { align: 'center', angle: 45 });
+  }
 
   doc.setDrawColor(230);
   doc.setFillColor(250, 250, 252);
@@ -241,21 +254,26 @@ export const generateClassPDF = (
   doc.setFont("helvetica", "normal");
   doc.text("Subject:", margin + 5, startY + 12);
   doc.text("Grade/Class:", margin + 70, startY + 12);
-  doc.text("Total Learners:", margin + 140, startY + 12);
+  doc.text("Term:", margin + 140, startY + 12);
+  doc.text("Total Learners:", margin + 210, startY + 12);
 
   doc.setFontSize(10);
   doc.setTextColor(0);
   doc.setFont("helvetica", "bold");
   doc.text(classInfo.subject, margin + 20, startY + 12);
   doc.text(`${classInfo.grade} - ${classInfo.className}`, margin + 95, startY + 12);
-  doc.text(classInfo.learners.length.toString(), margin + 165, startY + 12);
+  
+  // Find current term name
+  const termName = assessments.length > 0 ? "Current Term" : "N/A";
+  doc.text(termName, margin + 155, startY + 12);
+  doc.text(classInfo.learners.length.toString(), margin + 235, startY + 12);
 
-  const marks = classInfo.learners
+  const summaryMarks = classInfo.learners
     .map(l => parseFloat(l.mark))
     .filter(m => !isNaN(m));
   
-  const average = marks.length > 0 
-    ? (marks.reduce((a, b) => a + b, 0) / marks.length).toFixed(1) 
+  const average = summaryMarks.length > 0 
+    ? (summaryMarks.reduce((a, b) => a + b, 0) / summaryMarks.length).toFixed(1) 
     : "N/A";
   
   doc.setFontSize(9);
@@ -267,26 +285,41 @@ export const generateClassPDF = (
   doc.setFont("helvetica", "bold");
   doc.text(`${average}%`, margin + 30, startY + 18);
 
-  const columns = ['#', 'Learner Name', 'Mark', 'Symbol', 'Level'];
+  // Define Columns for SA-SAMS format
+  const columns = ['#', 'Learner Name'];
+  
+  // Add columns for each assessment
+  assessments.forEach(ass => {
+      columns.push(`${ass.title}\n(${ass.max_mark})`);
+  });
+
+  columns.push('Term %');
+  columns.push('Level');
   if (attendanceMap) columns.push('Att %');
-  columns.push('Teacher Observation');
 
   const tableRows = classInfo.learners.map((learner, index) => {
-    const symbolObj = getGradeSymbol(learner.mark, gradingScheme);
-    const row = [
+    const termAvg = learner.id ? calculateWeightedAverage(assessments, marks, learner.id) : 0;
+    const symbolObj = getGradeSymbol(termAvg, gradingScheme);
+    
+    const row: any[] = [
       index + 1,
-      learner.name,
-      learner.mark ? `${learner.mark}%` : '-',
-      symbolObj ? symbolObj.symbol : '-',
-      symbolObj ? `L${symbolObj.level}` : '-',
+      learner.name
     ];
+
+    // Individual Assessment Marks
+    assessments.forEach(ass => {
+        const markEntry = marks.find(m => m.assessment_id === ass.id && m.learner_id === learner.id);
+        row.push(markEntry && markEntry.score !== null ? markEntry.score : '-');
+    });
+
+    row.push(`${termAvg.toFixed(1)}%`);
+    row.push(symbolObj ? `${symbolObj.symbol} (L${symbolObj.level})` : '-');
 
     if (attendanceMap) {
         const stats = learner.id ? attendanceMap[learner.id] : null;
         row.push(stats ? `${stats.rate}%` : '-');
     }
 
-    row.push(learner.comment || '-');
     return row;
   });
 
@@ -296,21 +329,31 @@ export const generateClassPDF = (
     body: tableRows,
     theme: 'grid',
     headStyles: {
-      fillColor: [41, 37, 36],
+      fillColor: isDraft ? [100, 116, 139] : [41, 37, 36], // Slate for draft, Black for official
       textColor: 255,
-      fontSize: 9,
-      fontStyle: 'bold'
+      fontSize: 8,
+      fontStyle: 'bold',
+      halign: 'center'
     },
     styles: {
-      fontSize: 9,
-      cellPadding: 3,
+      fontSize: 8,
+      cellPadding: 2,
       overflow: 'linebreak'
+    },
+    columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 45 },
+        // Dynamic styling for assessment columns
     },
     margin: { top: 45, right: margin, bottom: 20, left: margin },
   });
 
   addFooter(doc);
-  doc.save(`${classInfo.className}_Class_Report.pdf`);
+  const filename = isDraft 
+    ? `${classInfo.className}_DRAFT_Marksheet.pdf` 
+    : `${classInfo.className}_OFFICIAL_Marksheet.pdf`;
+    
+  doc.save(filename);
 };
 
 export const generateBlankClassListPDF = (

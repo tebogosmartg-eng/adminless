@@ -1,4 +1,4 @@
-import { ClassInfo, Learner, GradeSymbol } from '@/lib/types';
+import { ClassInfo, Learner, GradeSymbol, Assessment, AssessmentMark, Term } from '@/lib/types';
 import { getGradeSymbol } from '@/utils/grading';
 import { generateClassPDF, generateBlankClassListPDF, generateBulkLearnerReportsPDF, generateLearnerReportPDF, AttendanceStats } from '@/utils/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
@@ -12,7 +12,10 @@ export const useClassExport = (
   gradingScheme: GradeSymbol[],
   schoolName: string,
   teacherName: string,
-  schoolLogo: string | null
+  schoolLogo: string | null,
+  activeTerm: Term | null,
+  assessments: Assessment[],
+  marks: AssessmentMark[]
 ) => {
   const { contactEmail, contactPhone } = useSettings();
 
@@ -112,8 +115,29 @@ Lowest Mark: ${stats.lowestMark}%
     try {
       const attMap = await fetchAttendanceMap();
       const exportClassInfo = { ...classInfo, learners };
-      generateClassPDF(exportClassInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone, attMap);
-      showSuccess("PDF Report generated successfully!");
+      
+      // Determine if term is closed (official vs draft)
+      const isDraft = !activeTerm?.closed;
+      
+      // Filter assessments/marks for just this class/term
+      const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm?.id);
+      const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
+
+      generateClassPDF(
+          exportClassInfo, 
+          gradingScheme, 
+          schoolName, 
+          teacherName, 
+          schoolLogo, 
+          contactEmail, 
+          contactPhone, 
+          attMap,
+          isDraft,
+          termAssessments,
+          termMarks
+      );
+      
+      showSuccess(isDraft ? "Draft PDF generated." : "Official PDF generated.");
     } catch (error) {
       console.error(error);
       showError("Failed to generate PDF. Please try again.");
