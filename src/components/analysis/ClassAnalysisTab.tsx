@@ -3,7 +3,7 @@
 import { useClassAnalysis } from '@/hooks/useClassAnalysis';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ScatterChart, Scatter, ZAxis
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
 import { Loader2, TrendingUp, Users, Target, BookOpen, AlertCircle } from 'lucide-react';
 import { Learner } from '@/lib/types';
@@ -157,57 +157,6 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Attendance vs. Achievement Correlation</CardTitle>
-          <CardDescription>Analyzes the impact of presence on academic results for this class.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                    type="number" 
-                    dataKey="attendanceRate" 
-                    name="Attendance" 
-                    unit="%" 
-                    domain={[0, 100]}
-                    label={{ value: 'Attendance %', position: 'bottom', fontSize: 10 }}
-                />
-                <YAxis 
-                    type="number" 
-                    dataKey="average" 
-                    name="Mark" 
-                    unit="%" 
-                    domain={[0, 100]}
-                    label={{ value: 'Average %', angle: -90, position: 'left', fontSize: 10 }}
-                />
-                <ZAxis type="number" range={[100, 100]} />
-                <Tooltip 
-                    cursor={{ strokeDasharray: '3 3' }} 
-                    content={({ payload }) => {
-                        if (payload && payload.length) {
-                            const data = payload[0].payload;
-                            const learner = learners.find(l => l.id === data.learnerId);
-                            return (
-                                <div className="bg-popover border p-3 rounded-lg shadow-lg text-xs">
-                                    <p className="font-bold mb-1">{learner?.name}</p>
-                                    <p>Mark: <span className="font-semibold">{data.average}%</span></p>
-                                    <p>Attendance: <span className="font-semibold">{data.attendanceRate}%</span></p>
-                                </div>
-                            );
-                        }
-                        return null;
-                    }}
-                />
-                <Scatter data={learnerPerformance.filter(l => l.attendanceRate !== null)} fill="hsl(var(--primary))" opacity={0.6} />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

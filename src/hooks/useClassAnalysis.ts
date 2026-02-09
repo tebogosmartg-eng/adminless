@@ -3,7 +3,6 @@
 import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
-import { ClassInfo, Assessment, AssessmentMark, Learner } from '@/lib/types';
 import { calculateWeightedAverage } from '@/utils/calculations';
 
 export const useClassAnalysis = (classId: string, termId: string | undefined) => {
@@ -23,17 +22,8 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
     [assessments]
   ) || [];
 
-  // 3. Fetch attendance for this class and term
-  const attendance = useLiveQuery(
-    () => termId ? db.attendance.where('class_id').equals(classId).filter(r => r.term_id === termId).toArray() : [],
-    [classId, termId]
-  ) || [];
-
   const analysisData = useMemo(() => {
     if (!termId || assessments.length === 0) return null;
-
-    // Map assessments by ID for easy access
-    const assMap = new Map(assessments.map(a => [a.id, a]));
 
     // Calculate per-assessment stats
     const assessmentPerformance = assessments.map(ass => {
@@ -55,16 +45,9 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
     const learnerPerformance = learnerIds.map(lId => {
       const avg = calculateWeightedAverage(assessments, marks, lId);
       
-      // Calculate individual attendance rate for this term
-      const lAtt = attendance.filter(r => r.learner_id === lId);
-      const attRate = lAtt.length > 0 
-        ? Math.round((lAtt.filter(r => r.status === 'present' || r.status === 'late').length / lAtt.length) * 100)
-        : null;
-
       return {
         learnerId: lId,
-        average: avg,
-        attendanceRate: attRate
+        average: avg
       };
     }).sort((a, b) => b.average - a.average);
 
@@ -76,7 +59,7 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
         : 0,
       totalAssessments: assessments.length
     };
-  }, [assessments, marks, attendance, termId]);
+  }, [assessments, marks, termId]);
 
   return { analysisData, loading: !analysisData && assessments.length > 0 };
 };
