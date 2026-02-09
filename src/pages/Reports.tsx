@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, FileDown, FileSpreadsheet, Lock, ChevronRight, Download, GraduationCap, LayoutGrid } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { SchoolProfile, generateTermSummaryPDF } from '@/utils/pdfGenerator';
+import { SchoolProfile, generateTermSummaryPDF, generateYearSummaryPDF } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
@@ -127,6 +127,22 @@ const Reports = () => {
         profile
     );
     showSuccess("PDF generated.");
+  };
+
+  const handleExportYearPDF = () => {
+      if (!yearData || !selectedYearId) return;
+      const yearName = years.find(y => y.id === selectedYearId)?.name || "Year";
+      const termNames = terms.filter(t => t.year_id === selectedYearId).map(t => t.name);
+
+      generateYearSummaryPDF(
+          yearData,
+          termNames,
+          yearName,
+          selectedGrade,
+          selectedSubject,
+          profile
+      );
+      showSuccess("Year End PDF generated.");
   };
 
   const handleSASAMSExportAction = () => {
@@ -338,14 +354,21 @@ const Reports = () => {
                 </Card>
 
                 <Card className="md:col-span-3 min-h-[500px] flex flex-col border-none shadow-sm overflow-hidden">
-                    <CardHeader className="flex flex-row justify-between items-center bg-muted/5 border-b"><CardTitle>Year End Consolidation</CardTitle></CardHeader>
+                    <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-muted/5 border-b gap-4">
+                        <CardTitle>Year End Consolidation</CardTitle>
+                        {yearData && selectedClassId !== 'all' && (
+                             <Button variant="outline" size="sm" onClick={handleExportYearPDF} className="h-8 gap-2">
+                                <FileDown className="h-3.5 w-3.5 text-blue-600"/> Export PDF
+                             </Button>
+                        )}
+                    </CardHeader>
                     <CardContent className="flex-1 p-0 overflow-auto">
                         {yearData && selectedClassId !== 'all' ? (
                             <Table>
                                 <TableHeader className="bg-muted/30">
                                     <TableRow>
                                         <TableHead>Learner Name</TableHead>
-                                        {terms.map(t => <TableHead key={t.id} className="text-right">{t.name}</TableHead>)}
+                                        {terms.filter(t => t.year_id === selectedYearId).map(t => <TableHead key={t.id} className="text-right">{t.name}</TableHead>)}
                                         <TableHead className="text-right font-bold bg-primary/5">Year Final %</TableHead>
                                         <TableHead className="text-center bg-primary/5">Status</TableHead>
                                     </TableRow>
@@ -353,7 +376,7 @@ const Reports = () => {
                                 <TableBody>{yearData.map((r, i) => (
                                     <TableRow key={i} className="hover:bg-muted/30">
                                         <TableCell className="font-medium">{r.learnerName}</TableCell>
-                                        {terms.map(t => (
+                                        {terms.filter(t => t.year_id === selectedYearId).map(t => (
                                             <TableCell key={t.id} className="text-right text-xs">
                                                 {r.termMarks[t.name] !== null ? `${r.termMarks[t.name]}%` : "-"}
                                             </TableCell>
