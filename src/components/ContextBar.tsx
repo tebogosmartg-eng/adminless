@@ -6,8 +6,6 @@ import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { 
   CalendarDays, 
-  BookOpen, 
-  GraduationCap, 
   ChevronRight, 
   Users, 
   RefreshCw, 
@@ -15,10 +13,9 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
-  ArrowRight,
   AlertCircle,
-  TrendingUp,
-  FileEdit
+  FileEdit,
+  LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSync } from "@/context/SyncContext";
@@ -32,7 +29,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
-import { calculateClassStats } from "@/utils/stats";
 import { Progress } from "@/components/ui/progress";
 import { useMemo } from 'react';
 
@@ -78,20 +74,13 @@ export const ContextBar = () => {
     return Math.round((passed / total) * 100);
   }, [activeTerm]);
 
-  // 3. Marking Debt (Missing Marks for current class in current term)
+  // 3. Marking Debt (Missing Marks for task tracking)
   const markingDebt = useMemo(() => {
     if (!isClassPage || assessments.length === 0) return 0;
     const totalExpected = assessments.length * currentClass.learners.length;
     const recordedCount = allMarks.filter(m => m.score !== null).length;
     return totalExpected - recordedCount;
   }, [isClassPage, assessments, allMarks, currentClass]);
-
-  // 4. Class Stats
-  const classAvg = useMemo(() => {
-    if (!currentClass) return null;
-    const stats = calculateClassStats(currentClass.learners);
-    return stats.average;
-  }, [currentClass]);
 
   if (!activeYear && !activeTerm && !isClassPage) return null;
 
@@ -129,15 +118,6 @@ export const ContextBar = () => {
           <>
             <div className="h-3 w-px bg-border mx-1 shrink-0" />
             <div className="flex items-center gap-3 shrink-0 animate-in fade-in slide-in-from-left-2">
-              <div className="flex items-center gap-1.5 text-foreground/70">
-                <GraduationCap className="h-3 w-3 text-muted-foreground" />
-                <span>{currentClass.grade}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-foreground/70">
-                <BookOpen className="h-3 w-3 text-muted-foreground" />
-                <span className="text-primary">{currentClass.subject}</span>
-              </div>
-              
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-1 hover:bg-muted px-1.5 py-0.5 rounded transition-colors group">
@@ -157,14 +137,7 @@ export const ContextBar = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {classAvg !== null && classAvg > 0 && (
-                <div className="flex items-center gap-1 text-muted-foreground border-l pl-3 ml-1">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>Avg: <span className="text-foreground">{classAvg}%</span></span>
-                </div>
-              )}
-
-              {/* Actionable Alerts */}
+              {/* Administrative Alerts */}
               <div className="flex items-center gap-2 ml-2">
                   {attendancePulse && !attendancePulse.marked && !activeTerm?.closed && (
                     <Link to={`/classes/${classId}`} className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-100 animate-pulse-slow">
@@ -176,14 +149,14 @@ export const ContextBar = () => {
                   {markingDebt > 0 && !activeTerm?.closed && (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">
                         <FileEdit className="h-3 w-3" />
-                        <span className="tabular-nums">{markingDebt} missing marks</span>
+                        <span className="tabular-nums">{markingDebt} missing entries</span>
                     </div>
                   )}
 
                   {attendancePulse?.marked && (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border border-green-100 dark:border-green-900/50">
                         <Users className="h-2.5 w-2.5" />
-                        <span className="tabular-nums">{attendancePulse.present}/{attendancePulse.total}</span>
+                        <span className="tabular-nums">{attendancePulse.present}/{attendancePulse.total} present</span>
                     </div>
                   )}
               </div>

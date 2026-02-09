@@ -1,12 +1,9 @@
 import RecentActivity from './RecentActivity';
-import { PendingActions } from './PendingActions';
-import { UpcomingAssessments } from './UpcomingAssessments';
-import { RecentAlerts } from './RecentAlerts';
 import { ClassInfo, Learner } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Camera } from 'lucide-react';
+import { PlusCircle, Users, LayoutDashboard, Settings, CalendarClock, ShieldCheck } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import { QuickActions } from './QuickActions';
 import { TermProgressWidget } from './TermProgressWidget';
@@ -15,6 +12,8 @@ import { TodoList } from './TodoList';
 import { AdminDebtWidget } from './AdminDebtWidget';
 import { DailyGoalWidget } from './DailyGoalWidget';
 import { OnboardingChecklist } from './OnboardingChecklist';
+import { RecentAlerts } from './RecentAlerts';
+import { DailyAttendanceCard } from './DailyAttendanceCard';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -25,8 +24,6 @@ interface DashboardOverviewTabProps {
 
 export const DashboardOverviewTab = ({ 
   activeClasses, 
-  allActiveLearners, 
-  totalClassesCount,
   onAddNote
 }: DashboardOverviewTabProps) => {
   return (
@@ -44,47 +41,55 @@ export const DashboardOverviewTab = ({
       </div>
       
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Content Column */}
+        {/* Informational Feed Column */}
         <div className="lg:col-span-2 space-y-6">
-          {activeClasses.length > 0 ? (
-            <>
-              <AdminDebtWidget />
-              
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Class Access</h3>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {activeClasses.map(c => (
-                    <ClassSummaryCard key={c.id} classInfo={c} />
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : (
-            <Card className="border-dashed border-2 bg-transparent flex flex-col items-center justify-center py-16 text-center">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xl">Welcome to AdminLess</CardTitle>
-                <CardDescription>Start by creating your first class to begin management.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col sm:flex-row gap-4 mt-4">
-                <Button asChild>
-                  <Link to="/classes">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Create Class
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link to="/scan">
-                    <Camera className="mr-2 h-4 w-4" /> Scan Marksheet
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          <AdminDebtWidget />
+          
+          <div className="grid gap-6 sm:grid-cols-2">
+              <DailyAttendanceCard />
+              <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <Users className="h-5 w-5 text-primary" />
+                        Class Roster Access
+                    </CardTitle>
+                    <CardDescription>Quick navigation to your active class lists.</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-2">
+                    <div className="grid gap-2">
+                        {activeClasses.slice(0, 4).map(c => (
+                            <Button key={c.id} variant="outline" className="justify-start text-xs font-medium h-9" asChild>
+                                <Link to={`/classes/${c.id}`}>
+                                    {c.className} • {c.subject}
+                                </Link>
+                            </Button>
+                        ))}
+                        {activeClasses.length > 4 && (
+                            <Button variant="link" size="sm" asChild className="text-[10px] uppercase font-bold text-muted-foreground">
+                                <Link to="/classes">View all classes</Link>
+                            </Button>
+                        )}
+                    </div>
+                </CardContent>
+              </Card>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
+                <LayoutDashboard className="h-3 w-3" /> 
+                Administrative Context
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2">
+                {activeClasses.map(c => (
+                <ClassSummaryCard key={c.id} classInfo={c} />
+                ))}
+            </div>
+          </div>
         </div>
 
-        {/* Sidebar Column */}
+        {/* Schedule & Reminders Column */}
         <div className="space-y-6">
           <TimetableWidget />
-          <UpcomingAssessments />
           <TodoList />
           <RecentAlerts />
           <RecentActivity />

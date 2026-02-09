@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertCircle, FileEdit, CalendarCheck, ArrowRight, ShieldAlert } from "lucide-react";
+import { AlertCircle, FileEdit, CalendarCheck, ArrowRight, ShieldAlert, ClipboardCheck } from "lucide-react";
 import { useClasses } from "@/context/ClassesContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { usePendingAttendance } from "@/hooks/usePendingAttendance";
@@ -60,9 +60,9 @@ export const AdminDebtWidget = () => {
             <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2 text-green-700">
                     <ShieldAlert className="h-5 w-5" />
-                    Admin Compliance
+                    Administrative Compliance
                 </CardTitle>
-                <CardDescription>Your records are currently 100% complete. Data is secure.</CardDescription>
+                <CardDescription>Records are current. No outstanding captures required for {activeTerm.name}.</CardDescription>
             </CardHeader>
         </Card>
     );
@@ -72,10 +72,10 @@ export const AdminDebtWidget = () => {
     <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg flex items-center gap-2 text-amber-700 dark:text-amber-500">
-          <AlertCircle className="h-5 w-5" />
-          Administrative Debt
+          <ClipboardCheck className="h-5 w-5" />
+          Pending Data Capture
         </CardTitle>
-        <CardDescription>Outstanding requirements for {activeTerm?.name}.</CardDescription>
+        <CardDescription>Required administrative tasks for {activeTerm?.name}.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {pendingClasses.length > 0 && (
@@ -87,7 +87,7 @@ export const AdminDebtWidget = () => {
                     <div key={cls.id} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
                         <span className="truncate max-w-[150px] font-medium">{cls.className}</span>
                         <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
-                            <Link to={`/classes/${cls.id}`}>Mark <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                            <Link to={`/classes/${cls.id}`}>Open Register <ArrowRight className="ml-1 h-3 w-3" /></Link>
                         </Button>
                     </div>
                 ))}
@@ -97,16 +97,16 @@ export const AdminDebtWidget = () => {
         {missingMarksInfo.length > 0 && (
             <div className="space-y-2">
                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-600">
-                    <FileEdit className="h-3 w-3" /> Missing Marks
+                    <FileEdit className="h-3 w-3" /> Missing Task Entries
                 </div>
                 {missingMarksInfo.slice(0, 2).map((debt, idx) => (
                     <div key={idx} className="flex items-center justify-between text-sm bg-background/50 p-2 rounded border border-amber-100">
                         <div className="flex flex-col">
                             <span className="font-medium truncate max-w-[150px]">{debt.title}</span>
-                            <span className="text-[10px] text-muted-foreground">{debt.className} • {debt.count} empty</span>
+                            <span className="text-[10px] text-muted-foreground">{debt.className} • {debt.count} students unmarked</span>
                         </div>
                         <Button variant="ghost" size="sm" className="h-7 text-[10px] hover:bg-amber-100" asChild>
-                            <Link to={`/classes/${debt.classId}`}>Capture <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                            <Link to={`/classes/${debt.classId}`}>Update Marksheet <ArrowRight className="ml-1 h-3 w-3" /></Link>
                         </Button>
                     </div>
                 ))}
