@@ -27,7 +27,7 @@ export const RecentAlerts = () => {
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="pb-2 pt-4">
+      <CardHeader className="pb-1.5 pt-3 px-4">
         <CardTitle className="text-base flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-orange-600" />
           Recent Alerts
@@ -35,7 +35,7 @@ export const RecentAlerts = () => {
         <CardDescription className="text-xs">Latest behavioral and academic notes.</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
-        <ScrollArea className="h-[250px] px-5 pb-3">
+        <ScrollArea className="h-[250px] px-3 pb-3">
           {loadingAlerts ? (
             <div className="space-y-2 pt-1">
                <Skeleton className="h-10 w-full" />
@@ -47,28 +47,28 @@ export const RecentAlerts = () => {
               <p className="text-xs">No recent alerts.</p>
             </div>
           ) : (
-            <div className="space-y-2.5 pt-1">
+            <div className="space-y-2 pt-1">
               {recentAlerts.map((alert) => (
                 <div 
                   key={alert.id} 
-                  className="flex gap-2.5 items-start p-2 rounded-lg hover:bg-muted/40 transition-colors border border-transparent hover:border-border cursor-pointer group"
+                  className="flex gap-2 items-start p-1.5 rounded-lg hover:bg-muted/40 transition-colors border border-transparent hover:border-border cursor-pointer group"
                   onClick={() => handleAlertClick(alert.classId, alert.learner_id)}
                 >
-                  <div className="mt-0.5 bg-muted p-1.5 rounded-full group-hover:bg-background transition-colors">
+                  <div className="mt-0.5 bg-muted p-1 rounded-full group-hover:bg-background transition-colors">
                     {getIcon(alert.category)}
                   </div>
                   <div className="flex-1 space-y-0.5 min-w-0">
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-bold text-[13px] group-hover:text-primary transition-colors truncate">{alert.learnerName}</span>
+                        <span className="font-bold text-[12px] group-hover:text-primary transition-colors truncate">{alert.learnerName}</span>
                         {alert.classId && <ExternalLink className="h-2.5 w-2.5 text-muted-foreground opacity-30 group-hover:opacity-60" />}
                       </div>
-                      <span className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1 shrink-0 ml-2">
+                      <span className="text-[8px] font-bold text-muted-foreground uppercase flex items-center gap-1 shrink-0 ml-1">
                         {format(new Date(alert.date), 'dd MMM')}
                       </span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight truncate">{alert.className}</p>
-                    <p className="text-[12px] text-foreground/80 line-clamp-1 leading-tight italic">
+                    <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-tight truncate">{alert.className}</p>
+                    <p className="text-[11px] text-foreground/80 line-clamp-1 leading-tight italic">
                         "{alert.content}"
                     </p>
                   </div>

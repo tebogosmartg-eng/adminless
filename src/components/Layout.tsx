@@ -11,7 +11,7 @@ const Layout = () => {
       <div className="flex flex-1 flex-col">
         <Header />
         <ContextBar />
-        <main className="flex-1 p-4 sm:px-6 sm:py-0 md:p-6 mt-4 md:mt-0">
+        <main className="flex-1 p-3 md:p-4 mt-4 md:mt-0">
           <Outlet />
         </main>
       </div>

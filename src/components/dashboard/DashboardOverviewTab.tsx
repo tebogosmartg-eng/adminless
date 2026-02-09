@@ -27,45 +27,45 @@ export const DashboardOverviewTab = ({
   onAddNote
 }: DashboardOverviewTabProps) => {
   return (
-    <div className="space-y-4 animate-in fade-in duration-500">
+    <div className="space-y-3 animate-in fade-in duration-500">
       <OnboardingChecklist />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
          <div className="md:col-span-2">
             <QuickActions onAddNote={onAddNote} />
          </div>
-         <div className="space-y-4">
+         <div className="space-y-3">
             <TermProgressWidget />
             <DailyGoalWidget />
          </div>
       </div>
       
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         {/* Informational Feed Column */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-3">
           <AdminDebtWidget />
           
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
               <DailyAttendanceCard />
               <Card>
-                <CardHeader className="pb-2">
+                <CardHeader className="pb-1.5 pt-3 px-4">
                     <CardTitle className="text-base flex items-center gap-2">
                         <Users className="h-4 w-4 text-primary" />
                         Class Roster Access
                     </CardTitle>
                     <CardDescription className="text-xs">Quick navigation to your active class lists.</CardDescription>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 px-4 pb-3">
                     <div className="grid gap-1.5">
                         {activeClasses.slice(0, 4).map(c => (
-                            <Button key={c.id} variant="outline" className="justify-start text-[11px] font-medium h-8" asChild>
+                            <Button key={c.id} variant="outline" className="justify-start text-[11px] font-medium h-7" asChild>
                                 <Link to={`/classes/${c.id}`}>
                                     {c.className} • {c.subject}
                                 </Link>
                             </Button>
                         ))}
                         {activeClasses.length > 4 && (
-                            <Button variant="link" size="sm" asChild className="text-[10px] uppercase font-bold text-muted-foreground h-6">
+                            <Button variant="link" size="sm" asChild className="text-[10px] uppercase font-bold text-muted-foreground h-5">
                                 <Link to="/classes">View all classes</Link>
                             </Button>
                         )}
@@ -74,7 +74,7 @@ export const DashboardOverviewTab = ({
               </Card>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
                 <LayoutDashboard className="h-3 w-3" /> 
                 Administrative Context
@@ -88,7 +88,7 @@ export const DashboardOverviewTab = ({
         </div>
 
         {/* Schedule & Reminders Column */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <TimetableWidget />
           <TodoList />
           <RecentAlerts />
