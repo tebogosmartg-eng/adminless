@@ -87,31 +87,33 @@ Lowest Mark: ${stats.lowestMark}%
 
     // 1. Build Metadata Header Rows
     const metadata = [
-        `"Report Type","SA-SAMS aligned Marksheet (${isDraft ? 'DRAFT' : 'OFFICIAL'})"`,
+        `"Report Type","Marksheet Analytical Export (${isDraft ? 'DRAFT' : 'OFFICIAL RECORD'})"`,
         `"School","${schoolName}"`,
         `"Teacher","${teacherName}"`,
         `"Subject","${classInfo.subject}"`,
         `"Grade/Class","${classInfo.grade} - ${classInfo.className}"`,
         `"Term","${activeTerm?.name || 'N/A'}"`,
         `"Status","${isDraft ? 'Draft / Working Copy' : 'Finalised'}"`,
-        `""` // Empty row for spacing
+        `""` 
     ];
 
     // 2. Build Table Headers
     const headers = [
         "Learner Name",
-        ...termAssessments.map(ass => `"${ass.title} (${ass.max_mark})"`),
+        ...termAssessments.map(ass => `"${ass.title} (/${ass.max_mark})"`),
         "Term Percentage",
         "Symbol",
         "Level",
         "Comment"
     ].join(",");
 
-    // 3. Build Learner Rows
+    // 3. Build Learner Rows & Collect Analytics Data
+    const learnerAvgs: number[] = [];
     const csvRows = learners.map(learner => {
         const termAvg = learner.id ? calculateWeightedAverage(termAssessments, termMarks, learner.id) : 0;
-        const symbolObj = getGradeSymbol(termAvg, gradingScheme);
+        if (termAvg > 0) learnerAvgs.push(termAvg);
         
+        const symbolObj = getGradeSymbol(termAvg, gradingScheme);
         const individualMarks = termAssessments.map(ass => {
             const markEntry = termMarks.find(m => m.assessment_id === ass.id && m.learner_id === learner.id);
             return markEntry && markEntry.score !== null ? markEntry.score : "";
@@ -127,14 +129,48 @@ Lowest Mark: ${stats.lowestMark}%
         ].join(",");
     });
 
-    const csvContent = [...metadata, headers, ...csvRows].join("\n");
+    // 4. Calculate Analytics Summary Block
+    const classAvg = learnerAvgs.length > 0 ? (learnerAvgs.reduce((a, b) => a + b, 0) / learnerAvgs.length).toFixed(1) : "0.0";
+    const passCount = learnerAvgs.filter(a => a >= 50).length;
+    const passRate = learnerAvgs.length > 0 ? Math.round((passCount / learnerAvgs.length) * 100) : 0;
+    
+    const analyticsBlock = [
+        `""`,
+        `"CLASS ANALYTICS SUMMARY"`,
+        `"Total Learners","${learners.length}"`,
+        `"Class Average","${classAvg}%"`,
+        `"Pass Rate","${passRate}%"`,
+        `"Highest Mark","${learnerAvgs.length > 0 ? Math.max(...learnerAvgs).toFixed(1) : '0'}%"`,
+        `"Lowest Mark","${learnerAvgs.length > 0 ? Math.min(...learnerAvgs).toFixed(1) : '0'}%"`,
+        `""`,
+        `"MARK DISTRIBUTION"`,
+        `"0-29%","${learnerAvgs.filter(a => a < 30).length}"`,
+        `"30-39%","${learnerAvgs.filter(a => a >= 30 && a < 40).length}"`,
+        `"40-49%","${learnerAvgs.filter(a => a >= 40 && a < 50).length}"`,
+        `"50-59%","${learnerAvgs.filter(a => a >= 50 && a < 60).length}"`,
+        `"60-69%","${learnerAvgs.filter(a => a >= 60 && a < 70).length}"`,
+        `"70-79%","${learnerAvgs.filter(a => a >= 70 && a < 80).length}"`,
+        `"80-100%","${learnerAvgs.filter(a => a >= 80).length}"`,
+        `""`,
+        `"ASSESSMENT ANALYSIS"`,
+        `"Title","Type","Max Mark","Weight","Avg %","Highest %","Lowest %"`
+    ];
+
+    termAssessments.forEach(ass => {
+        const assMarks = termMarks.filter(m => m.assessment_id === ass.id && m.score !== null);
+        const pcts = assMarks.map(m => (m.score! / ass.max_mark) * 100);
+        const avg = pcts.length > 0 ? (pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1) : "0.0";
+        analyticsBlock.push(`"${ass.title}","${ass.type}","${ass.max_mark}","${ass.weight}%","${avg}%","${pcts.length > 0 ? Math.max(...pcts).toFixed(1) : '0'}%","${pcts.length > 0 ? Math.min(...pcts).toFixed(1) : '0'}%"`);
+    });
+
+    const csvContent = [...metadata, headers, ...csvRows, ...analyticsBlock].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
 
     if (link.download !== undefined) {
       const url = URL.createObjectURL(blob);
       const prefix = isDraft ? "DRAFT_" : "OFFICIAL_";
-      const filename = `${prefix}${classInfo.grade}_${classInfo.subject}_${classInfo.className}_Marks.csv`.replace(/\s+/g, '_');
+      const filename = `${prefix}${classInfo.grade}_${classInfo.subject}_${classInfo.className}_Analytical_Record.csv`.replace(/\s+/g, '_');
       
       link.setAttribute("href", url);
       link.setAttribute("download", filename);
@@ -143,7 +179,7 @@ Lowest Mark: ${stats.lowestMark}%
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showSuccess(isDraft ? "Draft CSV exported." : "Official CSV exported.");
+      showSuccess("Analytical CSV exported.");
     } else {
       showError("Export feature is not supported in your browser.");
     }
@@ -154,11 +190,7 @@ Lowest Mark: ${stats.lowestMark}%
     try {
       const attMap = await fetchAttendanceMap();
       const exportClassInfo = { ...classInfo, learners };
-      
-      // Determine if term is closed (official vs draft)
       const isDraft = !activeTerm?.closed;
-      
-      // Filter assessments/marks for just this class/term
       const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm?.id);
       const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
 
