@@ -26,7 +26,7 @@ export const TodoList = () => {
   const completedCount = todos.filter(t => t.completed).length;
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="border-none shadow-sm bg-white dark:bg-card">
       <CardHeader className="pb-2 pt-4">
         <div className="flex justify-between items-center">
           <div>
@@ -40,7 +40,7 @@ export const TodoList = () => {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col gap-3 min-h-[250px] pb-4">
+      <CardContent className="flex flex-col gap-3 pb-4">
         <div className="flex gap-1.5">
           <Input 
             placeholder="Add task..." 
@@ -54,7 +54,7 @@ export const TodoList = () => {
           </Button>
         </div>
 
-        <ScrollArea className="flex-1 -mx-1 px-1">
+        <ScrollArea className="max-h-[300px] -mx-1 px-1">
           {loading ? (
             <div className="flex justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground opacity-30" />

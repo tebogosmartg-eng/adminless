@@ -17,7 +17,7 @@ export const TimetableWidget = () => {
   const [logSession, setLogSession] = useState<{ id: string, name: string } | null>(null);
   
   return (
-    <Card className="h-full flex flex-col border-none shadow-sm bg-white dark:bg-card">
+    <Card className="border-none shadow-sm bg-white dark:bg-card">
       <CardHeader className="pb-1.5 pt-3 px-4">
         <div className="flex justify-between items-start">
             <div className="space-y-0">
@@ -32,7 +32,7 @@ export const TimetableWidget = () => {
             </Link>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-auto max-h-[350px] px-3 pb-3">
+      <CardContent className="overflow-auto max-h-[350px] px-3 pb-3">
         {periods.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-muted-foreground text-xs text-center">
                 <Clock className="h-7 w-7 mb-1.5 opacity-10" />

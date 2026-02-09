@@ -26,7 +26,7 @@ export const RecentAlerts = () => {
   };
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="border-none shadow-sm bg-white dark:bg-card">
       <CardHeader className="pb-1.5 pt-3 px-4">
         <CardTitle className="text-base flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-orange-600" />
@@ -34,8 +34,8 @@ export const RecentAlerts = () => {
         </CardTitle>
         <CardDescription className="text-xs">Latest behavioral and academic notes.</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden p-0">
-        <ScrollArea className="h-[250px] px-3 pb-3">
+      <CardContent className="overflow-hidden p-0">
+        <ScrollArea className="max-h-[350px] px-3 pb-3">
           {loadingAlerts ? (
             <div className="space-y-2 pt-1">
                <Skeleton className="h-10 w-full" />

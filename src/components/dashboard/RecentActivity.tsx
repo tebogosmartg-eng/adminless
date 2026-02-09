@@ -31,7 +31,7 @@ export default function RecentActivity() {
   };
 
   return (
-    <Card className="h-full flex flex-col no-print">
+    <Card className="border-none shadow-sm bg-white dark:bg-card no-print">
       <CardHeader className="pb-2 pt-4">
         <CardTitle className="text-base flex items-center gap-2">
           <Clock className="h-4 w-4 text-primary" />
@@ -39,8 +39,8 @@ export default function RecentActivity() {
         </CardTitle>
         <CardDescription className="text-xs">Updates for {activeTerm?.name || 'term'}.</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden p-0">
-        <ScrollArea className="h-[250px] px-5 pb-3">
+      <CardContent className="overflow-hidden p-0">
+        <ScrollArea className="max-h-[350px] px-5 pb-3">
           {!activities || activities.length === 0 ? (
             <div className="text-center text-xs text-muted-foreground py-6">
               No recent activity.
