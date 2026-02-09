@@ -7,9 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 export const uploadEvidenceFile = async (file: File, userId: string): Promise<{ path: string; url: string }> => {
   const fileExt = file.name.split('.').pop();
   const fileName = `${userId}/${crypto.randomUUID()}.${fileExt}`;
-  const filePath = `evidence/${fileName}`;
+  
+  // The path should be relative to the bucket root. 
+  // We organize by userId folder for security.
+  const filePath = fileName;
 
-  const { error: uploadError, data } = await supabase.storage
+  const { error: uploadError } = await supabase.storage
     .from('evidence')
     .upload(filePath, file);
 
