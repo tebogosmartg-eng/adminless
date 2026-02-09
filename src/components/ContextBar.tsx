@@ -15,7 +15,8 @@ import {
   Clock,
   AlertCircle,
   FileEdit,
-  LayoutDashboard
+  LayoutDashboard,
+  Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSync } from "@/context/SyncContext";
@@ -99,8 +100,13 @@ export const ContextBar = () => {
           </div>
           <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/30" />
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="h-4.5 px-1.5 text-[9px] font-black bg-primary/10 text-primary border-none">
+            <Badge variant="secondary" className={cn(
+                "h-4.5 px-1.5 text-[9px] font-black border-none gap-1",
+                activeTerm?.closed ? "bg-green-100 text-green-700" : "bg-primary/10 text-primary"
+            )}>
+                {activeTerm?.closed && <Lock className="h-2 w-2" />}
                 {activeTerm?.name || "Term"}
+                {activeTerm?.closed && " (Finalised)"}
             </Badge>
             {termProgress !== null && (
                 <div className="w-12 group relative flex items-center">

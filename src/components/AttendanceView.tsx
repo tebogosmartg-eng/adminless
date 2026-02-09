@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X, Clock, AlertCircle, Save, Loader2, Download, FileSpreadsheet, FileText, LucideIcon, LayoutGrid, ListChecks } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X, Clock, AlertCircle, Save, Loader2, Download, FileSpreadsheet, FileText, LucideIcon, LayoutGrid, ListChecks, Lock } from 'lucide-react';
 import { Learner, AttendanceStatus } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useAttendance } from '@/hooks/useAttendance';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MonthlyAttendanceGrid } from './MonthlyAttendanceGrid';
+import { useAcademic } from '@/context/AcademicContext';
 
 interface AttendanceViewProps {
   classId: string;
@@ -24,9 +25,13 @@ interface StatusButtonProps {
   icon: LucideIcon;
   colorClass: string;
   label: string;
+  disabled?: boolean;
 }
 
 export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
+  const { activeTerm } = useAcademic();
+  const isLocked = !!activeTerm?.closed;
+
   const {
     date, setDate,
     attendanceData,
@@ -41,7 +46,7 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
     handleExportReport
   } = useAttendance(classId, learners);
 
-  const StatusButton = ({ lId, status, icon: Icon, colorClass, label }: StatusButtonProps) => {
+  const StatusButton = ({ lId, status, icon: Icon, colorClass, label, disabled }: StatusButtonProps) => {
     const isSelected = lId ? attendanceData[lId]?.status === status : false;
     return (
       <Button
@@ -53,7 +58,7 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
           !isSelected && "opacity-70 hover:opacity-100"
         )}
         onClick={() => lId && handleStatusChange(lId, status)}
-        disabled={!lId}
+        disabled={disabled || !lId}
         title={label}
       >
         <Icon className="h-4 w-4" />
@@ -63,6 +68,13 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
 
   return (
     <div className="space-y-6">
+      {isLocked && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-800 text-xs rounded border border-amber-100 mb-2">
+            <Lock className="h-4 w-4" />
+            <span>Attendance records for this term have been finalized and are currently read-only.</span>
+          </div>
+      )}
+
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-muted/20 p-4 rounded-lg border">
         <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => setDate(subDays(date, 1))}>
@@ -93,10 +105,12 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
                  <div className="flex items-center gap-1 text-orange-600 font-medium"><Clock className="h-4 w-4" /> {stats.late}</div>
              </div>
              
-             <Button onClick={saveAttendance} disabled={!hasChanges || saving} size="sm">
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                {hasChanges ? "Save Changes" : "Saved"}
-             </Button>
+             {!isLocked && (
+                 <Button onClick={saveAttendance} disabled={!hasChanges || saving} size="sm">
+                    {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    {hasChanges ? "Save Changes" : "Saved"}
+                 </Button>
+             )}
 
              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -132,9 +146,11 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
             <CardHeader className="pb-2">
               <div className="flex justify-between items-center">
                   <CardTitle>Daily Register</CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => handleMarkAll('present')}>
-                    Mark All Present
-                  </Button>
+                  {!isLocked && (
+                    <Button variant="ghost" size="sm" onClick={() => handleMarkAll('present')}>
+                        Mark All Present
+                    </Button>
+                  )}
               </div>
               <CardDescription>
                   Record attendance for {format(date, 'EEEE, dd MMMM yyyy')}.
@@ -164,10 +180,10 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex justify-center gap-1">
-                                            <StatusButton lId={learner.id} status="present" icon={Check} colorClass="bg-green-600 hover:bg-green-700" label="Present" />
-                                            <StatusButton lId={learner.id} status="absent" icon={X} colorClass="bg-red-600 hover:bg-red-700" label="Absent" />
-                                            <StatusButton lId={learner.id} status="late" icon={Clock} colorClass="bg-orange-500 hover:bg-orange-600" label="Late" />
-                                            <StatusButton lId={learner.id} status="excused" icon={AlertCircle} colorClass="bg-blue-500 hover:bg-blue-600" label="Excused" />
+                                            <StatusButton lId={learner.id} status="present" icon={Check} colorClass="bg-green-600 hover:bg-green-700" label="Present" disabled={isLocked} />
+                                            <StatusButton lId={learner.id} status="absent" icon={X} colorClass="bg-red-600 hover:bg-red-700" label="Absent" disabled={isLocked} />
+                                            <StatusButton lId={learner.id} status="late" icon={Clock} colorClass="bg-orange-500 hover:bg-orange-600" label="Late" disabled={isLocked} />
+                                            <StatusButton lId={learner.id} status="excused" icon={AlertCircle} colorClass="bg-blue-500 hover:bg-blue-600" label="Excused" disabled={isLocked} />
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right">
