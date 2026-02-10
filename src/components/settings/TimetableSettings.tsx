@@ -1,19 +1,41 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { NotebookPen, BookOpen, Clock } from "lucide-react";
+import { NotebookPen, BookOpen, Clock, Plus, Trash2 } from "lucide-react";
 import { useTimetable } from '@/hooks/useTimetable';
 import { useClasses } from '@/context/ClassesContext';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 export const TimetableSettings = () => {
   const { timetable, updateEntry, clearEntry } = useTimetable();
   const { classes } = useClasses();
+
+  // Find the highest period number currently in the database
+  const maxPeriodInData = useMemo(() => {
+    if (timetable.length === 0) return 0;
+    return Math.max(...timetable.map(t => t.period));
+  }, [timetable]);
+
+  // Track how many rows the user wants to see
+  // Initialize with the data's max period or 5 as a sensible starting point for new users
+  const [numRows, setNumRows] = useState(() => Math.max(maxPeriodInData, 5));
+
+  // Sync numRows if data grows beyond current view (e.g. from sync)
+  useMemo(() => {
+    if (maxPeriodInData > numRows) {
+        setNumRows(maxPeriodInData);
+    }
+  }, [maxPeriodInData]);
+
+  const periods = useMemo(() => {
+    const p = [];
+    for (let i = 1; i <= numRows; i++) p.push(i);
+    return p;
+  }, [numRows]);
 
   // Helper to find entry
   const getEntry = (day: string, period: number) => 
@@ -42,14 +64,48 @@ export const TimetableSettings = () => {
     });
   };
 
+  const handleRemoveLastRow = async () => {
+      if (numRows <= 1) return;
+      
+      const lastPeriod = numRows;
+      const hasData = DAYS.some(day => {
+          const entry = getEntry(day, lastPeriod);
+          return entry && (entry.class_id || entry.subject || entry.start_time);
+      });
+
+      if (hasData) {
+          if (!confirm(`Period ${lastPeriod} has scheduled classes. Removing this row will delete all data for this period across all days. Proceed?`)) {
+              return;
+          }
+          // Clear all entries for this period
+          for (const day of DAYS) {
+              await clearEntry(day, lastPeriod);
+          }
+      }
+      
+      setNumRows(prev => prev - 1);
+  };
+
   return (
     <Card className="col-span-full border-primary/20 bg-primary/[0.01]">
       <CardHeader>
-        <div className="flex items-center gap-2">
-            <NotebookPen className="h-5 w-5 text-primary" />
-            <CardTitle>My Personal Teaching Schedule</CardTitle>
+        <div className="flex justify-between items-start">
+            <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                    <NotebookPen className="h-5 w-5 text-primary" />
+                    <CardTitle>My Personal Teaching Schedule</CardTitle>
+                </div>
+                <CardDescription>Plan your weekly routine by setting your classes, subjects, and session times.</CardDescription>
+            </div>
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleRemoveLastRow} disabled={numRows <= 1}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Remove Row
+                </Button>
+                <Button size="sm" onClick={() => setNumRows(prev => prev + 1)}>
+                    <Plus className="h-4 w-4 mr-2" /> Add Period
+                </Button>
+            </div>
         </div>
-        <CardDescription>Plan your weekly routine by setting your classes, subjects, and session times.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto border rounded-xl shadow-sm bg-background">
@@ -61,7 +117,7 @@ export const TimetableSettings = () => {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {PERIODS.map(period => (
+                    {periods.map(period => (
                         <TableRow key={period} className="min-h-[140px]">
                             <TableCell className="bg-muted/20 border-r p-3">
                                 <div className="flex flex-col items-center gap-3">
@@ -72,8 +128,6 @@ export const TimetableSettings = () => {
                                             <Input 
                                                 type="time" 
                                                 className="h-7 text-[9px] pl-5 pr-1 border-muted bg-white" 
-                                                // We apply the time from the first day of the period to all days in that row for convenience
-                                                // but allow individual day overrides if needed. Here we just take day 0 as the reference.
                                                 onChange={(e) => {
                                                     DAYS.forEach(d => handleUpdate(d, period, 'start_time', e.target.value));
                                                 }}
