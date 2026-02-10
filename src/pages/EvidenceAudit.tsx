@@ -10,10 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { ShieldCheck, FileText, Image as ImageIcon, Search, ExternalLink, Filter, Calendar, Download, Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, FileText, Image as ImageIcon, Search, ExternalLink, Filter, Calendar, Download, Lock, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
-import { showSuccess } from '@/utils/toast';
+import { getSignedFileUrl } from '@/services/storage';
+import { showSuccess, showError } from '@/utils/toast';
 import { Evidence, Term, ClassInfo, Learner } from '@/lib/types';
 
 interface EvidenceWithContext extends Evidence {
@@ -28,6 +28,7 @@ const EvidenceAudit = () => {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [termFilter, setTermFilter] = useState("all");
+  const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
 
   const terms = useLiveQuery(() => db.terms.toArray()) || [];
 
@@ -90,9 +91,17 @@ const EvidenceAudit = () => {
     });
   }, [auditData.enrichedEvidence, search, categoryFilter, termFilter]);
 
-  const getPublicUrl = (path: string) => {
-      const { data } = supabase.storage.from('evidence').getPublicUrl(path);
-      return data.publicUrl;
+  const handleViewFile = async (item: Evidence) => {
+      setLoadingFileId(item.id);
+      try {
+          const url = await getSignedFileUrl(item.file_path);
+          window.open(url, '_blank', 'noreferrer');
+      } catch (e) {
+          console.error(e);
+          showError("Failed to generate secure preview link.");
+      } finally {
+          setLoadingFileId(null);
+      }
   };
 
   const handleExportLog = () => {
@@ -271,10 +280,8 @@ const EvidenceAudit = () => {
                         {item.created_at ? format(new Date(item.created_at), 'dd MMM yyyy') : '-'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                        <a href={getPublicUrl(item.file_path)} target="_blank" rel="noreferrer" title="Open Document">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewFile(item)} disabled={loadingFileId === item.id} title="Open Secure Document">
+                        {loadingFileId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                       </Button>
                     </TableCell>
                   </TableRow>

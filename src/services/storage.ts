@@ -2,14 +2,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Uploads a file to Supabase storage 'evidence' bucket.
- * Returns the public URL.
+ * Returns the path.
  */
-export const uploadEvidenceFile = async (file: File, userId: string): Promise<{ path: string; url: string }> => {
+export const uploadEvidenceFile = async (file: File, userId: string): Promise<{ path: string }> => {
   const fileExt = file.name.split('.').pop();
   const fileName = `${userId}/${crypto.randomUUID()}.${fileExt}`;
   
-  // The path should be relative to the bucket root. 
-  // We organize by userId folder for security.
   const filePath = fileName;
 
   const { error: uploadError } = await supabase.storage
@@ -20,11 +18,23 @@ export const uploadEvidenceFile = async (file: File, userId: string): Promise<{ 
     throw uploadError;
   }
 
-  const { data: { publicUrl } } = supabase.storage
-    .from('evidence')
-    .getPublicUrl(filePath);
+  return { path: filePath };
+};
 
-  return { path: filePath, url: publicUrl };
+/**
+ * Generates a temporary signed URL for viewing a private file.
+ * Defaults to 1 hour (3600 seconds) expiration.
+ */
+export const getSignedFileUrl = async (filePath: string, expiresIn = 3600): Promise<string> => {
+  const { data, error } = await supabase.storage
+    .from('evidence')
+    .createSignedUrl(filePath, expiresIn);
+
+  if (error) {
+    throw error;
+  }
+
+  return data.signedUrl;
 };
 
 /**

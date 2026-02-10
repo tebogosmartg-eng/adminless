@@ -4,14 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText, Image as ImageIcon, Trash2, ExternalLink, ShieldCheck, History, Plus, FileSearch, Lock, AlertCircle } from 'lucide-react';
+import { FileText, Image as ImageIcon, Trash2, ExternalLink, ShieldCheck, History, Plus, FileSearch, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { UploadEvidenceDialog } from './UploadEvidenceDialog';
 import { ModerationAssistant } from './ModerationAssistant';
-import { supabase } from '@/integrations/supabase/client';
+import { getSignedFileUrl } from '@/services/storage';
 import { cn } from '@/lib/utils';
 import { useClasses } from '@/context/ClassesContext';
+import { showError } from '@/utils/toast';
 
 interface EvidenceManagerProps {
   classId: string;
@@ -25,6 +26,7 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
   const { evidenceList, addEvidence, deleteEvidence, isUploading } = useEvidence({ classId, learnerId, termId });
   const { classes } = useClasses();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
   
   // Selection state for moderation assistant
   const [targetLearnerId, setTargetLearnerId] = useState<string | undefined>(learnerId);
@@ -41,9 +43,17 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
     }
   };
 
-  const getPublicUrl = (path: string) => {
-      const { data } = supabase.storage.from('evidence').getPublicUrl(path);
-      return data.publicUrl;
+  const handleViewFile = async (item: Evidence) => {
+      setLoadingFileId(item.id);
+      try {
+          const url = await getSignedFileUrl(item.file_path);
+          window.open(url, '_blank', 'noreferrer');
+      } catch (e) {
+          console.error(e);
+          showError("Failed to generate secure preview link.");
+      } finally {
+          setLoadingFileId(null);
+      }
   };
 
   const handleOpenUpload = (l?: Learner) => {
@@ -58,7 +68,6 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
   };
 
   const handleAssistantUpload = (file: File, category: Evidence['category'], notes: string) => {
-      // Create special filters for this specific upload
       return addEvidence(file, category, notes);
   };
 
@@ -127,10 +136,8 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                         <a href={getPublicUrl(item.file_path)} target="_blank" rel="noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                         </a>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewFile(item)} disabled={loadingFileId === item.id}>
+                         {loadingFileId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                       </Button>
                       {!isLocked && (
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteEvidence(item)}>
