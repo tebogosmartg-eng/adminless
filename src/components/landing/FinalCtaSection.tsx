@@ -4,6 +4,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { motion } from 'framer-motion';
+import { DemoRequestDialog } from './LandingActions';
 
 export const FinalCtaSection = () => {
   return (
@@ -49,9 +50,11 @@ export const FinalCtaSection = () => {
                       Start free teacher pilot
                   </Button>
               </Link>
-              <Button variant="outline" size="lg" className="w-full sm:w-auto border-blue-300 text-white hover:bg-blue-700 h-16 px-10 text-base font-bold rounded-2xl transition-all duration-300">
-                  Book a live demo
-              </Button>
+              <DemoRequestDialog>
+                <Button variant="outline" size="lg" className="w-full sm:w-auto border-blue-300 text-white hover:bg-blue-700 h-16 px-10 text-base font-bold rounded-2xl transition-all duration-300">
+                    Book a live demo
+                </Button>
+              </DemoRequestDialog>
           </motion.div>
           
           <motion.p 

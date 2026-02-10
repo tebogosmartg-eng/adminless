@@ -13,7 +13,7 @@ const STEPS = [
 
 export const WorkflowSection = () => {
   return (
-    <section className="py-24 bg-white dark:bg-slate-900/50 border-y border-slate-100 dark:border-slate-800">
+    <section id="how-it-works" className="py-24 bg-white dark:bg-slate-900/50 border-y border-slate-100 dark:border-slate-800 scroll-mt-20">
       <div className="container mx-auto px-4 md:px-8">
           <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-20 text-center">
               How AdminLess fits into your term

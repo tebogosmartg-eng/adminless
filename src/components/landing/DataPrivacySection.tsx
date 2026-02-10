@@ -1,8 +1,8 @@
 "use client";
 
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { EyeOff, DollarSign, Send, Sparkles, ChevronRight } from "lucide-react";
+import { DataCommitmentDialog } from './LandingActions';
 
 const POINTS = [
   { title: "No hidden automation", icon: EyeOff, desc: "We never run scripts or processes behind your back." },
@@ -30,10 +30,12 @@ export const DataPrivacySection = () => {
                   ))}
               </div>
 
-              <Link to="#" className="inline-flex items-center gap-2 text-blue-600 font-bold hover:underline group">
-                  Read our Data & AI Commitment
-                  <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
+              <DataCommitmentDialog>
+                <button className="inline-flex items-center gap-2 text-blue-600 font-bold hover:underline group focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md px-2 py-1">
+                    Read our Data & AI Commitment
+                    <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </button>
+              </DataCommitmentDialog>
           </div>
       </div>
     </section>

@@ -7,6 +7,13 @@ import { motion } from 'framer-motion';
 import { Play, CheckCircle2 } from "lucide-react";
 
 export const LandingHero = () => {
+  const scrollToWorkflow = () => {
+    const element = document.getElementById('how-it-works');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <section className="flex flex-col items-center justify-center pt-20 pb-24 md:pt-32 md:pb-40 relative overflow-hidden">
       {/* Refined Institutional Gradients */}
@@ -53,12 +60,17 @@ export const LandingHero = () => {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
         >
-          <Link to="/login">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-10 h-14 text-lg font-bold shadow-lg shadow-blue-200/50 dark:shadow-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98]">
+          <Link to="/login" className="w-full sm:w-auto">
+            <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white px-10 h-14 text-lg font-bold shadow-lg shadow-blue-200/50 dark:shadow-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98]">
               Try AdminLess with one class
             </Button>
           </Link>
-          <Button variant="outline" size="lg" className="px-8 h-14 text-base font-semibold border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 gap-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-300 hover:-translate-y-0.5">
+          <Button 
+            variant="outline" 
+            size="lg" 
+            onClick={scrollToWorkflow}
+            className="w-full sm:w-auto px-8 h-14 text-base font-semibold border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 gap-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-300 hover:-translate-y-0.5"
+          >
             <Play className="h-4 w-4 fill-current" /> See how it works
           </Button>
         </motion.div>

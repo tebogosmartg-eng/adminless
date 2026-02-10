@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { motion } from 'framer-motion';
 import { SendHorizonal, BadgeCheck, FileSearch, Download, CheckCircle2 } from "lucide-react";
+import { showSuccess } from '@/utils/toast';
 
 const COMPLIANCE_ITEMS = [
   { title: "SA-SAMS Ready", icon: SendHorizonal, desc: "Finalised term marks are exported in formats optimized for easy SA-SAMS entry." },
@@ -13,6 +14,16 @@ const COMPLIANCE_ITEMS = [
 ];
 
 export const ComplianceSection = () => {
+  const handleSimulatedDownload = () => {
+    showSuccess("Generating SA-SAMS CSV template...");
+    setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = 'data:text/csv;charset=utf-8,Academic Year,Term,Grade,Class,Subject,Final Mark\n2024,Term 3,10,10A,Mathematics,75';
+        link.download = 'SASAMS_PREVIEW_TEMPLATE.csv';
+        link.click();
+    }, 1000);
+  };
+
   return (
     <section className="py-24 bg-[#fcfcfd] dark:bg-[#0a0a0b] border-t border-slate-100 dark:border-slate-800">
       <div className="container mx-auto px-4 md:px-8">
@@ -70,7 +81,10 @@ export const ComplianceSection = () => {
                               </div>
                            ))}
                            <div className="pt-8 mt-4">
-                               <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black h-14 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none transition-all duration-300 hover:scale-[1.02]">
+                               <Button 
+                                onClick={handleSimulatedDownload}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black h-14 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none transition-all duration-300 hover:scale-[1.02]"
+                               >
                                    <Download className="mr-3 h-5 w-5" /> Download SASAMS Record
                                </Button>
                            </div>

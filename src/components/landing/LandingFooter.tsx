@@ -1,8 +1,8 @@
 "use client";
 
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { ShieldCheck } from "lucide-react";
+import { DataCommitmentDialog } from './LandingActions';
 
 export const LandingFooter = () => {
   return (
@@ -18,10 +18,14 @@ export const LandingFooter = () => {
           </div>
           
           <div className="flex flex-wrap gap-x-8 gap-y-4 text-sm font-medium text-slate-500">
-              <Link to="#" className="hover:text-blue-600 transition-colors">About AdminLess</Link>
-              <Link to="#" className="hover:text-blue-600 transition-colors">Data & AI Commitment</Link>
-              <Link to="#" className="hover:text-blue-600 transition-colors">Contact</Link>
-              <Link to="#" className="hover:text-blue-600 transition-colors">Privacy & Terms</Link>
+              <button className="hover:text-blue-600 transition-colors text-left" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>About AdminLess</button>
+              <DataCommitmentDialog>
+                <button className="hover:text-blue-600 transition-colors text-left">Data & AI Commitment</button>
+              </DataCommitmentDialog>
+              <a href="mailto:support@adminless.co.za" className="hover:text-blue-600 transition-colors">Contact</a>
+              <DataCommitmentDialog>
+                <button className="hover:text-blue-600 transition-colors text-left">Privacy & Terms</button>
+              </DataCommitmentDialog>
           </div>
         </div>
         
