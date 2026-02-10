@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 import { calculateWeightedAverage } from '@/utils/calculations';
-import { Learner } from '@/lib/types';
 
 export const useClassAnalysis = (classId: string, termId: string | undefined) => {
   // 1. Fetch assessments for this specific class and term
@@ -21,12 +20,6 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
       return db.assessment_marks.where('assessment_id').anyOf(ids).toArray();
     },
     [assessments]
-  ) || [];
-
-  // 3. Fetch attendance for this class/term
-  const attendance = useLiveQuery(
-    () => termId ? db.attendance.where('class_id').equals(classId).filter(r => r.term_id === termId).toArray() : [],
-    [classId, termId]
   ) || [];
 
   const analysisData = useMemo(() => {
@@ -52,17 +45,9 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
     const learnerPerformance = learnerIds.map(lId => {
       const avg = calculateWeightedAverage(assessments, marks, lId);
       
-      // Calculate attendance rate for this specific learner in this term
-      const learnerAtt = attendance.filter(r => r.learner_id === lId);
-      const totalDays = learnerAtt.length;
-      const daysPresent = learnerAtt.filter(r => r.status === 'present' || r.status === 'late').length;
-      const attRate = totalDays > 0 ? Math.round((daysPresent / totalDays) * 100) : 100; // Default to 100 if no records
-      
       return {
         learnerId: lId,
-        average: avg,
-        attendanceRate: attRate,
-        daysTotal: totalDays
+        average: avg
       };
     }).sort((a, b) => b.average - a.average);
 
@@ -70,23 +55,18 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
         ? Math.round(learnerPerformance.reduce((s, l) => s + l.average, 0) / learnerPerformance.length) 
         : 0;
 
-    const classAttAvg = learnerPerformance.length > 0
-        ? Math.round(learnerPerformance.reduce((s, l) => s + l.attendanceRate, 0) / learnerPerformance.length)
+    const passRate = learnerPerformance.length > 0
+        ? Math.round((learnerPerformance.filter(l => l.average >= 50).length / learnerPerformance.length) * 100)
         : 0;
 
     return {
       assessmentPerformance,
       learnerPerformance,
       classAverage: classAvg,
-      classAttendanceAverage: classAttAvg,
-      totalAssessments: assessments.length,
-      correlationData: learnerPerformance.map(l => ({
-          x: l.attendanceRate,
-          y: l.average,
-          id: l.learnerId
-      }))
+      passRate,
+      totalAssessments: assessments.length
     };
-  }, [assessments, marks, attendance, termId]);
+  }, [assessments, marks, termId]);
 
   return { analysisData, loading: !analysisData && assessments.length > 0 };
 };
