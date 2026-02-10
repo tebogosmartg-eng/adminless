@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { NotebookPen, BookOpen, Clock, Plus, Trash2 } from "lucide-react";
+import { NotebookPen, BookOpen, Clock, Plus, Trash2, CalendarDays, ArrowRight } from "lucide-react";
 import { useTimetable } from '@/hooks/useTimetable';
 import { useClasses } from '@/context/ClassesContext';
 
@@ -20,11 +20,10 @@ export const TimetableSettings = () => {
     return Math.max(...timetable.map(t => t.period));
   }, [timetable]);
 
-  // Track how many rows the user wants to see
-  // Initialize with the data's max period or 5 as a sensible starting point for new users
-  const [numRows, setNumRows] = useState(() => Math.max(maxPeriodInData, 5));
+  // Strictly follow data, no placeholders by default
+  const [numRows, setNumRows] = useState(() => maxPeriodInData);
 
-  // Sync numRows if data grows beyond current view (e.g. from sync)
+  // Sync numRows if data grows (e.g. from sync)
   useMemo(() => {
     if (maxPeriodInData > numRows) {
         setNumRows(maxPeriodInData);
@@ -37,7 +36,6 @@ export const TimetableSettings = () => {
     return p;
   }, [numRows]);
 
-  // Helper to find entry
   const getEntry = (day: string, period: number) => 
     timetable.find(t => t.day === day && t.period === period);
 
@@ -65,7 +63,7 @@ export const TimetableSettings = () => {
   };
 
   const handleRemoveLastRow = async () => {
-      if (numRows <= 1) return;
+      if (numRows <= 0) return;
       
       const lastPeriod = numRows;
       const hasData = DAYS.some(day => {
@@ -77,7 +75,6 @@ export const TimetableSettings = () => {
           if (!confirm(`Period ${lastPeriod} has scheduled classes. Removing this row will delete all data for this period across all days. Proceed?`)) {
               return;
           }
-          // Clear all entries for this period
           for (const day of DAYS) {
               await clearEntry(day, lastPeriod);
           }
@@ -89,67 +86,90 @@ export const TimetableSettings = () => {
   return (
     <Card className="col-span-full border-primary/20 bg-primary/[0.01]">
       <CardHeader>
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="space-y-1">
                 <div className="flex items-center gap-2">
                     <NotebookPen className="h-5 w-5 text-primary" />
-                    <CardTitle>My Personal Teaching Schedule</CardTitle>
+                    <CardTitle>Routine & Schedule</CardTitle>
                 </div>
-                <CardDescription>Plan your weekly routine by setting your classes, subjects, and session times.</CardDescription>
+                <CardDescription>Define your teaching periods. The dashboard will show alerts for classes active during current times.</CardDescription>
             </div>
-            <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleRemoveLastRow} disabled={numRows <= 1}>
-                    <Trash2 className="h-4 w-4 mr-2" /> Remove Row
-                </Button>
-                <Button size="sm" onClick={() => setNumRows(prev => prev + 1)}>
+            <div className="flex gap-2 w-full sm:w-auto">
+                {numRows > 0 && (
+                    <Button variant="outline" size="sm" onClick={handleRemoveLastRow} className="flex-1 sm:flex-none">
+                        <Trash2 className="h-4 w-4 mr-2" /> Remove Row
+                    </Button>
+                )}
+                <Button size="sm" onClick={() => setNumRows(prev => prev + 1)} className="flex-1 sm:flex-none font-bold">
                     <Plus className="h-4 w-4 mr-2" /> Add Period
                 </Button>
             </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto border rounded-xl shadow-sm bg-background">
-            <Table className="table-fixed w-full min-w-[1000px]">
-                <TableHeader>
-                    <TableRow className="bg-muted/50 hover:bg-muted/50">
-                        <TableHead className="w-[100px] text-center border-r font-bold">Session</TableHead>
-                        {DAYS.map(day => <TableHead key={day} className="text-center font-bold">{day}</TableHead>)}
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {periods.map(period => (
-                        <TableRow key={period} className="min-h-[140px]">
-                            <TableCell className="bg-muted/20 border-r p-3">
-                                <div className="flex flex-col items-center gap-3">
-                                    <span className="font-black text-lg text-muted-foreground">{period}</span>
-                                    <div className="space-y-1.5 w-full">
-                                        <div className="relative">
-                                            <Clock className="absolute left-1.5 top-2 h-2.5 w-2.5 text-muted-foreground opacity-50" />
+        {numRows === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-xl bg-white dark:bg-card">
+                <div className="p-4 bg-primary/5 rounded-full mb-4">
+                    <CalendarDays className="h-10 w-10 text-primary/40" />
+                </div>
+                <h3 className="text-lg font-bold">Your Timetable is Empty</h3>
+                <p className="text-sm text-muted-foreground max-w-xs mb-6">
+                    Add your first period to start planning your daily agenda and classroom logs.
+                </p>
+                <Button onClick={() => setNumRows(1)} className="gap-2">
+                    <Plus className="h-4 w-4" /> Define Period 1
+                </Button>
+            </div>
+        ) : (
+            <div className="overflow-x-auto border rounded-xl shadow-sm bg-background">
+                <Table className="table-fixed w-full min-w-[1000px]">
+                    <TableHeader>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                            <TableHead className="w-[120px] text-center border-r font-bold text-[10px] uppercase tracking-widest">Session</TableHead>
+                            {DAYS.map(day => (
+                                <TableHead key={day} className="text-center font-bold text-[10px] uppercase tracking-widest">
+                                    {day}
+                                </TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {periods.map(period => (
+                            <TableRow key={period} className="min-h-[140px] group/row">
+                                <TableCell className="bg-muted/20 border-r p-3">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-muted-foreground">P</span>
+                                            <span className="font-black text-2xl text-primary">{period}</span>
+                                        </div>
+                                        <div className="space-y-1.5 w-full bg-white dark:bg-background p-2 rounded-md border border-muted shadow-sm">
+                                            <div className="flex items-center justify-between text-[8px] font-black uppercase text-muted-foreground mb-1">
+                                                <span>Times</span>
+                                                <ArrowRight className="h-2 w-2" />
+                                            </div>
                                             <Input 
                                                 type="time" 
-                                                className="h-7 text-[9px] pl-5 pr-1 border-muted bg-white" 
+                                                className="h-7 text-[9px] px-1 border-none focus-visible:ring-0 bg-muted/30" 
                                                 onChange={(e) => {
                                                     DAYS.forEach(d => handleUpdate(d, period, 'start_time', e.target.value));
                                                 }}
                                             />
+                                            <Input 
+                                                type="time" 
+                                                className="h-7 text-[9px] px-1 border-none focus-visible:ring-0 bg-muted/30" 
+                                                onChange={(e) => {
+                                                    DAYS.forEach(d => handleUpdate(d, period, 'end_time', e.target.value));
+                                                }}
+                                            />
                                         </div>
-                                        <Input 
-                                            type="time" 
-                                            className="h-7 text-[9px] px-1 border-muted bg-white" 
-                                            onChange={(e) => {
-                                                DAYS.forEach(d => handleUpdate(d, period, 'end_time', e.target.value));
-                                            }}
-                                        />
+                                        <p className="text-[8px] text-center font-bold uppercase text-muted-foreground/60 leading-tight">Apply to Row</p>
                                     </div>
-                                    <p className="text-[8px] text-center font-bold uppercase text-muted-foreground leading-tight">Apply to Row</p>
-                                </div>
-                            </TableCell>
-                            {DAYS.map(day => {
-                                const entry = getEntry(day, period);
-                                return (
-                                    <TableCell key={`${day}-${period}`} className="p-3 align-top border-l relative group h-full">
-                                        <div className="flex flex-col gap-2 h-full">
-                                            <div className="flex items-center gap-1">
+                                </TableCell>
+                                {DAYS.map(day => {
+                                    const entry = getEntry(day, period);
+                                    return (
+                                        <TableCell key={`${day}-${period}`} className="p-3 align-top border-l relative h-full">
+                                            <div className="flex flex-col gap-2 h-full">
                                                 <Select 
                                                     value={entry?.class_id || (entry?.class_name ? "custom" : "")} 
                                                     onValueChange={(val) => {
@@ -165,45 +185,44 @@ export const TimetableSettings = () => {
                                                         {classes.map(c => (
                                                             <SelectItem key={c.id} value={c.id}>{c.className} ({c.subject})</SelectItem>
                                                         ))}
-                                                        <SelectItem value="custom" disabled>Custom Entry</SelectItem>
                                                     </SelectContent>
                                                 </Select>
-                                            </div>
 
-                                            <div className="relative">
-                                                <BookOpen className="absolute left-1.5 top-1.5 h-3 w-3 text-muted-foreground/50" />
-                                                <Input 
-                                                    placeholder="Subject..." 
-                                                    className="h-8 text-[11px] pl-6 border-muted bg-transparent focus-visible:ring-primary/30" 
-                                                    value={entry?.subject || ''}
-                                                    onChange={(e) => handleUpdate(day, period, 'subject', e.target.value)}
-                                                />
-                                            </div>
+                                                <div className="relative">
+                                                    <BookOpen className="absolute left-1.5 top-1.5 h-3 w-3 text-muted-foreground/50" />
+                                                    <Input 
+                                                        placeholder="Subject..." 
+                                                        className="h-8 text-[11px] pl-6 border-muted bg-transparent focus-visible:ring-primary/30" 
+                                                        value={entry?.subject || ''}
+                                                        onChange={(e) => handleUpdate(day, period, 'subject', e.target.value)}
+                                                    />
+                                                </div>
 
-                                            <div className="flex items-center gap-1 mt-auto pt-2 border-t border-dashed border-muted">
-                                                <Input 
-                                                    type="time" 
-                                                    value={entry?.start_time || ''} 
-                                                    onChange={(e) => handleUpdate(day, period, 'start_time', e.target.value)}
-                                                    className="h-6 text-[8px] p-1 border-none bg-muted/20"
-                                                />
-                                                <span className="text-[8px] opacity-30">-</span>
-                                                <Input 
-                                                    type="time" 
-                                                    value={entry?.end_time || ''} 
-                                                    onChange={(e) => handleUpdate(day, period, 'end_time', e.target.value)}
-                                                    className="h-6 text-[8px] p-1 border-none bg-muted/20"
-                                                />
+                                                <div className="flex items-center gap-1 mt-auto pt-2 border-t border-dashed border-muted">
+                                                    <Input 
+                                                        type="time" 
+                                                        value={entry?.start_time || ''} 
+                                                        onChange={(e) => handleUpdate(day, period, 'start_time', e.target.value)}
+                                                        className="h-6 text-[8px] p-1 border-none bg-muted/20"
+                                                    />
+                                                    <span className="text-[8px] opacity-30">-</span>
+                                                    <Input 
+                                                        type="time" 
+                                                        value={entry?.end_time || ''} 
+                                                        onChange={(e) => handleUpdate(day, period, 'end_time', e.target.value)}
+                                                        className="h-6 text-[8px] p-1 border-none bg-muted/20"
+                                                    />
+                                                </div>
                                             </div>
-                                        </div>
-                                    </TableCell>
-                                );
-                            })}
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </div>
+                                        </TableCell>
+                                    );
+                                })}
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        )}
       </CardContent>
     </Card>
   );
