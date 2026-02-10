@@ -46,12 +46,12 @@ export const FinalCtaSection = () => {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
               <Link to="/login" className="w-full sm:w-auto">
-                  <Button size="lg" className="w-full bg-white text-blue-600 hover:bg-slate-50 h-16 px-12 text-lg font-black rounded-2xl shadow-2xl shadow-blue-900/40 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]">
+                  <Button size="lg" className="w-full bg-white text-blue-600 hover:bg-slate-50 h-16 px-12 text-lg font-black rounded-2xl shadow-2xl shadow-blue-900/40 transition-all duration-200 hover:scale-[1.03] active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-white">
                       Start free teacher pilot
                   </Button>
               </Link>
               <DemoRequestDialog>
-                <Button variant="outline" size="lg" className="w-full sm:w-auto border-blue-300 text-white hover:bg-blue-700 h-16 px-10 text-base font-bold rounded-2xl transition-all duration-300">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto border-blue-300 text-white hover:bg-blue-700 hover:border-blue-700 h-16 px-10 text-base font-bold rounded-2xl transition-all duration-200 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-white shadow-lg">
                     Book a live demo
                 </Button>
               </DemoRequestDialog>

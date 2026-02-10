@@ -18,13 +18,24 @@ export const LandingFooter = () => {
           </div>
           
           <div className="flex flex-wrap gap-x-8 gap-y-4 text-sm font-medium text-slate-500">
-              <button className="hover:text-blue-600 transition-colors text-left" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>About AdminLess</button>
+              <button 
+                className="hover:text-blue-600 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1" 
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              >
+                About AdminLess
+              </button>
               <DataCommitmentDialog>
-                <button className="hover:text-blue-600 transition-colors text-left">Data & AI Commitment</button>
+                <button className="hover:text-blue-600 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1">
+                    Data & AI Commitment
+                </button>
               </DataCommitmentDialog>
-              <a href="mailto:support@adminless.co.za" className="hover:text-blue-600 transition-colors">Contact</a>
+              <a href="mailto:support@adminless.co.za" className="hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1">
+                  Contact
+              </a>
               <DataCommitmentDialog>
-                <button className="hover:text-blue-600 transition-colors text-left">Privacy & Terms</button>
+                <button className="hover:text-blue-600 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1">
+                    Privacy & Terms
+                </button>
               </DataCommitmentDialog>
           </div>
         </div>

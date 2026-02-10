@@ -40,7 +40,7 @@ export const ComplianceSection = () => {
                   <div className="grid gap-6">
                       {COMPLIANCE_ITEMS.map((item, i) => (
                           <div key={i} className="flex gap-5 group">
-                              <div className="mt-1 bg-blue-50 dark:bg-blue-900/20 p-2.5 rounded-xl h-fit text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white duration-300">
+                              <div className="mt-1 bg-blue-50 dark:bg-blue-900/20 p-2.5 rounded-xl h-fit text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white duration-300 shadow-sm">
                                   <item.icon className="h-5 w-5" />
                               </div>
                               <div className="space-y-1">
@@ -83,7 +83,7 @@ export const ComplianceSection = () => {
                            <div className="pt-8 mt-4">
                                <Button 
                                 onClick={handleSimulatedDownload}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black h-14 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none transition-all duration-300 hover:scale-[1.02]"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black h-14 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none transition-all duration-200 hover:scale-[1.02] active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-blue-400"
                                >
                                    <Download className="mr-3 h-5 w-5" /> Download SASAMS Record
                                </Button>

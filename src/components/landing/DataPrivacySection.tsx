@@ -21,7 +21,7 @@ export const DataPrivacySection = () => {
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
                   {POINTS.map((point, i) => (
                       <div key={i} className="flex flex-col items-center gap-3">
-                          <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
+                          <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 shadow-sm">
                               <point.icon className="w-6 h-6" />
                           </div>
                           <h4 className="font-bold text-sm">{point.title}</h4>
@@ -31,8 +31,8 @@ export const DataPrivacySection = () => {
               </div>
 
               <DataCommitmentDialog>
-                <button className="inline-flex items-center gap-2 text-blue-600 font-bold hover:underline group focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md px-2 py-1">
-                    Read our Data & AI Commitment
+                <button className="inline-flex items-center gap-2 text-blue-600 font-bold hover:text-blue-700 transition-all group focus:outline-none focus:ring-2 focus:ring-blue-500 ring-offset-4 rounded-md px-2 py-1 active:scale-95">
+                    <span className="border-b-2 border-transparent group-hover:border-blue-600 transition-all">Read our Data & AI Commitment</span>
                     <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </button>
               </DataCommitmentDialog>

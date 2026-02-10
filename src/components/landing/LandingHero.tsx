@@ -16,7 +16,6 @@ export const LandingHero = () => {
 
   return (
     <section className="flex flex-col items-center justify-center pt-20 pb-24 md:pt-32 md:pb-40 relative overflow-hidden">
-      {/* Refined Institutional Gradients */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-6xl h-full -z-10 opacity-40">
           <div className="absolute top-10 left-0 w-[40rem] h-[40rem] bg-blue-50/50 dark:bg-blue-900/10 rounded-full blur-[100px] animate-pulse-slow" />
           <div className="absolute bottom-10 right-0 w-[35rem] h-[35rem] bg-indigo-50/50 dark:bg-indigo-900/10 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '1s' }} />
@@ -61,7 +60,7 @@ export const LandingHero = () => {
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
         >
           <Link to="/login" className="w-full sm:w-auto">
-            <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white px-10 h-14 text-lg font-bold shadow-lg shadow-blue-200/50 dark:shadow-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98]">
+            <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white px-10 h-14 text-lg font-bold shadow-lg shadow-blue-200/50 dark:shadow-none hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-blue-400 ring-offset-2">
               Try AdminLess with one class
             </Button>
           </Link>
@@ -69,7 +68,7 @@ export const LandingHero = () => {
             variant="outline" 
             size="lg" 
             onClick={scrollToWorkflow}
-            className="w-full sm:w-auto px-8 h-14 text-base font-semibold border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 gap-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-300 hover:-translate-y-0.5"
+            className="w-full sm:w-auto px-8 h-14 text-base font-semibold border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 gap-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-slate-400 ring-offset-2 shadow-sm hover:shadow-md"
           >
             <Play className="h-4 w-4 fill-current" /> See how it works
           </Button>
