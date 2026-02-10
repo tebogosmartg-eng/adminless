@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,8 @@ import {
     Eraser, 
     Copy, 
     Coffee,
-    ArrowRightLeft
+    ArrowRightLeft,
+    Clock
 } from "lucide-react";
 import { useTimetable } from '@/hooks/useTimetable';
 import { useClasses } from '@/context/ClassesContext';
@@ -28,18 +29,21 @@ export const TimetableSettings = () => {
   const { timetable, updateEntry, clearEntry } = useTimetable();
   const { classes } = useClasses();
 
+  // Find the highest period number currently in the database
   const maxPeriodInData = useMemo(() => {
-    if (timetable.length === 0) return 0;
+    if (!timetable || timetable.length === 0) return 0;
     return Math.max(...timetable.map(t => t.period));
   }, [timetable]);
 
-  const [numRows, setNumRows] = useState(() => maxPeriodInData);
+  // Track how many rows the user wants to see
+  const [numRows, setNumRows] = useState(0);
 
-  useMemo(() => {
+  // Sync numRows with data when it loads or changes
+  useEffect(() => {
     if (maxPeriodInData > numRows) {
         setNumRows(maxPeriodInData);
     }
-  }, [maxPeriodInData]);
+  }, [maxPeriodInData, numRows]);
 
   const periods = useMemo(() => {
     const p = [];
@@ -85,7 +89,7 @@ export const TimetableSettings = () => {
       for (const entry of sourceEntries) {
           await updateEntry({
               ...entry,
-              id: undefined, // Create new record
+              id: undefined, 
               day: targetDay
           });
       }
