@@ -3,41 +3,52 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
     ShieldCheck, 
     CheckCircle2, 
-    Play,
-    Clock,
-    Calculator,
-    AlertCircle,
-    FileText,
-    Layers,
-    FileCheck,
-    UserCheck,
-    Target,
-    WifiOff,
-    Download,
-    CalendarRange,
-    ClipboardList,
-    Smartphone,
-    SendHorizonal,
-    Shield,
-    Hand,
-    Lock,
-    User,
-    BarChart3,
-    NotebookPen,
-    Users,
-    Building2,
-    Globe,
-    GraduationCap,
-    EyeOff,
-    DollarSign,
-    Send,
-    Sparkles,
-    ChevronRight
+    Play, 
+    Clock, 
+    Calculator, 
+    AlertCircle, 
+    FileText, 
+    Layers, 
+    FileCheck, 
+    UserCheck, 
+    Target, 
+    WifiOff, 
+    Download, 
+    CalendarRange, 
+    ClipboardList, 
+    Smartphone, 
+    SendHorizonal, 
+    Shield, 
+    Hand, 
+    Lock, 
+    User, 
+    BarChart3, 
+    NotebookPen, 
+    Users, 
+    Building2, 
+    Globe, 
+    GraduationCap, 
+    EyeOff, 
+    DollarSign, 
+    Send, 
+    Sparkles, 
+    ChevronRight, 
+    HelpCircle, 
+    ChevronDown, 
+    FileSearch, 
+    BadgeCheck 
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const Landing = () => {
   return (
@@ -232,8 +243,63 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* National Alignment Details */}
+      <section className="py-24 bg-[#fcfcfd] dark:bg-[#0a0a0b] border-t border-slate-100 dark:border-slate-800">
+        <div className="container mx-auto px-4 md:px-8">
+            <div className="max-w-5xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+                <div>
+                    <Badge className="bg-blue-600 mb-4 px-3 py-1 uppercase tracking-widest text-[10px]">National Compliance</Badge>
+                    <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-6">Built for the South African academic structure.</h2>
+                    <p className="text-slate-600 dark:text-slate-400 text-lg mb-8 leading-relaxed">
+                        We've carefully engineered AdminLess to mirror the requirements of the DBE and provincial departments, making official reporting a breeze.
+                    </p>
+                    
+                    <div className="space-y-6">
+                        {[
+                            { title: "SA-SAMS Ready", icon: SendHorizonal, desc: "Finalised term marks are exported in formats optimized for easy SA-SAMS entry." },
+                            { title: "CAPS Aligned", icon: BadgeCheck, desc: "Supports weighting and grading systems required by the national curriculum." },
+                            { title: "Moderation Support", icon: FileSearch, desc: "Track and upload the required 10% sample for departmental audit." }
+                        ].map((item, i) => (
+                            <div key={i} className="flex gap-4">
+                                <div className="mt-1 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg h-fit text-blue-600">
+                                    <item.icon className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-sm">{item.title}</h4>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">{item.desc}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="relative group">
+                    <div className="absolute -inset-4 bg-gradient-to-tr from-blue-600/10 to-indigo-600/10 rounded-[2rem] blur-2xl group-hover:opacity-100 transition-opacity opacity-50" />
+                    <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-2xl">
+                         <div className="flex items-center justify-between mb-8">
+                             <div className="space-y-1">
+                                <h4 className="font-black text-xs uppercase tracking-[0.15em] text-slate-400">Sample Export</h4>
+                                <p className="font-bold text-lg">Term 3 Results</p>
+                             </div>
+                             <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">FINALIZED</Badge>
+                         </div>
+                         <div className="space-y-4">
+                             {[1, 2, 3].map(i => (
+                                <div key={i} className="h-10 w-full bg-slate-50 dark:bg-slate-800/50 rounded-lg animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />
+                             ))}
+                             <div className="pt-6 mt-6 border-t border-dashed">
+                                 <Button className="w-full bg-blue-600 text-white font-bold h-12">
+                                     <Download className="mr-2 h-4 w-4" /> Download SASAMS Summary
+                                 </Button>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </section>
+
       {/* Steps Section */}
-      <section className="py-24 bg-[#fcfcfd] dark:bg-[#0a0a0b]">
+      <section className="py-24 bg-white dark:bg-slate-900/50 border-y border-slate-100 dark:border-slate-800">
         <div className="container mx-auto px-4 md:px-8">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-16 text-center">
                 How AdminLess fits into your term
@@ -265,7 +331,7 @@ const Landing = () => {
       </section>
 
       {/* Target Audience Section */}
-      <section className="py-24 bg-white dark:bg-slate-900/50 border-y border-slate-100 dark:border-slate-800">
+      <section className="py-24 bg-[#fcfcfd] dark:bg-[#0a0a0b] border-t border-slate-100 dark:border-slate-800">
         <div className="container mx-auto px-4 md:px-8">
             <div className="max-w-4xl mx-auto">
                 <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-6 text-center">
@@ -301,7 +367,7 @@ const Landing = () => {
       </section>
 
       {/* Data Sovereignty Section */}
-      <section className="py-24 bg-[#fcfcfd] dark:bg-[#0a0a0b] border-t border-slate-100 dark:border-slate-800">
+      <section className="py-24 bg-white dark:bg-slate-900/50 border-y border-slate-100 dark:border-slate-800">
         <div className="container mx-auto px-4 md:px-8">
             <div className="max-w-4xl mx-auto text-center">
                 <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-12">Your data stays yours</h2>
@@ -328,6 +394,51 @@ const Landing = () => {
                     <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
             </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-24 bg-[#fcfcfd] dark:bg-[#0a0a0b] border-t border-slate-100 dark:border-slate-800">
+        <div className="container mx-auto px-4 md:px-8 max-w-3xl">
+            <div className="text-center mb-16">
+                <div className="inline-flex p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 mb-4">
+                    <HelpCircle className="h-6 w-6" />
+                </div>
+                <h2 className="text-3xl md:text-4xl font-black tracking-tight">Common Questions</h2>
+                <p className="text-slate-500 dark:text-slate-400 mt-4">Everything you need to know about starting with AdminLess.</p>
+            </div>
+
+            <Accordion type="single" collapsible className="w-full space-y-4">
+                {[
+                    { 
+                        q: "Is it really free for individual teachers?", 
+                        a: "Yes! AdminLess is free to use for individual educators managing their own classes. We believe in supporting the teaching community directly." 
+                    },
+                    { 
+                        q: "Does it work without an internet connection?", 
+                        a: "Absolutely. AdminLess is 'offline-first'. You can capture attendance and marks while in the classroom, and the app will automatically sync to your private cloud whenever you next reach Wi-Fi." 
+                    },
+                    { 
+                        q: "How does it help with SA-SAMS?", 
+                        a: "AdminLess isn't a replacement for SA-SAMS; it's a productivity bridge. We provide official CSV and PDF formats that match SAMS requirements, so you just copy the totals across without manually calculating weighted averages." 
+                    },
+                    { 
+                        q: "Can I import my existing class lists?", 
+                        a: "Yes. You can upload any CSV file or even scan a paper class list using our built-in AI camera tool to populate your rosters in seconds." 
+                    },
+                    { 
+                        q: "Is my student data secure?", 
+                        a: "Data privacy is our top priority. All student information is encrypted and stored in your private account. We do not share data with third parties or use it for advertising." 
+                    }
+                ].map((item, i) => (
+                    <AccordionItem key={i} value={`item-${i}`} className="border rounded-2xl bg-white dark:bg-slate-900 px-6">
+                        <AccordionTrigger className="text-sm font-bold text-left hover:no-underline">{item.q}</AccordionTrigger>
+                        <AccordionContent className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                            {item.a}
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+            </Accordion>
         </div>
       </section>
 
