@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { NotebookPen, BookOpen, Clock, Plus, Trash2, CalendarDays, ArrowRight } from "lucide-react";
+import { NotebookPen, BookOpen, Plus, Trash2, CalendarDays, ArrowRight, Eraser } from "lucide-react";
 import { useTimetable } from '@/hooks/useTimetable';
 import { useClasses } from '@/context/ClassesContext';
 
@@ -60,6 +60,14 @@ export const TimetableSettings = () => {
         day, period,
         [field]: value
     });
+  };
+
+  const handleClearRow = async (period: number) => {
+    if (confirm(`Clear all classes scheduled for Period ${period}? Row structure will remain.`)) {
+        for (const day of DAYS) {
+            await clearEntry(day, period);
+        }
+    }
   };
 
   const handleRemoveLastRow = async () => {
@@ -162,7 +170,11 @@ export const TimetableSettings = () => {
                                                 }}
                                             />
                                         </div>
-                                        <p className="text-[8px] text-center font-bold uppercase text-muted-foreground/60 leading-tight">Apply to Row</p>
+                                        <div className="flex flex-col items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="sm" className="h-6 text-[8px] font-bold uppercase gap-1 text-muted-foreground hover:text-destructive" onClick={() => handleClearRow(period)}>
+                                                <Eraser className="h-2.5 w-2.5" /> Clear Row
+                                            </Button>
+                                        </div>
                                     </div>
                                 </TableCell>
                                 {DAYS.map(day => {
