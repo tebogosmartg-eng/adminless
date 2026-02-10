@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import EvidenceAudit from "./pages/EvidenceAudit";
 import Login from "./pages/Login";
+import Landing from "./pages/Landing";
 import { ClassesProvider } from "./context/ClassesContext";
 import { ActivityProvider } from "./context/ActivityContext";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -32,7 +33,7 @@ const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children, session }: { children: React.ReactNode; session: Session | null }) => {
   if (!session) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/welcome" replace />;
   }
   return <>{children}</>;
 };
@@ -87,7 +88,8 @@ const App = () => {
                                 <OfflineIndicator />
                                 <ReloadPrompt />
                                 <Routes>
-                                <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
+                                <Route path="/welcome" element={session ? <Navigate to="/" /> : <Landing />} />
+                                <Route path="/login" element={session ? <Navigate to="/" /> : <Login />} />
                                 <Route
                                     element={
                                     <ProtectedRoute session={session}>
