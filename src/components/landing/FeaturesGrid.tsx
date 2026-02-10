@@ -19,18 +19,18 @@ export const FeaturesGrid = () => {
     <section className="py-24 bg-[#fcfcfd] dark:bg-[#0a0a0b] border-t border-slate-100 dark:border-slate-800">
       <div className="container mx-auto px-4 md:px-8">
           <div className="max-w-3xl mx-auto text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">Everything you need, nothing you don't.</h2>
-              <p className="text-slate-500 dark:text-slate-400">A professional toolset for modern academic management.</p>
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-4">Everything you need, nothing you don't.</h2>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">A professional toolset for modern academic management.</p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-16">
               {FEATURES.map((feature, i) => (
-                  <div key={i} className="flex flex-col gap-3 p-2">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">
-                          <feature.icon className="w-5 h-5" />
+                  <div key={i} className="flex flex-col gap-4 group cursor-default">
+                      <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-blue-600 shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:shadow-md group-hover:border-blue-100 dark:group-hover:border-blue-900/30">
+                          <feature.icon className="w-6 h-6" />
                       </div>
-                      <div>
-                          <h4 className="font-bold text-slate-900 dark:text-white mb-1">{feature.title}</h4>
+                      <div className="space-y-2">
+                          <h4 className="font-bold text-slate-900 dark:text-white transition-colors group-hover:text-blue-600">{feature.title}</h4>
                           <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{feature.desc}</p>
                       </div>
                   </div>

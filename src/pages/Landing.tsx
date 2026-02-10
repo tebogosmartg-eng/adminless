@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { motion, Variants } from 'framer-motion';
 import { LandingNav } from '@/components/landing/LandingNav';
 import { LandingHero } from '@/components/landing/LandingHero';
 import { ProblemSection } from '@/components/landing/ProblemSection';
@@ -15,21 +16,60 @@ import { TrustSection } from '@/components/landing/TrustSection';
 import { FinalCtaSection } from '@/components/landing/FinalCtaSection';
 import { LandingFooter } from '@/components/landing/LandingFooter';
 
+const fadeInVariant: Variants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { duration: 0.8, ease: "easeOut" }
+  }
+};
+
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-[#fcfcfd] dark:bg-[#0a0a0b] text-slate-900 dark:text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[#fcfcfd] dark:bg-[#0a0a0b] text-slate-900 dark:text-slate-100 flex flex-col selection:bg-blue-100 selection:text-blue-900">
       <LandingNav />
+      
       <LandingHero />
-      <ProblemSection />
-      <FeaturesGrid />
-      <AlignmentSection />
-      <ComplianceSection />
-      <WorkflowSection />
-      <AudienceSection />
-      <DataPrivacySection />
-      <FaqSection />
-      <TrustSection />
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <ProblemSection />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <FeaturesGrid />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <AlignmentSection />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <ComplianceSection />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <WorkflowSection />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <AudienceSection />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <DataPrivacySection />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <FaqSection />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <TrustSection />
+      </motion.div>
+
       <FinalCtaSection />
+      
       <LandingFooter />
     </div>
   );
