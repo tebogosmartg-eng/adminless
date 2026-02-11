@@ -10,10 +10,12 @@ import { AppPreviewGallery } from '@/components/landing/AppPreviewGallery';
 import { ComparisonSection } from '@/components/landing/ComparisonSection';
 import { AlignmentSection } from '@/components/landing/AlignmentSection';
 import { ComplianceSection } from '@/components/landing/ComplianceSection';
+import { ImpactMetrics } from '@/components/landing/ImpactMetrics';
 import { WorkflowSection } from '@/components/landing/WorkflowSection';
 import { InstitutionalSection } from '@/components/landing/InstitutionalSection';
 import { DailyTimeline } from '@/components/landing/DailyTimeline';
 import { AiAssistantSection } from '@/components/landing/AiAssistantSection';
+import { LocalContextSection } from '@/components/landing/LocalContextSection';
 import { AudienceSection } from '@/components/landing/AudienceSection';
 import { PricingSection } from '@/components/landing/PricingSection';
 import { TestimonialsSection } from '@/components/landing/TestimonialsSection';
@@ -64,6 +66,10 @@ const Landing = () => {
       </motion.div>
 
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <ImpactMetrics />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
         <WorkflowSection />
       </motion.div>
 
@@ -77,6 +83,10 @@ const Landing = () => {
 
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
         <AiAssistantSection />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <LocalContextSection />
       </motion.div>
 
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
