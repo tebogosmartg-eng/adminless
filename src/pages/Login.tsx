@@ -21,14 +21,14 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md shadow-2xl border-border/50 rounded-[2rem] overflow-hidden">
-        <CardHeader className="text-center space-y-4 pt-10 pb-6 bg-white">
-            <div className="mx-auto bg-slate-50 p-4 rounded-[2rem] shadow-inner border border-slate-100">
-                 <img src={logo} alt="AdminLess Logo" className="h-28 w-28 object-contain" />
+      <Card className="w-full max-w-md shadow-2xl border-border/50 rounded-[3rem] overflow-hidden">
+        <CardHeader className="text-center space-y-6 pt-12 pb-8 bg-white">
+            <div className="mx-auto bg-slate-50 p-6 rounded-[2.5rem] shadow-inner border border-slate-100">
+                 <img src={logo} alt="AdminLess Logo" className="h-40 w-40 object-contain" />
             </div>
             <div className="space-y-1">
               <CardTitle className="text-4xl font-black tracking-tighter text-blue-900">AdminLess</CardTitle>
-              <CardDescription className="text-xs font-black text-blue-600 uppercase tracking-[0.2em]">
+              <CardDescription className="text-xs font-black text-blue-600 uppercase tracking-[0.3em]">
                   Less Admin. More Teaching.
               </CardDescription>
             </div>
@@ -45,14 +45,14 @@ const Login = () => {
                             brandAccent: '#1d4ed8',
                         },
                         radii: {
-                            borderRadiusButton: '0.75rem',
-                            inputBorderRadius: '0.75rem',
+                            borderRadiusButton: '1rem',
+                            inputBorderRadius: '1rem',
                         }
                     }
                 },
                 className: {
-                    button: 'w-full px-4 py-3 rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98]',
-                    input: 'flex h-12 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20',
+                    button: 'w-full px-4 py-4 rounded-2xl font-black transition-all hover:scale-[1.02] active:scale-[0.98]',
+                    input: 'flex h-14 w-full rounded-2xl border border-input bg-background px-4 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20',
                 }
             }}
             theme="light"

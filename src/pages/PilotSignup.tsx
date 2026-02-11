@@ -11,11 +11,11 @@ const PilotSignup = () => {
   return (
     <div className="min-h-screen bg-[#fcfcfd] dark:bg-[#0a0a0b] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-2xl mb-8 flex items-center justify-between">
-        <Link to="/welcome" className="group flex items-center gap-4 hover:scale-105 transition-transform active:scale-95">
-            <div className="bg-white p-1 rounded-xl shadow-sm border border-slate-100">
-              <img src={logo} alt="AdminLess Logo" className="h-10 w-10 object-contain" />
+        <Link to="/welcome" className="group flex items-center gap-5 hover:scale-105 transition-transform active:scale-95">
+            <div className="bg-white p-2 rounded-2xl shadow-md border border-slate-100">
+              <img src={logo} alt="AdminLess Logo" className="h-12 w-12 object-contain" />
             </div>
-            <span className="text-2xl font-black tracking-tighter">AdminLess</span>
+            <span className="text-3xl font-black tracking-tighter">AdminLess</span>
         </Link>
         <Link to="/welcome">
             <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground font-bold">
@@ -24,19 +24,19 @@ const PilotSignup = () => {
         </Link>
       </div>
 
-      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[3rem] border shadow-2xl shadow-blue-500/5 p-8 md:p-12">
-        <div className="mb-10">
-            <h1 className="text-4xl font-black tracking-tight mb-3">Join the Teacher Pilot</h1>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">
+      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[3.5rem] border shadow-2xl shadow-blue-500/5 p-8 md:p-14">
+        <div className="mb-12">
+            <h1 className="text-4xl font-black tracking-tight mb-4">Join the Teacher Pilot</h1>
+            <p className="text-slate-500 dark:text-slate-400 font-medium text-lg leading-relaxed">
                 Set up your private workspace in under 60 seconds.
             </p>
         </div>
 
         <PilotSignupForm />
 
-        <div className="mt-12 pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                <img src={logo} alt="" className="h-4 w-4 opacity-50 grayscale" />
+        <div className="mt-14 pt-10 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
+                <img src={logo} alt="" className="h-6 w-6 opacity-40 grayscale" />
                 Your data stays yours.
             </div>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
