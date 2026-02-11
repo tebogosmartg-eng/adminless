@@ -15,7 +15,6 @@ export const useSetupStatus = () => {
   const totalAssessments = useLiveQuery(() => db.assessments.count()) || 0;
   const totalMarks = useLiveQuery(() => db.assessment_marks.count()) || 0;
   
-  // Detect if any data exists that lacks architectural references
   const hasLegacyData = useLiveQuery(async () => {
     const counts = await Promise.all([
         db.classes.filter(c => !c.year_id || !c.term_id).count(),
@@ -49,13 +48,18 @@ export const useSetupStatus = () => {
     const missingRequired = coreSteps.filter(s => !s.done);
     const isReadyForFinalization = missingRequired.length === 0;
 
+    // Diagnostic log for stabilization review
+    if (!isReadyForFinalization) {
+        console.log("[SetupStatus] Checklist active. Pending steps:", missingRequired.map(s => s.title).join(", "));
+    }
+
     return {
         coreSteps,
         missingRequired,
         isReadyForFinalization,
         hasInitialSetup: step1 && step2 && step3 && step4,
         hasMarksCaptured: step7,
-        hasLegacyData // NEW: architectural gap detection
+        hasLegacyData 
     };
   }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, hasLegacyData]);
 

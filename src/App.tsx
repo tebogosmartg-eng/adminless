@@ -33,6 +33,7 @@ const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children, session }: { children: React.ReactNode; session: Session | null }) => {
   if (!session) {
+    console.log("[ProtectedRoute] No session found, redirecting to welcome");
     return <Navigate to="/welcome" replace />;
   }
   return <>{children}</>;
@@ -44,12 +45,15 @@ const App = () => {
 
   useEffect(() => {
     const initAuth = async () => {
+      console.log("[Auth] Initializing session check...");
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         if (error) throw error;
+        
+        console.log("[Auth] Initial session check complete:", initialSession ? "User Authenticated" : "No Session");
         setSession(initialSession);
       } catch (err) {
-        console.error("[auth] Initial session load failed:", err);
+        console.error("[Auth] Initial session load failed:", err);
       } finally {
         setLoading(false);
       }
@@ -58,8 +62,13 @@ const App = () => {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log(`[Auth] State Change Event: ${event}`, newSession?.user?.email || "No User");
       setSession(newSession);
       setLoading(false);
+      
+      if (event === 'SIGNED_OUT') {
+          console.log("[Auth] User signed out, clearing local state references");
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -73,7 +82,7 @@ const App = () => {
              <div className="h-16 w-16 rounded-full border-4 border-primary/30" />
              <div className="absolute top-0 left-0 h-16 w-16 rounded-full border-4 border-primary border-t-transparent animate-spin" />
            </div>
-           <p className="text-muted-foreground font-medium animate-pulse">Authenticating...</p>
+           <p className="text-muted-foreground font-medium animate-pulse">Establishing Secure Session...</p>
         </div>
       </div>
     );
