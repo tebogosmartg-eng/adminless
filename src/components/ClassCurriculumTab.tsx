@@ -1,3 +1,4 @@
+' character and cleaning the file header.">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";
