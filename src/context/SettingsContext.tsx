@@ -6,6 +6,7 @@ import { Session } from '@supabase/supabase-js';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SettingsContextType {
   gradingScheme: GradeSymbol[];
@@ -88,6 +89,56 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [commentBank, setCommentBankState] = useState<string[]>([]);
   const [savedSubjects, setSavedSubjectsState] = useState<string[]>(DEFAULT_DBE_SUBJECTS);
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
+
+  // Diagnostic Audit Effect
+  useEffect(() => {
+    const runAudit = async () => {
+      if (!session?.user) {
+        console.log("[Auth Audit] No active session found.");
+        return;
+      }
+
+      const uid = session.user.id;
+      console.log(`[Auth Audit] Currently authenticated User ID: ${uid}`);
+      console.log(`[Auth Audit] User Email: ${session.user.email}`);
+
+      // 1. Check Supabase directly (Test RLS and existence)
+      try {
+        const { data: sbProfile, error: sbError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', uid)
+          .maybeSingle();
+
+        if (sbError) {
+          console.error("[Auth Audit] Supabase Fetch Error:", sbError);
+          console.error("[Auth Audit] Result: RLS or connection error likely blocking profile fetch.");
+        } else if (!sbProfile) {
+          console.warn("[Auth Audit] Result: Profile row NOT FOUND in Supabase 'profiles' table for this ID.");
+        } else {
+          console.log("[Auth Audit] Supabase profile successfully fetched:", sbProfile);
+          console.log(`[Auth Audit] Teacher Name in Supabase: "${sbProfile.teacher_name}"`);
+          console.log(`[Auth Audit] School Name in Supabase: "${sbProfile.school_name}"`);
+        }
+      } catch (e) {
+        console.error("[Auth Audit] Critical error during Supabase fetch:", e);
+      }
+
+      // 2. Check Local Dexie (Offline-first state)
+      try {
+        const localProfile = await db.profiles.get(uid);
+        if (localProfile) {
+          console.log("[Auth Audit] Local Dexie profile found:", localProfile);
+        } else {
+          console.warn("[Auth Audit] Local Dexie profile NOT FOUND. Sync may be required.");
+        }
+      } catch (e) {
+        console.error("[Auth Audit] Error reading from local database:", e);
+      }
+    };
+
+    runAudit();
+  }, [session]);
 
   useEffect(() => {
     if (profile) {
