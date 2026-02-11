@@ -1,6 +1,6 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Database, Download, Upload, AlertTriangle, Loader2, RefreshCw, Calculator, Sparkles, History } from "lucide-react";
+import { Database, Download, AlertTriangle, Loader2, RefreshCw, Calculator, Sparkles } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -16,40 +16,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { db } from "@/db";
-import { queueAction } from "@/services/sync";
 import { useSync } from "@/context/SyncContext";
 import { useAcademic } from "@/context/AcademicContext";
-import { DataAuditTool } from "./DataAuditTool";
-import { DataRecoveryTool } from "./DataRecoveryTool";
 import { importDemoData } from "@/services/demoData";
 
 export const DataManagementSettings = () => {
   const { isOnline, forceSync, isSyncing } = useSync();
   const { recalculateAllActiveAverages } = useAcademic();
   const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
-  const [isRecovering, setIsRecovering] = useState(false);
-
-  const handleManualRecovery = async () => {
-      setIsRecovering(true);
-      try {
-          const { data, error } = await supabase.functions.invoke('account-recovery');
-          if (error) throw error;
-          if (data?.migratedCount > 0) {
-              showSuccess(data.message);
-              setTimeout(() => window.location.reload(), 1500);
-          } else {
-              showSuccess("Your account linkage is healthy. No historical data drift detected.");
-          }
-      } catch (e) {
-          showError("Recovery service currently unavailable.");
-      } finally {
-          setIsRecovering(false);
-      }
-  };
 
   const handleRecalculate = async () => {
       setIsRepairing(true);
@@ -100,25 +77,6 @@ export const DataManagementSettings = () => {
     }
   };
 
-  const handleImportData = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setIsImporting(true);
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        showSuccess("Restoration complete.");
-        setTimeout(() => window.location.reload(), 1500);
-      } catch (err) {
-        showError("Failed to import data.");
-      } finally {
-        setIsImporting(false);
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = '';
-  };
-
   const handleClearData = async () => {
     setIsClearing(true);
     try {
@@ -133,25 +91,6 @@ export const DataManagementSettings = () => {
 
   return (
     <div className="space-y-6">
-        <Card className="border-blue-200 bg-blue-50/10">
-            <CardHeader>
-                <div className="flex items-center gap-2">
-                    <History className="h-5 w-5 text-blue-600" />
-                    <CardTitle>Account Linkage Service</CardTitle>
-                </div>
-                <CardDescription>If you previously had data that is no longer appearing, use this to scan for historical records linked to your email.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button onClick={handleManualRecovery} disabled={isRecovering || !isOnline} variant="outline" className="w-full sm:w-auto bg-white border-blue-200 text-blue-700 hover:bg-blue-50">
-                    {isRecovering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <History className="mr-2 h-4 w-4" />}
-                    Scan for Historical Data
-                </Button>
-            </CardContent>
-        </Card>
-
-        <DataRecoveryTool />
-        <DataAuditTool />
-        
         <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
                 <div className="flex items-center gap-2">

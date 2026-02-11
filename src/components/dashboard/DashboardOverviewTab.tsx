@@ -8,7 +8,6 @@ import ClassSummaryCard from '@/components/ClassSummaryCard';
 import { QuickActions } from './QuickActions';
 import { TermProgressWidget } from './TermProgressWidget';
 import { DailyGoalWidget } from './DailyGoalWidget';
-import { OnboardingChecklist } from './OnboardingChecklist';
 import { RecentAlerts } from './RecentAlerts';
 import { DailyAttendanceCard } from './DailyAttendanceCard';
 import { CurriculumProgressWidget } from './CurriculumProgressWidget';
@@ -29,8 +28,6 @@ export const DashboardOverviewTab = ({
 }: DashboardOverviewTabProps) => {
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
-      <OnboardingChecklist />
-
       <div className="grid gap-3 md:grid-cols-3">
          <div className="md:col-span-2">
             <QuickActions onAddNote={onAddNote} />
