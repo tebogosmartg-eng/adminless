@@ -27,7 +27,7 @@ const Login = () => {
                  <img 
                   src={icon} 
                   alt="AdminLess Icon" 
-                  className="h-48 w-auto object-contain mx-auto" 
+                  className="h-32 w-auto object-contain mx-auto" 
                  />
             </div>
             <div className="space-y-1">
