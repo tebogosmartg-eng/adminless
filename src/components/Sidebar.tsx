@@ -5,11 +5,11 @@ const Sidebar = () => {
   return (
     <aside className="hidden w-64 flex-shrink-0 border-r bg-[#1a1a1a] text-sidebar-foreground md:block transition-colors duration-300">
       <div className="flex h-full flex-col">
-        <div className="flex h-20 items-center border-b border-white/5 px-6 gap-3">
+        <div className="flex h-24 items-center border-b border-white/5 px-6 gap-3">
           <img 
             src={icon} 
             alt="AdminLess Icon" 
-            className="h-12 w-auto object-contain" 
+            className="h-20 w-auto object-contain" 
           />
           <h1 className="text-xl font-bold tracking-tight text-white/90">AdminLess</h1>
         </div>

@@ -9,12 +9,12 @@ import icon from "@/source bucket/Icon.png";
 export const LandingNav = () => {
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white/80 dark:bg-black/80 backdrop-blur-md no-print">
-      <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-8">
+      <div className="container mx-auto flex h-24 items-center justify-between px-4 md:px-8">
         <Link to="/" className="flex items-center gap-3 group transition-opacity hover:opacity-90">
           <img 
             src={icon} 
             alt="AdminLess Icon" 
-            className="h-10 w-auto object-contain" 
+            className="h-20 w-auto object-contain" 
           />
           <span className="text-2xl font-black tracking-tighter text-slate-900 dark:text-white">AdminLess</span>
         </Link>

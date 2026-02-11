@@ -15,7 +15,7 @@ const PilotSignup = () => {
             <img 
               src={icon} 
               alt="AdminLess Icon" 
-              className="h-12 w-auto object-contain" 
+              className="h-20 w-auto object-contain" 
             />
             <span className="text-3xl font-black tracking-tighter">AdminLess</span>
         </Link>

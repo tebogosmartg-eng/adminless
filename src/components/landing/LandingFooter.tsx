@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { DataCommitmentDialog } from './LandingActions';
-import logo from "@/source bucket/AdminLess logo.png";
+import icon from "@/source bucket/Icon.png";
 
 export const LandingFooter = () => {
   return (
@@ -11,7 +11,7 @@ export const LandingFooter = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-8">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-                <img src={logo} alt="AdminLess Logo" className="h-5 w-5 object-contain" />
+                <img src={icon} alt="AdminLess Icon" className="h-8 w-auto object-contain" />
                 <span className="font-bold text-blue-600">AdminLess</span>
             </div>
             <p className="text-xs text-slate-500 font-medium">Designed for South African educators.</p>
