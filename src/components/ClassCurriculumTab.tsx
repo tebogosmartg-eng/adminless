@@ -1,11 +1,10 @@
-' character and cleaning the file header.">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Circle, BookOpen, AlertCircle, Calendar } from "lucide-react";
+import { CheckCircle2, BookOpen, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ClassCurriculumTabProps {
