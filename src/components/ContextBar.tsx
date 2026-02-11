@@ -15,8 +15,7 @@ import {
   Clock,
   AlertCircle,
   FileEdit,
-  LayoutDashboard,
-  Lock
+  Cloud
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSync } from "@/context/SyncContext";
@@ -32,6 +31,7 @@ import {
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { Progress } from "@/components/ui/progress";
 import { useMemo } from 'react';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export const ContextBar = () => {
   const { activeYear, activeTerm, assessments, marks: allMarks } = useAcademic();
@@ -39,13 +39,12 @@ export const ContextBar = () => {
   const { classId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isOnline, isSyncing, pendingChanges } = useSync();
+  const { isOnline, isSyncing, pendingChanges, forceSync } = useSync();
   const { nextPeriod } = useCurrentPeriod();
 
   const currentClass = classId ? classes.find(c => c.id === classId) : null;
   const isClassPage = location.pathname.includes('/classes/') && currentClass;
 
-  // 1. Live Attendance Pulse
   const today = format(new Date(), 'yyyy-MM-dd');
   const attendancePulse = useLiveQuery(async () => {
     if (!classId) return null;
@@ -62,7 +61,6 @@ export const ContextBar = () => {
     };
   }, [classId, currentClass]);
 
-  // 2. Term Progress Calculation
   const termProgress = useMemo(() => {
     if (!activeTerm?.start_date || !activeTerm?.end_date) return null;
     const start = new Date(activeTerm.start_date);
@@ -75,7 +73,6 @@ export const ContextBar = () => {
     return Math.round((passed / total) * 100);
   }, [activeTerm]);
 
-  // 3. Marking Debt (Missing Marks for task tracking)
   const markingDebt = useMemo(() => {
     if (!isClassPage || assessments.length === 0) return 0;
     const totalExpected = assessments.length * currentClass.learners.length;
@@ -91,8 +88,6 @@ export const ContextBar = () => {
   return (
     <div className="bg-white dark:bg-card border-b px-4 md:px-8 h-10 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider z-20 sticky top-0 md:relative overflow-hidden no-print">
       <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
-        
-        {/* Academic Context + Progress */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <CalendarDays className="h-3 w-3" />
@@ -104,22 +99,12 @@ export const ContextBar = () => {
                 "h-4.5 px-1.5 text-[9px] font-black border-none gap-1",
                 activeTerm?.closed ? "bg-green-100 text-green-700" : "bg-primary/10 text-primary"
             )}>
-                {activeTerm?.closed && <Lock className="h-2 w-2" />}
                 {activeTerm?.name || "Term"}
                 {activeTerm?.closed && " (Finalised)"}
             </Badge>
-            {termProgress !== null && (
-                <div className="w-12 group relative flex items-center">
-                    <Progress value={termProgress} className="h-1 bg-muted" />
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-popover border px-2 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                        {termProgress}% through Term
-                    </div>
-                </div>
-            )}
           </div>
         </div>
 
-        {/* Specific Class Context */}
         {isClassPage && (
           <>
             <div className="h-3 w-px bg-border mx-1 shrink-0" />
@@ -143,7 +128,6 @@ export const ContextBar = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Administrative Alerts */}
               <div className="flex items-center gap-2 ml-2">
                   {attendancePulse && !attendancePulse.marked && !activeTerm?.closed && (
                     <Link to={`/classes/${classId}`} className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-100 animate-pulse-slow">
@@ -151,18 +135,10 @@ export const ContextBar = () => {
                         <span className="hidden sm:inline">Register Pending</span>
                     </Link>
                   )}
-
                   {markingDebt > 0 && !activeTerm?.closed && (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">
                         <FileEdit className="h-3 w-3" />
                         <span className="tabular-nums">{markingDebt} missing entries</span>
-                    </div>
-                  )}
-
-                  {attendancePulse?.marked && (
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border border-green-100 dark:border-green-900/50">
-                        <Users className="h-2.5 w-2.5" />
-                        <span className="tabular-nums">{attendancePulse.present}/{attendancePulse.total} present</span>
                     </div>
                   )}
               </div>
@@ -171,41 +147,35 @@ export const ContextBar = () => {
         )}
       </div>
 
-      {/* Up Next Prediction */}
-      {nextPeriod && (!isClassPage || nextPeriod.class_id !== classId) && (
-          <button 
-              onClick={() => nextPeriod.class_id && navigate(`/classes/${nextPeriod.class_id}`)}
-              className="hidden lg:flex items-center gap-2 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50 hover:bg-amber-100 transition-colors group shrink-0"
-          >
-              <Clock className="h-2.5 w-2.5" />
-              <span className="text-[9px]">Up Next: <span className="font-black">{nextPeriod.class_name}</span></span>
-              {minsUntilNext !== null && minsUntilNext <= 15 && (
-                  <span className="bg-amber-200 dark:bg-amber-800 px-1 rounded text-[8px] animate-pulse">
-                      {minsUntilNext}m
-                  </span>
-              )}
-          </button>
-      )}
+      <div className="flex items-center gap-3 shrink-0 pl-4">
+         <Tooltip>
+           <TooltipTrigger asChild>
+              <button 
+                onClick={() => forceSync()}
+                className={cn(
+                    "flex items-center gap-2 px-2.5 py-1 rounded-md transition-all",
+                    isSyncing ? "bg-blue-50 text-blue-600" : pendingChanges > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"
+                )}
+              >
+                {isSyncing ? (
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                ) : pendingChanges > 0 ? (
+                    <CloudUpload className="h-3 w-3" />
+                ) : (
+                    <CheckCircle2 className="h-3 w-3" />
+                )}
+                <span className="hidden sm:inline">
+                    {isSyncing ? "Syncing..." : pendingChanges > 0 ? `${pendingChanges} pending` : "Safe in Cloud"}
+                </span>
+              </button>
+           </TooltipTrigger>
+           <TooltipContent>
+               {pendingChanges > 0 ? "Changes saving to Supabase..." : "Your data is backed up and synced."}
+           </TooltipContent>
+         </Tooltip>
 
-      {/* Connection & Sync Status */}
-      <div className="flex items-center gap-3 shrink-0 pl-4 bg-gradient-to-l from-white dark:from-card via-white dark:via-card to-transparent">
-         {isSyncing ? (
-            <div className="flex items-center gap-1.5 text-blue-600">
-                <RefreshCw className="h-3 w-3 animate-spin" />
-                <span className="hidden sm:inline">Syncing</span>
-            </div>
-         ) : pendingChanges > 0 ? (
-            <div className="flex items-center gap-1.5 text-amber-600">
-                <CloudUpload className="h-3 w-3" />
-                <span className="hidden sm:inline">{pendingChanges} items</span>
-            </div>
-         ) : isOnline ? (
-            <div className="flex items-center gap-1.5 text-green-600 opacity-60">
-                <CheckCircle2 className="h-3 w-3" />
-                <span className="hidden sm:inline">Synced</span>
-            </div>
-         ) : (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
+         {!isOnline && (
+            <div className="flex items-center gap-1.5 text-muted-foreground px-2">
                 <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                 <span>Offline</span>
             </div>

@@ -27,50 +27,31 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const handleOnline = () => {
         setIsOnline(true);
-        toast.success("Back online. Syncing...");
+        toast.success("Connection restored. Synchronizing your data...");
         forceSync();
     };
     const handleOffline = () => {
         setIsOnline(false);
-        toast.info("You are offline. Changes will be saved locally.");
+        toast.info("Offline mode active. All work will be saved locally.");
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Pull data when tab is refocused (ensures multi-device consistency)
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+            forceSync();
+        }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
-
-  // Self-Healing / Account Recovery Trigger
-  useEffect(() => {
-    const runRecovery = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user || !isOnline) return;
-
-      // Only check if the local database is currently empty
-      const localClassCount = await db.classes.count();
-      if (localClassCount === 0) {
-          console.log("[Recovery] App appears empty. Checking for historical data linkage...");
-          
-          try {
-              const { data, error } = await supabase.functions.invoke('account-recovery');
-              if (!error && data?.success && data?.migratedCount > 0) {
-                  toast.success(data.message, { duration: 10000 });
-                  // Re-pull data now that IDs are fixed
-                  await pullData(session.user.id);
-                  window.location.reload();
-              }
-          } catch (e) {
-              console.error("[Recovery] Silent check failed:", e);
-          }
-      }
-    };
-
-    runRecovery();
-  }, [isOnline]);
 
   useEffect(() => {
     const initSync = async () => {
@@ -88,12 +69,13 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // Always push local changes first, then pull down the current state from Supabase
         await pushChanges(); 
         await pullData(user.id); 
         setLastSyncTime(new Date());
       }
     } catch (e) {
-      console.error("Sync failed", e);
+      console.error("[sync] Operation failed:", e);
     } finally {
       setIsSyncing(false);
     }

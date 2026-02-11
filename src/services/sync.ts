@@ -10,7 +10,7 @@ export const pushChanges = async () => {
   if (queueCount === 0) return;
 
   isPushing = true;
-  console.log(`[sync] Pushing ${queueCount} changes...`);
+  console.log(`[sync] Pushing ${queueCount} changes to Supabase...`);
   
   try {
     const queue = await db.sync_queue.orderBy('timestamp').toArray();
@@ -20,6 +20,7 @@ export const pushChanges = async () => {
       const payload = { ...data };
       delete payload.sync_status;
 
+      // Handle field name mapping
       if (table === 'classes' && payload.className !== undefined) {
         payload.class_name = payload.className;
         delete payload.className;
@@ -39,7 +40,8 @@ export const pushChanges = async () => {
       }
 
       if (error) {
-        console.error(`[sync] Failed to sync ${table} item:`, error);
+        console.error(`[sync] Push failed for ${table}:`, error);
+        // We stop processing the queue on error to maintain sequence integrity
         break; 
       } else {
         await db.sync_queue.delete(id!);
@@ -54,7 +56,7 @@ export const pushChanges = async () => {
 
 export const pullData = async (userId: string) => {
   try {
-    console.group(`[Diagnostic] Pulling Data from Supabase for User: ${userId}`);
+    console.group(`[Cloud Audit] Restoring Data from Supabase`);
     
     const pending = await db.sync_queue.toArray();
     const pendingIdsByTable = pending.reduce((acc, item) => {
@@ -63,21 +65,21 @@ export const pullData = async (userId: string) => {
       return acc;
     }, {} as Record<string, Set<string>>);
 
-    const pullTable = async (tableName: string, query: any, idKey = 'id') => {
-      console.log(`[Diagnostic] Executing Supabase query for '${tableName}': SELECT * WHERE user_id = ${userId}`);
+    const pullTable = async (tableName: string, query: any) => {
       const { data, error } = await query;
       
       if (error) {
-          console.error(`[Diagnostic] Supabase query ERROR for '${tableName}':`, error);
+          console.error(`[Cloud Audit] Error pulling ${tableName}:`, error);
           return;
       }
 
-      console.log(`[Diagnostic] Supabase result count for '${tableName}':`, data?.length || 0);
+      if (!data || data.length === 0) return;
 
-      if (!data) return;
+      console.log(`[Cloud Audit] Retrieved ${data.length} records for ${tableName}`);
 
+      // Only update local items if we don't have a newer pending change in the sync queue
       const itemsToPut = data.filter((item: any) => {
-        const id = item[idKey];
+        const id = item.id;
         return !pendingIdsByTable[tableName]?.has(id);
       });
 
@@ -96,18 +98,19 @@ export const pullData = async (userId: string) => {
       }
     };
 
-    // --- TASK 4: FILTERLESS DATA TEST ---
-    // We execute queries based on user_id only (no term/year filtering happens at the server level in this pull)
-    // If data exists in Supabase for this user, it WILL be pulled here regardless of active Term.
+    // 1. Core Architecture (Years/Terms/Profile)
+    await pullTable('academic_years', supabase.from('academic_years').select('*').eq('user_id', userId));
+    await pullTable('terms', supabase.from('terms').select('*').eq('user_id', userId));
+    await pullTable('profiles', supabase.from('profiles').select('*').eq('id', userId));
     
+    // 2. Class Structure
     await pullTable('classes', supabase.from('classes').select('*').eq('user_id', userId));
     
     const localClasses = await db.classes.toArray();
     const classIds = localClasses.map(c => c.id);
 
-    console.log(`[Diagnostic] Local Class ID count for subsequent pulls:`, classIds.length);
-
     if (classIds.length > 0) {
+      // Pull everything linked to existing classes
       await pullTable('learners', supabase.from('learners').select('*').in('class_id', classIds));
       await pullTable('assessments', supabase.from('assessments').select('*').in('class_id', classIds));
       
@@ -117,21 +120,21 @@ export const pullData = async (userId: string) => {
         await pullTable('assessment_marks', supabase.from('assessment_marks').select('*').in('assessment_id', assIds));
       }
 
-      await pullTable('attendance', supabase.from('attendance').select('*').in('class_id', classIds), 'learner_id');
+      await pullTable('attendance', supabase.from('attendance').select('*').in('class_id', classIds));
       await pullTable('learner_notes', supabase.from('learner_notes').select('*').in('learner_id', classIds));
+      await pullTable('evidence', supabase.from('evidence').select('*').in('class_id', classIds));
     }
 
-    await pullTable('academic_years', supabase.from('academic_years').select('*').eq('user_id', userId));
-    await pullTable('terms', supabase.from('terms').select('*').eq('user_id', userId));
-    await pullTable('profiles', supabase.from('profiles').select('*').eq('id', userId));
+    // 3. User Tools
     await pullTable('todos', supabase.from('todos').select('*').eq('user_id', userId));
     await pullTable('timetable', supabase.from('timetable').select('*').eq('user_id', userId));
     await pullTable('lesson_logs', supabase.from('lesson_logs').select('*').eq('user_id', userId));
+    await pullTable('rubrics', supabase.from('rubrics').select('*').eq('user_id', userId));
+    await pullTable('activities', supabase.from('activities').select('*').eq('user_id', userId));
 
     console.groupEnd();
-    console.log("[sync] Data pull complete.");
   } catch (error) {
-    console.error("[sync] Pull failed:", error);
+    console.error("[sync] Global pull failed:", error);
   }
 };
 
