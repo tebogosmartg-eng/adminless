@@ -27,7 +27,6 @@ import { SettingsProvider } from "./context/SettingsContext";
 import { AcademicProvider } from "./context/AcademicContext";
 import { SyncProvider } from "./context/SyncContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
-import { ReloadPrompt } from "./components/ReloadPrompt";
 import { SystemThemeManager } from "./components/SystemThemeManager";
 
 const queryClient = new QueryClient();
@@ -44,7 +43,6 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Robust initial session check
     const initAuth = async () => {
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
@@ -59,16 +57,8 @@ const App = () => {
 
     initAuth();
 
-    // Subscribe to ongoing auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-      console.log(`[auth] State Change Event: ${event}`);
       setSession(newSession);
-      
-      if (event === 'SIGNED_OUT') {
-        // Clear any specific application cache or sensitive local state if needed
-        setSession(null);
-      }
-      
       setLoading(false);
     });
 
@@ -103,7 +93,6 @@ const App = () => {
                         <SettingsProvider session={session}>
                             <ClassesProvider session={session}>
                                 <OfflineIndicator />
-                                <ReloadPrompt />
                                 <Routes>
                                 <Route path="/welcome" element={session ? <Navigate to="/" /> : <Landing />} />
                                 <Route path="/pilot-signup" element={session ? <Navigate to="/" /> : <PilotSignup />} />
