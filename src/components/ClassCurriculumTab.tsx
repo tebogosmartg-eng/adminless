@@ -1,4 +1,3 @@
-character in JSX text to fix the compilation error.">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";
