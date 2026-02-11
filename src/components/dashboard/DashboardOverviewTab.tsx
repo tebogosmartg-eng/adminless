@@ -7,13 +7,14 @@ import { PlusCircle, Users, LayoutDashboard, Settings, CalendarClock, ShieldChec
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import { QuickActions } from './QuickActions';
 import { TermProgressWidget } from './TermProgressWidget';
-import { TimetableWidget } from './TimetableWidget';
-import { TodoList } from './TodoList';
-import { AdminDebtWidget } from './AdminDebtWidget';
 import { DailyGoalWidget } from './DailyGoalWidget';
 import { OnboardingChecklist } from './OnboardingChecklist';
 import { RecentAlerts } from './RecentAlerts';
 import { DailyAttendanceCard } from './DailyAttendanceCard';
+import { CurriculumProgressWidget } from './CurriculumProgressWidget';
+import { TimetableWidget } from './TimetableWidget';
+import { TodoList } from './TodoList';
+import { AdminDebtWidget } from './AdminDebtWidget';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -81,7 +82,7 @@ export const DashboardOverviewTab = ({
             </h3>
             <div className="grid gap-3 md:grid-cols-2">
                 {activeClasses.map(c => (
-                <ClassSummaryCard key={c.id} classInfo={c} />
+                  <ClassSummaryCard key={c.id} classInfo={c} />
                 ))}
             </div>
           </div>
@@ -90,6 +91,7 @@ export const DashboardOverviewTab = ({
         {/* Schedule & Reminders Column */}
         <div className="space-y-3">
           <TimetableWidget />
+          <CurriculumProgressWidget />
           <TodoList />
           <RecentAlerts />
           <RecentActivity />

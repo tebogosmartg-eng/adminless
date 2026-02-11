@@ -12,12 +12,13 @@ import { ClassDialogsManager } from "@/components/ClassDialogsManager";
 import { EvidenceManager } from "@/components/evidence/EvidenceManager";
 import { ClassAnalysisTab } from "@/components/analysis/ClassAnalysisTab";
 import { ClassLessonJournal } from "@/components/ClassLessonJournal";
+import { ClassCurriculumTab } from "@/components/ClassCurriculumTab";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldCheck, BarChart3, ArrowLeft, Sparkles, Dices, BookText } from "lucide-react";
+import { Loader2, ShieldCheck, BarChart3, ArrowLeft, Sparkles, Dices, BookText, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { generateSASAMSExport } from "@/utils/sasams";
@@ -195,6 +196,9 @@ const ClassDetails = () => {
           <TabsTrigger value="journal" className="flex-none h-10 px-6 gap-2">
             <BookText className="h-3.5 w-3.5" /> Journal
           </TabsTrigger>
+          <TabsTrigger value="plan" className="flex-none h-10 px-6 gap-2">
+            <ListChecks className="h-3.5 w-3.5" /> Plan
+          </TabsTrigger>
           <TabsTrigger value="evidence" className="flex-none h-10 px-6 gap-2">
             <ShieldCheck className="h-3.5 w-3.5" /> Evidence
           </TabsTrigger>
@@ -220,6 +224,14 @@ const ClassDetails = () => {
 
         <TabsContent value="journal">
             <ClassLessonJournal classId={classId} />
+        </TabsContent>
+
+        <TabsContent value="plan">
+            <ClassCurriculumTab 
+                classId={classId} 
+                subject={classInfo.subject} 
+                grade={classInfo.grade} 
+            />
         </TabsContent>
 
         <TabsContent value="evidence">
