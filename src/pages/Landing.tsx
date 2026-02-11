@@ -13,6 +13,7 @@ import { ComplianceSection } from '@/components/landing/ComplianceSection';
 import { WorkflowSection } from '@/components/landing/WorkflowSection';
 import { InstitutionalSection } from '@/components/landing/InstitutionalSection';
 import { DailyTimeline } from '@/components/landing/DailyTimeline';
+import { AiAssistantSection } from '@/components/landing/AiAssistantSection';
 import { AudienceSection } from '@/components/landing/AudienceSection';
 import { PricingSection } from '@/components/landing/PricingSection';
 import { TestimonialsSection } from '@/components/landing/TestimonialsSection';
@@ -72,6 +73,10 @@ const Landing = () => {
 
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
         <DailyTimeline />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <AiAssistantSection />
       </motion.div>
 
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
