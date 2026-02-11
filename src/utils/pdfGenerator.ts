@@ -10,3 +10,4 @@ export * from './pdf/attendanceReport';
 export * from './pdf/termSummaryReport';
 export * from './pdf/yearSummaryReport';
 export * from './pdf/blankListReport';
+export * from './pdf/diagnosticReport';

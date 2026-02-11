@@ -7,9 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info } from 'lucide-react';
-import { Assessment, Term, AcademicYear, Rubric } from '@/lib/types';
+import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, BarChart3 } from 'lucide-react';
+import { Assessment, Term, AcademicYear, Rubric, ClassInfo } from '@/lib/types';
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { DiagnosticReportDialog } from "./DiagnosticReportDialog";
 
 interface MarkSheetToolbarProps {
   terms: Term[];
@@ -40,6 +42,7 @@ interface MarkSheetToolbarProps {
   setRecalculateTotal: (recalc: boolean) => void;
   isAutoSaving?: boolean;
   availableRubrics?: Rubric[];
+  classInfo?: ClassInfo;
 }
 
 export const MarkSheetToolbar = ({
@@ -49,8 +52,11 @@ export const MarkSheetToolbar = ({
   isAddOpen, setIsAddOpen, setIsImportOpen, setIsCopyOpen,
   newAss, setNewAss, handleAddAssessment,
   assessments, visibleAssessmentIds, toggleAssessmentVisibility, recalculateTotal, setRecalculateTotal,
-  isAutoSaving, availableRubrics = []
+  isAutoSaving, availableRubrics = [],
+  classInfo
 }: MarkSheetToolbarProps) => {
+
+  const [diagOpen, setDiagOpen] = useState(false);
 
   const handleRubricSelect = (val: string) => {
       const rubric = availableRubrics.find(r => r.id === val);
@@ -142,10 +148,23 @@ export const MarkSheetToolbar = ({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="outline" size="sm" className="h-9 flex-1 sm:flex-none" onClick={handleExportSheet} title="Export to CSV">
-            <FileSpreadsheet className="mr-2 h-4 w-4" /> 
-            <span className="hidden sm:inline">Export</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 flex-1 sm:flex-none" title="Export Reports">
+                    <FileSpreadsheet className="mr-2 h-4 w-4" /> 
+                    <span className="hidden sm:inline">Export</span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuItem onClick={handleExportSheet}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" /> Export Marksheet (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setDiagOpen(true)} className="font-bold py-2.5">
+                    <BarChart3 className="mr-2 h-4 w-4 text-primary" /> Generate Diagnostic Report
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {!isLocked && (
             <DropdownMenu>
@@ -232,6 +251,16 @@ export const MarkSheetToolbar = ({
           </DialogContent>
         </Dialog>
       </div>
+
+      {classInfo && currentViewTerm && activeYear && (
+          <DiagnosticReportDialog 
+            open={diagOpen}
+            onOpenChange={setDiagOpen}
+            classInfo={classInfo}
+            term={currentViewTerm}
+            year={activeYear}
+          />
+      )}
     </div>
   );
 };

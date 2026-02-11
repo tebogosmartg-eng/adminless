@@ -103,6 +103,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           setRecalculateTotal={actions.setRecalculateTotal}
           isAutoSaving={state.isAutoSaving}
           availableRubrics={state.availableRubrics}
+          classInfo={classInfo}
        />
 
        <MarkSheetTable 
