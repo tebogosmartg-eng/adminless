@@ -54,6 +54,7 @@ export const importDemoData = async () => {
 
   // 4. Create Learners
   const studentNames = [
+    "Rorisang Setshedi", // Featured Student
     "Thabo Mbeki", "Sarah Jenkins", "Liam Neeson", "Emma Watson", "John Snow", 
     "Arya Stark", "Peter Parker", "Bruce Wayne", "Diana Prince", "Tony Stark",
     "Steve Rogers", "Natasha Romanoff", "Wanda Maximoff", "Vision", "Sam Wilson"
@@ -61,9 +62,16 @@ export const importDemoData = async () => {
 
   const allLearners: any[] = [];
   classes.forEach(cls => {
+    const isMath = cls.subject === "Mathematics";
     const count = 10 + Math.floor(Math.random() * 5);
     const shuffled = [...studentNames].sort(() => 0.5 - Math.random());
-    shuffled.slice(0, count).forEach(name => {
+    
+    // Ensure Rorisang is in Mathematics
+    const finalNames = isMath 
+        ? ["Rorisang Setshedi", ...shuffled.filter(n => n !== "Rorisang Setshedi").slice(0, count - 1)]
+        : shuffled.slice(0, count);
+
+    finalNames.forEach(name => {
       allLearners.push({
         id: crypto.randomUUID(),
         class_id: cls.id,
@@ -73,6 +81,8 @@ export const importDemoData = async () => {
       });
     });
   });
+
+  const rorisang = allLearners.find(l => l.name === "Rorisang Setshedi");
 
   // 5. Create Assessments
   const assessments: any[] = [];
@@ -97,7 +107,13 @@ export const importDemoData = async () => {
   assessments.forEach(ass => {
     const classLearners = allLearners.filter(l => l.class_id === ass.class_id);
     classLearners.forEach(l => {
-      const baseScore = 0.45 + (Math.random() * 0.5); 
+      let baseScore = 0.45 + (Math.random() * 0.5); 
+      
+      // Give Rorisang consistently high marks
+      if (l.name === "Rorisang Setshedi") {
+          baseScore = 0.85 + (Math.random() * 0.1);
+      }
+
       const score = Math.round(baseScore * ass.max_mark);
       
       marks.push({
@@ -115,7 +131,6 @@ export const importDemoData = async () => {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const timetable: any[] = [];
   days.forEach(day => {
-      // Add 3-4 random periods per day
       const periods = [1, 2, 3, 4, 5, 6].sort(() => 0.5 - Math.random()).slice(0, 4);
       periods.forEach(p => {
           const cls = classes[Math.floor(Math.random() * classes.length)];
@@ -131,18 +146,20 @@ export const importDemoData = async () => {
       });
   });
 
-  // 8. Add Today's Attendance for one class
+  // 8. Add Today's Attendance
   const attendance: any[] = [];
   const todayStr = format(today, 'yyyy-MM-dd');
-  const attClass = classes[0];
-  allLearners.filter(l => l.class_id === attClass.id).forEach(l => {
-      attendance.push({
-          learner_id: l.id,
-          class_id: attClass.id,
-          term_id: activeTermId,
-          user_id: user.id,
-          date: todayStr,
-          status: Math.random() > 0.1 ? 'present' : 'absent'
+  classes.forEach(cls => {
+      allLearners.filter(l => l.class_id === cls.id).forEach(l => {
+          attendance.push({
+              id: crypto.randomUUID(),
+              learner_id: l.id,
+              class_id: cls.id,
+              term_id: activeTermId,
+              user_id: user.id,
+              date: todayStr,
+              status: l.name === "Rorisang Setshedi" ? 'present' : (Math.random() > 0.1 ? 'present' : 'absent')
+          });
       });
   });
 
@@ -162,7 +179,7 @@ export const importDemoData = async () => {
 
   // 10. Add Learner Notes
   const learnerNotes: LearnerNote[] = [
-      { id: crypto.randomUUID(), learner_id: allLearners[0].id, category: 'behavior', content: 'Disruptive during group work. Needs individual check-in.', date: todayStr, year_id: yearId, term_id: activeTermId, user_id: user.id, created_at: new Date().toISOString() },
+      { id: crypto.randomUUID(), learner_id: rorisang?.id || allLearners[0].id, category: 'positive', content: 'Consistently demonstrating leadership in group activities. Excellent grasp of trigonometry.', date: todayStr, year_id: yearId, term_id: activeTermId, user_id: user.id, created_at: new Date().toISOString() },
       { id: crypto.randomUUID(), learner_id: allLearners[5].id, category: 'academic', content: 'Excellent improvement in problem-solving techniques.', date: todayStr, year_id: yearId, term_id: activeTermId, user_id: user.id, created_at: new Date().toISOString() },
       { id: crypto.randomUUID(), learner_id: allLearners[8].id, category: 'parent', content: 'Mother phoned to discuss extra lessons.', date: todayStr, year_id: yearId, term_id: activeTermId, user_id: user.id, created_at: new Date().toISOString() }
   ];
@@ -184,7 +201,6 @@ export const importDemoData = async () => {
     await db.todos.bulkPut(todos);
     await db.learner_notes.bulkPut(learnerNotes);
 
-    // Queue for sync
     await queueAction('academic_years', 'upsert', year);
     await queueAction('terms', 'upsert', terms);
     await queueAction('classes', 'upsert', classes);
