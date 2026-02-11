@@ -1,3 +1,4 @@
+' symbol in JSX text">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";
