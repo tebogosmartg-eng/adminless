@@ -21,17 +21,19 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md shadow-xl border-border/50">
-        <CardHeader className="text-center space-y-2">
-            <div className="mx-auto p-2 rounded-2xl w-fit mb-2">
-                 <img src={logo} alt="AdminLess Logo" className="h-16 w-16 object-contain" />
+      <Card className="w-full max-w-md shadow-2xl border-border/50 rounded-[2rem] overflow-hidden">
+        <CardHeader className="text-center space-y-4 pt-10 pb-6 bg-white">
+            <div className="mx-auto bg-slate-50 p-4 rounded-[2rem] shadow-inner border border-slate-100">
+                 <img src={logo} alt="AdminLess Logo" className="h-28 w-28 object-contain" />
             </div>
-            <CardTitle className="text-3xl font-extrabold tracking-tight text-blue-900">AdminLess</CardTitle>
-            <CardDescription className="text-sm font-bold text-blue-600 uppercase tracking-widest">
-                Less Admin. More Teaching.
-            </CardDescription>
+            <div className="space-y-1">
+              <CardTitle className="text-4xl font-black tracking-tighter text-blue-900">AdminLess</CardTitle>
+              <CardDescription className="text-xs font-black text-blue-600 uppercase tracking-[0.2em]">
+                  Less Admin. More Teaching.
+              </CardDescription>
+            </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-8">
             <Auth
             supabaseClient={supabase}
             appearance={{ 
@@ -43,14 +45,14 @@ const Login = () => {
                             brandAccent: '#1d4ed8',
                         },
                         radii: {
-                            borderRadiusButton: '0.5rem',
-                            inputBorderRadius: '0.5rem',
+                            borderRadiusButton: '0.75rem',
+                            inputBorderRadius: '0.75rem',
                         }
                     }
                 },
                 className: {
-                    button: 'w-full px-4 py-2 rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                    input: 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+                    button: 'w-full px-4 py-3 rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98]',
+                    input: 'flex h-12 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20',
                 }
             }}
             theme="light"

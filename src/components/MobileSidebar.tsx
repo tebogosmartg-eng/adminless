@@ -20,9 +20,11 @@ const MobileSidebar = () => {
             Navigate through Dashboard, Classes, Scan Scripts, Reports, and Settings.
           </SheetDescription>
         </div>
-        <div className="flex h-16 items-center border-b px-6 gap-3">
-          <img src={logo} alt="AdminLess Logo" className="h-8 w-8 rounded-lg object-contain" />
-          <h1 className="text-2xl font-bold">AdminLess</h1>
+        <div className="flex h-20 items-center border-b px-6 gap-4">
+          <div className="bg-white p-1.5 rounded-xl shadow-sm border">
+            <img src={logo} alt="AdminLess Logo" className="h-10 w-10 object-contain" />
+          </div>
+          <h1 className="text-2xl font-black tracking-tight">AdminLess</h1>
         </div>
         <nav className="grid gap-2 text-lg font-medium p-4">
           <NavLinks />
