@@ -2,7 +2,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from 
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import { NavLinks } from "./NavLinks";
-import icon from "@/source bucket/Icon.png";
+import logo from "@/source bucket/AdminLess logo.png";
 
 const MobileSidebar = () => {
   return (
@@ -22,9 +22,9 @@ const MobileSidebar = () => {
         </div>
         <div className="flex h-24 items-center border-b px-6 gap-3">
           <img 
-            src={icon} 
-            alt="AdminLess Icon" 
-            className="h-20 w-auto object-contain" 
+            src={logo} 
+            alt="AdminLess Logo" 
+            className="h-14 w-auto object-contain" 
           />
           <h1 className="text-2xl font-bold">AdminLess</h1>
         </div>
