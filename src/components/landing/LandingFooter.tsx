@@ -1,8 +1,8 @@
 "use client";
 
 import React from 'react';
-import { ShieldCheck } from "lucide-react";
 import { DataCommitmentDialog } from './LandingActions';
+import logo from "@/source bucket/AdminLess logo.png";
 
 export const LandingFooter = () => {
   return (
@@ -11,8 +11,8 @@ export const LandingFooter = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-8">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-blue-600" />
-                <span className="font-bold">AdminLess</span>
+                <img src={logo} alt="AdminLess Logo" className="h-5 w-5 object-contain" />
+                <span className="font-bold text-blue-600">AdminLess</span>
             </div>
             <p className="text-xs text-slate-500 font-medium">Designed for South African educators.</p>
           </div>

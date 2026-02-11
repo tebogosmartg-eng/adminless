@@ -2,6 +2,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from 
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import { NavLinks } from "./NavLinks";
+import logo from "@/source bucket/AdminLess logo.png";
 
 const MobileSidebar = () => {
   return (
@@ -19,7 +20,8 @@ const MobileSidebar = () => {
             Navigate through Dashboard, Classes, Scan Scripts, Reports, and Settings.
           </SheetDescription>
         </div>
-        <div className="flex h-16 items-center border-b px-6">
+        <div className="flex h-16 items-center border-b px-6 gap-3">
+          <img src={logo} alt="AdminLess Logo" className="h-8 w-8 rounded-lg object-contain" />
           <h1 className="text-2xl font-bold">AdminLess</h1>
         </div>
         <nav className="grid gap-2 text-lg font-medium p-4">

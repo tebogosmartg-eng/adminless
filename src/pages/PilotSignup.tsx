@@ -2,18 +2,17 @@
 
 import React from 'react';
 import { PilotSignupForm } from '@/components/PilotSignupForm';
-import { ShieldCheck, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import logo from "@/source bucket/AdminLess logo.png";
 
 const PilotSignup = () => {
   return (
     <div className="min-h-screen bg-[#fcfcfd] dark:bg-[#0a0a0b] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-2xl mb-8 flex items-center justify-between">
-        <Link to="/welcome" className="group flex items-center gap-2">
-            <div className="bg-blue-600 p-1.5 rounded-lg shadow-sm">
-                <ShieldCheck className="h-5 w-5 text-white" />
-            </div>
+        <Link to="/welcome" className="group flex items-center gap-3">
+            <img src={logo} alt="AdminLess Logo" className="h-6 w-6 object-contain" />
             <span className="text-xl font-bold tracking-tight">AdminLess</span>
         </Link>
         <Link to="/welcome">
@@ -35,7 +34,7 @@ const PilotSignup = () => {
 
         <div className="mt-12 pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                <ShieldCheck className="h-3 w-3 text-blue-600" />
+                <img src={logo} alt="" className="h-3 w-3 opacity-50" />
                 Your data stays yours. No spam.
             </div>
             <p className="text-[10px] text-slate-400 font-medium">
