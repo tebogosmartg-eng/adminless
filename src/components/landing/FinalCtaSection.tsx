@@ -45,7 +45,7 @@ export const FinalCtaSection = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
-              <Link to="/login" className="w-full sm:w-auto">
+              <Link to="/pilot-signup" className="w-full sm:w-auto">
                   <Button size="lg" className="w-full bg-white text-blue-600 hover:bg-slate-50 h-16 px-12 text-lg font-black rounded-2xl shadow-2xl shadow-blue-900/40 transition-all duration-200 hover:scale-[1.03] active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-white">
                       Start free teacher pilot
                   </Button>

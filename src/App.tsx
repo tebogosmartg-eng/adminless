@@ -19,6 +19,7 @@ import Reports from "./pages/Reports";
 import EvidenceAudit from "./pages/EvidenceAudit";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
+import PilotSignup from "./pages/PilotSignup";
 import { ClassesProvider } from "./context/ClassesContext";
 import { ActivityProvider } from "./context/ActivityContext";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -89,6 +90,7 @@ const App = () => {
                                 <ReloadPrompt />
                                 <Routes>
                                 <Route path="/welcome" element={session ? <Navigate to="/" /> : <Landing />} />
+                                <Route path="/pilot-signup" element={session ? <Navigate to="/" /> : <PilotSignup />} />
                                 <Route path="/login" element={session ? <Navigate to="/" /> : <Login />} />
                                 <Route
                                     element={
