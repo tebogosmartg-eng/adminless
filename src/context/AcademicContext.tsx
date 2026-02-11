@@ -68,6 +68,17 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     return terms.find(t => t.id === activeTermId) || null;
   }, [terms, activeTermId]);
 
+  // DIAGNOSTIC LOGGING FOR CONTEXT STATE
+  useEffect(() => {
+    console.group("[Diagnostic] Academic Context State");
+    console.log("Active Year ID:", activeYearId);
+    console.log("Active Year Object:", activeYear);
+    console.log("Active Term ID:", activeTermId);
+    console.log("Active Term Object:", activeTerm);
+    console.log("Total Terms found for current year:", terms.length);
+    console.groupEnd();
+  }, [activeYearId, activeYear, activeTermId, activeTerm, terms]);
+
   const setActiveYear = (year: AcademicYear | null) => {
     const id = year?.id || null;
     setActiveYearIdState(id);

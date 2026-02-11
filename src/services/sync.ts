@@ -54,6 +54,8 @@ export const pushChanges = async () => {
 
 export const pullData = async (userId: string) => {
   try {
+    console.group(`[Diagnostic] Pulling Data from Supabase for User: ${userId}`);
+    
     const pending = await db.sync_queue.toArray();
     const pendingIdsByTable = pending.reduce((acc, item) => {
       if (!acc[item.table]) acc[item.table] = new Set();
@@ -62,7 +64,16 @@ export const pullData = async (userId: string) => {
     }, {} as Record<string, Set<string>>);
 
     const pullTable = async (tableName: string, query: any, idKey = 'id') => {
-      const { data } = await query;
+      console.log(`[Diagnostic] Executing Supabase query for '${tableName}': SELECT * WHERE user_id = ${userId}`);
+      const { data, error } = await query;
+      
+      if (error) {
+          console.error(`[Diagnostic] Supabase query ERROR for '${tableName}':`, error);
+          return;
+      }
+
+      console.log(`[Diagnostic] Supabase result count for '${tableName}':`, data?.length || 0);
+
       if (!data) return;
 
       const itemsToPut = data.filter((item: any) => {
@@ -85,10 +96,16 @@ export const pullData = async (userId: string) => {
       }
     };
 
+    // --- TASK 4: FILTERLESS DATA TEST ---
+    // We execute queries based on user_id only (no term/year filtering happens at the server level in this pull)
+    // If data exists in Supabase for this user, it WILL be pulled here regardless of active Term.
+    
     await pullTable('classes', supabase.from('classes').select('*').eq('user_id', userId));
     
     const localClasses = await db.classes.toArray();
     const classIds = localClasses.map(c => c.id);
+
+    console.log(`[Diagnostic] Local Class ID count for subsequent pulls:`, classIds.length);
 
     if (classIds.length > 0) {
       await pullTable('learners', supabase.from('learners').select('*').in('class_id', classIds));
@@ -111,6 +128,7 @@ export const pullData = async (userId: string) => {
     await pullTable('timetable', supabase.from('timetable').select('*').eq('user_id', userId));
     await pullTable('lesson_logs', supabase.from('lesson_logs').select('*').eq('user_id', userId));
 
+    console.groupEnd();
     console.log("[sync] Data pull complete.");
   } catch (error) {
     console.error("[sync] Pull failed:", error);
