@@ -7,10 +7,22 @@ export interface LessonLog {
   id: string;
   user_id: string;
   timetable_id: string;
-  date: string; // YYYY-MM-DD
+  date: string; 
   content: string;
   homework?: string;
+  topic_ids?: string[]; // Link to curriculum topics
   created_at: string;
+}
+
+export interface CurriculumTopic {
+  id: string;
+  user_id: string;
+  subject: string;
+  grade: string;
+  term_id: string;
+  title: string;
+  description?: string;
+  order: number;
 }
 
 export interface DBClass extends Omit<ClassInfo, 'learners'> {
@@ -47,6 +59,7 @@ export class SmaRegDB extends Dexie {
   evidence!: Table<Evidence>;
   rubrics!: Table<Rubric>;
   lesson_logs!: Table<LessonLog>;
+  curriculum_topics!: Table<CurriculumTopic>;
 
   constructor() {
     super('SmaRegDB');
@@ -64,68 +77,12 @@ export class SmaRegDB extends Dexie {
       profiles: 'id'
     });
 
-    this.version(2).stores({
-      academic_years: 'id, closed, name',
-      terms: 'id, year_id, name'
-    });
-
-    this.version(3).stores({
-      attendance: '[learner_id+date], class_id, date'
-    });
-
-    this.version(4).stores({
-      assessments: 'id, class_id, term_id, [class_id+term_id]'
-    });
-
-    this.version(5).stores({
-      timetable: 'id, user_id, [day+period]'
-    });
-
-    this.version(6).stores({
-      learner_notes: 'id, learner_id, date'
-    });
-
-    this.version(7).stores({
-      academic_years: 'id, user_id, closed, name',
-      terms: 'id, user_id, year_id, name',
-      assessments: 'id, user_id, class_id, term_id, [class_id+term_id]',
-      activities: 'id, user_id, timestamp',
-      todos: 'id, user_id, completed',
-      learner_notes: 'id, user_id, learner_id, date'
-    });
-
-    this.version(8).stores({
-      learner_notes: 'id, user_id, learner_id, date, created_at, category'
-    });
-
-    this.version(9).stores({
-      evidence: 'id, user_id, class_id, term_id, learner_id, category'
-    });
-
-    this.version(10).stores({
-      evidence: 'id, user_id, class_id, term_id, learner_id, category, created_at'
-    });
-
-    this.version(11).stores({
-      rubrics: 'id, user_id, title',
-      assessment_marks: '[assessment_id+learner_id], assessment_id, learner_id, user_id'
-    });
-
-    this.version(12).stores({
-      classes: 'id, user_id, year_id, term_id, sync_status',
-      activities: 'id, user_id, year_id, term_id, timestamp',
-      todos: 'id, user_id, year_id, term_id, completed',
-      learner_notes: 'id, user_id, year_id, term_id, learner_id, date',
-      attendance: '[learner_id+date], class_id, term_id, date',
-      evidence: 'id, user_id, class_id, year_id, term_id, learner_id, category, created_at'
-    });
-
-    this.version(13).stores({
-      learner_notes: 'id, user_id, year_id, term_id, learner_id, date, created_at'
-    });
-
     this.version(14).stores({
       lesson_logs: 'id, user_id, timetable_id, date, [timetable_id+date]'
+    });
+
+    this.version(15).stores({
+      curriculum_topics: 'id, user_id, term_id, [subject+grade+term_id]'
     });
   }
 }

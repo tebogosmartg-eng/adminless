@@ -12,7 +12,7 @@ export const useLessonLogs = (timetableId?: string, date?: string) => {
     [timetableId, date]
   );
 
-  const saveLog = async (content: string, homework?: string) => {
+  const saveLog = async (content: string, homework?: string, topic_ids: string[] = []) => {
     if (!timetableId || !date) return;
     
     try {
@@ -26,6 +26,7 @@ export const useLessonLogs = (timetableId?: string, date?: string) => {
         date,
         content,
         homework,
+        topic_ids,
         created_at: log?.created_at || new Date().toISOString()
       };
 

@@ -9,13 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LessonLogDialog } from "./LessonLogDialog";
+import { useClasses } from '@/context/ClassesContext';
 
 export const TimetableWidget = () => {
   const { periods } = useCurrentPeriod();
+  const { classes } = useClasses();
   const today = format(new Date(), 'EEEE');
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  const [logSession, setLogSession] = useState<{ id: string, name: string } | null>(null);
+  const [logSession, setLogSession] = useState<{ id: string, name: string, subject: string, grade: string } | null>(null);
   
   return (
     <Card className="border-none shadow-sm bg-white dark:bg-card">
@@ -45,7 +47,9 @@ export const TimetableWidget = () => {
                 </div>
             ) : (
                 <div className="space-y-1.5">
-                    {periods.map((entry) => (
+                    {periods.map((entry) => {
+                        const classData = classes.find(c => c.id === entry.class_id);
+                        return (
                         <div 
                             key={entry.id} 
                             className={cn(
@@ -86,7 +90,12 @@ export const TimetableWidget = () => {
                                                 "h-6 w-6 transition-colors",
                                                 entry.isPast ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground hover:text-primary"
                                             )}
-                                            onClick={() => setLogSession({ id: entry.id, name: entry.class_name })}
+                                            onClick={() => setLogSession({ 
+                                                id: entry.id, 
+                                                name: entry.class_name,
+                                                subject: classData?.subject || entry.subject || '',
+                                                grade: classData?.grade || ''
+                                            })}
                                             title={entry.isPast ? "Review lesson record" : "Record work covered"}
                                         >
                                             {entry.isPast ? <History className="h-3 w-3" /> : <FileEdit className="h-3 w-3" />}
@@ -114,7 +123,7 @@ export const TimetableWidget = () => {
                                 </div>
                             )}
                         </div>
-                    ))}
+                    )})}
                 </div>
             )}
         </ScrollArea>
@@ -126,6 +135,8 @@ export const TimetableWidget = () => {
             onOpenChange={(open) => !open && setLogSession(null)}
             timetableId={logSession.id}
             className={logSession.name}
+            subject={logSession.subject}
+            grade={logSession.grade}
             date={todayStr}
           />
       )}
