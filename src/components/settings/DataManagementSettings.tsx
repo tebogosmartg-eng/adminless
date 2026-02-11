@@ -21,6 +21,7 @@ import { useSync } from "@/context/SyncContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { DataAuditTool } from "./DataAuditTool";
 import { DataRecoveryTool } from "./DataRecoveryTool";
+import { AccountLinkageTool } from "./AccountLinkageTool";
 import { importDemoData } from "@/services/demoData";
 
 export const DataManagementSettings = () => {
@@ -216,6 +217,7 @@ export const DataManagementSettings = () => {
 
   return (
     <div className="space-y-6">
+        <AccountLinkageTool />
         <DataRecoveryTool />
         <DataAuditTool />
         
