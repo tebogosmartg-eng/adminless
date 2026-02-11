@@ -98,6 +98,12 @@ export class SmaRegDB extends Dexie {
       assessments: 'id, class_id, term_id, [class_id+term_id]',
       rubrics: 'id, user_id'
     });
+
+    // Version 17: Indexing user_id for activity feed and todo list scoping
+    this.version(17).stores({
+        activities: 'id, timestamp, term_id, user_id',
+        todos: 'id, completed, term_id, user_id'
+    });
   }
 }
 
