@@ -5,7 +5,7 @@ import { PilotSignupForm } from '@/components/PilotSignupForm';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import logo from "@/source bucket/AdminLess logo.png";
+import icon from "@/source bucket/ICON.png";
 
 const PilotSignup = () => {
   return (
@@ -13,8 +13,8 @@ const PilotSignup = () => {
       <div className="w-full max-w-2xl mb-8 flex items-center justify-between">
         <Link to="/welcome" className="group flex items-center gap-4 hover:scale-105 transition-transform active:scale-95">
             <img 
-              src={logo} 
-              alt="AdminLess Logo" 
+              src={icon} 
+              alt="AdminLess Icon" 
               className="h-20 w-auto object-contain" 
             />
             <span className="text-3xl font-black tracking-tighter">AdminLess</span>
@@ -38,7 +38,7 @@ const PilotSignup = () => {
 
         <div className="mt-14 pt-10 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
-                <img src={logo} alt="" className="h-6 w-auto opacity-40 grayscale object-contain" />
+                <img src={icon} alt="" className="h-8 w-auto opacity-40 grayscale object-contain" />
                 Your data stays yours.
             </div>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">

@@ -1,5 +1,5 @@
 import { NavLinks } from "./NavLinks";
-import logo from "@/source bucket/AdminLess logo.png";
+import icon from "@/source bucket/ICON.png";
 
 const Sidebar = () => {
   return (
@@ -7,9 +7,9 @@ const Sidebar = () => {
       <div className="flex h-full flex-col">
         <div className="flex h-24 items-center border-b border-white/5 px-6 gap-3">
           <img 
-            src={logo} 
-            alt="AdminLess Logo" 
-            className="h-14 w-auto object-contain" 
+            src={icon} 
+            alt="AdminLess Icon" 
+            className="h-16 w-auto object-contain" 
           />
           <h1 className="text-xl font-bold tracking-tight text-white/90">AdminLess</h1>
         </div>

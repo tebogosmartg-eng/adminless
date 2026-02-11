@@ -4,7 +4,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import logo from "@/source bucket/AdminLess logo.png";
+import icon from "@/source bucket/ICON.png";
 
 export const LandingNav = () => {
   return (
@@ -12,8 +12,8 @@ export const LandingNav = () => {
       <div className="container mx-auto flex h-24 items-center justify-between px-4 md:px-8">
         <Link to="/" className="flex items-center gap-3 group transition-opacity hover:opacity-90">
           <img 
-            src={logo} 
-            alt="AdminLess Logo" 
+            src={icon} 
+            alt="AdminLess Icon" 
             className="h-16 w-auto object-contain" 
           />
           <span className="text-2xl font-black tracking-tighter text-slate-900 dark:text-white">AdminLess</span>
