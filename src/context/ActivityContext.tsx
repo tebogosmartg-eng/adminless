@@ -16,15 +16,21 @@ const ActivityContext = createContext<ActivityContextType | undefined>(undefined
 export const ActivityProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { activeYear, activeTerm } = useAcademic();
   
-  // Strict Isolation: Query by term_id
+  // Scoping Adjustment: Show term specific + unassigned legacy activity
   const activities = useLiveQuery(async () => {
-    if (!session?.user.id || !activeTerm) return [];
-    return db.activities
-        .where('term_id')
-        .equals(activeTerm.id)
+    if (!session?.user.id) return [];
+    
+    const allActivities = await db.activities
+        .where('user_id')
+        .equals(session.user.id)
         .reverse()
-        .limit(20)
         .toArray();
+
+    if (!activeTerm) return allActivities.slice(0, 20);
+
+    return allActivities
+        .filter(a => a.term_id === activeTerm.id || !a.term_id)
+        .slice(0, 20);
   }, [session?.user.id, activeTerm?.id]) || [];
 
   const logActivity = useCallback(async (message: string) => {

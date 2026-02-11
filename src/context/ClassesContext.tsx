@@ -28,19 +28,28 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const { activeYear, activeTerm } = useAcademic();
 
   const classes = useLiveQuery(async () => {
-    if (!session?.user.id || !activeTerm) return [];
+    if (!session?.user.id) return [];
     
-    // Strict Scoping: Only load classes for the active term
-    const termClasses = await db.classes
-        .where('term_id')
-        .equals(activeTerm.id)
-        .toArray();
+    // Diagnostic: Log current visibility context
+    console.log("[Diagnostic] Loading classes. Active Term:", activeTerm?.id || "None (Legacy Mode)");
 
-    const userClasses = termClasses.filter(c => !c.user_id || c.user_id === session.user.id);
+    // Fetch classes that match the active term OR have no term_id (Legacy Data)
+    const allUserClasses = await db.classes
+        .filter(c => !c.user_id || c.user_id === session.user.id)
+        .toArray();
+    
+    const visibleClasses = allUserClasses.filter(c => {
+        // If we have an active term, show matching ones + legacy ones
+        if (activeTerm) {
+            return c.term_id === activeTerm.id || !c.term_id;
+        }
+        // If no term selected, show everything (legacy fallback)
+        return true;
+    });
 
     const allLearners = await db.learners.toArray();
 
-    return userClasses.map(c => ({
+    return visibleClasses.map(c => ({
         id: c.id,
         year_id: c.year_id,
         term_id: c.term_id,

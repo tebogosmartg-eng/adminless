@@ -10,14 +10,14 @@ export const useTodos = () => {
   const { activeYear, activeTerm } = useAcademic();
   const [adding, setAdding] = useState(false);
 
-  // Strict Scoping: Load only items for the active term
+  // Updated Scoping: Load items for active term AND legacy items without term IDs
   const todos = useLiveQuery(
     async () => {
-        if (!activeTerm) return [];
-        return db.todos
-            .where('term_id')
-            .equals(activeTerm.id)
-            .toArray();
+        const allTodos = await db.todos.toArray();
+        
+        if (!activeTerm) return allTodos; // Show all if no term selected
+
+        return allTodos.filter(t => t.term_id === activeTerm.id || !t.term_id);
     },
     [activeTerm?.id]
   ) || [];
@@ -58,6 +58,10 @@ export const useTodos = () => {
     } catch (e) {
         showError('Failed to update task.');
     }
+  };
+
+  const handleBatchUpdate = async (ids: string[], updates: any) => {
+      // Internal utility for migration if needed
   };
 
   const deleteTodo = async (id: string) => {
