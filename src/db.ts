@@ -84,6 +84,20 @@ export class SmaRegDB extends Dexie {
     this.version(15).stores({
       curriculum_topics: 'id, user_id, term_id, [subject+grade+term_id]'
     });
+
+    // Version 16: Adding missing indices for complex queries
+    this.version(16).stores({
+      academic_years: 'id, closed, name',
+      terms: 'id, year_id, name',
+      activities: 'id, timestamp, term_id',
+      todos: 'id, completed, term_id',
+      learner_notes: 'id, learner_id, term_id, date, created_at',
+      evidence: 'id, class_id, learner_id, term_id, created_at',
+      attendance: 'id, class_id, learner_id, term_id, date',
+      timetable: 'id, user_id, class_id, day, period',
+      assessments: 'id, class_id, term_id, [class_id+term_id]',
+      rubrics: 'id, user_id'
+    });
   }
 }
 
