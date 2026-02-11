@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Database, Download, AlertTriangle, Loader2, RefreshCw, Calculator, Sparkles } from "lucide-react";
+import { Database, Download, AlertTriangle, Loader2, RefreshCw, Calculator, Sparkles, UserCheck, ShieldAlert } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -19,10 +19,13 @@ import { db } from "@/db";
 import { useSync } from "@/context/SyncContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { importDemoData } from "@/services/demoData";
+import { useAccountRecovery } from "@/hooks/useAccountRecovery";
 
 export const DataManagementSettings = () => {
   const { isOnline, forceSync, isSyncing } = useSync();
   const { recalculateAllActiveAverages } = useAcademic();
+  const { runRecovery, isRecovering } = useAccountRecovery();
+
   const [isExporting, setIsExporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
@@ -91,6 +94,30 @@ export const DataManagementSettings = () => {
 
   return (
     <div className="space-y-6">
+        <Card className="border-blue-200 bg-blue-50/30">
+            <CardHeader>
+                <div className="flex items-center gap-2">
+                    <UserCheck className="h-5 w-5 text-blue-600" />
+                    <CardTitle>Account Recovery & Linkage</CardTitle>
+                </div>
+                <CardDescription>
+                    If your classes or settings are missing after logging in, use this tool to re-link historical records to your current identity.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex items-start gap-3 p-3 bg-white border rounded-lg text-xs text-slate-600 mb-2">
+                    <ShieldAlert className="h-4 w-4 text-blue-500 mt-0.5" />
+                    <p>
+                        This will scan our secure backups for any records linked to your email address but a different internal ID. No data is overwritten or deleted.
+                    </p>
+                </div>
+                <Button onClick={runRecovery} disabled={isRecovering || !isOnline} className="w-full sm:w-auto font-bold bg-blue-600 hover:bg-blue-700">
+                    {isRecovering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    Restore Historical Data
+                </Button>
+            </CardContent>
+        </Card>
+
         <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
                 <div className="flex items-center gap-2">
@@ -133,7 +160,7 @@ export const DataManagementSettings = () => {
                         <p className="text-xs text-muted-foreground">Manually push all pending changes and pull latest data.</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={forceSync} disabled={isSyncing || !isOnline} className="w-full mt-auto">
-                        {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                        {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                         Sync Now
                     </Button>
                 </div>

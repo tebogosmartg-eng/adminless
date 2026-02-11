@@ -48,26 +48,12 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 const DEFAULT_DBE_SUBJECTS = [
-  "English Home Language",
-  "English First Additional Language",
-  "Afrikaans Huistaal",
-  "Afrikaans Eerste Addisionele Taal",
-  "Mathematics",
-  "Mathematical Literacy",
-  "Life Orientation",
-  "Natural Sciences",
-  "Social Sciences",
-  "Economic and Management Sciences",
-  "Life Sciences",
-  "Physical Sciences",
-  "History",
-  "Geography",
-  "Accounting",
-  "Business Studies",
-  "Economics",
-  "Tourism",
-  "Computer Applications Technology",
-  "Information Technology"
+  "English Home Language", "English First Additional Language", "Afrikaans Huistaal", 
+  "Afrikaans Eerste Addisionele Taal", "Mathematics", "Mathematical Literacy", 
+  "Life Orientation", "Natural Sciences", "Social Sciences", 
+  "Economic and Management Sciences", "Life Sciences", "Physical Sciences", 
+  "History", "Geography", "Accounting", "Business Studies", "Economics", 
+  "Tourism", "Computer Applications Technology", "Information Technology"
 ];
 
 export const SettingsProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
@@ -90,20 +76,17 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [savedSubjects, setSavedSubjectsState] = useState<string[]>(DEFAULT_DBE_SUBJECTS);
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
 
-  // Diagnostic Audit Effect
+  // 1. Log current authenticated user UUID & Profile Linkage
   useEffect(() => {
     const runAudit = async () => {
-      if (!session?.user) {
-        console.log("[Auth Audit] No active session found.");
-        return;
-      }
+      if (!session?.user) return;
 
       const uid = session.user.id;
-      console.log(`[Auth Audit] Currently authenticated User ID: ${uid}`);
-      console.log(`[Auth Audit] User Email: ${session.user.email}`);
+      console.group(`[Auth Linkage Audit] User: ${session.user.email}`);
+      console.log(`Current UUID: ${uid}`);
 
-      // 1. Check Supabase directly (Test RLS and existence)
       try {
+        // 2. Fetch profile row for this UUID
         const { data: sbProfile, error: sbError } = await supabase
           .from('profiles')
           .select('*')
@@ -111,30 +94,23 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
           .maybeSingle();
 
         if (sbError) {
-          console.error("[Auth Audit] Supabase Fetch Error:", sbError);
-          console.error("[Auth Audit] Result: RLS or connection error likely blocking profile fetch.");
+          console.error("Supabase Profile Fetch Error:", sbError);
         } else if (!sbProfile) {
-          console.warn("[Auth Audit] Result: Profile row NOT FOUND in Supabase 'profiles' table for this ID.");
+          console.warn("No profile row found for current UUID in Supabase. A recovery audit may be required.");
         } else {
-          console.log("[Auth Audit] Supabase profile successfully fetched:", sbProfile);
-          console.log(`[Auth Audit] Teacher Name in Supabase: "${sbProfile.teacher_name}"`);
-          console.log(`[Auth Audit] School Name in Supabase: "${sbProfile.school_name}"`);
+          console.log("Supabase profile verified:", sbProfile);
         }
-      } catch (e) {
-        console.error("[Auth Audit] Critical error during Supabase fetch:", e);
-      }
 
-      // 2. Check Local Dexie (Offline-first state)
-      try {
-        const localProfile = await db.profiles.get(uid);
-        if (localProfile) {
-          console.log("[Auth Audit] Local Dexie profile found:", localProfile);
-        } else {
-          console.warn("[Auth Audit] Local Dexie profile NOT FOUND. Sync may be required.");
+        // 3. Check for duplicates (Handled by the recovery tool in settings)
+        const localClasses = await db.classes.toArray();
+        const mismatch = localClasses.some(c => c.user_id && c.user_id !== uid);
+        if (mismatch) {
+          console.error("CRITICAL: Detected classes in local storage linked to a different UUID. Please use the Recovery tool in Settings.");
         }
       } catch (e) {
-        console.error("[Auth Audit] Error reading from local database:", e);
+        console.error("Audit failed:", e);
       }
+      console.groupEnd();
     };
 
     runAudit();
@@ -284,32 +260,14 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   return (
     <SettingsContext.Provider value={{ 
-      gradingScheme, 
-      updateGradingScheme, 
-      resetGradingScheme,
-      schoolName,
-      setSchoolName,
-      schoolCode,
-      setSchoolCode,
-      teacherName,
-      setTeacherName,
-      contactEmail,
-      setContactEmail,
-      contactPhone,
-      setContactPhone,
-      schoolLogo,
-      setSchoolLogo,
-      atRiskThreshold,
-      setAtRiskThreshold,
-      commentBank,
-      addToCommentBank,
-      removeFromCommentBank,
-      savedSubjects,
-      addSubject,
-      removeSubject,
-      savedGrades,
-      addGrade,
-      removeGrade,
+      gradingScheme, updateGradingScheme, resetGradingScheme,
+      schoolName, setSchoolName, schoolCode, setSchoolCode,
+      teacherName, setTeacherName, contactEmail, setContactEmail,
+      contactPhone, setContactPhone, schoolLogo, setSchoolLogo,
+      atRiskThreshold, setAtRiskThreshold, commentBank,
+      addToCommentBank, removeFromCommentBank,
+      savedSubjects, addSubject, removeSubject,
+      savedGrades, addGrade, removeGrade,
       updateProfileSettings
     }}>
       {children}
