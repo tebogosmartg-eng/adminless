@@ -6,6 +6,7 @@ import { LandingNav } from '@/components/landing/LandingNav';
 import { LandingHero } from '@/components/landing/LandingHero';
 import { ProblemSection } from '@/components/landing/ProblemSection';
 import { FeaturesGrid } from '@/components/landing/FeaturesGrid';
+import { ComparisonSection } from '@/components/landing/ComparisonSection';
 import { AlignmentSection } from '@/components/landing/AlignmentSection';
 import { ComplianceSection } from '@/components/landing/ComplianceSection';
 import { WorkflowSection } from '@/components/landing/WorkflowSection';
@@ -40,6 +41,10 @@ const Landing = () => {
 
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
         <FeaturesGrid />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <ComparisonSection />
       </motion.div>
 
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
