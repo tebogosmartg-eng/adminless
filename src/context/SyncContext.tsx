@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
@@ -20,7 +22,6 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   
-  // Live query for pending changes count
   const pendingChanges = useLiveQuery(() => db.sync_queue.count()) || 0;
 
   useEffect(() => {
@@ -43,7 +44,34 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Initial Pull on Mount (if auth)
+  // Self-Healing / Account Recovery Trigger
+  useEffect(() => {
+    const runRecovery = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user || !isOnline) return;
+
+      // Only check if the local database is currently empty
+      const localClassCount = await db.classes.count();
+      if (localClassCount === 0) {
+          console.log("[Recovery] App appears empty. Checking for historical data linkage...");
+          
+          try {
+              const { data, error } = await supabase.functions.invoke('account-recovery');
+              if (!error && data?.success && data?.migratedCount > 0) {
+                  toast.success(data.message, { duration: 10000 });
+                  // Re-pull data now that IDs are fixed
+                  await pullData(session.user.id);
+                  window.location.reload();
+              }
+          } catch (e) {
+              console.error("[Recovery] Silent check failed:", e);
+          }
+      }
+    };
+
+    runRecovery();
+  }, [isOnline]);
+
   useEffect(() => {
     const initSync = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -60,8 +88,8 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await pushChanges(); // Push local changes first
-        await pullData(user.id); // Then get server updates
+        await pushChanges(); 
+        await pullData(user.id); 
         setLastSyncTime(new Date());
       }
     } catch (e) {

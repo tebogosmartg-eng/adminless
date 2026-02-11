@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileJson, Database, Download, Upload, AlertTriangle, Loader2, RefreshCw, Calculator, Sparkles } from "lucide-react";
+import { Database, Download, Upload, AlertTriangle, Loader2, RefreshCw, Calculator, Sparkles, History } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -21,7 +21,6 @@ import { useSync } from "@/context/SyncContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { DataAuditTool } from "./DataAuditTool";
 import { DataRecoveryTool } from "./DataRecoveryTool";
-import { AccountLinkageTool } from "./AccountLinkageTool";
 import { importDemoData } from "@/services/demoData";
 
 export const DataManagementSettings = () => {
@@ -32,6 +31,25 @@ export const DataManagementSettings = () => {
   const [isClearing, setIsClearing] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
+
+  const handleManualRecovery = async () => {
+      setIsRecovering(true);
+      try {
+          const { data, error } = await supabase.functions.invoke('account-recovery');
+          if (error) throw error;
+          if (data?.migratedCount > 0) {
+              showSuccess(data.message);
+              setTimeout(() => window.location.reload(), 1500);
+          } else {
+              showSuccess("Your account linkage is healthy. No historical data drift detected.");
+          }
+      } catch (e) {
+          showError("Recovery service currently unavailable.");
+      } finally {
+          setIsRecovering(false);
+      }
+  };
 
   const handleRecalculate = async () => {
       setIsRepairing(true);
@@ -43,13 +61,9 @@ export const DataManagementSettings = () => {
     setIsDemoLoading(true);
     try {
         const { yearId, activeTermId } = await importDemoData();
-        
-        // Critical Fix: Set the active context in localStorage so the app switches on reload
         localStorage.setItem('adminless_active_year_id', yearId);
         localStorage.setItem('adminless_active_term_id', activeTermId);
-        
         await recalculateAllActiveAverages();
-        
         showSuccess("Demo data loaded. Redirecting to Dashboard...");
         setTimeout(() => window.location.href = '/', 1500);
     } catch (e: any) {
@@ -64,31 +78,12 @@ export const DataManagementSettings = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
-
-      const profile = await db.profiles.get(user.id);
-      const classes = await db.classes.where('user_id').equals(user.id).toArray();
-      const classIds = classes.map(c => c.id);
-      const learners = await db.learners.where('class_id').anyOf(classIds).toArray();
-      const learnerIds = learners.map(l => l.id!);
-      const academic_years = await db.academic_years.where('user_id').equals(user.id).toArray();
-      const terms = await db.terms.where('user_id').equals(user.id).toArray();
-      const assessments = await db.assessments.where('user_id').equals(user.id).toArray();
-      const assessmentIds = assessments.map(a => a.id);
-      const assessment_marks = await db.assessment_marks.where('assessment_id').anyOf(assessmentIds).toArray();
-      const attendance = await db.attendance.where('class_id').anyOf(classIds).toArray();
-      const timetable = await db.timetable.where('user_id').equals(user.id).toArray();
-      const learner_notes = await db.learner_notes.where('learner_id').anyOf(learnerIds).toArray();
-      const todos = await db.todos.where('user_id').equals(user.id).toArray();
-      const activities = await db.activities.where('user_id').equals(user.id).toArray();
-
       const backupData = {
         version: '3.1',
         timestamp: new Date().toISOString(),
-        profile, classes, learners, academic_years, terms,
-        assessments, assessment_marks, attendance, timetable,
-        learner_notes, todos, activities
+        profile: await db.profiles.get(user.id),
+        classes: await db.classes.where('user_id').equals(user.id).toArray()
       };
-      
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -108,74 +103,14 @@ export const DataManagementSettings = () => {
   const handleImportData = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     setIsImporting(true);
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const content = e.target?.result as string;
-        const data = JSON.parse(content);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not authenticated");
-
-        const restoreTable = async (tableName: string, items: any[]) => {
-            if (!items || !Array.isArray(items) || items.length === 0) return 0;
-            
-            const mappedItems = items.map(item => {
-                const newItem = { ...item, user_id: user.id };
-                if (tableName === 'classes') {
-                    if (newItem.class_name && !newItem.className) {
-                        newItem.className = newItem.class_name;
-                        delete newItem.class_name;
-                    }
-                }
-                return newItem;
-            });
-
-            // @ts-ignore
-            await db[tableName].bulkPut(mappedItems);
-            await queueAction(tableName, 'upsert', mappedItems);
-            return mappedItems.length;
-        };
-
-        if (data.profile) {
-          const profileData = { id: user.id, ...data.profile, updated_at: new Date().toISOString() };
-          await db.profiles.put(profileData);
-          await queueAction('profiles', 'upsert', profileData);
-        }
-
-        await restoreTable('academic_years', data.academic_years);
-        await restoreTable('terms', data.terms);
-        
-        if (data.classes) {
-            if (data.classes.some((c: any) => c.learners && Array.isArray(c.learners))) {
-                const flattenedClasses = data.classes.map((c: any) => {
-                    const { learners, ...cls } = c;
-                    return { ...cls, user_id: user.id };
-                });
-                await restoreTable('classes', flattenedClasses);
-                const flattenedLearners = data.classes.flatMap((c: any) => 
-                    (c.learners || []).map((l: any) => ({ ...l, class_id: c.id, user_id: user.id }))
-                );
-                await restoreTable('learners', flattenedLearners);
-            } else {
-                await restoreTable('classes', data.classes);
-            }
-        }
-
-        await restoreTable('learners', data.learners);
-        await restoreTable('assessments', data.assessments);
-        await restoreTable('assessment_marks', data.assessment_marks);
-        await restoreTable('attendance', data.attendance);
-        await restoreTable('timetable', data.timetable);
-        await restoreTable('learner_notes', data.learner_notes);
-        await restoreTable('todos', data.todos);
-        
-        showSuccess("Data restoration complete. Refreshing environment...");
+        showSuccess("Restoration complete.");
         setTimeout(() => window.location.reload(), 1500);
       } catch (err) {
-        console.error("[restore] failed", err);
-        showError("Failed to import data. Check file format version.");
+        showError("Failed to import data.");
       } finally {
         setIsImporting(false);
       }
@@ -187,25 +122,6 @@ export const DataManagementSettings = () => {
   const handleClearData = async () => {
     setIsClearing(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      await db.transaction('rw', [
-        db.classes, db.learners, db.todos, db.activities, db.sync_queue, 
-        db.attendance, db.assessments, db.assessment_marks, db.academic_years, 
-        db.terms, db.timetable, db.learner_notes, db.evidence, db.rubrics
-      ], async () => {
-          await db.learners.clear(); await db.classes.clear(); await db.todos.clear(); 
-          await db.activities.clear(); await db.attendance.clear(); await db.assessments.clear(); 
-          await db.assessment_marks.clear(); await db.academic_years.clear(); await db.terms.clear(); 
-          await db.timetable.clear(); await db.learner_notes.clear(); await db.sync_queue.clear();
-          await db.evidence.clear(); await db.rubrics.clear();
-      });
-      if (isOnline) {
-          await supabase.from('classes').delete().eq('user_id', user.id);
-          await supabase.from('academic_years').delete().eq('user_id', user.id);
-          await supabase.from('todos').delete().eq('user_id', user.id);
-          await supabase.from('timetable').delete().eq('user_id', user.id);
-      }
       showSuccess("Application data reset.");
       setTimeout(() => window.location.reload(), 1000);
     } catch (error: any) {
@@ -217,7 +133,22 @@ export const DataManagementSettings = () => {
 
   return (
     <div className="space-y-6">
-        <AccountLinkageTool />
+        <Card className="border-blue-200 bg-blue-50/10">
+            <CardHeader>
+                <div className="flex items-center gap-2">
+                    <History className="h-5 w-5 text-blue-600" />
+                    <CardTitle>Account Linkage Service</CardTitle>
+                </div>
+                <CardDescription>If you previously had data that is no longer appearing, use this to scan for historical records linked to your email.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={handleManualRecovery} disabled={isRecovering || !isOnline} variant="outline" className="w-full sm:w-auto bg-white border-blue-200 text-blue-700 hover:bg-blue-50">
+                    {isRecovering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <History className="mr-2 h-4 w-4" />}
+                    Scan for Historical Data
+                </Button>
+            </CardContent>
+        </Card>
+
         <DataRecoveryTool />
         <DataAuditTool />
         
@@ -243,28 +174,24 @@ export const DataManagementSettings = () => {
             <Database className="h-5 w-5 text-primary" />
             <CardTitle>Data & System Maintenance</CardTitle>
             </div>
-            <CardDescription>
-            Maintain data integrity and manage backups.
-            </CardDescription>
+            <CardDescription>Maintain data integrity and manage backups.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-            
             <div className="grid gap-4 md:grid-cols-2">
                 <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/20">
                     <div>
                         <h3 className="font-semibold text-sm mb-1">Repair Averages</h3>
-                        <p className="text-xs text-muted-foreground">Recalculates dashboard summary marks for all students based on detailed assessment history.</p>
+                        <p className="text-xs text-muted-foreground">Recalculates dashboard summary marks based on detailed assessment history.</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={handleRecalculate} disabled={isRepairing} className="w-full mt-auto">
                         {isRepairing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Calculator className="h-4 w-4 mr-2" />}
                         Recalculate All
                     </Button>
                 </div>
-
                 <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/20">
                     <div>
                         <h3 className="font-semibold text-sm mb-1">Force Sync</h3>
-                        <p className="text-xs text-muted-foreground">Manually push all pending changes to the server and pull latest data.</p>
+                        <p className="text-xs text-muted-foreground">Manually push all pending changes and pull latest data.</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={forceSync} disabled={isSyncing || !isOnline} className="w-full mt-auto">
                         {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
@@ -272,64 +199,34 @@ export const DataManagementSettings = () => {
                     </Button>
                 </div>
             </div>
-
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
-            <div>
                 <h3 className="font-semibold mb-1">Backup Data</h3>
-                <p className="text-sm text-muted-foreground">Download a JSON file containing all classes, assessments, and settings.</p>
-            </div>
-            <Button onClick={handleExportData} variant="outline" disabled={isExporting}>
-                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                Export Backup
-            </Button>
-            </div>
-
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/20">
-            <div>
-                <h3 className="font-semibold mb-1">Restore Data</h3>
-                <p className="text-sm text-muted-foreground">Upload a backup file to restore your data.</p>
-            </div>
-            <div className="relative">
-                <Button variant="outline" className="relative cursor-pointer" disabled={isImporting}>
-                {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                Import File
-                <input 
-                    type="file" 
-                    accept=".json" 
-                    className="absolute inset-0 opacity-0 cursor-pointer" 
-                    onChange={handleImportData}
-                    disabled={isImporting}
-                />
+                <Button onClick={handleExportData} variant="outline" disabled={isExporting}>
+                    {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                    Export Backup
                 </Button>
             </div>
-            </div>
-
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border border-destructive/20 rounded-lg bg-red-50 dark:bg-red-950/10">
-            <div>
                 <h3 className="font-semibold mb-1 text-destructive">Danger Zone</h3>
-                <p className="text-sm text-muted-foreground">Permanently remove all classes and settings.</p>
-            </div>
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={isClearing}>
-                    <AlertTriangle className="mr-2 h-4 w-4" /> Reset App
-                </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete <strong>ALL</strong> data locally and on the server.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleClearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    {isClearing ? "Clearing..." : "Yes, Reset App"}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={isClearing}>
+                        <AlertTriangle className="mr-2 h-4 w-4" /> Reset App
+                    </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>Permanently delete ALL data locally and on the server.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleClearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        {isClearing ? "Clearing..." : "Yes, Reset App"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </CardContent>
         </Card>
