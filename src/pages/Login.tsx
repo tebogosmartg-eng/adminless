@@ -4,7 +4,7 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import logo from "@/source bucket/AdminLess logo.png";
+import icon from "@/source bucket/Icon.png";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ const Login = () => {
       <Card className="w-full max-w-md shadow-2xl border-border/50 rounded-[3rem] overflow-hidden">
         <CardHeader className="text-center space-y-6 pt-12 pb-8 bg-white">
             <div className="mx-auto bg-slate-50 p-6 rounded-[2.5rem] shadow-inner border border-slate-100">
-                 <img src={logo} alt="AdminLess Logo" className="h-40 w-40 object-contain" />
+                 <img src={icon} alt="AdminLess Icon" className="h-40 w-40 object-contain" />
             </div>
             <div className="space-y-1">
               <CardTitle className="text-4xl font-black tracking-tighter text-blue-900">AdminLess</CardTitle>

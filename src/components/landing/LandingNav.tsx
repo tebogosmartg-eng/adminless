@@ -4,7 +4,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import logo from "@/source bucket/AdminLess logo.png";
+import icon from "@/source bucket/Icon.png";
 
 export const LandingNav = () => {
   return (
@@ -12,7 +12,7 @@ export const LandingNav = () => {
       <div className="container mx-auto flex h-24 items-center justify-between px-4 md:px-8">
         <Link to="/" className="flex items-center gap-5 group transition-all hover:scale-105 active:scale-95">
           <div className="bg-white p-1.5 rounded-2xl shadow-md border border-slate-100">
-            <img src={logo} alt="AdminLess Logo" className="h-12 w-12 object-contain" />
+            <img src={icon} alt="AdminLess Icon" className="h-12 w-12 object-contain" />
           </div>
           <span className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white">AdminLess</span>
         </Link>
