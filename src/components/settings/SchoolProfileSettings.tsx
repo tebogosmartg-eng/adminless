@@ -34,7 +34,7 @@ export const SchoolProfileSettings = () => {
     setTempSchoolCode(schoolCode);
     setTempTeacherName(teacherName);
     setTempContactEmail(contactEmail);
-    setTempContactPhone(contactPhone);
+    setTempContactPhone(contactPhone || "");
     setTempThreshold(atRiskThreshold.toString());
   }, [schoolName, schoolCode, teacherName, contactEmail, contactPhone, atRiskThreshold]);
 
@@ -185,6 +185,20 @@ export const SchoolProfileSettings = () => {
                     placeholder="info@school.com"
                     value={tempContactEmail}
                     onChange={(e) => setTempContactEmail(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="contact-phone">Contact Phone</Label>
+                <div className="relative">
+                  <Phone className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="contact-phone"
+                    placeholder="e.g. +27 12 345 6789"
+                    value={tempContactPhone}
+                    onChange={(e) => setTempContactPhone(e.target.value)}
                     className="pl-9"
                   />
                 </div>
