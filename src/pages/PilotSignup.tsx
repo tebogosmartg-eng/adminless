@@ -11,10 +11,12 @@ const PilotSignup = () => {
   return (
     <div className="min-h-screen bg-[#fcfcfd] dark:bg-[#0a0a0b] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-2xl mb-8 flex items-center justify-between">
-        <Link to="/welcome" className="group flex items-center gap-5 hover:scale-105 transition-transform active:scale-95">
-            <div className="bg-white p-2 rounded-2xl shadow-md border border-slate-100">
-              <img src={icon} alt="AdminLess Icon" className="h-12 w-12 object-contain" />
-            </div>
+        <Link to="/welcome" className="group flex items-center gap-4 hover:scale-105 transition-transform active:scale-95">
+            <img 
+              src={icon} 
+              alt="AdminLess Icon" 
+              className="h-12 w-auto object-contain" 
+            />
             <span className="text-3xl font-black tracking-tighter">AdminLess</span>
         </Link>
         <Link to="/welcome">
@@ -36,7 +38,7 @@ const PilotSignup = () => {
 
         <div className="mt-14 pt-10 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
-                <img src={icon} alt="" className="h-6 w-6 opacity-40 grayscale" />
+                <img src={icon} alt="" className="h-6 w-auto opacity-40 grayscale object-contain" />
                 Your data stays yours.
             </div>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">

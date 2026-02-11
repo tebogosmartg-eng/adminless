@@ -21,10 +21,14 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md shadow-2xl border-border/50 rounded-[3rem] overflow-hidden">
+      <Card className="w-full max-w-md shadow-2xl border-border/50 rounded-[2rem] overflow-hidden">
         <CardHeader className="text-center space-y-6 pt-12 pb-8 bg-white">
-            <div className="mx-auto bg-slate-50 p-6 rounded-[2.5rem] shadow-inner border border-slate-100">
-                 <img src={icon} alt="AdminLess Icon" className="h-40 w-40 object-contain" />
+            <div className="mx-auto">
+                 <img 
+                  src={icon} 
+                  alt="AdminLess Icon" 
+                  className="h-32 w-auto object-contain mx-auto" 
+                 />
             </div>
             <div className="space-y-1">
               <CardTitle className="text-4xl font-black tracking-tighter text-blue-900">AdminLess</CardTitle>
