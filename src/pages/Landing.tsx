@@ -11,6 +11,7 @@ import { ComplianceSection } from '@/components/landing/ComplianceSection';
 import { WorkflowSection } from '@/components/landing/WorkflowSection';
 import { AudienceSection } from '@/components/landing/AudienceSection';
 import { PricingSection } from '@/components/landing/PricingSection';
+import { TestimonialsSection } from '@/components/landing/TestimonialsSection';
 import { DataPrivacySection } from '@/components/landing/DataPrivacySection';
 import { FaqSection } from '@/components/landing/FaqSection';
 import { TrustSection } from '@/components/landing/TrustSection';
@@ -59,6 +60,10 @@ const Landing = () => {
 
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
         <PricingSection />
+      </motion.div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
+        <TestimonialsSection />
       </motion.div>
 
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={fadeInVariant}>
