@@ -1,10 +1,10 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "./ThemeToggle";
 import MobileSidebar from "./MobileSidebar";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { Button } from "@/components/ui/button";
-import { Search, CalendarDays, ChevronDown, Check, Clock, AlertTriangle, BookMarked } from "lucide-react";
+import { Search, CalendarDays, ChevronDown, Check, Clock, AlertTriangle, BookMarked, LogOut, Settings } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
 import {
   DropdownMenu,
@@ -18,11 +18,13 @@ import {
   DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
-import { showSuccess } from "@/utils/toast";
+import { showSuccess, showError } from "@/utils/toast";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const Header = () => {
+  const navigate = useNavigate();
   const { teacherName } = useSettings();
   const { years, activeYear, setActiveYear, terms, activeTerm, setActiveTerm } = useAcademic();
   const { currentPeriod } = useCurrentPeriod();
@@ -51,6 +53,19 @@ const Header = () => {
     if (confirm(`Switch active term to ${term.name}?`)) {
         setActiveTerm(term);
         showSuccess(`Switched to ${term.name}`);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        showSuccess("Signed out successfully");
+        // Navigation is handled by auth state observer in App.tsx
+        navigate("/welcome");
+    } catch (err: any) {
+        console.error("Logout error:", err);
+        showError(err.message || "Failed to sign out properly.");
     }
   };
 
@@ -150,14 +165,30 @@ const Header = () => {
       <div className="flex items-center gap-3">
         <HelpDialog />
         <ThemeToggle />
-        <div className="flex items-center gap-3 pl-2 border-l border-white/20 ml-1">
-          <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-white/90">
-            {teacherName || "Teacher"}
-          </span>
-          <Avatar className="h-8 w-8 ring-2 ring-white/20">
-            <AvatarFallback className="bg-white/10 text-white text-xs font-bold">{initials}</AvatarFallback>
-          </Avatar>
-        </div>
+        
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-3 pl-2 border-l border-white/20 ml-1 hover:bg-white/5 transition-colors p-1 rounded-md outline-none">
+                    <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-white/90">
+                        {teacherName || "Teacher"}
+                    </span>
+                    <Avatar className="h-8 w-8 ring-2 ring-white/20">
+                        <AvatarFallback className="bg-white/10 text-white text-xs font-bold">{initials}</AvatarFallback>
+                    </Avatar>
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                    <Settings className="mr-2 h-4 w-4" /> Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" /> Sign Out
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

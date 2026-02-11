@@ -44,15 +44,31 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    // Robust initial session check
+    const initAuth = async () => {
+      try {
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        setSession(initialSession);
+      } catch (err) {
+        console.error("[auth] Initial session load failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    initAuth();
+
+    // Subscribe to ongoing auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log(`[auth] State Change Event: ${event}`);
+      setSession(newSession);
+      
+      if (event === 'SIGNED_OUT') {
+        // Clear any specific application cache or sensitive local state if needed
+        setSession(null);
+      }
+      
       setLoading(false);
     });
 
@@ -67,7 +83,7 @@ const App = () => {
              <div className="h-16 w-16 rounded-full border-4 border-primary/30" />
              <div className="absolute top-0 left-0 h-16 w-16 rounded-full border-4 border-primary border-t-transparent animate-spin" />
            </div>
-           <p className="text-muted-foreground font-medium animate-pulse">Loading AdminLess...</p>
+           <p className="text-muted-foreground font-medium animate-pulse">Authenticating...</p>
         </div>
       </div>
     );
@@ -107,7 +123,7 @@ const App = () => {
                                     <Route path="/evidence-audit" element={<EvidenceAudit />} />
                                     <Route path="/settings" element={<Settings />} />
                                 </Route>
-                                <Route path="*" element={<NotFound />} />
+                                <Route path="*" element={<Navigate to="/" />} />
                                 </Routes>
                             </ClassesProvider>
                         </SettingsProvider>
