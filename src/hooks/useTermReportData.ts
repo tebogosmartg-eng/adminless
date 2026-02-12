@@ -24,13 +24,15 @@ export const useTermReportData = () => {
 
     setLoading(true);
     try {
-      // Diagnostic Fix: Find classes using both internal and mapped property names
+      // Diagnostic Fix: Find classes using term_id index and filter by grade/subject
       const allClasses = await db.classes
+        .where('term_id')
+        .equals(termId)
         .filter(c => c.grade === grade && c.subject === subject && !c.archived)
         .toArray();
 
       if (!allClasses || allClasses.length === 0) {
-        showError("No active classes found for this selection.");
+        showError("No active classes found for this selection in the chosen term.");
         setLoading(false);
         return;
       }

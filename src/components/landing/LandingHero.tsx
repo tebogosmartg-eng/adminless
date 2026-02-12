@@ -61,7 +61,7 @@ export const LandingHero = () => {
         >
           <Link to="/login" className="w-full sm:w-auto">
             <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white px-10 h-14 text-lg font-bold shadow-lg shadow-blue-200/50 dark:shadow-none hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-blue-400 ring-offset-2">
-              Start Managing Your Classes
+              Get Started for Free
             </Button>
           </Link>
           <Button 
@@ -87,7 +87,7 @@ export const LandingHero = () => {
               <CheckCircle2 className="h-3.5 w-3.5 text-blue-500/70" /> Private & Secure
           </div>
           <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-3.5 w-3.5 text-blue-500/70" /> Free to get started
+              <CheckCircle2 className="h-3.5 w-3.5 text-blue-500/70" /> Simple term-based workflow
           </div>
         </motion.div>
       </div>
