@@ -21,7 +21,7 @@ const PLANS = [
       "Draft & final exports"
     ],
     buttonText: "Start Free",
-    link: "/pilot-signup",
+    link: "/login",
     highlight: false
   },
   {
@@ -37,8 +37,8 @@ const PLANS = [
       "Evidence & moderation tools",
       "Personal teaching timetable"
     ],
-    buttonText: "Become a Member",
-    link: "/pilot-signup",
+    buttonText: "Get Started",
+    link: "/login",
     highlight: true,
     badge: "Most Popular"
   },
@@ -54,8 +54,8 @@ const PLANS = [
       "Advanced analytics",
       "Priority support"
     ],
-    buttonText: "Upgrade to Premium",
-    link: "/pilot-signup",
+    buttonText: "Get Started",
+    link: "/login",
     highlight: false
   }
 ];

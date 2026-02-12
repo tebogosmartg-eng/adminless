@@ -68,13 +68,24 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     return terms.find(t => t.id === activeTermId) || null;
   }, [terms, activeTermId]);
 
+  // STABILISATION LOGS
+  useEffect(() => {
+    if (years.length > 0) {
+      console.log(`[Stabilisation] Academic Cycles detected: ${years.length}`);
+    }
+  }, [years]);
+
+  useEffect(() => {
+    if (terms.length > 0) {
+      console.log(`[Stabilisation] Terms detected for active context: ${terms.length}`);
+    }
+  }, [terms]);
+
   // --- AUTO-RECOVERY LOGIC ---
-  // If the user has data but no context selected (common after logout or cleared cache),
-  // automatically select the most relevant Year and Term.
   useEffect(() => {
     if (!activeYearId && years.length > 0) {
       console.log("[AcademicContext] No active year found in storage. Auto-selecting latest cycle.");
-      const latestYear = years[0]; // Years are sorted reverse by name
+      const latestYear = years[0]; 
       setActiveYearIdState(latestYear.id);
       localStorage.setItem(STORAGE_KEYS.YEAR, latestYear.id);
     }
@@ -83,7 +94,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   useEffect(() => {
     if (activeYear && !activeTermId && terms.length > 0) {
       console.log("[AcademicContext] No active term found. Auto-selecting current working term.");
-      // Prioritize the first open term found
       const openTerm = terms.find(t => !t.closed);
       const targetTerm = openTerm || terms[0];
       setActiveTermIdState(targetTerm.id);
