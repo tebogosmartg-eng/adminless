@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Circle, ChevronRight, Sparkles, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { useSettings } from "@/context/SettingsContext";
 
 export const OnboardingChecklist = () => {
   const { coreSteps, isReadyForFinalization } = useSetupStatus();
+  const { profile } = useSettings();
   const navigate = useNavigate();
 
-  if (isReadyForFinalization) return null;
+  // STABILISATION: Ensure checklist only renders if a profile exists
+  if (isReadyForFinalization || !profile) return null;
 
   const handleStepClick = (id: number) => {
     switch (id) {
@@ -29,7 +32,6 @@ export const OnboardingChecklist = () => {
         navigate('/classes', { state: { highlightId: 'class-list-roster', fromOnboarding: true } });
         break;
       case 6:
-        // Navigate to the first class
         navigate('/classes', { state: { highlightId: 'new-task-btn', fromOnboarding: true } });
         break;
       case 7:

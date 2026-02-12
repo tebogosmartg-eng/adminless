@@ -9,6 +9,7 @@ import { queueAction } from '@/services/sync';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SettingsContextType {
+  profile: any | null | undefined;
   gradingScheme: GradeSymbol[];
   updateGradingScheme: (newScheme: GradeSymbol[]) => void;
   resetGradingScheme: () => void;
@@ -76,45 +77,25 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [savedSubjects, setSavedSubjectsState] = useState<string[]>(DEFAULT_DBE_SUBJECTS);
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
 
-  // 1. Log current authenticated user UUID & Profile Linkage
+  // STABILISATION: Log current authenticated user UUID & Profile Linkage
   useEffect(() => {
-    const runAudit = async () => {
+    const logDiagnosticInfo = async () => {
       if (!session?.user) return;
 
       const uid = session.user.id;
-      console.group(`[Auth Linkage Audit] User: ${session.user.email}`);
-      console.log(`Current UUID: ${uid}`);
-
-      try {
-        // 2. Fetch profile row for this UUID
-        const { data: sbProfile, error: sbError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', uid)
-          .maybeSingle();
-
-        if (sbError) {
-          console.error("Supabase Profile Fetch Error:", sbError);
-        } else if (!sbProfile) {
-          console.warn("No profile row found for current UUID in Supabase. A recovery audit may be required.");
-        } else {
-          console.log("Supabase profile verified:", sbProfile);
-        }
-
-        // 3. Check for duplicates (Handled by the recovery tool in settings)
-        const localClasses = await db.classes.toArray();
-        const mismatch = localClasses.some(c => c.user_id && c.user_id !== uid);
-        if (mismatch) {
-          console.error("CRITICAL: Detected classes in local storage linked to a different UUID. Please use the Recovery tool in Settings.");
-        }
-      } catch (e) {
-        console.error("Audit failed:", e);
+      console.group(`[Stabilisation Audit] User Session`);
+      console.log(`Authenticated User UUID: ${uid}`);
+      
+      if (profile) {
+        console.log(`Fetched Profile UUID: ${profile.id}`);
+      } else {
+        console.warn(`No profile found in local DB for user ${uid}`);
       }
       console.groupEnd();
     };
 
-    runAudit();
-  }, [session]);
+    logDiagnosticInfo();
+  }, [session, profile]);
 
   useEffect(() => {
     if (profile) {
@@ -134,7 +115,14 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   const updateProfile = async (updates: any) => {
     if (!session?.user.id) return;
-    const current = await db.profiles.get(session.user.id) || { id: session.user.id };
+    
+    // FETCH ONLY - DO NOT AUTOMATICALLY CREATE IF MISSING
+    const current = await db.profiles.get(session.user.id);
+    if (!current) {
+        console.warn("[Stabilisation] Blocked automatic profile creation during manual update.");
+        return;
+    }
+
     const updated = { ...current, ...updates, updated_at: new Date().toISOString() };
     await db.profiles.put(updated);
     await queueAction('profiles', 'upsert', updated);
@@ -260,6 +248,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   return (
     <SettingsContext.Provider value={{ 
+      profile,
       gradingScheme, updateGradingScheme, resetGradingScheme,
       schoolName, setSchoolName, schoolCode, setSchoolCode,
       teacherName, setTeacherName, contactEmail, setContactEmail,
