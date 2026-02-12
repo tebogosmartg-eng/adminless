@@ -133,6 +133,7 @@ export const pullData = async (userId: string) => {
     await pullTable('todos', supabase.from('todos').select('*').eq('user_id', userId));
     await pullTable('timetable', supabase.from('timetable').select('*').eq('user_id', userId));
     await pullTable('lesson_logs', supabase.from('lesson_logs').select('*').eq('user_id', userId));
+    await pullTable('curriculum_topics', supabase.from('curriculum_topics').select('*').eq('user_id', userId));
     await pullTable('rubrics', supabase.from('rubrics').select('*').eq('user_id', userId));
     await pullTable('activities', supabase.from('activities').select('*').eq('user_id', userId));
 
