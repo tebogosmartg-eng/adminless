@@ -53,13 +53,14 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const [recalculateTotal, setRecalculateTotal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
 
-  // Sync assessments when context changes
+  // STABILISATION: Sync assessments only when essential dependencies change
   useEffect(() => {
-    if (activeTerm?.id) {
+    if (activeTerm?.id && classInfo.id) {
         refreshAssessments(classInfo.id, activeTerm.id);
-        // We do NOT clear editedMarks here anymore to prevent data loss if the user
-        // switched tabs while an auto-save was pending.
-        setNewAss(prev => ({ ...prev, termId: activeTerm.id }));
+        setNewAss(prev => {
+            if (prev.termId === activeTerm.id) return prev;
+            return { ...prev, termId: activeTerm.id };
+        });
     }
   }, [activeTerm?.id, classInfo.id, refreshAssessments]);
 
@@ -67,12 +68,12 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     if (assessments.length > 0 && visibleAssessmentIds.length === 0) {
         setVisibleAssessmentIds(assessments.map(a => a.id));
     }
-  }, [assessments, visibleAssessmentIds.length]);
+  }, [assessments]);
 
-  const handleTermChange = (termId: string) => {
+  const handleTermChange = useCallback((termId: string) => {
     const term = terms.find(t => t.id === termId);
     if (term) setActiveTerm(term);
-  };
+  }, [terms, setActiveTerm]);
 
   const persistMark = useCallback(async (assessmentId: string, learnerId: string, value: string) => {
     setIsAutoSaving(true);
@@ -88,8 +89,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
             comment: editedComments[key] || existingMark?.comment || ""
         }]);
         
-        // Stabilisation: We clear the local state only after a successful DB update.
-        // If the user is typing fast, this might be overwritten by a newer handleMarkChange call.
         setEditedMarks(prev => {
             if (prev[key] === value) {
                 const next = { ...prev };
@@ -122,10 +121,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
         showSuccess(`Calculated: ${input} = ${result.value}`);
     }
 
-    // Immediately update local state so calculation is accurate
     setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: result.value }));
-    
-    // Asynchronously push to DB
     persistMark(assessmentId, learnerId, result.value);
     return true;
   }, [assessments, persistMark]);
@@ -140,7 +136,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const calculateLearnerTotal = useCallback((learnerId: string) => {
       const targetAssessments = recalculateTotal ? visibleAssessments : assessments;
       
-      // Combine saved marks with unsaved local edits (edits take priority)
       const combinedMarksMap = new Map();
       marks.filter(m => m.learner_id === learnerId).forEach(m => combinedMarksMap.set(m.assessment_id, m.score));
       
@@ -193,68 +188,50 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     }
   }, [updateMarks, marks]);
 
-  return {
-    state: {
-      viewTermId: activeTerm?.id || null, 
-      isAddOpen, isEditOpen, isImportOpen, isCopyOpen, analyticsOpen,
-      newAss, editingAssessment, editedMarks, editedComments, searchQuery, selectedAssessment,
-      visibleAssessmentIds, recalculateTotal, currentViewTerm: activeTerm, visibleAssessments,
-      isLocked: activeYear?.closed || activeTerm?.closed, 
-      filteredLearners: sortedAndFilteredLearners,
-      assessments, marks, terms, activeTerm, activeYear,
-      atRiskThreshold, sortConfig, activeTool, 
-      currentTotalWeight: assessments.reduce((acc, a) => acc + (a.weight || 0), 0),
-      isWeightValid: assessments.reduce((acc, a) => acc + (a.weight || 0), 0) === 100, 
-      isUsingVisibleTotal: recalculateTotal,
-      isAutoSaving, availableRubrics, rubricMarking,
-      activeAssessmentMax: assessments.find(a => a.id === activeTool.assessmentId)?.max_mark,
-      learnersForTools: sortedAndFilteredLearners.map(l => ({
-          ...l,
-          mark: l.id ? editedMarks[`${activeTool.assessmentId}-${l.id}`] || (marks.find(m => m.assessment_id === activeTool.assessmentId && m.learner_id === l.id)?.score?.toString() || "") : ""
-      }))
-    },
-    actions: {
+  const handleAddAssessment = useCallback(async () => {
+      const targetTermId = newAss.termId || activeTerm?.id;
+      if (!targetTermId) return showError("Target term missing.");
+      await createAssessment({ 
+          ...newAss, 
+          class_id: classInfo.id, 
+          term_id: targetTermId, 
+          max_mark: Number(newAss.max), 
+          weight: Number(newAss.weight), 
+          rubric_id: newAss.rubricId === 'none' ? null : (newAss.rubricId || null) 
+      });
+      setIsAddOpen(false);
+  }, [newAss, activeTerm?.id, classInfo.id, createAssessment]);
+
+  const actions = useMemo(() => ({
       setViewTermId: handleTermChange, 
       setIsAddOpen, setIsEditOpen, setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
       setNewAss, setEditingAssessment, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
-      getMarkValue: (a, l) => editedMarks[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.score?.toString() ?? "",
-      getMarkComment: (a, l) => editedComments[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.comment ?? "",
+      getMarkValue: (a: string, l: string) => editedMarks[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.score?.toString() ?? "",
+      getMarkComment: (a: string, l: string) => editedComments[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.comment ?? "",
       handleMarkChange, 
       handleCommentChange,
-      handleAddAssessment: async () => {
-          const targetTermId = newAss.termId || activeTerm?.id;
-          if (!targetTermId) return showError("Target term missing.");
-          await createAssessment({ 
-              ...newAss, 
-              class_id: classInfo.id, 
-              term_id: targetTermId, 
-              max_mark: Number(newAss.max), 
-              weight: Number(newAss.weight), 
-              rubric_id: newAss.rubricId === 'none' ? null : (newAss.rubricId || null) 
-          });
-          setIsAddOpen(false);
-      },
+      handleAddAssessment,
       handleUpdateAssessment: async (assessment: Assessment) => {
         await updateAssessment(assessment);
         setIsEditOpen(false);
       },
       calculateLearnerTotal,
-      getAssessmentStats: (id) => {
+      getAssessmentStats: (id: string) => {
           const assMarks = marks.filter(m => m.assessment_id === id && m.score !== null);
           const ass = assessments.find(a => a.id === id);
           if (!assMarks.length || !ass) return { avg: '0', max: 0, min: 0 };
           const pcts = assMarks.map(m => (m.score! / ass.max_mark) * 100);
           return { avg: (pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1), max: Math.max(...pcts).toFixed(0), min: Math.min(...pcts).toFixed(0) };
       },
-      openAnalytics: (ass) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
+      openAnalytics: (ass: Assessment) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
       handleExportSheet: () => {}, 
-      toggleAssessmentVisibility: (id) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
+      toggleAssessmentVisibility: (id: string) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
       deleteAssessment, 
       refreshAssessments, 
-      handleSort: (key) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
-      openTool: (type, id) => setActiveTool({ type, assessmentId: id, termId: assessments.find(a => a.id === id)?.term_id || null }),
+      handleSort: (key: string) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
+      openTool: (type: 'rapid' | 'voice', id: string) => setActiveTool({ type, assessmentId: id, termId: assessments.find(a => a.id === id)?.term_id || null }),
       closeTool: () => setActiveTool({ type: null, assessmentId: null, termId: null }),
-      handleToolUpdate: (idx, val) => { 
+      handleToolUpdate: (idx: number, val: string) => { 
           if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) {
               validateAndCommitMark(activeTool.assessmentId, sortedAndFilteredLearners[idx].id!, val);
           }
@@ -290,6 +267,33 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           const idx = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
           if (idx > 0) setRubricMarking(p => ({ ...p, learner: sortedAndFilteredLearners[idx - 1] }));
       }
-    }
+  }), [
+    handleTermChange, handleMarkChange, handleCommentChange, handleAddAssessment, 
+    updateAssessment, calculateLearnerTotal, marks, assessments, deleteAssessment, 
+    refreshAssessments, activeTool, sortedAndFilteredLearners, validateAndCommitMark, 
+    classInfo.learners, updateMarks, availableRubrics, rubricMarking
+  ]);
+
+  return {
+    state: {
+      viewTermId: activeTerm?.id || null, 
+      isAddOpen, isEditOpen, isImportOpen, isCopyOpen, analyticsOpen,
+      newAss, editingAssessment, editedMarks, editedComments, searchQuery, selectedAssessment,
+      visibleAssessmentIds, recalculateTotal, currentViewTerm: activeTerm, visibleAssessments,
+      isLocked: activeYear?.closed || activeTerm?.closed, 
+      filteredLearners: sortedAndFilteredLearners,
+      assessments, marks, terms, activeTerm, activeYear,
+      atRiskThreshold, sortConfig, activeTool, 
+      currentTotalWeight: assessments.reduce((acc, a) => acc + (a.weight || 0), 0),
+      isWeightValid: assessments.reduce((acc, a) => acc + (a.weight || 0), 0) === 100, 
+      isUsingVisibleTotal: recalculateTotal,
+      isAutoSaving, availableRubrics, rubricMarking,
+      activeAssessmentMax: assessments.find(a => a.id === activeTool.assessmentId)?.max_mark,
+      learnersForTools: sortedAndFilteredLearners.map(l => ({
+          ...l,
+          mark: l.id ? editedMarks[`${activeTool.assessmentId}-${l.id}`] || (marks.find(m => m.assessment_id === activeTool.assessmentId && m.learner_id === l.id)?.score?.toString() || "") : ""
+      }))
+    },
+    actions
   };
 };

@@ -6,10 +6,11 @@ import { AcademicYear, Term, Assessment, AssessmentMark, Activity } from '@/lib/
 import { showSuccess, showError } from '@/utils/toast';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { queueAction } from '@/services/sync';
+import { queueAction, pullData, pushChanges } from '@/services/sync';
 import { useAcademicSelection } from '@/hooks/useAcademicSelection';
 import { useAcademicMigration } from '@/hooks/useAcademicMigration';
 import { useAcademicAverages } from '@/hooks/useAcademicAverages';
+import { monitor } from '@/utils/supabaseMonitor';
 
 interface MigrationReport {
     success: boolean;
@@ -51,7 +52,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const [diagnosticMode, setDiagnosticMode] = useState(false);
   const [currentClassFilter, setCurrentClassFilter] = useState<{classId: string, termId: string} | null>(null);
 
-  // 1. Data Fetching
   const years = useLiveQuery(() => db.academic_years.orderBy('name').reverse().toArray()) || [];
   const allTerms = useLiveQuery(() => db.terms.toArray()) || [];
   
@@ -75,7 +75,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return db.assessment_marks.where('assessment_id').anyOf(assessments.map(a => a.id)).toArray();
   }, [assessments, diagnosticMode]) || [];
 
-  // 2. Specialized Hooks
   const { updateLearnerActiveAverages, recalculateAllActiveAverages, runDataVacuum } = useAcademicAverages();
   
   const logInternalActivity = useCallback(async (message: string, yearId?: string, termId?: string) => {
@@ -84,7 +83,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     const targetTermId = termId || activeTerm?.id;
     if (!targetYearId || !targetTermId) return;
 
-    const newActivity: Activity = {
+    const newActivity = {
       id: crypto.randomUUID(),
       user_id: session.user.id,
       year_id: targetYearId,
@@ -103,81 +102,110 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     logInternalActivity
   );
 
+  const createYear = useCallback(async (name: string) => {
+    if (!session?.user.id) return;
+    const yearId = crypto.randomUUID();
+    const yearData = { id: yearId, name, user_id: session.user.id, closed: false };
+    await db.academic_years.add(yearData);
+    await queueAction('academic_years', 'create', yearData);
+    const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName, idx) => ({
+      id: crypto.randomUUID(), year_id: yearId, name: tName, user_id: session.user.id, closed: idx !== 0, weight: 25, start_date: null, end_date: null
+    }));
+    await db.terms.bulkAdd(termsToCreate as any);
+    await queueAction('terms', 'create', termsToCreate);
+    showSuccess(`Academic Year ${name} created.`);
+  }, [session?.user.id]);
+
+  const deleteYear = useCallback(async (id: string) => {
+    const yearTerms = await db.terms.where('year_id').equals(id).toArray();
+    await db.transaction('rw', [db.academic_years, db.terms, db.sync_queue], async () => {
+        await db.terms.where('year_id').equals(id).delete();
+        await db.academic_years.delete(id);
+        for (const t of yearTerms) await queueAction('terms', 'delete', { id: t.id });
+        await queueAction('academic_years', 'delete', { id });
+    });
+    showSuccess("Academic Year deleted.");
+  }, []);
+
+  const updateTerm = useCallback(async (term: Term) => {
+    await db.terms.put(term);
+    await queueAction('terms', 'update', term);
+    recalculateAllActiveAverages();
+  }, [recalculateAllActiveAverages]);
+
+  const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
+    const id = crypto.randomUUID();
+    const data = { ...assessment, id, user_id: session?.user.id || '' };
+    await db.assessments.add(data);
+    await queueAction('assessments', 'create', data);
+    return id;
+  }, [session?.user.id]);
+
+  const updateAssessment = useCallback(async (a: Assessment) => {
+    await db.assessments.put(a);
+    await queueAction('assessments', 'update', a);
+  }, []);
+
+  const deleteAssessment = useCallback(async (id: string) => {
+    await db.assessment_marks.where('assessment_id').equals(id).delete(); 
+    await db.assessments.delete(id);
+    await queueAction('assessments', 'delete', { id });
+  }, []);
+
+  const updateMarks = useCallback(async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
+    if (!session?.user.id) return;
+    const toUpsert = await Promise.all(updates.map(async (u) => {
+        const existing = await db.assessment_marks.where('[assessment_id+learner_id]').equals([u.assessment_id, u.learner_id]).first();
+        return { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id } as AssessmentMark;
+    }));
+    await db.assessment_marks.bulkPut(toUpsert);
+    await queueAction('assessment_marks', 'upsert', toUpsert);
+    await updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
+  }, [session?.user.id, updateLearnerActiveAverages]);
+
+  const refreshAssessments = useCallback(async (c: string, t?: string) => {
+    const targetTermId = t || activeTerm?.id || '';
+    // Use deep comparison for the state update to avoid redundant renders
+    setCurrentClassFilter(prev => {
+      if (prev?.classId === c && prev?.termId === targetTermId) return prev;
+      return { classId: c, termId: targetTermId };
+    });
+  }, [activeTerm?.id]);
+
+  const toggleTermStatus = useCallback(async (termId: string, closed: boolean) => {
+    await db.terms.update(termId, { closed });
+    await queueAction('terms', 'update', { id: termId, closed });
+    showSuccess(`Term ${closed ? 'finalized' : 'activated'}.`);
+  }, []);
+
+  const closeYear = useCallback(async (id: string) => {
+    await db.academic_years.update(id, { closed: true });
+    await queueAction('academic_years', 'update', { id, closed: true });
+  }, []);
+
+  const rollForwardClasses = useCallback((s: string, t: string, d: any[]) => 
+    doRollForward(activeYear?.id || '', s, t, d, setActiveTerm), 
+  [doRollForward, activeYear?.id, setActiveTerm]);
+
+  const value = useMemo(() => ({
+    years, terms, assessments, marks, 
+    loading: !years, 
+    activeYear, activeTerm, setActiveYear, setActiveTerm, 
+    createYear, deleteYear, updateTerm,
+    createAssessment, updateAssessment, deleteAssessment,
+    updateMarks, refreshAssessments, toggleTermStatus, closeYear,
+    recalculateAllActiveAverages, runDataVacuum, rollForwardClasses,
+    migrateLegacyData, diagnosticMode, setDiagnosticMode
+  }), [
+    years, terms, assessments, marks, activeYear, activeTerm, 
+    setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm, 
+    createAssessment, updateAssessment, deleteAssessment, updateMarks, 
+    refreshAssessments, toggleTermStatus, closeYear, recalculateAllActiveAverages, 
+    runDataVacuum, rollForwardClasses, migrateLegacyData, diagnosticMode
+  ]);
+
   return (
-    <AcademicContext.Provider value={{
-      years, terms, assessments, marks, 
-      loading: !years, 
-      activeYear, activeTerm, setActiveYear, setActiveTerm, 
-      createYear: async (name) => {
-          if (!session?.user.id) return;
-          const yearId = crypto.randomUUID();
-          const yearData = { id: yearId, name, user_id: session.user.id, closed: false };
-          await db.academic_years.add(yearData);
-          await queueAction('academic_years', 'create', yearData);
-          const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName, idx) => ({
-            id: crypto.randomUUID(), year_id: yearId, name: tName, user_id: session.user.id, closed: idx !== 0, weight: 25, start_date: null, end_date: null
-          }));
-          await db.terms.bulkAdd(termsToCreate as any);
-          await queueAction('terms', 'create', termsToCreate);
-          showSuccess(`Academic Year ${name} created.`);
-      },
-      deleteYear: async (id) => {
-          const yearTerms = await db.terms.where('year_id').equals(id).toArray();
-          await db.transaction('rw', [db.academic_years, db.terms, db.sync_queue], async () => {
-              await db.terms.where('year_id').equals(id).delete();
-              await db.academic_years.delete(id);
-              for (const t of yearTerms) await queueAction('terms', 'delete', { id: t.id });
-              await queueAction('academic_years', 'delete', { id });
-          });
-          showSuccess("Academic Year deleted.");
-      },
-      updateTerm: async (term) => {
-          await db.terms.put(term);
-          await queueAction('terms', 'update', term);
-          recalculateAllActiveAverages();
-      },
-      createAssessment: async (assessment) => {
-        const id = crypto.randomUUID();
-        const data = { ...assessment, id, user_id: session?.user.id || '' };
-        await db.assessments.add(data);
-        await queueAction('assessments', 'create', data);
-        return id;
-      },
-      updateAssessment: async (a) => {
-          await db.assessments.put(a);
-          await queueAction('assessments', 'update', a);
-      },
-      deleteAssessment: async (id) => {
-          await db.assessment_marks.where('assessment_id').equals(id).delete(); 
-          await db.assessments.delete(id);
-          await queueAction('assessments', 'delete', { id });
-      },
-      updateMarks: async (updates) => {
-        if (!session?.user.id) return;
-        const toUpsert = await Promise.all(updates.map(async (u) => {
-            const existing = await db.assessment_marks.where('[assessment_id+learner_id]').equals([u.assessment_id, u.learner_id]).first();
-            return { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id } as AssessmentMark;
-        }));
-        await db.assessment_marks.bulkPut(toUpsert);
-        await queueAction('assessment_marks', 'upsert', toUpsert);
-        await updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
-      },
-      refreshAssessments: async (c, t) => setCurrentClassFilter({ classId: c, termId: t || activeTerm?.id || '' }),
-      toggleTermStatus: async (termId, closed) => {
-          await db.terms.update(termId, { closed });
-          await queueAction('terms', 'update', { id: termId, closed });
-          showSuccess(`Term ${closed ? 'finalized' : 'activated'}.`);
-      },
-      closeYear: async (id) => {
-          await db.academic_years.update(id, { closed: true });
-          await queueAction('academic_years', 'update', { id, closed: true });
-      },
-      recalculateAllActiveAverages,
-      runDataVacuum,
-      rollForwardClasses: (s, t, d) => doRollForward(activeYear?.id || '', s, t, d, setActiveTerm),
-      migrateLegacyData,
-      diagnosticMode, setDiagnosticMode
-    }}>
+    <AcademicContext.Provider value={value}>
       {children}
     </AcademicContext.Provider>
   );
