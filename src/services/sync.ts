@@ -49,12 +49,11 @@ export const pushChanges = async () => {
 
       if (error) {
         console.error(`[Diagnostic: Sync] Push failed for ${table}:`, error.message, error.details);
-        // Do not block the whole queue for a single record error unless it's an auth error
         if (error.code === 'PGRST301' || error.code === '42501') {
             console.error("[Diagnostic: Sync] Critical Permission Error. Stopping Queue.");
             break;
         }
-        await db.sync_queue.delete(id!); // Clear failing record to prevent loop
+        await db.sync_queue.delete(id!); 
       } else {
         await db.sync_queue.delete(id!);
       }
@@ -90,7 +89,6 @@ export const pullData = async (userId: string) => {
           return;
       }
 
-      // Filter out items that are currently pending in the local sync queue to prevent overwriting local work
       const itemsToPut = data.filter((item: any) => !pendingIdsByTable[tableName]?.has(item.id));
 
       if (itemsToPut.length > 0) {
@@ -108,7 +106,6 @@ export const pullData = async (userId: string) => {
       }
     };
 
-    // Sequential pull to maintain relational integrity
     await pullTable('academic_years', supabase.from('academic_years').select('*').eq('user_id', userId));
     await pullTable('terms', supabase.from('terms').select('*').eq('user_id', userId));
     await pullTable('profiles', supabase.from('profiles').select('*').eq('id', userId));
@@ -121,14 +118,23 @@ export const pullData = async (userId: string) => {
       await pullTable('learners', supabase.from('learners').select('*').in('class_id', classIds));
       await pullTable('assessments', supabase.from('assessments').select('*').in('class_id', classIds));
       
+      const localLearners = await db.learners.toArray();
+      const learnerIds = localLearners.map(l => l.id!);
+      
       const localAssessments = await db.assessments.toArray();
       const assIds = localAssessments.map(a => a.id);
+
       if (assIds.length > 0) {
         await pullTable('assessment_marks', supabase.from('assessment_marks').select('*').in('assessment_id', assIds));
       }
 
       await pullTable('attendance', supabase.from('attendance').select('*').in('class_id', classIds));
-      await pullTable('learner_notes', supabase.from('learner_notes').select('*').in('learner_id', classIds));
+      
+      // REPAIR: Link learner_notes to learnerIds, not classIds
+      if (learnerIds.length > 0) {
+        await pullTable('learner_notes', supabase.from('learner_notes').select('*').in('learner_id', learnerIds));
+      }
+
       await pullTable('evidence', supabase.from('evidence').select('*').in('class_id', classIds));
     }
 
@@ -148,9 +154,7 @@ export const pullData = async (userId: string) => {
 
 export const queueAction = async (table: string, action: 'create' | 'update' | 'delete' | 'upsert', data: any) => {
   const dataItems = Array.isArray(data) ? data : [data];
-  
   for (const item of dataItems) {
-    // Deduplication logic for pending queue
     if (item.id && (action === 'update' || action === 'upsert' || action === 'create')) {
       const existing = await db.sync_queue
         .where('table').equals(table)
@@ -173,8 +177,5 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
       timestamp: Date.now()
     });
   }
-  
-  if (navigator.onLine) {
-    pushChanges();
-  }
+  if (navigator.onLine) pushChanges();
 };

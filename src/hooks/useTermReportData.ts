@@ -24,58 +24,51 @@ export const useTermReportData = () => {
 
     setLoading(true);
     try {
-      // 1. Get all classes matching Grade + Subject from Local DB
+      // Diagnostic Fix: Find classes using both internal and mapped property names
       const allClasses = await db.classes
         .filter(c => c.grade === grade && c.subject === subject && !c.archived)
         .toArray();
 
       if (!allClasses || allClasses.length === 0) {
-        showError("No classes found for this selection.");
+        showError("No active classes found for this selection.");
         setLoading(false);
         return;
       }
 
       const classIds = allClasses.map(c => c.id);
-
-      // Need to attach learners to classes
       const allLearners = await db.learners
         .where('class_id')
         .anyOf(classIds)
         .toArray();
 
-      // 2. Get Assessments for these classes & term
       const assessmentsData = await db.assessments
         .where('term_id')
         .equals(termId)
         .filter(a => classIds.includes(a.class_id))
         .toArray();
 
-      // Get a unique, sorted list of all assessment titles across all matched classes
       const uniqueTitles = Array.from(new Set(assessmentsData.map(a => a.title))).sort();
       setAllAssessmentTitles(uniqueTitles);
 
-      // 3. Get Marks for these assessments
       const assessmentIds = assessmentsData.map(a => a.id);
       const marksData = await db.assessment_marks
         .where('assessment_id')
         .anyOf(assessmentIds)
         .toArray();
 
-      // 4. Calculation Logic
       const results: TermReportResult[] = [];
 
       allClasses.forEach((cls) => {
         const classAssessments = assessmentsData.filter(a => a.class_id === cls.id);
         const classLearners = allLearners.filter(l => l.class_id === cls.id);
+        const displayClassName = cls.className || (cls as any).class_name;
         
         classLearners.forEach((learner) => {
           if (!learner.id) return;
 
           const learnerAssessments: { [title: string]: string } = {};
 
-          // Populate only the titles found in the entire set, ensuring consistent keys
           uniqueTitles.forEach(title => {
-              // Find if this class has this assessment
               const ass = classAssessments.find(a => a.title === title);
               if (ass) {
                   const markRecord = marksData.find(m => m.assessment_id === ass.id && m.learner_id === learner.id);
@@ -86,7 +79,7 @@ export const useTermReportData = () => {
                     learnerAssessments[title] = "-";
                   }
               } else {
-                  learnerAssessments[title] = "N/A"; // Student's class didn't have this specific task
+                  learnerAssessments[title] = "N/A";
               }
           });
 
@@ -94,7 +87,7 @@ export const useTermReportData = () => {
 
           results.push({
             learnerName: learner.name,
-            className: cls.className,
+            className: displayClassName,
             assessments: learnerAssessments,
             termAverage: avg
           });
@@ -106,7 +99,7 @@ export const useTermReportData = () => {
       showSuccess(`Generated report for ${results.length} learners.`);
 
     } catch (err: any) {
-      console.error(err);
+      console.error("[Diagnostic: Reports] Failure:", err);
       showError("Failed to generate report: " + err.message);
     } finally {
       setLoading(false);
