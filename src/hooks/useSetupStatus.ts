@@ -31,15 +31,6 @@ export const useSetupStatus = () => {
     return { isValid: termAss.length > 0 && invalidCount === 0, totalClassesWithWeighting: Object.keys(classGroups).length };
   }, [activeTerm?.id]) || { isValid: false, totalClassesWithWeighting: 0 };
 
-  const hasLegacyData = useLiveQuery(async () => {
-    const counts = await Promise.all([
-        db.classes.filter(c => !c.year_id || !c.term_id).count(),
-        db.assessments.filter(a => !a.term_id).count(),
-        db.learner_notes.filter(n => !n.term_id).count()
-    ]);
-    return counts.some(c => c > 0);
-  }) || false;
-
   const status = useMemo(() => {
     if (academicLoading || classesLoading) {
         return {
@@ -49,7 +40,6 @@ export const useSetupStatus = () => {
             isLoading: true,
             hasInitialSetup: false,
             hasMarksCaptured: false,
-            hasLegacyData: false,
             hasProfile
         };
     }
@@ -84,10 +74,9 @@ export const useSetupStatus = () => {
         isLoading: false,
         hasInitialSetup: step1 && step2 && step3 && step4,
         hasMarksCaptured: step7,
-        hasLegacyData,
         hasProfile
     };
-  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, weightingReport, hasLegacyData, hasProfile, academicLoading, classesLoading]);
+  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, weightingReport, hasProfile, academicLoading, classesLoading]);
 
   return status;
 };

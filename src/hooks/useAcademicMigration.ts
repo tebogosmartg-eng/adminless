@@ -37,7 +37,7 @@ export const useAcademicMigration = (
                             user_id: item.user_id || userId
                         };
 
-                        // Ensure proper camelCase mapping during migration
+                        // Ensure proper camelCase mapping during migration for classes
                         if (table === 'classes' && newItem.class_name && !newItem.className) {
                             newItem.className = newItem.class_name;
                             delete newItem.class_name;
@@ -59,7 +59,7 @@ export const useAcademicMigration = (
         if (report.total > 0) {
             await recalculateAverages();
             // Logging to console only as requested for infrastructure invisibility
-            console.log(`[Infrastructure] Data Alignment Complete: ${report.total} records migrated to current cycle.`);
+            console.log(`[Infrastructure] Data Alignment Complete: ${report.total} records migrated to current cycle (${yearId} / ${termId}).`);
         }
 
         report.success = true;
