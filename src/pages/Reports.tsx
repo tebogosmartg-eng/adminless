@@ -162,36 +162,6 @@ const Reports = () => {
     showSuccess("SASAMS CSV exported.");
   };
 
-  // STABILISATION MODE: Disable the isReadyForFinalization gating block to restore access
-  /*
-  if (!isReadyForFinalization) {
-      return (
-          <div className="max-w-3xl mx-auto py-12 px-4 space-y-6">
-              <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-              <Card className="border-amber-200 bg-amber-50">
-                <CardHeader>
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-full bg-amber-100 text-amber-600"><Lock className="h-8 w-8" /></div>
-                        <div>
-                            <CardTitle>Final Reporting Blocked</CardTitle>
-                            <CardDescription>Complete setup checklist before generating global reports.</CardDescription>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="space-y-2">{missingRequired.map(step => (
-                        <div key={step.id} className="flex items-center justify-between p-3 rounded-md bg-white border border-amber-200 text-sm font-medium">
-                            {step.title} <ChevronRight className="h-4 w-4 text-amber-400" />
-                        </div>
-                    ))}</div>
-                    <Button className="w-full bg-amber-600 hover:bg-amber-700" asChild><Link to="/">Return to Checklist</Link></Button>
-                </CardContent>
-              </Card>
-          </div>
-      );
-  }
-  */
-
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col gap-1">

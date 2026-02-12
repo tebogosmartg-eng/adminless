@@ -44,7 +44,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
     const allLearners = await db.learners.toArray();
 
-    return visibleClasses.map(c => ({
+    const results = visibleClasses.map(c => ({
         id: c.id,
         year_id: c.year_id,
         term_id: c.term_id,
@@ -55,6 +55,11 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         notes: c.notes || '',
         learners: allLearners.filter(l => l.class_id === c.id)
     })) as ClassInfo[];
+
+    // STABILISATION LOG
+    console.log(`[Stabilisation: Data] Context retrieved. Classes returned: ${results.length}`);
+    
+    return results;
   }, [session?.user.id, activeTerm?.id, diagnosticMode]);
 
   const classes = rawClasses || [];
