@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { getSignedFileUrl } from '@/services/storage';
 import { showSuccess, showError } from '@/utils/toast';
 import { Evidence, Term, ClassInfo, Learner } from '@/lib/types';
+import { useAcademic } from '@/context/AcademicContext';
 
 interface EvidenceWithContext extends Evidence {
   className: string;
@@ -25,12 +26,20 @@ interface EvidenceWithContext extends Evidence {
 }
 
 const EvidenceAudit = () => {
+  const { activeTerm } = useAcademic();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [termFilter, setTermFilter] = useState("all");
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
 
   const terms = useLiveQuery(() => db.terms.toArray()) || [];
+
+  // STABILISATION: Set initial term filter to active term if available
+  useEffect(() => {
+    if (activeTerm) {
+        setTermFilter(activeTerm.id);
+    }
+  }, [activeTerm?.id]);
 
   const auditData = useLiveQuery(async () => {
     const evidence = await db.evidence.orderBy('created_at').reverse().toArray();
