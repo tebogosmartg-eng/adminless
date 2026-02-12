@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Environment variables are now strictly sourced from .env.local
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Environment variables are strictly sourced from .env.local
+// fallback to empty string to avoid initialization errors before env is loaded
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 export const supabase = createClient(
   SUPABASE_URL, 
