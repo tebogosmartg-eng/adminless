@@ -85,7 +85,7 @@ export const useAcademicAverages = () => {
       }
   }, []);
 
-  const recalculateAllActiveAverages = useCallback(async () => {
+  const recalculateAllActiveAverages = useCallback(async (silent: boolean = false) => {
       const allLearners = await db.learners.toArray();
       const ids = allLearners.map(l => l.id!);
       
@@ -93,7 +93,9 @@ export const useAcademicAverages = () => {
           await updateLearnerActiveAverages(ids);
       });
 
-      showSuccess("Global mark consolidation complete.");
+      if (!silent) {
+        showSuccess("Global mark consolidation complete.");
+      }
   }, [updateLearnerActiveAverages]);
 
   return {

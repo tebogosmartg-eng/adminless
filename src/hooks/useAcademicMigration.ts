@@ -26,16 +26,29 @@ export const useAcademicMigration = (
             for (const table of tables) {
                 // @ts-ignore
                 const all = await db[table].toArray();
-                const legacy = all.filter((i: any) => !i.year_id || !i.term_id);
+                
+                const legacy = all.filter((i: any) => {
+                    // Check if table supports year_id
+                    const needsYear = ['classes', 'activities', 'todos', 'learner_notes', 'evidence'].includes(table);
+                    const hasYear = needsYear ? !!i.year_id : true;
+                    const hasTerm = !!i.term_id;
+                    
+                    return !hasYear || !hasTerm;
+                });
                 
                 if (legacy.length > 0) {
                     const updates = legacy.map((item: any) => {
-                        const newItem = {
-                            ...item,
-                            year_id: yearId,
-                            term_id: termId,
-                            user_id: item.user_id || userId
-                        };
+                        const newItem = { ...item };
+                        
+                        // Assign Year ID if supported by schema
+                        if (['classes', 'activities', 'todos', 'learner_notes', 'evidence'].includes(table)) {
+                            newItem.year_id = yearId;
+                        }
+                        
+                        // All targeted tables support term_id
+                        newItem.term_id = termId;
+                        
+                        if (!newItem.user_id) newItem.user_id = userId;
 
                         // Ensure proper camelCase mapping during migration for classes
                         if (table === 'classes' && newItem.class_name && !newItem.className) {
@@ -57,8 +70,8 @@ export const useAcademicMigration = (
         });
 
         if (report.total > 0) {
+            // Silently recalculate averages in background
             await recalculateAverages();
-            // Logging to console only as requested for infrastructure invisibility
             console.log(`[Infrastructure] Data Alignment Complete: ${report.total} records migrated to current cycle (${yearId} / ${termId}).`);
         }
 
