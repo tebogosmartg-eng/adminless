@@ -38,6 +38,7 @@ export const useAcademicMigration = (
                             user_id: item.user_id || userId
                         };
 
+                        // Ensure proper camelCase mapping during migration
                         if (table === 'classes' && newItem.class_name && !newItem.className) {
                             newItem.className = newItem.class_name;
                             delete newItem.class_name;
