@@ -8,6 +8,7 @@ import { AcademicYearSettings } from "@/components/settings/AcademicYearSettings
 import { TimetableSettings } from "@/components/settings/TimetableSettings";
 import { RubricLibrary } from "@/components/settings/RubricLibrary";
 import { CurriculumSettings } from "@/components/settings/CurriculumSettings";
+import { SupabaseAudit } from "@/components/settings/SupabaseAudit";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { 
@@ -17,7 +18,8 @@ import {
     School, 
     Database,
     ArrowLeft,
-    ListChecks
+    ListChecks,
+    ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -96,7 +98,8 @@ const Settings = () => {
             </div>
         </TabsContent>
 
-        <TabsContent value="data">
+        <TabsContent value="data" className="space-y-6">
+            <SupabaseAudit />
             <DataManagementSettings />
         </TabsContent>
       </Tabs>
