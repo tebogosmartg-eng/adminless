@@ -25,7 +25,7 @@ const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
 
 export const ClassesProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
-  const { activeYear, activeTerm } = useAcademic();
+  const { activeYear, activeTerm, diagnosticMode } = useAcademic();
 
   const rawClasses = useLiveQuery(async () => {
     if (!session?.user.id) return [];
@@ -35,6 +35,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         .toArray();
     
     const visibleClasses = allUserClasses.filter(c => {
+        if (diagnosticMode) return true;
         if (activeTerm) {
             return c.term_id === activeTerm.id || !c.term_id;
         }
@@ -42,9 +43,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     });
 
     const allLearners = await db.learners.toArray();
-
-    // STABILISATION MODE: Log class count for diagnostics
-    console.log(`[Stabilisation] Classes returned for context: ${visibleClasses.length}`);
 
     return visibleClasses.map(c => ({
         id: c.id,
@@ -57,7 +55,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         notes: c.notes || '',
         learners: allLearners.filter(l => l.class_id === c.id)
     })) as ClassInfo[];
-  }, [session?.user.id, activeTerm?.id]);
+  }, [session?.user.id, activeTerm?.id, diagnosticMode]);
 
   const classes = rawClasses || [];
   const loading = rawClasses === undefined && !!session?.user.id;

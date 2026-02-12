@@ -38,6 +38,9 @@ interface AcademicContextType {
   recalculateAllActiveAverages: () => Promise<void>;
   rollForwardClasses: (sourceTermId: string, targetTermId: string, preparedClasses: any[]) => Promise<void>;
   migrateLegacyData: (yearId: string, termId: string) => Promise<MigrationReport>;
+  // Diagnostic Tools
+  diagnosticMode: boolean;
+  setDiagnosticMode: (active: boolean) => void;
 }
 
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
@@ -50,6 +53,7 @@ const STORAGE_KEYS = {
 export const AcademicProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const [activeYearId, setActiveYearIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.YEAR));
   const [activeTermId, setActiveTermIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.TERM));
+  const [diagnosticMode, setDiagnosticMode] = useState(false);
   
   const years = useLiveQuery(() => db.academic_years.orderBy('name').reverse().toArray()) || [];
   
@@ -59,32 +63,18 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [years, activeYearId]);
 
   const terms = useLiveQuery(async () => {
-      if (!activeYear) return [];
-      return db.terms.where('year_id').equals(activeYear.id).sortBy('name');
-  }, [activeYear?.id]) || [];
+      if (!activeYear && !diagnosticMode) return [];
+      if (diagnosticMode) return db.terms.toArray();
+      return db.terms.where('year_id').equals(activeYear!.id).sortBy('name');
+  }, [activeYear?.id, diagnosticMode]) || [];
 
   const activeTerm = useMemo(() => {
     if (!terms.length || !activeTermId) return null;
     return terms.find(t => t.id === activeTermId) || null;
   }, [terms, activeTermId]);
 
-  // STABILISATION LOGS
-  useEffect(() => {
-    if (years.length > 0) {
-      console.log(`[Stabilisation] Academic Cycles detected: ${years.length}`);
-    }
-  }, [years]);
-
-  useEffect(() => {
-    if (terms.length > 0) {
-      console.log(`[Stabilisation] Terms detected for active context: ${terms.length}`);
-    }
-  }, [terms]);
-
-  // --- AUTO-RECOVERY LOGIC ---
   useEffect(() => {
     if (!activeYearId && years.length > 0) {
-      console.log("[AcademicContext] No active year found in storage. Auto-selecting latest cycle.");
       const latestYear = years[0]; 
       setActiveYearIdState(latestYear.id);
       localStorage.setItem(STORAGE_KEYS.YEAR, latestYear.id);
@@ -93,7 +83,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   useEffect(() => {
     if (activeYear && !activeTermId && terms.length > 0) {
-      console.log("[AcademicContext] No active term found. Auto-selecting current working term.");
       const openTerm = terms.find(t => !t.closed);
       const targetTerm = openTerm || terms[0];
       setActiveTermIdState(targetTerm.id);
@@ -123,24 +112,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const [currentClassFilter, setCurrentClassFilter] = useState<{classId: string, termId: string} | null>(null);
   
   const assessments = useLiveQuery(async () => {
+      if (diagnosticMode) return db.assessments.toArray();
       if (!currentClassFilter) return [];
-      const data = await db.assessments
+      return db.assessments
         .where('[class_id+term_id]')
         .equals([currentClassFilter.classId, currentClassFilter.termId])
         .toArray();
-      
-      console.log(`[Stabilisation] Assessments returned for context: ${data.length}`);
-      return data;
-  }, [currentClassFilter]) || [];
+  }, [currentClassFilter, diagnosticMode]) || [];
 
   const marks = useLiveQuery(async () => {
+      if (diagnosticMode) return db.assessment_marks.toArray();
       if (assessments.length === 0) return [];
       const ids = assessments.map(a => a.id);
-      const data = await db.assessment_marks.where('assessment_id').anyOf(ids).toArray();
-      
-      console.log(`[Stabilisation] Marks returned for active assessments: ${data.length}`);
-      return data;
-  }, [assessments]) || [];
+      return db.assessment_marks.where('assessment_id').anyOf(ids).toArray();
+  }, [assessments, diagnosticMode]) || [];
 
   const logInternalActivity = useCallback(async (message: string, yearId?: string, termId?: string) => {
     if (!session?.user.id) return;
@@ -533,7 +518,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       years, terms, assessments, marks, loading: !years, activeYear, activeTerm,
       setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm,
       createAssessment, updateAssessment, deleteAssessment, updateMarks, refreshAssessments,
-      toggleTermStatus, closeYear, recalculateAllActiveAverages, rollForwardClasses, migrateLegacyData
+      toggleTermStatus, closeYear, recalculateAllActiveAverages, rollForwardClasses, migrateLegacyData,
+      diagnosticMode, setDiagnosticMode
     }}>
       {children}
     </AcademicContext.Provider>

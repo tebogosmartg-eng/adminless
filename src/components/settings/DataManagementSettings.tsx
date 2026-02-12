@@ -1,6 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Database, Download, AlertTriangle, Loader2, RefreshCw, Calculator, Sparkles, UserCheck, ShieldAlert } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { 
+    Database, 
+    Download, 
+    AlertTriangle, 
+    Loader2, 
+    RefreshCw, 
+    Calculator, 
+    Sparkles, 
+    UserCheck, 
+    ShieldAlert,
+    ScanSearch,
+    Eye
+} from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -20,11 +34,13 @@ import { useSync } from "@/context/SyncContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { importDemoData } from "@/services/demoData";
 import { useAccountRecovery } from "@/hooks/useAccountRecovery";
+import { useAlignmentDiagnostic } from "@/hooks/useAlignmentDiagnostic";
 
 export const DataManagementSettings = () => {
   const { isOnline, forceSync, isSyncing } = useSync();
-  const { recalculateAllActiveAverages } = useAcademic();
+  const { recalculateAllActiveAverages, diagnosticMode, setDiagnosticMode } = useAcademic();
   const { runRecovery, isRecovering } = useAccountRecovery();
+  const { runDiagnostic, isRunning: isDiagnosing } = useAlignmentDiagnostic();
 
   const [isExporting, setIsExporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -94,6 +110,49 @@ export const DataManagementSettings = () => {
 
   return (
     <div className="space-y-6">
+        <Card className="border-purple-200 bg-purple-50/20">
+            <CardHeader>
+                <div className="flex items-center gap-2">
+                    <ScanSearch className="h-5 w-5 text-purple-600" />
+                    <CardTitle>Alignment Diagnostic</CardTitle>
+                </div>
+                <CardDescription>
+                    Troubleshoot missing data by running a full audit of your local database records and filters.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border rounded-xl shadow-sm">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <Eye className="h-4 w-4 text-purple-500" />
+                            <h4 className="font-bold text-sm">Global Diagnostic View</h4>
+                        </div>
+                        <p className="text-xs text-muted-foreground max-w-sm">
+                            Temporarily disable all Academic Year and Term filters across the app to see every record in your DB.
+                        </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Label htmlFor="diag-mode" className="text-xs font-bold uppercase tracking-tighter">
+                            {diagnosticMode ? "Bypassing Filters" : "Filters Active"}
+                        </Label>
+                        <Switch 
+                            id="diag-mode" 
+                            checked={diagnosticMode} 
+                            onCheckedChange={setDiagnosticMode} 
+                        />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <Button onClick={runDiagnostic} disabled={isDiagnosing} variant="outline" className="border-purple-200 hover:bg-purple-50">
+                        {isDiagnosing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                        Run Console Audit
+                    </Button>
+                    <p className="text-[10px] text-muted-foreground italic">Logs results to browser developer tools.</p>
+                </div>
+            </CardContent>
+        </Card>
+
         <Card className="border-blue-200 bg-blue-50/30">
             <CardHeader>
                 <div className="flex items-center gap-2">
@@ -160,7 +219,7 @@ export const DataManagementSettings = () => {
                         <p className="text-xs text-muted-foreground">Manually push all pending changes and pull latest data.</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={forceSync} disabled={isSyncing || !isOnline} className="w-full mt-auto">
-                        {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                        {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="mr-2 h-4 w-4 mr-2" />}
                         Sync Now
                     </Button>
                 </div>
