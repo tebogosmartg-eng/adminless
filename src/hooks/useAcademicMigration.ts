@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from 'react';
 import { db } from '@/db';
 import { queueAction } from '@/services/sync';
 
@@ -14,7 +15,7 @@ export const useAcademicMigration = (
   recalculateAverages: (silent?: boolean) => Promise<void>,
   logActivity: (message: string, yearId?: string, termId?: string) => Promise<void>
 ) => {
-  const migrateLegacyData = async (yearId: string, termId: string): Promise<MigrationReport> => {
+  const migrateLegacyData = useCallback(async (yearId: string, termId: string): Promise<MigrationReport> => {
     const report: MigrationReport = { success: false, counts: {}, total: 0 };
     const tables = ['classes', 'assessments', 'activities', 'todos', 'learner_notes', 'evidence', 'attendance'];
 
@@ -28,7 +29,7 @@ export const useAcademicMigration = (
                 const all = await db[table].toArray();
                 
                 const legacy = all.filter((i: any) => {
-                    // Check if table supports year_id
+                    // Check if table supports year_id based on schema version 16/17
                     const needsYear = ['classes', 'activities', 'todos', 'learner_notes', 'evidence'].includes(table);
                     const hasYear = needsYear ? !!i.year_id : true;
                     const hasTerm = !!i.term_id;
@@ -81,9 +82,9 @@ export const useAcademicMigration = (
         console.error("[Infrastructure] Alignment check failed:", e);
         return { ...report, success: false };
     }
-  };
+  }, [userId, recalculateAverages]);
 
-  const rollForwardClasses = async (
+  const rollForwardClasses = useCallback(async (
     yearId: string, 
     sourceTermId: string, 
     targetTermId: string, 
@@ -139,7 +140,7 @@ export const useAcademicMigration = (
     } catch (e: any) {
         console.error("[Infrastructure] Roll forward failed:", e);
     }
-  };
+  }, [userId, logActivity]);
 
   return { migrateLegacyData, rollForwardClasses };
 };
