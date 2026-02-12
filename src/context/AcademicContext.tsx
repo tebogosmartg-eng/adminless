@@ -2,15 +2,14 @@
 
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { AcademicYear, Term, Assessment, AssessmentMark, Activity } from '@/lib/types';
+import { AcademicYear, Term, Assessment, AssessmentMark } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { queueAction, pullData, pushChanges } from '@/services/sync';
+import { queueAction } from '@/services/sync';
 import { useAcademicSelection } from '@/hooks/useAcademicSelection';
 import { useAcademicMigration } from '@/hooks/useAcademicMigration';
 import { useAcademicAverages } from '@/hooks/useAcademicAverages';
-import { monitor } from '@/utils/supabaseMonitor';
 
 interface MigrationReport {
     success: boolean;
@@ -53,28 +52,57 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const [currentClassFilter, setCurrentClassFilter] = useState<{classId: string, termId: string} | null>(null);
   const [hasRunSilentMigration, setHasRunSilentMigration] = useState(false);
 
-  const years = useLiveQuery(() => db.academic_years.orderBy('name').reverse().toArray()) || [];
-  const allTerms = useLiveQuery(() => db.terms.toArray()) || [];
+  // Core Data Queries - strictly scoped by user_id
+  const years = useLiveQuery(
+    () => session?.user.id 
+      ? db.academic_years.where('user_id').equals(session.user.id).reverse().sortBy('name') 
+      : [],
+    [session?.user.id]
+  ) || [];
+
+  const allTerms = useLiveQuery(
+    () => session?.user.id 
+      ? db.terms.where('user_id').equals(session.user.id).toArray() 
+      : [],
+    [session?.user.id]
+  ) || [];
   
   const { activeYear, activeTerm, setActiveYear, setActiveTerm } = useAcademicSelection(years, allTerms);
 
+  // Scoped Terms
   const terms = useMemo(() => {
     if (diagnosticMode) return allTerms;
     if (!activeYear) return [];
     return allTerms.filter(t => t.year_id === activeYear.id);
   }, [allTerms, activeYear?.id, diagnosticMode]);
 
+  // Scoped Assessments
   const assessments = useLiveQuery(async () => {
-      if (diagnosticMode) return db.assessments.toArray();
-      if (!currentClassFilter) return [];
-      return db.assessments.where('[class_id+term_id]').equals([currentClassFilter.classId, currentClassFilter.termId]).toArray();
-  }, [currentClassFilter, diagnosticMode]) || [];
+      if (!session?.user.id) return [];
+      if (diagnosticMode) return db.assessments.where('user_id').equals(session.user.id).toArray();
+      if (!currentClassFilter || !activeYear) return [];
+      
+      // Strict constraint: must match user, class, term, and year indirectly through term
+      return db.assessments
+        .where('[class_id+term_id]')
+        .equals([currentClassFilter.classId, currentClassFilter.termId])
+        .and(a => a.user_id === session.user.id)
+        .toArray();
+  }, [currentClassFilter, diagnosticMode, session?.user.id, activeYear?.id]) || [];
 
+  // Scoped Marks
   const marks = useLiveQuery(async () => {
-      if (diagnosticMode) return db.assessment_marks.toArray();
+      if (!session?.user.id) return [];
+      if (diagnosticMode) return db.assessment_marks.where('user_id').equals(session.user.id).toArray();
       if (assessments.length === 0) return [];
-      return db.assessment_marks.where('assessment_id').anyOf(assessments.map(a => a.id)).toArray();
-  }, [assessments, diagnosticMode]) || [];
+      
+      const assIds = assessments.map(a => a.id);
+      return db.assessment_marks
+        .where('assessment_id')
+        .anyOf(assIds)
+        .and(m => m.user_id === session.user.id)
+        .toArray();
+  }, [assessments, diagnosticMode, session?.user.id]) || [];
 
   const { updateLearnerActiveAverages, recalculateAllActiveAverages, runDataVacuum } = useAcademicAverages();
   
@@ -103,16 +131,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     logInternalActivity
   );
 
-  // AUTOMATED BACKGROUND MIGRATION
-  // Runs once per session when the academic context is established.
+  // Background Migration (Silent Alignment)
   useEffect(() => {
     if (activeYear && activeTerm && !hasRunSilentMigration && session?.user.id) {
         setHasRunSilentMigration(true);
-        const silentMigrate = async () => {
-            console.log("[Infrastructure] Checking for legacy data alignment...");
-            await migrateLegacyData(activeYear.id, activeTerm.id);
-        };
-        silentMigrate();
+        migrateLegacyData(activeYear.id, activeTerm.id);
     }
   }, [activeYear?.id, activeTerm?.id, session?.user.id, hasRunSilentMigration, migrateLegacyData]);
 
@@ -120,14 +143,24 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (!session?.user.id) return;
     const yearId = crypto.randomUUID();
     const yearData = { id: yearId, name, user_id: session.user.id, closed: false };
+    
     await db.academic_years.add(yearData);
     await queueAction('academic_years', 'create', yearData);
+    
     const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName, idx) => ({
-      id: crypto.randomUUID(), year_id: yearId, name: tName, user_id: session.user.id, closed: idx !== 0, weight: 25, start_date: null, end_date: null
+      id: crypto.randomUUID(), 
+      year_id: yearId, 
+      name: tName, 
+      user_id: session.user.id, 
+      closed: false, // Default all to open initially in new year
+      weight: 25, 
+      start_date: null, 
+      end_date: null
     }));
+
     await db.terms.bulkAdd(termsToCreate as any);
     await queueAction('terms', 'create', termsToCreate);
-    showSuccess(`Academic Year ${name} created.`);
+    showSuccess(`Academic Year ${name} initialized.`);
   }, [session?.user.id]);
 
   const deleteYear = useCallback(async (id: string) => {
@@ -138,13 +171,13 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         for (const t of yearTerms) await queueAction('terms', 'delete', { id: t.id });
         await queueAction('academic_years', 'delete', { id });
     });
-    showSuccess("Academic Year deleted.");
+    showSuccess("Academic Year removed.");
   }, []);
 
   const updateTerm = useCallback(async (term: Term) => {
     await db.terms.put(term);
     await queueAction('terms', 'update', term);
-    recalculateAllActiveAverages();
+    recalculateAllActiveAverages(true);
   }, [recalculateAllActiveAverages]);
 
   const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
@@ -194,6 +227,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const closeYear = useCallback(async (id: string) => {
     await db.academic_years.update(id, { closed: true });
     await queueAction('academic_years', 'update', { id, closed: true });
+    showSuccess("Year cycle finalized.");
   }, []);
 
   const rollForwardClasses = useCallback((s: string, t: string, d: any[]) => 
@@ -202,7 +236,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const value = useMemo(() => ({
     years, terms, assessments, marks, 
-    loading: !years, 
+    loading: !years || !session?.user.id, 
     activeYear, activeTerm, setActiveYear, setActiveTerm, 
     createYear, deleteYear, updateTerm,
     createAssessment, updateAssessment, deleteAssessment,
@@ -214,7 +248,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm, 
     createAssessment, updateAssessment, deleteAssessment, updateMarks, 
     refreshAssessments, toggleTermStatus, closeYear, recalculateAllActiveAverages, 
-    runDataVacuum, rollForwardClasses, migrateLegacyData, diagnosticMode
+    runDataVacuum, rollForwardClasses, migrateLegacyData, diagnosticMode, session?.user.id
   ]);
 
   return (

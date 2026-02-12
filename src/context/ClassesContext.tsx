@@ -30,21 +30,25 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const rawClasses = useLiveQuery(async () => {
     if (!session?.user.id) return [];
     
-    const allUserClasses = await db.classes
-        .filter(c => !c.user_id || c.user_id === session.user.id)
+    // Strict Scope: filter by user immediately
+    const userClasses = await db.classes
+        .where('user_id')
+        .equals(session.user.id)
         .toArray();
     
-    const visibleClasses = allUserClasses.filter(c => {
+    // Academic Scope: filter by active year and term
+    const visibleClasses = userClasses.filter(c => {
         if (diagnosticMode) return true;
-        if (activeTerm) {
-            return c.term_id === activeTerm.id || !c.term_id;
-        }
-        return true;
+        if (!activeYear || !activeTerm) return false;
+        return c.year_id === activeYear.id && c.term_id === activeTerm.id;
     });
 
-    const allLearners = await db.learners.toArray();
+    if (visibleClasses.length === 0) return [];
 
-    const results = visibleClasses.map(c => ({
+    const classIds = visibleClasses.map(c => c.id);
+    const allLearners = await db.learners.where('class_id').anyOf(classIds).toArray();
+
+    return visibleClasses.map(c => ({
         id: c.id,
         year_id: c.year_id,
         term_id: c.term_id,
@@ -55,19 +59,14 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         notes: c.notes || '',
         learners: allLearners.filter(l => l.class_id === c.id)
     })) as ClassInfo[];
-
-    // STABILISATION LOG
-    console.log(`[Stabilisation: Data] Context retrieved. Classes returned: ${results.length}`);
-    
-    return results;
-  }, [session?.user.id, activeTerm?.id, diagnosticMode]);
+  }, [session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode]);
 
   const classes = rawClasses || [];
   const loading = rawClasses === undefined && !!session?.user.id;
 
   const addClass = async (newClass: ClassInfo) => {
     if (!session?.user.id || !activeYear || !activeTerm) {
-        showError("Active year and term required to create a class.");
+        showError("Active academic cycle required to create a class.");
         return;
     }
 
@@ -93,7 +92,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
           const learnersWithIds = newClass.learners.map(l => ({
               ...l,
               id: l.id || crypto.randomUUID(),
-              class_id: newClass.id
+              class_id: newClass.id,
+              user_id: session.user.id
           }));
 
           await db.learners.bulkAdd(learnersWithIds as any);
@@ -101,7 +101,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         }
       });
 
-      logActivity(`Created class: "${newClass.subject} - ${newClass.className}" in ${activeTerm.name}`);
+      logActivity(`Created class: "${newClass.className}" for ${activeTerm.name}`);
     } catch (e) {
       console.error(e);
       showError("Failed to create class locally.");
@@ -109,16 +109,12 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   };
 
   const updateLearners = async (classId: string, updatedLearners: Learner[]) => {
+    if (!session?.user.id) return;
     try {
-        const classInfo = classes.find(c => c.id === classId);
-        if (!classInfo) return;
-
         await db.transaction('rw', [db.learners, db.sync_queue], async () => {
             const currentDbLearners = await db.learners.where('class_id').equals(classId).toArray();
-            const currentIds = new Set(currentDbLearners.map(l => l.id));
-            
-            const toUpsert = [];
             const newIds = new Set();
+            const toUpsert = [];
 
             for (const l of updatedLearners) {
                 const id = l.id || crypto.randomUUID();
@@ -126,6 +122,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
                 toUpsert.push({
                     id,
                     class_id: classId,
+                    user_id: session.user.id,
                     name: l.name,
                     mark: l.mark,
                     comment: l.comment
@@ -137,32 +134,22 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             if (toDelete.length > 0) await db.learners.bulkDelete(toDelete);
             await db.learners.bulkPut(toUpsert as any);
 
-            if (toUpsert.length > 0) {
-                await queueAction('learners', 'upsert', toUpsert);
-            }
+            if (toUpsert.length > 0) await queueAction('learners', 'upsert', toUpsert);
             if (toDelete.length > 0) {
-                for (const id of toDelete) {
-                    await queueAction('learners', 'delete', { id });
-                }
+                for (const id of toDelete) await queueAction('learners', 'delete', { id });
             }
         });
-
-        logActivity(`Updated learner roster for: "${classInfo.subject} - ${classInfo.className}"`);
     } catch (e) {
         console.error(e);
-        showError("Failed to save updates locally.");
+        showError("Failed to save roster updates.");
     }
   };
 
   const renameLearner = async (learnerId: string, newName: string) => {
     try {
-        await db.transaction('rw', [db.learners, db.sync_queue], async () => {
-            await db.learners.update(learnerId, { name: newName });
-            await queueAction('learners', 'update', { id: learnerId, name: newName });
-        });
-        logActivity(`Renamed student to: "${newName}"`);
+        await db.learners.update(learnerId, { name: newName });
+        await queueAction('learners', 'update', { id: learnerId, name: newName });
     } catch (e) {
-        console.error(e);
         showError("Failed to rename learner.");
     }
   };
@@ -174,27 +161,17 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         if (details.subject) updates.subject = details.subject;
         if (details.className) updates.className = details.className;
 
-        await db.transaction('rw', [db.classes, db.sync_queue], async () => {
-            await db.classes.update(classId, updates);
-            await queueAction('classes', 'update', { ...updates, id: classId });
-        });
-
-        const cls = classes.find(c => c.id === classId);
-        logActivity(`Updated metadata for class: "${cls?.className}"`);
+        await db.classes.update(classId, updates);
+        await queueAction('classes', 'update', { ...updates, id: classId });
     } catch (e) {
-        console.error(e);
         showError("Update failed.");
     }
   };
 
   const updateClassNotes = async (classId: string, notes: string) => {
     try {
-        const cls = classes.find(c => c.id === classId);
-        await db.transaction('rw', [db.classes, db.sync_queue], async () => {
-            await db.classes.update(classId, { notes });
-            await queueAction('classes', 'update', { id: classId, notes });
-        });
-        logActivity(`Updated teacher reflection notes for: "${cls?.className}"`);
+        await db.classes.update(classId, { notes });
+        await queueAction('classes', 'update', { id: classId, notes });
     } catch (e) {
         showError("Failed to save notes.");
     }
@@ -202,17 +179,11 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const deleteClass = async (classId: string) => {
     try {
-        const classInfo = classes.find(c => c.id === classId);
-        
         await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
             await db.learners.where('class_id').equals(classId).delete();
             await db.classes.delete(classId);
             await queueAction('classes', 'delete', { id: classId });
         });
-        
-        if (classInfo) {
-            logActivity(`Deleted class and all associated data: "${classInfo.subject} - ${classInfo.className}"`);
-        }
     } catch (e) {
         showError("Failed to delete class.");
     }
@@ -220,15 +191,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const toggleClassArchive = async (classId: string, archived: boolean) => {
     try {
-        await db.transaction('rw', [db.classes, db.sync_queue], async () => {
-            await db.classes.update(classId, { archived });
-            await queueAction('classes', 'update', { id: classId, archived });
-        });
-        
-        const classInfo = classes.find(c => c.id === classId);
-        if (classInfo) {
-            logActivity(`${archived ? "Archived" : "Restored"} class: "${classInfo.subject} - ${classInfo.className}"`);
-        }
+        await db.classes.update(classId, { archived });
+        await queueAction('classes', 'update', { id: classId, archived });
     } catch (e) {
         showError("Failed to update status.");
     }

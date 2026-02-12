@@ -3,7 +3,7 @@ import { ClassInfo, Learner } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Users, LayoutDashboard, Settings, CalendarClock, ShieldCheck } from 'lucide-react';
+import { Users, LayoutDashboard } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import { QuickActions } from './QuickActions';
 import { TermProgressWidget } from './TermProgressWidget';
@@ -14,7 +14,6 @@ import { CurriculumProgressWidget } from './CurriculumProgressWidget';
 import { TimetableWidget } from './TimetableWidget';
 import { TodoList } from './TodoList';
 import { AdminDebtWidget } from './AdminDebtWidget';
-import { OnboardingChecklist } from './OnboardingChecklist';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -29,8 +28,6 @@ export const DashboardOverviewTab = ({
 }: DashboardOverviewTabProps) => {
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
-      <OnboardingChecklist />
-      
       <div className="grid gap-3 md:grid-cols-3">
          <div className="md:col-span-2">
             <QuickActions onAddNote={onAddNote} />
@@ -42,7 +39,6 @@ export const DashboardOverviewTab = ({
       </div>
       
       <div className="grid gap-3 lg:grid-cols-3">
-        {/* Informational Feed Column */}
         <div className="lg:col-span-2 space-y-3">
           <AdminDebtWidget />
           
@@ -52,9 +48,9 @@ export const DashboardOverviewTab = ({
                 <CardHeader className="pb-1.5 pt-3 px-4">
                     <CardTitle className="text-base flex items-center gap-2">
                         <Users className="h-4 w-4 text-primary" />
-                        Class Roster Access
+                        Class Rosters
                     </CardTitle>
-                    <CardDescription className="text-xs">Quick navigation to your active class lists.</CardDescription>
+                    <CardDescription className="text-xs">Direct access to your current term groups.</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-0 px-4 pb-3">
                     <div className="grid gap-1.5">
@@ -78,7 +74,7 @@ export const DashboardOverviewTab = ({
           <div className="space-y-2">
             <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2">
                 <LayoutDashboard className="h-3 w-3" /> 
-                Administrative Context
+                Active Marksheets
             </h3>
             <div className="grid gap-3 md:grid-cols-2">
                 {activeClasses.map(c => (
@@ -88,7 +84,6 @@ export const DashboardOverviewTab = ({
           </div>
         </div>
 
-        {/* Schedule & Reminders Column */}
         <div className="space-y-3">
           <TimetableWidget />
           <CurriculumProgressWidget />

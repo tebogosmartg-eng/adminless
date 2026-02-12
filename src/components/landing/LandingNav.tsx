@@ -29,7 +29,7 @@ export const LandingNav = () => {
           </Link>
           <Link to="/login">
             <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black shadow-xl shadow-blue-500/20 px-8 h-12 rounded-2xl active:scale-95 transition-all">
-              Get Started
+              Launch Workspace
             </Button>
           </Link>
           <div className="pl-2 border-l ml-2">
