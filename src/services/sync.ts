@@ -134,6 +134,7 @@ export const pullData = async (userId: string) => {
 
     console.groupEnd();
   } catch (error) {
+    console.groupEnd();
     console.error("[sync] Global pull failed:", error);
   }
 };

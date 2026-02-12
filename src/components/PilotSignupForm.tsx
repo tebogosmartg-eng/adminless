@@ -53,6 +53,12 @@ export const PilotSignupForm = () => {
   };
 
   const onSubmit = async (values: PilotFormValues) => {
+    // STABILISATION MODE: Disable pilot signups
+    console.log("[Stabilisation] Pilot signup attempted but blocked.");
+    showError("Pilot signups are temporarily disabled during system maintenance. Please use the standard login.");
+    return;
+    
+    /* 
     setIsSubmitting(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
@@ -79,6 +85,7 @@ export const PilotSignupForm = () => {
     } finally {
       setIsSubmitting(false);
     }
+    */
   };
 
   if (isSuccess) {

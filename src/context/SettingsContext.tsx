@@ -107,6 +107,10 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   const updateProfile = async (updates: any) => {
     if (!session?.user.id) return;
+    
+    // STABILISATION LOG
+    console.log(`[Stabilisation] Updating profile record for ${session.user.id}`, updates);
+
     const current = await db.profiles.get(session.user.id) || { id: session.user.id };
     const updated = { ...current, ...updates, updated_at: new Date().toISOString() };
     await db.profiles.put(updated);
