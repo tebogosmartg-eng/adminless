@@ -10,7 +10,7 @@ export const pushChanges = async () => {
   if (queueCount === 0) return;
 
   isPushing = true;
-  console.log(`[sync] Pushing ${queueCount} changes to Supabase...`);
+  console.log(`[Diagnostic: Sync] Pushing ${queueCount} changes to Supabase...`);
   
   try {
     const queue = await db.sync_queue.orderBy('timestamp').toArray();
@@ -18,15 +18,23 @@ export const pushChanges = async () => {
     for (const item of queue) {
       const { table, action, data, id } = item;
       const payload = { ...data };
+      
+      // Security Check: Ensure user_id exists for RLS compliance
+      if (!payload.user_id && table !== 'profiles') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) payload.user_id = user.id;
+      }
+
       delete payload.sync_status;
 
-      // Handle field name mapping
+      // Handle field name mapping for PostgREST compatibility
       if (table === 'classes' && payload.className !== undefined) {
         payload.class_name = payload.className;
         delete payload.className;
       }
 
       let error = null;
+      console.log(`[Diagnostic: Sync] Executing ${action} on ${table}`, { id: payload.id });
 
       if (action === 'create' || action === 'upsert') {
         const { error: e } = await supabase.from(table as any).upsert(payload);
@@ -40,15 +48,19 @@ export const pushChanges = async () => {
       }
 
       if (error) {
-        console.error(`[sync] Push failed for ${table}:`, error);
-        // We stop processing the queue on error to maintain sequence integrity
-        break; 
+        console.error(`[Diagnostic: Sync] Push failed for ${table}:`, error.message, error.details);
+        // Do not block the whole queue for a single record error unless it's an auth error
+        if (error.code === 'PGRST301' || error.code === '42501') {
+            console.error("[Diagnostic: Sync] Critical Permission Error. Stopping Queue.");
+            break;
+        }
+        await db.sync_queue.delete(id!); // Clear failing record to prevent loop
       } else {
         await db.sync_queue.delete(id!);
       }
     }
   } catch (err) {
-    console.error("[sync] Critical error during push:", err);
+    console.error("[Diagnostic: Sync] Critical error during push:", err);
   } finally {
     isPushing = false;
   }
@@ -56,8 +68,7 @@ export const pushChanges = async () => {
 
 export const pullData = async (userId: string) => {
   try {
-    // STABILISATION LOG: Group pull activity
-    console.group(`[Stabilisation: Sync] Restoring context for User: ${userId}`);
+    console.group(`[Diagnostic: Sync] Restoring Context for User: ${userId}`);
     
     const pending = await db.sync_queue.toArray();
     const pendingIdsByTable = pending.reduce((acc, item) => {
@@ -70,22 +81,17 @@ export const pullData = async (userId: string) => {
       const { data, error } = await query;
       
       if (error) {
-          console.error(`[Stabilisation: Sync] Error pulling ${tableName}:`, error);
+          console.error(`[Diagnostic: Sync] Error pulling ${tableName}:`, error.message);
           return;
       }
 
       if (!data || data.length === 0) {
-          console.log(`[Stabilisation: Sync] No remote records found for ${tableName}`);
+          console.log(`[Diagnostic: Sync] No remote records for ${tableName}`);
           return;
       }
 
-      console.log(`[Stabilisation: Sync] Pulled ${data.length} records for ${tableName}`);
-
-      // Only update local items if we don't have a newer pending change in the sync queue
-      const itemsToPut = data.filter((item: any) => {
-        const id = item.id;
-        return !pendingIdsByTable[tableName]?.has(id);
-      });
+      // Filter out items that are currently pending in the local sync queue to prevent overwriting local work
+      const itemsToPut = data.filter((item: any) => !pendingIdsByTable[tableName]?.has(item.id));
 
       if (itemsToPut.length > 0) {
         if (tableName === 'classes') {
@@ -102,19 +108,16 @@ export const pullData = async (userId: string) => {
       }
     };
 
-    // 1. Core Architecture (Years/Terms/Profile)
+    // Sequential pull to maintain relational integrity
     await pullTable('academic_years', supabase.from('academic_years').select('*').eq('user_id', userId));
     await pullTable('terms', supabase.from('terms').select('*').eq('user_id', userId));
     await pullTable('profiles', supabase.from('profiles').select('*').eq('id', userId));
-    
-    // 2. Class Structure
     await pullTable('classes', supabase.from('classes').select('*').eq('user_id', userId));
     
     const localClasses = await db.classes.toArray();
     const classIds = localClasses.map(c => c.id);
 
     if (classIds.length > 0) {
-      // Pull everything linked to existing classes
       await pullTable('learners', supabase.from('learners').select('*').in('class_id', classIds));
       await pullTable('assessments', supabase.from('assessments').select('*').in('class_id', classIds));
       
@@ -129,7 +132,6 @@ export const pullData = async (userId: string) => {
       await pullTable('evidence', supabase.from('evidence').select('*').in('class_id', classIds));
     }
 
-    // 3. User Tools
     await pullTable('todos', supabase.from('todos').select('*').eq('user_id', userId));
     await pullTable('timetable', supabase.from('timetable').select('*').eq('user_id', userId));
     await pullTable('lesson_logs', supabase.from('lesson_logs').select('*').eq('user_id', userId));
@@ -140,7 +142,7 @@ export const pullData = async (userId: string) => {
     console.groupEnd();
   } catch (error) {
     console.groupEnd();
-    console.error("[Stabilisation: Sync] Global pull operation failed:", error);
+    console.error("[Diagnostic: Sync] Global pull operation failed:", error);
   }
 };
 
@@ -148,10 +150,11 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
   const dataItems = Array.isArray(data) ? data : [data];
   
   for (const item of dataItems) {
+    // Deduplication logic for pending queue
     if (item.id && (action === 'update' || action === 'upsert' || action === 'create')) {
       const existing = await db.sync_queue
         .where('table').equals(table)
-        .filter(q => q.data.id === item.id && (q.action === 'update' || q.action === 'upsert' || q.action === 'create'))
+        .filter(q => q.data.id === item.id)
         .first();
       
       if (existing) {

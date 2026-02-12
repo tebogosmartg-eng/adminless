@@ -8,8 +8,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 
 export const useSetupStatus = () => {
-  const { activeYear, activeTerm } = useAcademic();
-  const { classes } = useClasses();
+  const { activeYear, activeTerm, loading: academicLoading } = useAcademic();
+  const { classes, loading: classesLoading } = useClasses();
   const { savedSubjects, hasProfile } = useSettings();
 
   const totalAssessments = useLiveQuery(() => db.assessments.count()) || 0;
@@ -25,6 +25,20 @@ export const useSetupStatus = () => {
   }) || false;
 
   const status = useMemo(() => {
+    // If we are still loading core data, return a state that prevents UI from collapsing
+    if (academicLoading || classesLoading) {
+        return {
+            coreSteps: [],
+            missingRequired: [],
+            isReadyForFinalization: false,
+            isLoading: true,
+            hasInitialSetup: false,
+            hasMarksCaptured: false,
+            hasLegacyData: false,
+            hasProfile
+        };
+    }
+
     const step1 = !!activeYear;
     const step2 = !!activeTerm;
     const step3 = savedSubjects.length > 0;
@@ -48,23 +62,17 @@ export const useSetupStatus = () => {
     const missingRequired = coreSteps.filter(s => !s.done);
     const isReadyForFinalization = missingRequired.length === 0;
 
-    // STABILISATION LOG: Track checklist blocking state
-    if (!isReadyForFinalization) {
-        console.log("[Stabilisation: Setup] Pending Checklist Steps:", missingRequired.map(s => s.title).join(", "));
-    } else {
-        console.log("[Stabilisation: Setup] All checklist requirements satisfied.");
-    }
-
     return {
         coreSteps,
         missingRequired,
         isReadyForFinalization,
+        isLoading: false,
         hasInitialSetup: step1 && step2 && step3 && step4,
         hasMarksCaptured: step7,
         hasLegacyData,
         hasProfile
     };
-  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, hasLegacyData, hasProfile]);
+  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, hasLegacyData, hasProfile, academicLoading, classesLoading]);
 
   return status;
 };

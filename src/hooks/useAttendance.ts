@@ -44,14 +44,14 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
 
   const handleStatusChange = (learnerId: string, status: AttendanceStatus) => {
     if (!learnerId || !activeTerm) {
-      showError("Context missing: Learner or Term ID not found.");
+      showError("Context missing: Selection restricted to active term.");
       return;
     }
 
     setAttendanceData(prev => ({
       ...prev,
       [learnerId]: { 
-          ...prev[learnerId], 
+          id: prev[learnerId]?.id || crypto.randomUUID(),
           learner_id: learnerId, 
           status, 
           date: formattedDate, 
@@ -68,7 +68,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
     learners.forEach(l => {
       if (l.id) {
         newData[l.id] = { 
-            ...newData[l.id], 
+            id: attendanceData[l.id]?.id || crypto.randomUUID(),
             learner_id: l.id, 
             status, 
             date: formattedDate, 
@@ -82,11 +82,14 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   };
 
   const saveAttendance = async () => {
-    if (!activeTerm) return;
+    if (!activeTerm) {
+        showError("No active term selected.");
+        return;
+    }
     setSaving(true);
     try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("No user");
+        if (!user) throw new Error("Authentication session expired.");
 
         const recordsToSave = Object.values(attendanceData).map(r => ({
             ...r,
@@ -95,14 +98,16 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
 
         if (recordsToSave.length === 0) return;
 
+        console.log(`[Diagnostic: Attendance] Saving ${recordsToSave.length} records for term ${activeTerm.id}`);
+        
         await db.attendance.bulkPut(recordsToSave);
         await queueAction('attendance', 'upsert', recordsToSave);
 
         setHasChanges(false);
-        showSuccess('Attendance saved.');
-    } catch (e) {
-        console.error(e);
-        showError('Failed to save.');
+        showSuccess('Attendance saved successfully.');
+    } catch (e: any) {
+        console.error("[Diagnostic: Attendance] Save failed:", e);
+        showError('Save failed: ' + e.message);
     } finally {
         setSaving(false);
     }
@@ -170,10 +175,10 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
         generateAttendancePDF(learners, recordMap, sortedDates, monthName, profile);
       }
 
-      showSuccess("Attendance report exported.");
+      showSuccess("Attendance report generated.");
     } catch (e) {
-      console.error(e);
-      showError("Failed to export attendance.");
+      console.error("[Diagnostic: Export] Report failed:", e);
+      showError("Export failed. Check console for details.");
     } finally {
       setIsExporting(false);
     }
