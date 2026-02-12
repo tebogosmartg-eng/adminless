@@ -13,7 +13,8 @@ import {
     UserCheck, 
     ShieldAlert,
     ScanSearch,
-    Eye
+    Eye,
+    Wind
 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,19 +39,26 @@ import { useAlignmentDiagnostic } from "@/hooks/useAlignmentDiagnostic";
 
 export const DataManagementSettings = () => {
   const { isOnline, forceSync, isSyncing } = useSync();
-  const { recalculateAllActiveAverages, diagnosticMode, setDiagnosticMode } = useAcademic();
+  const { recalculateAllActiveAverages, runDataVacuum, diagnosticMode, setDiagnosticMode } = useAcademic();
   const { runRecovery, isRecovering } = useAccountRecovery();
   const { runDiagnostic, isRunning: isDiagnosing } = useAlignmentDiagnostic();
 
   const [isExporting, setIsExporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
+  const [isVacuuming, setIsVacuuming] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   const handleRecalculate = async () => {
       setIsRepairing(true);
       await recalculateAllActiveAverages();
       setIsRepairing(false);
+  };
+
+  const handleVacuum = async () => {
+      setIsVacuuming(true);
+      await runDataVacuum();
+      setIsVacuuming(false);
   };
 
   const handleLoadDemo = async () => {
@@ -202,7 +210,7 @@ export const DataManagementSettings = () => {
             <CardDescription>Maintain data integrity and manage backups.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
                 <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/20">
                     <div>
                         <h3 className="font-semibold text-sm mb-1">Repair Averages</h3>
@@ -210,7 +218,17 @@ export const DataManagementSettings = () => {
                     </div>
                     <Button variant="outline" size="sm" onClick={handleRecalculate} disabled={isRepairing} className="w-full mt-auto">
                         {isRepairing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Calculator className="h-4 w-4 mr-2" />}
-                        Recalculate All
+                        Repair
+                    </Button>
+                </div>
+                <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/20">
+                    <div>
+                        <h3 className="font-semibold text-sm mb-1">Data Vacuum</h3>
+                        <p className="text-xs text-muted-foreground">Removes orphaned marks and corrupted duplicate entries from the database.</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={handleVacuum} disabled={isVacuuming} className="w-full mt-auto">
+                        {isVacuuming ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wind className="h-4 w-4 mr-2" />}
+                        Purge
                     </Button>
                 </div>
                 <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/20">
@@ -220,7 +238,7 @@ export const DataManagementSettings = () => {
                     </div>
                     <Button variant="outline" size="sm" onClick={forceSync} disabled={isSyncing || !isOnline} className="w-full mt-auto">
                         {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="mr-2 h-4 w-4 mr-2" />}
-                        Sync Now
+                        Sync
                     </Button>
                 </div>
             </div>

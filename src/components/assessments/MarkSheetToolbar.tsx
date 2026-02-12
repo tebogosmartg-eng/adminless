@@ -26,7 +26,6 @@ interface MarkSheetToolbarProps {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   editedMarksCount: number;
-  handleSaveMarks: () => void;
   handleExportSheet: () => void;
   isAddOpen: boolean;
   setIsAddOpen: (open: boolean) => void;

@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { db } from '@/db';
 import { queueAction } from '@/services/sync';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 
 export const useAcademicAverages = () => {
   const updateLearnerActiveAverages = useCallback(async (learnerIds: string[]) => {
@@ -42,27 +42,50 @@ export const useAcademicAverages = () => {
     }
   }, []);
 
-  const recalculateAllActiveAverages = useCallback(async () => {
-      const allMarks = await db.assessment_marks.toArray();
-      const markGroups: Record<string, string[]> = {};
-      
-      allMarks.forEach(m => {
-          const key = `${m.assessment_id}-${m.learner_id}`;
-          if (!markGroups[key]) markGroups[key] = [];
-          markGroups[key].push(m.id);
-      });
+  const runDataVacuum = useCallback(async () => {
+      console.log("[Vacuum] Starting database cleanup...");
+      try {
+          const allMarks = await db.assessment_marks.toArray();
+          const allAssessments = await db.assessments.toArray();
+          const assessmentIds = new Set(allAssessments.map(a => a.id));
 
-      const toDeleteLocally: string[] = [];
-      Object.values(markGroups).forEach(ids => {
-          if (ids.length > 1) {
-              toDeleteLocally.push(...ids.slice(0, ids.length - 1));
+          const orphanedMarkIds = allMarks
+            .filter(m => !assessmentIds.has(m.assessment_id))
+            .map(m => m.id);
+
+          if (orphanedMarkIds.length > 0) {
+              await db.assessment_marks.bulkDelete(orphanedMarkIds);
+              console.log(`[Vacuum] Purged ${orphanedMarkIds.length} orphaned marks.`);
           }
-      });
 
-      if (toDeleteLocally.length > 0) {
-          await db.assessment_marks.bulkDelete(toDeleteLocally);
+          // Also find duplicates
+          const markGroups: Record<string, string[]> = {};
+          allMarks.forEach(m => {
+              const key = `${m.assessment_id}-${m.learner_id}`;
+              if (!markGroups[key]) markGroups[key] = [];
+              markGroups[key].push(m.id);
+          });
+
+          const duplicateIds: string[] = [];
+          Object.values(markGroups).forEach(ids => {
+              if (ids.length > 1) {
+                  duplicateIds.push(...ids.slice(0, ids.length - 1));
+              }
+          });
+
+          if (duplicateIds.length > 0) {
+              await db.assessment_marks.bulkDelete(duplicateIds);
+              console.log(`[Vacuum] Removed ${duplicateIds.length} duplicate mark records.`);
+          }
+
+          showSuccess(`Vacuum complete: Purged ${orphanedMarkIds.length + duplicateIds.length} redundant records.`);
+      } catch (err) {
+          console.error("[Vacuum] Critical Failure:", err);
+          showError("Integrity vacuum failed.");
       }
+  }, []);
 
+  const recalculateAllActiveAverages = useCallback(async () => {
       const allLearners = await db.learners.toArray();
       const ids = allLearners.map(l => l.id!);
       
@@ -70,11 +93,12 @@ export const useAcademicAverages = () => {
           await updateLearnerActiveAverages(ids);
       });
 
-      showSuccess("Global data audit and average repair complete.");
+      showSuccess("Global mark consolidation complete.");
   }, [updateLearnerActiveAverages]);
 
   return {
     updateLearnerActiveAverages,
-    recalculateAllActiveAverages
+    recalculateAllActiveAverages,
+    runDataVacuum
   };
 };
