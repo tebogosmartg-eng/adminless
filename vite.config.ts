@@ -11,7 +11,6 @@ export default defineConfig(() => ({
   plugins: [
     dyadComponentTagger(), 
     react(),
-    // PWA disabled to ensure environment consistency and prevent stale cache
   ],
   resolve: {
     alias: {
