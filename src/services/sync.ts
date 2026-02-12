@@ -56,7 +56,8 @@ export const pushChanges = async () => {
 
 export const pullData = async (userId: string) => {
   try {
-    console.group(`[Cloud Audit] Restoring Data from Supabase`);
+    // STABILISATION LOG: Group pull activity
+    console.group(`[Stabilisation: Sync] Restoring context for User: ${userId}`);
     
     const pending = await db.sync_queue.toArray();
     const pendingIdsByTable = pending.reduce((acc, item) => {
@@ -69,13 +70,16 @@ export const pullData = async (userId: string) => {
       const { data, error } = await query;
       
       if (error) {
-          console.error(`[Cloud Audit] Error pulling ${tableName}:`, error);
+          console.error(`[Stabilisation: Sync] Error pulling ${tableName}:`, error);
           return;
       }
 
-      if (!data || data.length === 0) return;
+      if (!data || data.length === 0) {
+          console.log(`[Stabilisation: Sync] No remote records found for ${tableName}`);
+          return;
+      }
 
-      console.log(`[Cloud Audit] Retrieved ${data.length} records for ${tableName}`);
+      console.log(`[Stabilisation: Sync] Pulled ${data.length} records for ${tableName}`);
 
       // Only update local items if we don't have a newer pending change in the sync queue
       const itemsToPut = data.filter((item: any) => {
@@ -135,7 +139,7 @@ export const pullData = async (userId: string) => {
     console.groupEnd();
   } catch (error) {
     console.groupEnd();
-    console.error("[sync] Global pull failed:", error);
+    console.error("[Stabilisation: Sync] Global pull operation failed:", error);
   }
 };
 

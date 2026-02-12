@@ -48,9 +48,11 @@ export const useSetupStatus = () => {
     const missingRequired = coreSteps.filter(s => !s.done);
     const isReadyForFinalization = missingRequired.length === 0;
 
-    // Diagnostic log for stabilization review
+    // STABILISATION LOG: Track checklist blocking state
     if (!isReadyForFinalization) {
-        console.log("[SetupStatus] Checklist active. Pending steps:", missingRequired.map(s => s.title).join(", "));
+        console.log("[Stabilisation: Setup] Pending Checklist Steps:", missingRequired.map(s => s.title).join(", "));
+    } else {
+        console.log("[Stabilisation: Setup] All checklist requirements satisfied.");
     }
 
     return {
