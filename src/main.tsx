@@ -3,11 +3,12 @@ import App from "./App.tsx";
 import "./globals.css";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 
-// Startup Environment Audit - Required for localhost alignment
-console.log("[Environment Audit]", {
-  VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-  MODE: import.meta.env.MODE
-});
+// Environment Alignment Audit
+// This verifies that the correct environment variables are loaded on startup
+console.group("[Environment Alignment Audit]");
+console.log("Supabase URL:", import.meta.env.VITE_SUPABASE_URL);
+console.log("Execution Mode:", import.meta.env.MODE);
+console.groupEnd();
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>

@@ -1,11 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Environment variables are strictly sourced from .env.local
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  console.warn("[Supabase] Missing environment variables. Please check your .env.local file.");
+  console.error("[Supabase Alignment Error] Missing environment variables. Ensure .env.local is present and populated.");
 }
 
 export const supabase = createClient(
