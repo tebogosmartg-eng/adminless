@@ -11,7 +11,7 @@ interface MigrationReport {
 
 export const useAcademicMigration = (
   userId: string | undefined, 
-  recalculateAverages: () => Promise<void>,
+  recalculateAverages: (silent?: boolean) => Promise<void>,
   logActivity: (message: string, yearId?: string, termId?: string) => Promise<void>
 ) => {
   const migrateLegacyData = async (yearId: string, termId: string): Promise<MigrationReport> => {
@@ -70,8 +70,8 @@ export const useAcademicMigration = (
         });
 
         if (report.total > 0) {
-            // Silently recalculate averages in background
-            await recalculateAverages();
+            // Silently recalculate averages in background without showing toasts
+            await recalculateAverages(true);
             console.log(`[Infrastructure] Data Alignment Complete: ${report.total} records migrated to current cycle (${yearId} / ${termId}).`);
         }
 

@@ -38,7 +38,7 @@ interface AcademicContextType {
   refreshAssessments: (classId: string, termId?: string) => Promise<void>;
   toggleTermStatus: (termId: string, closed: boolean) => Promise<void>;
   closeYear: (yearId: string) => Promise<void>;
-  recalculateAllActiveAverages: () => Promise<void>;
+  recalculateAllActiveAverages: (silent?: boolean) => Promise<void>;
   runDataVacuum: () => Promise<void>;
   rollForwardClasses: (sourceTermId: string, targetTermId: string, preparedClasses: any[]) => Promise<void>;
   migrateLegacyData: (yearId: string, termId: string) => Promise<MigrationReport>;
