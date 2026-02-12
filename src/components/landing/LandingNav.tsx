@@ -19,7 +19,7 @@ export const LandingNav = () => {
           <span className="text-2xl font-black tracking-tighter text-slate-900 dark:text-white">AdminLess</span>
         </Link>
         <div className="flex items-center gap-4">
-          <Link to="/login">
+          <Link to="/login" className="hidden sm:block">
             <Button 
               variant="ghost" 
               className="text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all"
@@ -27,13 +27,11 @@ export const LandingNav = () => {
               Teacher Login
             </Button>
           </Link>
-          
-          <Link to="/login">
+          <Link to="/pilot-signup">
             <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black shadow-xl shadow-blue-500/20 px-8 h-12 rounded-2xl active:scale-95 transition-all">
-              Sign Up
+              Get Started
             </Button>
           </Link>
-
           <div className="pl-2 border-l ml-2">
             <ThemeToggle />
           </div>

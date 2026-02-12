@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useEffect } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
 import { ClassInfo, Learner } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { Session } from '@supabase/supabase-js';
@@ -58,13 +58,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const classes = rawClasses || [];
   const loading = rawClasses === undefined && !!session?.user.id;
-
-  // STABILISATION: Log number of classes returned
-  useEffect(() => {
-    if (classes && session?.user.id) {
-        console.log(`[Stabilisation Audit] Classes Loaded: ${classes.length} for user ${session.user.id}`);
-    }
-  }, [classes, session?.user.id]);
 
   const addClass = async (newClass: ClassInfo) => {
     if (!session?.user.id || !activeYear || !activeTerm) {
