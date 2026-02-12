@@ -9,6 +9,7 @@ export const useCurrentPeriod = () => {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
+    // Update state every minute to keep current/next markers accurate
     const timer = setInterval(() => setNow(new Date()), 60000); 
     return () => clearInterval(timer);
   }, []);
@@ -16,19 +17,21 @@ export const useCurrentPeriod = () => {
   const today = format(now, 'EEEE');
   const todayStr = format(now, 'yyyy-MM-dd');
 
-  // Fetch all attendance for today to check which classes are missing registers
+  // Fetch only today's attendance records to verify register completion
   const attendanceToday = useLiveQuery(
-      () => db.attendance.where('date').equals(todayStr).toArray()
+      () => db.attendance.where('date').equals(todayStr).toArray(),
+      [todayStr]
   ) || [];
 
   const periods = useMemo(() => {
-    // Get unique class IDs that HAVE marked attendance today
+    // Map class IDs that HAVE already marked attendance today
     const markedClassIds = new Set(attendanceToday.map(r => r.class_id));
 
     return timetable
       .filter(t => t.day === today)
       .sort((a, b) => a.period - b.period)
       .map(t => {
+          // Default logic: sessions start at 8:00 AM, 55 mins each
           const startBase = 8 * 60 + (t.period - 1) * 60;
           const endBase = startBase + 55;
           
@@ -46,6 +49,7 @@ export const useCurrentPeriod = () => {
               endTime,
               isCurrent: isAfter(now, startParsed) && isBefore(now, endParsed),
               isPast: isAfter(now, endParsed),
+              // Flag missing registers for scheduled classes
               isPendingAttendance: t.class_id ? !markedClassIds.has(t.class_id) : false
           };
       });

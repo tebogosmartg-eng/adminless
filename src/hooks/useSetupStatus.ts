@@ -15,6 +15,22 @@ export const useSetupStatus = () => {
   const totalAssessments = useLiveQuery(() => db.assessments.count()) || 0;
   const totalMarks = useLiveQuery(() => db.assessment_marks.count()) || 0;
   
+  const weightingReport = useLiveQuery(async () => {
+    if (!activeTerm) return { isValid: false };
+    
+    const termAss = await db.assessments.where('term_id').equals(activeTerm.id).toArray();
+    if (termAss.length === 0) return { isValid: false };
+
+    // Group by class to check if each class has valid 100% weighting
+    const classGroups: Record<string, number> = {};
+    termAss.forEach(a => {
+        classGroups[a.class_id] = (classGroups[a.class_id] || 0) + Number(a.weight);
+    });
+
+    const invalidCount = Object.values(classGroups).filter(w => w !== 100).length;
+    return { isValid: termAss.length > 0 && invalidCount === 0, totalClassesWithWeighting: Object.keys(classGroups).length };
+  }, [activeTerm?.id]) || { isValid: false, totalClassesWithWeighting: 0 };
+
   const hasLegacyData = useLiveQuery(async () => {
     const counts = await Promise.all([
         db.classes.filter(c => !c.year_id || !c.term_id).count(),
@@ -25,7 +41,6 @@ export const useSetupStatus = () => {
   }) || false;
 
   const status = useMemo(() => {
-    // If we are still loading core data, return a state that prevents UI from collapsing
     if (academicLoading || classesLoading) {
         return {
             coreSteps: [],
@@ -46,7 +61,7 @@ export const useSetupStatus = () => {
     const step5 = classes.length > 0 && classes.every(c => c.learners.length > 0);
     const step6 = totalAssessments > 0;
     const step7 = totalMarks > 0;
-    const step8 = classes.length > 0 && totalAssessments > 0 && classes.some(c => totalMarks > 0); 
+    const step8 = weightingReport.isValid; 
 
     const coreSteps = [
         { id: 1, title: 'Select Academic Year', done: step1 },
@@ -72,7 +87,7 @@ export const useSetupStatus = () => {
         hasLegacyData,
         hasProfile
     };
-  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, hasLegacyData, hasProfile, academicLoading, classesLoading]);
+  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, weightingReport, hasLegacyData, hasProfile, academicLoading, classesLoading]);
 
   return status;
 };
