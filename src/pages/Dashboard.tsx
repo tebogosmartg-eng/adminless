@@ -3,12 +3,18 @@ import { useDashboardData } from '@/hooks/useDashboardData';
 import { DashboardOverviewTab } from '@/components/dashboard/DashboardOverviewTab';
 import { DashboardGroupedView } from '@/components/dashboard/DashboardGroupedView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, LayoutGrid, GraduationCap, Loader2 } from 'lucide-react';
+import { BarChart3, LayoutGrid, GraduationCap, Loader2, Database, ArrowRight, ShieldAlert } from 'lucide-react';
 import { useClasses } from '@/context/ClassesContext';
 import { GlobalAddNoteDialog } from '@/components/dialogs/GlobalAddNoteDialog';
+import { useSetupStatus } from '@/hooks/useSetupStatus';
+import { useAcademic } from '@/context/AcademicContext';
+import { Button } from '@/components/ui/button';
+import { showSuccess, showError } from '@/utils/toast';
 
 const Dashboard = () => {
   const { loading } = useClasses();
+  const { activeYear, activeTerm, migrateLegacyData } = useAcademic();
+  const { hasLegacyData } = useSetupStatus();
   const { 
     classes,
     activeClasses, 
@@ -18,6 +24,23 @@ const Dashboard = () => {
   } = useDashboardData();
 
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
+
+  const handleMigrate = async () => {
+      if (!activeYear || !activeTerm) {
+          showError("Select an active cycle and term in the top bar before migrating.");
+          return;
+      }
+      setIsMigrating(true);
+      try {
+          const report = await migrateLegacyData(activeYear.id, activeTerm.id);
+          if (report.success) {
+              showSuccess(`Migration complete. Re-linked ${report.total} records.`);
+          }
+      } finally {
+          setIsMigrating(false);
+      }
+  };
 
   if (loading) {
     return (
@@ -37,10 +60,33 @@ const Dashboard = () => {
         <p className="text-muted-foreground text-xs">Professional overview of your academic workload and results.</p>
       </div>
 
+      {hasLegacyData && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center gap-4">
+                  <div className="p-2 bg-blue-600 rounded-lg text-white">
+                      <Database className="h-5 w-5" />
+                  </div>
+                  <div>
+                      <p className="text-sm font-bold text-blue-900">Data Architecture Update Required</p>
+                      <p className="text-xs text-blue-700">We detected records that aren't linked to your current academic cycle. Move them now?</p>
+                  </div>
+              </div>
+              <Button 
+                onClick={handleMigrate} 
+                disabled={isMigrating || !activeYear} 
+                size="sm" 
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2"
+              >
+                  {isMigrating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                  Align Legacy Data
+              </Button>
+          </div>
+      )}
+
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="bg-muted/50 p-1 border h-9">
           <TabsTrigger value="overview" className="flex items-center gap-2 px-4 h-7 text-xs">
-            <BarChart3 className="h-3.5 w-3.5" /> Overview
+            < BarChart3 className="h-3.5 w-3.5" /> Overview
           </TabsTrigger>
           <TabsTrigger value="subjects" className="flex items-center gap-2 px-4 h-7 text-xs">
             <LayoutGrid className="h-3.5 w-3.5" /> By Subject
