@@ -2,7 +2,6 @@
 
 import { db } from '@/db';
 import { queueAction } from '@/services/sync';
-import { showSuccess, showError } from '@/utils/toast';
 
 interface MigrationReport {
     success: boolean;
@@ -59,14 +58,14 @@ export const useAcademicMigration = (
 
         if (report.total > 0) {
             await recalculateAverages();
-            const auditMsg = `[MIGRATION] Finalized architectural alignment for ${report.total} records.`;
-            await logActivity(auditMsg, yearId, termId);
+            // Logging to console only as requested for infrastructure invisibility
+            console.log(`[Infrastructure] Data Alignment Complete: ${report.total} records migrated to current cycle.`);
         }
 
         report.success = true;
         return report;
     } catch (e) {
-        console.error("[migration] failed", e);
+        console.error("[Infrastructure] Alignment check failed:", e);
         return { ...report, success: false };
     }
   };
@@ -124,11 +123,8 @@ export const useAcademicMigration = (
         const auditLog = `[AUDIT: ROLL_FORWARD] Source: ${sourceTerm.name} Target: ${targetTerm.name} (${preparedClasses.length} Rosters)`;
         await logActivity(auditLog, yearId, targetTermId);
         
-        showSuccess(`Successfully migrated rosters to ${targetTerm.name}.`);
-        onSuccess(targetTerm);
-        
     } catch (e: any) {
-        showError(e.message);
+        console.error("[Infrastructure] Roll forward failed:", e);
     }
   };
 

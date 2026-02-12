@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { AcademicYear, Term, Assessment, AssessmentMark, Activity } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
@@ -51,6 +51,7 @@ const AcademicContext = createContext<AcademicContextType | undefined>(undefined
 export const AcademicProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const [diagnosticMode, setDiagnosticMode] = useState(false);
   const [currentClassFilter, setCurrentClassFilter] = useState<{classId: string, termId: string} | null>(null);
+  const [hasRunSilentMigration, setHasRunSilentMigration] = useState(false);
 
   const years = useLiveQuery(() => db.academic_years.orderBy('name').reverse().toArray()) || [];
   const allTerms = useLiveQuery(() => db.terms.toArray()) || [];
@@ -101,6 +102,19 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     recalculateAllActiveAverages, 
     logInternalActivity
   );
+
+  // AUTOMATED BACKGROUND MIGRATION
+  // Runs once per session when the academic context is established.
+  useEffect(() => {
+    if (activeYear && activeTerm && !hasRunSilentMigration && session?.user.id) {
+        setHasRunSilentMigration(true);
+        const silentMigrate = async () => {
+            console.log("[Infrastructure] Checking for legacy data alignment...");
+            await migrateLegacyData(activeYear.id, activeTerm.id);
+        };
+        silentMigrate();
+    }
+  }, [activeYear?.id, activeTerm?.id, session?.user.id, hasRunSilentMigration, migrateLegacyData]);
 
   const createYear = useCallback(async (name: string) => {
     if (!session?.user.id) return;
@@ -165,7 +179,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const refreshAssessments = useCallback(async (c: string, t?: string) => {
     const targetTermId = t || activeTerm?.id || '';
-    // Use deep comparison for the state update to avoid redundant renders
     setCurrentClassFilter(prev => {
       if (prev?.classId === c && prev?.termId === targetTermId) return prev;
       return { classId: c, termId: targetTermId };
