@@ -45,15 +45,20 @@ const App = () => {
 
   useEffect(() => {
     const initAuth = async () => {
-      console.log("[Auth] Initializing session check...");
+      console.log("[Stabilisation: Auth] Initializing session check...");
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         if (error) throw error;
         
-        console.log("[Auth] Initial session check complete:", initialSession ? "User Authenticated" : "No Session");
+        if (initialSession) {
+            console.log(`[Stabilisation: Auth] User Authenticated: ${initialSession.user.id} (${initialSession.user.email})`);
+        } else {
+            console.log("[Stabilisation: Auth] No active session detected.");
+        }
+        
         setSession(initialSession);
       } catch (err) {
-        console.error("[Auth] Initial session load failed:", err);
+        console.error("[Stabilisation: Auth] Initial session load failed:", err);
       } finally {
         setLoading(false);
       }
@@ -62,12 +67,12 @@ const App = () => {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-      console.log(`[Auth] State Change Event: ${event}`, newSession?.user?.email || "No User");
+      console.log(`[Stabilisation: Auth] State Change Event: ${event}`, newSession?.user?.id || "No User");
       setSession(newSession);
       setLoading(false);
       
       if (event === 'SIGNED_OUT') {
-          console.log("[Auth] User signed out, clearing local state references");
+          console.log("[Stabilisation: Auth] User signed out, clearing context.");
       }
     });
 
@@ -104,7 +109,7 @@ const App = () => {
                                 <OfflineIndicator />
                                 <Routes>
                                 <Route path="/welcome" element={session ? <Navigate to="/" /> : <Landing />} />
-                                <Route path="/pilot-signup" element={session ? <Navigate to="/" /> : <PilotSignup />} />
+                                <Route path="/pilot-signup" element={session ? <Navigate to="/login" /> : <PilotSignup />} />
                                 <Route path="/login" element={session ? <Navigate to="/" /> : <Login />} />
                                 <Route
                                     element={

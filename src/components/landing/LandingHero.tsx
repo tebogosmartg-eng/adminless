@@ -59,9 +59,9 @@ export const LandingHero = () => {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
         >
-          <Link to="/pilot-signup" className="w-full sm:w-auto">
+          <Link to="/login" className="w-full sm:w-auto">
             <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white px-10 h-14 text-lg font-bold shadow-lg shadow-blue-200/50 dark:shadow-none hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-blue-400 ring-offset-2">
-              Try AdminLess with one class
+              Start Managing Your Classes
             </Button>
           </Link>
           <Button 
