@@ -43,6 +43,7 @@ interface SettingsContextType {
     contactPhone?: string;
     atRiskThreshold?: number;
   }) => Promise<void>;
+  hasProfile: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -76,45 +77,17 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [savedSubjects, setSavedSubjectsState] = useState<string[]>(DEFAULT_DBE_SUBJECTS);
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
 
-  // 1. Log current authenticated user UUID & Profile Linkage
+  // STABILISATION MODE: Log authenticated user and profile linkage
   useEffect(() => {
-    const runAudit = async () => {
-      if (!session?.user) return;
-
-      const uid = session.user.id;
-      console.group(`[Auth Linkage Audit] User: ${session.user.email}`);
-      console.log(`Current UUID: ${uid}`);
-
-      try {
-        // 2. Fetch profile row for this UUID
-        const { data: sbProfile, error: sbError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', uid)
-          .maybeSingle();
-
-        if (sbError) {
-          console.error("Supabase Profile Fetch Error:", sbError);
-        } else if (!sbProfile) {
-          console.warn("No profile row found for current UUID in Supabase. A recovery audit may be required.");
-        } else {
-          console.log("Supabase profile verified:", sbProfile);
-        }
-
-        // 3. Check for duplicates (Handled by the recovery tool in settings)
-        const localClasses = await db.classes.toArray();
-        const mismatch = localClasses.some(c => c.user_id && c.user_id !== uid);
-        if (mismatch) {
-          console.error("CRITICAL: Detected classes in local storage linked to a different UUID. Please use the Recovery tool in Settings.");
-        }
-      } catch (e) {
-        console.error("Audit failed:", e);
+    if (session?.user) {
+      console.log(`[Stabilisation] Authenticated User UUID: ${session.user.id}`);
+      if (profile) {
+        console.log(`[Stabilisation] Fetched Profile UUID: ${profile.id}`);
+      } else {
+        console.warn(`[Stabilisation] No profile found in local database for user ${session.user.id}`);
       }
-      console.groupEnd();
-    };
-
-    runAudit();
-  }, [session]);
+    }
+  }, [session, profile]);
 
   useEffect(() => {
     if (profile) {
@@ -268,7 +241,8 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
       addToCommentBank, removeFromCommentBank,
       savedSubjects, addSubject, removeSubject,
       savedGrades, addGrade, removeGrade,
-      updateProfileSettings
+      updateProfileSettings,
+      hasProfile: !!profile
     }}>
       {children}
     </SettingsContext.Provider>

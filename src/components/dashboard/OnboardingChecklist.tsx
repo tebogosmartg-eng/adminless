@@ -8,10 +8,11 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 export const OnboardingChecklist = () => {
-  const { coreSteps, isReadyForFinalization } = useSetupStatus();
+  const { coreSteps, isReadyForFinalization, hasProfile } = useSetupStatus();
   const navigate = useNavigate();
 
-  if (isReadyForFinalization) return null;
+  // STABILISATION MODE: Only render if a profile exists and setup is incomplete
+  if (isReadyForFinalization || !hasProfile) return null;
 
   const handleStepClick = (id: number) => {
     switch (id) {

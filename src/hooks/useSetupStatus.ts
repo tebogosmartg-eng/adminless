@@ -10,7 +10,7 @@ import { db } from '@/db';
 export const useSetupStatus = () => {
   const { activeYear, activeTerm } = useAcademic();
   const { classes } = useClasses();
-  const { savedSubjects } = useSettings();
+  const { savedSubjects, hasProfile } = useSettings();
 
   const totalAssessments = useLiveQuery(() => db.assessments.count()) || 0;
   const totalMarks = useLiveQuery(() => db.assessment_marks.count()) || 0;
@@ -59,9 +59,10 @@ export const useSetupStatus = () => {
         isReadyForFinalization,
         hasInitialSetup: step1 && step2 && step3 && step4,
         hasMarksCaptured: step7,
-        hasLegacyData 
+        hasLegacyData,
+        hasProfile
     };
-  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, hasLegacyData]);
+  }, [activeYear, activeTerm, savedSubjects, classes, totalAssessments, totalMarks, hasLegacyData, hasProfile]);
 
   return status;
 };

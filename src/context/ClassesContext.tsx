@@ -43,6 +43,9 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
     const allLearners = await db.learners.toArray();
 
+    // STABILISATION MODE: Log class count for diagnostics
+    console.log(`[Stabilisation] Classes returned for context: ${visibleClasses.length}`);
+
     return visibleClasses.map(c => ({
         id: c.id,
         year_id: c.year_id,

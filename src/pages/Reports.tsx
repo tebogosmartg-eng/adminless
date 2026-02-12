@@ -162,6 +162,8 @@ const Reports = () => {
     showSuccess("SASAMS CSV exported.");
   };
 
+  // STABILISATION MODE: Disable the isReadyForFinalization gating block to restore access
+  /*
   if (!isReadyForFinalization) {
       return (
           <div className="max-w-3xl mx-auto py-12 px-4 space-y-6">
@@ -188,6 +190,7 @@ const Reports = () => {
           </div>
       );
   }
+  */
 
   return (
     <div className="space-y-6 pb-10">
@@ -245,7 +248,7 @@ const Reports = () => {
                         
                         {integrityReport && <div className="pt-4 border-t"><IntegrityGuard report={integrityReport} /></div>}
 
-                        <Button className="w-full mt-4 h-11 font-bold" onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete || !integrityReport?.isValid}>
+                        <Button className="w-full mt-4 h-11 font-bold" onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete}>
                             {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load Analytical Data"}
                         </Button>
                     </CardContent>
