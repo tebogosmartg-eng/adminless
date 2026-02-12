@@ -104,6 +104,12 @@ export class SmaRegDB extends Dexie {
         activities: 'id, timestamp, term_id, user_id',
         todos: 'id, completed, term_id, user_id'
     });
+
+    // Version 18: Adding user_id index to academic_years and terms to support strict scoping
+    this.version(18).stores({
+      academic_years: 'id, closed, name, user_id',
+      terms: 'id, year_id, name, user_id'
+    });
   }
 }
 
