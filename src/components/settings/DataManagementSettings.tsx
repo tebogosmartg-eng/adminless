@@ -1,7 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { 
     Database, 
     Download, 
@@ -9,13 +7,7 @@ import {
     Loader2, 
     RefreshCw, 
     Calculator, 
-    Sparkles, 
-    UserCheck, 
-    ShieldAlert,
-    ScanSearch,
-    Eye,
-    Wind,
-    ArrowRightCircle
+    Wind
 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,28 +27,19 @@ import { db } from "@/db";
 import { useSync } from "@/context/SyncContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { importDemoData } from "@/services/demoData";
-import { useAccountRecovery } from "@/hooks/useAccountRecovery";
-import { useAlignmentDiagnostic } from "@/hooks/useAlignmentDiagnostic";
 
 export const DataManagementSettings = () => {
   const { isOnline, forceSync, isSyncing } = useSync();
   const { 
-    activeYear, 
-    terms, 
     recalculateAllActiveAverages, 
-    runDataVacuum, 
-    diagnosticMode, 
-    setDiagnosticMode
+    runDataVacuum 
   } = useAcademic();
-  const { runRecovery, isRecovering } = useAccountRecovery();
-  const { runDiagnostic, isRunning: isDiagnosing } = useAlignmentDiagnostic();
 
   const [isExporting, setIsExporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
   const [isVacuuming, setIsVacuuming] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
 
   const handleRecalculate = async () => {
       setIsRepairing(true);
@@ -68,43 +51,6 @@ export const DataManagementSettings = () => {
       setIsVacuuming(true);
       await runDataVacuum();
       setIsVacuuming(false);
-  };
-
-  const handleBackendAcademicReset = async () => {
-      if (!activeYear || !isOnline) {
-          showError("Backend reset requires an internet connection and an active year.");
-          return;
-      }
-
-      const termOne = terms.find(t => t.name === "Term 1");
-      if (!termOne) {
-          showError("Could not identify Term 1 context.");
-          return;
-      }
-
-      setIsResetting(true);
-      try {
-          // Trigger the Backend Edge Function
-          const { data, error } = await supabase.functions.invoke('academic-reset', {
-              body: { term1Id: termOne.id }
-          });
-
-          if (error) throw error;
-
-          if (data.success) {
-              showSuccess(data.message);
-              console.log("[Backend Reset] Statistics:", data.counts);
-              
-              // Synchronize local DB with the new backend state
-              await forceSync();
-              await recalculateAllActiveAverages(true);
-          }
-      } catch (e: any) {
-          console.error("[Backend Reset] Failed:", e);
-          showError(e.message || "Reset failed.");
-      } finally {
-          setIsResetting(false);
-      }
   };
 
   const handleLoadDemo = async () => {
@@ -153,6 +99,8 @@ export const DataManagementSettings = () => {
   const handleClearData = async () => {
     setIsClearing(true);
     try {
+      // Local Clear only
+      await db.delete();
       showSuccess("Application data reset.");
       setTimeout(() => window.location.reload(), 1000);
     } catch (error: any) {
@@ -164,125 +112,14 @@ export const DataManagementSettings = () => {
 
   return (
     <div className="space-y-6">
-        <Card className="border-purple-200 bg-purple-50/20">
-            <CardHeader>
-                <div className="flex items-center gap-2">
-                    <ScanSearch className="h-5 w-5 text-purple-600" />
-                    <CardTitle>Alignment Diagnostic</CardTitle>
-                </div>
-                <CardDescription>
-                    Troubleshoot missing data by running a full audit of your local database records and filters.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border rounded-xl shadow-sm">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <Eye className="h-4 w-4 text-purple-500" />
-                            <h4 className="font-bold text-sm">Global Diagnostic View</h4>
-                        </div>
-                        <p className="text-xs text-muted-foreground max-w-sm">
-                            Temporarily disable all Academic Year and Term filters across the app to see every record in your DB.
-                        </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <Label htmlFor="diag-mode" className="text-xs font-bold uppercase tracking-tighter">
-                            {diagnosticMode ? "Bypassing Filters" : "Filters Active"}
-                        </Label>
-                        <Switch 
-                            id="diag-mode" 
-                            checked={diagnosticMode} 
-                            onCheckedChange={setDiagnosticMode} 
-                        />
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <Button onClick={runDiagnostic} disabled={isDiagnosing} variant="outline" className="border-purple-200 hover:bg-purple-50">
-                        {isDiagnosing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                        Run Console Audit
-                    </Button>
-                    <p className="text-[10px] text-muted-foreground italic">Logs results to browser developer tools.</p>
-                </div>
-            </CardContent>
-        </Card>
-
-        <Card className="border-amber-200 bg-amber-50/30">
-            <CardHeader>
-                <div className="flex items-center gap-2">
-                    <ArrowRightCircle className="h-5 w-5 text-amber-600" />
-                    <CardTitle>Controlled Academic Reset (Backend)</CardTitle>
-                </div>
-                <CardDescription>
-                    Move ALL your current data into Term 1 directly on the server.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex items-start gap-3 p-3 bg-white border rounded-lg text-xs text-amber-800">
-                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                    <p>
-                        This will execute a server-side update across all classes, tasks, and marks to belong to "Term 1". Terms 2–4 will be cleared on the server and then synced to your device.
-                    </p>
-                </div>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="outline" className="border-amber-300 hover:bg-amber-50 text-amber-700" disabled={isResetting || !isOnline}>
-                            {isResetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightCircle className="h-4 w-4 mr-2" />}
-                            Execute Server-Side Consolidation
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Execute Backend Reset?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will re-assign every record in your account to Term 1 on the Supabase database. Are you sure?
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleBackendAcademicReset} className="bg-amber-600 hover:bg-amber-700">Continue</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </CardContent>
-        </Card>
-
-        <Card className="border-blue-200 bg-blue-50/30">
-            <CardHeader>
-                <div className="flex items-center gap-2">
-                    <UserCheck className="h-5 w-5 text-blue-600" />
-                    <CardTitle>Account Recovery & Linkage</CardTitle>
-                </div>
-                <CardDescription>
-                    If your classes or settings are missing after logging in, use this tool to re-link historical records to your current identity.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex items-start gap-3 p-3 bg-white border rounded-lg text-xs text-slate-600 mb-2">
-                    <ShieldAlert className="h-4 w-4 text-blue-500 mt-0.5" />
-                    <p>
-                        This will scan our secure backups for any records linked to your email address but a different internal ID. No data is overwritten or deleted.
-                    </p>
-                </div>
-                <Button onClick={runRecovery} disabled={isRecovering || !isOnline} className="w-full sm:w-auto font-bold bg-blue-600 hover:bg-blue-700">
-                    {isRecovering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                    Restore Historical Data
-                </Button>
-            </CardContent>
-        </Card>
-
         <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
-                <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-primary" />
-                    <CardTitle>Demo Environment</CardTitle>
-                </div>
-                <CardDescription>Populate your account with 2024 demo data to explore all features instantly.</CardDescription>
+                <CardTitle>Demo Environment</CardTitle>
+                <CardDescription>Populate your account with demo data to explore all features instantly.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Button onClick={handleLoadDemo} disabled={isDemoLoading} className="w-full sm:w-auto font-bold">
-                    {isDemoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                    Generate Full Demo Context
+                    {isDemoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Full Demo Context"}
                 </Button>
             </CardContent>
         </Card>
@@ -291,7 +128,7 @@ export const DataManagementSettings = () => {
         <CardHeader>
             <div className="flex items-center gap-2">
             <Database className="h-5 w-5 text-primary" />
-            <CardTitle>Data & System Maintenance</CardTitle>
+            <CardTitle>Data Maintenance</CardTitle>
             </div>
             <CardDescription>Maintain data integrity and manage backups.</CardDescription>
         </CardHeader>

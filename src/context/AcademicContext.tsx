@@ -10,6 +10,7 @@ import { queueAction } from '@/services/sync';
 import { useAcademicSelection } from '@/hooks/useAcademicSelection';
 import { useAcademicMigration } from '@/hooks/useAcademicMigration';
 import { useAcademicAverages } from '@/hooks/useAcademicAverages';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MigrationReport {
     success: boolean;
@@ -124,12 +125,47 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     logInternalActivity
   );
 
+  // AUTOMATIC RESET TRIGGER
   useEffect(() => {
-    if (activeYear && activeTerm && !hasRunSilentMigration && session?.user.id) {
-        setHasRunSilentMigration(true);
-        migrateLegacyData(activeYear.id, activeTerm.id);
+    const runBackgroundTask = async () => {
+        if (!activeYear || !activeTerm || !session?.user.id) return;
+        
+        // Check if we've already handled the term 1 migration for this year
+        const migrationFlag = `adminless_term1_reset_${activeYear.id}`;
+        if (localStorage.getItem(migrationFlag)) return;
+
+        console.log("[Background] Initiating automatic academic reset check...");
+        
+        // Identify Term 1
+        const termOne = allTerms.find(t => t.year_id === activeYear.id && t.name === "Term 1");
+        if (!termOne) return;
+
+        // Verify if data exists in other terms
+        const otherTerms = allTerms.filter(t => t.year_id === activeYear.id && t.name !== "Term 1").map(t => t.id);
+        const hasOtherData = await db.classes.where('term_id').anyOf(otherTerms).count() > 0;
+
+        if (hasOtherData) {
+            console.log("[Background] Found records in Terms 2-4. Migrating to Term 1...");
+            try {
+                const { data, error } = await supabase.functions.invoke('academic-reset', {
+                    body: { term1Id: termOne.id }
+                });
+                if (!error && data.success) {
+                    console.log("[Background] Reset Complete:", data.message);
+                    localStorage.setItem(migrationFlag, 'done');
+                }
+            } catch (e) {
+                console.warn("[Background] Automatic reset failed:", e);
+            }
+        } else {
+            localStorage.setItem(migrationFlag, 'done');
+        }
+    };
+
+    if (activeYear && activeTerm && session?.user.id) {
+        runBackgroundTask();
     }
-  }, [activeYear?.id, activeTerm?.id, session?.user.id, hasRunSilentMigration, migrateLegacyData]);
+  }, [activeYear?.id, activeTerm?.id, session?.user.id, allTerms]);
 
   const createYear = useCallback(async (name: string) => {
     if (!session?.user.id) return;

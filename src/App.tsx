@@ -52,8 +52,20 @@ const App = () => {
         
         if (initialSession) {
             console.log(`[Stabilisation: Auth] User Authenticated: ${initialSession.user.id} (${initialSession.user.email})`);
-        } else {
-            console.log("[Stabilisation: Auth] No active session detected.");
+            // AUTOMATIC RECOVERY CHECK
+            const recoveryFlag = `adminless_recovery_${initialSession.user.id}`;
+            if (!localStorage.getItem(recoveryFlag)) {
+                console.log("[Background] Running automatic account linkage audit...");
+                supabase.functions.invoke('account-recovery').then(({ data }) => {
+                    if (data?.success && data.migratedCount > 0) {
+                        console.log(`[Background] Recovered ${data.migratedCount} classes.`);
+                        localStorage.setItem(recoveryFlag, 'done');
+                        window.location.reload(); 
+                    } else {
+                        localStorage.setItem(recoveryFlag, 'done');
+                    }
+                });
+            }
         }
         
         setSession(initialSession);
@@ -67,13 +79,8 @@ const App = () => {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-      console.log(`[Stabilisation: Auth] State Change Event: ${event}`, newSession?.user?.id || "No User");
       setSession(newSession);
       setLoading(false);
-      
-      if (event === 'SIGNED_OUT') {
-          console.log("[Stabilisation: Auth] User signed out, clearing context.");
-      }
     });
 
     return () => subscription.unsubscribe();
