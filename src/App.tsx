@@ -28,6 +28,7 @@ import { AcademicProvider } from "./context/AcademicContext";
 import { SyncProvider } from "./context/SyncContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { SystemThemeManager } from "./components/SystemThemeManager";
+import { ScopeDiagnostics } from "./components/ScopeDiagnostics";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +93,7 @@ const App = () => {
                     <ActivityProvider session={session}>
                         <SettingsProvider session={session}>
                             <ClassesProvider session={session}>
+                                <ScopeDiagnostics />
                                 <OfflineIndicator />
                                 <Routes>
                                 <Route path="/welcome" element={session ? <Navigate to="/" /> : <Landing />} />
