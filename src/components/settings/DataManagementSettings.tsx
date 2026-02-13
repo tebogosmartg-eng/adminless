@@ -14,7 +14,8 @@ import {
     ShieldAlert,
     ScanSearch,
     Eye,
-    Wind
+    Wind,
+    ArrowRightCircle
 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +40,15 @@ import { useAlignmentDiagnostic } from "@/hooks/useAlignmentDiagnostic";
 
 export const DataManagementSettings = () => {
   const { isOnline, forceSync, isSyncing } = useSync();
-  const { recalculateAllActiveAverages, runDataVacuum, diagnosticMode, setDiagnosticMode } = useAcademic();
+  const { 
+    activeYear, 
+    terms, 
+    recalculateAllActiveAverages, 
+    runDataVacuum, 
+    diagnosticMode, 
+    setDiagnosticMode,
+    resetToTermOne 
+  } = useAcademic();
   const { runRecovery, isRecovering } = useAccountRecovery();
   const { runDiagnostic, isRunning: isDiagnosing } = useAlignmentDiagnostic();
 
@@ -48,6 +57,7 @@ export const DataManagementSettings = () => {
   const [isRepairing, setIsRepairing] = useState(false);
   const [isVacuuming, setIsVacuuming] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleRecalculate = async () => {
       setIsRepairing(true);
@@ -59,6 +69,31 @@ export const DataManagementSettings = () => {
       setIsVacuuming(true);
       await runDataVacuum();
       setIsVacuuming(false);
+  };
+
+  const handleAcademicReset = async () => {
+      if (!activeYear) return;
+      const termOne = terms.find(t => t.name === "Term 1");
+      if (!termOne) {
+          showError("Could not find Term 1 for the current year.");
+          return;
+      }
+
+      setIsResetting(true);
+      try {
+          const report = await resetToTermOne(activeYear.id, termOne.id);
+          if (report.success) {
+              console.log("[Academic Reset] Counts:", report.counts);
+              showSuccess(`Consolidation Complete: Moved ${report.total} records to Term 1.`);
+              // Final verification log
+              const remaining = await db.classes.where('term_id').notEqual(termOne.id).count();
+              console.log(`[Academic Reset] Post-check: ${remaining} records remain in Terms 2-4.`);
+          }
+      } catch (e) {
+          showError("Reset failed.");
+      } finally {
+          setIsResetting(false);
+      }
   };
 
   const handleLoadDemo = async () => {
@@ -158,6 +193,46 @@ export const DataManagementSettings = () => {
                     </Button>
                     <p className="text-[10px] text-muted-foreground italic">Logs results to browser developer tools.</p>
                 </div>
+            </CardContent>
+        </Card>
+
+        <Card className="border-amber-200 bg-amber-50/30">
+            <CardHeader>
+                <div className="flex items-center gap-2">
+                    <ArrowRightCircle className="h-5 w-5 text-amber-600" />
+                    <CardTitle>Controlled Academic Reset</CardTitle>
+                </div>
+                <CardDescription>
+                    Move ALL your current data into Term 1 to restart your academic workflow.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex items-start gap-3 p-3 bg-white border rounded-lg text-xs text-amber-800">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <p>
+                        This will update all classes, tasks, and marks to belong to "Term 1". Terms 2–4 will be cleared. This action is tracked in your activity log.
+                    </p>
+                </div>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="outline" className="border-amber-300 hover:bg-amber-50 text-amber-700" disabled={isResetting}>
+                            {isResetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightCircle className="h-4 w-4 mr-2" />}
+                            Consolidate all data into Term 1
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Execute Consolidation Reset?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will re-assign every record in your account to Term 1 of your active year. Are you sure?
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleAcademicReset} className="bg-amber-600 hover:bg-amber-700">Continue</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </CardContent>
         </Card>
 
