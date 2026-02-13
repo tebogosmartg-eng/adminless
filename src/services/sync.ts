@@ -45,12 +45,16 @@ export const pushChanges = async () => {
       }
 
       if (error) {
-        console.error(`[Sync] Push failed for ${table}:`, error.message);
+        console.error(`[Sync:Error] Push failed for table '${table}':`, error.message);
+        // Do not delete item from queue if it failed due to connection or transient error
         if (error.code === 'PGRST301' || error.code === '42501') break;
+        continue;
       }
       
       await db.sync_queue.delete(id!);
     }
+  } catch (err) {
+      console.error("[Sync:Critical] Push process interrupted:", err);
   } finally {
     isPushing = false;
   }
@@ -72,7 +76,11 @@ export const pullData = async (userId: string) => {
 
     const pullTable = async (tableName: string, query: any) => {
       const { data, error } = await query;
-      if (error || !data) return;
+      if (error) {
+          console.error(`[Sync:Error] Pull failed for table '${tableName}':`, error.message);
+          return;
+      }
+      if (!data) return;
 
       const itemsToPut = data.filter((item: any) => !pendingIdsByTable[tableName]?.has(item.id));
 
@@ -91,7 +99,7 @@ export const pullData = async (userId: string) => {
       }
     };
 
-    // Sequential pull to respect foreign keys where possible
+    // Sequential pull scoped to authenticated user
     await pullTable('academic_years', supabase.from('academic_years').select('*').eq('user_id', userId));
     await pullTable('terms', supabase.from('terms').select('*').eq('user_id', userId));
     await pullTable('profiles', supabase.from('profiles').select('*').eq('id', userId));
@@ -124,7 +132,7 @@ export const pullData = async (userId: string) => {
 
     console.log(`[Sync] Data pull complete.`);
   } catch (error) {
-    console.error("[Sync] Pull operation failed:", error);
+    console.error("[Sync:Critical] Pull operation failed:", error);
   } finally {
     isPulling = false;
   }

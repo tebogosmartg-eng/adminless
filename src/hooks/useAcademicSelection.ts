@@ -13,8 +13,21 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
   const [activeYearId, setActiveYearIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.YEAR));
   const [activeTermId, setActiveTermIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.TERM));
   
-  // Track if we have performed initial restoration to prevent loops
   const hasRestored = useRef(false);
+
+  // Validate that stored IDs actually exist in the loaded dataset
+  useEffect(() => {
+    if (years.length > 0 && activeYearId) {
+      const exists = years.some(y => y.id === activeYearId);
+      if (!exists) {
+        console.warn("[Context] Stored Year ID is invalid. Resetting...");
+        setActiveYearIdState(null);
+        localStorage.removeItem(STORAGE_KEYS.YEAR);
+        setActiveTermIdState(null);
+        localStorage.removeItem(STORAGE_KEYS.TERM);
+      }
+    }
+  }, [years, activeYearId]);
 
   const activeYear = useMemo(() => {
     if (!years || years.length === 0 || !activeYearId) return null;
@@ -24,22 +37,21 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
   const activeTerm = useMemo(() => {
     if (!terms || terms.length === 0 || !activeTermId) return null;
     const found = terms.find(t => t.id === activeTermId);
-    // Strict Scope: Only allow term if it belongs to the active year
+    
+    // Safety: Ensure term belongs to the active year
     if (found && activeYear && found.year_id !== activeYear.id) return null;
     return found || null;
   }, [terms, activeTermId, activeYear]);
 
-  // Restore Year from data or local storage
+  // Auto-selection only if storage is empty
   useEffect(() => {
     if (years.length > 0 && !activeYearId && !hasRestored.current) {
       const openYear = years.find(y => !y.closed) || years[0];
-      console.log(`[Context] Restoring active year: ${openYear.name}`);
       setActiveYearIdState(openYear.id);
       localStorage.setItem(STORAGE_KEYS.YEAR, openYear.id);
     }
   }, [years, activeYearId]);
 
-  // Restore Term from data or local storage
   useEffect(() => {
     if (activeYear && terms.length > 0 && !activeTermId && !hasRestored.current) {
       const yearTerms = terms
@@ -50,7 +62,6 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
       const targetTerm = firstOpenTerm || yearTerms[yearTerms.length - 1];
       
       if (targetTerm) {
-        console.log(`[Context] Restoring active term: ${targetTerm.name}`);
         setActiveTermIdState(targetTerm.id);
         localStorage.setItem(STORAGE_KEYS.TERM, targetTerm.id);
         hasRestored.current = true;
@@ -66,7 +77,6 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
     if (id) localStorage.setItem(STORAGE_KEYS.YEAR, id);
     else localStorage.removeItem(STORAGE_KEYS.YEAR);
     
-    // Clear term to trigger auto-selection for the new year
     setActiveTermIdState(null);
     localStorage.removeItem(STORAGE_KEYS.TERM);
     hasRestored.current = false;
@@ -82,7 +92,7 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
         return;
     }
 
-    // STRICT PROGRESSION GUARD
+    // Progression Guard
     if (activeYear && term.year_id === activeYear.id) {
         const yearTerms = [...terms]
             .filter(t => t.year_id === activeYear.id)
