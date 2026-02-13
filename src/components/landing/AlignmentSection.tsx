@@ -6,7 +6,7 @@ import { FileCheck, UserCheck, Target, WifiOff, Download } from "lucide-react";
 const ALIGNMENTS = [
   { title: "Familiar SA-SAMS-aligned formats", icon: FileCheck, desc: "Export data that matches the forms you already use." },
   { title: "Teacher-controlled finalisation", icon: UserCheck, desc: "You decide when the term is done and the marks are locked." },
-  { title: "Class-level focus (no misleading averages)", icon: Target, desc: "See clear, granular data for each student and class." },
+  { title: "Class-level focus (no misleading averages)", icon: Target, desc: "See clear, granular data for each learner and class." },
   { title: "Offline-friendly", icon: WifiOff, desc: "Capture attendance and marks without needing constant Wi-Fi." },
   { title: "Audit-ready exports", icon: Download, desc: "Generate professional registers and moderation files instantly." }
 ];

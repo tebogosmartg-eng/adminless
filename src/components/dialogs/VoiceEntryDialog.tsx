@@ -164,7 +164,7 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
             Voice Entry Mode
           </DialogTitle>
           <DialogDescription>
-            Dictate marks for students. {maxMark && `Total marks: ${maxMark}`}.
+            Dictate marks for learners. {maxMark && `Total marks: ${maxMark}`}.
           </DialogDescription>
         </DialogHeader>
 
@@ -205,7 +205,7 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
                <p className="text-sm italic text-foreground text-center">"{transcript}"</p>
             ) : (
                <p className="text-xs text-muted-foreground text-center">
-                   Example: "{learners[0]?.name || 'Student Name'} 75"
+                   Example: "{learners[0]?.name || 'Learner Name'} 75"
                </p>
             )}
           </div>
