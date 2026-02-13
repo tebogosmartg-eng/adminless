@@ -14,6 +14,7 @@ import { CurriculumProgressWidget } from './CurriculumProgressWidget';
 import { TimetableWidget } from './TimetableWidget';
 import { TodoList } from './TodoList';
 import { AdminDebtWidget } from './AdminDebtWidget';
+import { OnboardingChecklist } from './OnboardingChecklist';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -28,6 +29,8 @@ export const DashboardOverviewTab = ({
 }: DashboardOverviewTabProps) => {
   return (
     <div className="space-y-3 animate-in fade-in duration-500">
+      <OnboardingChecklist />
+      
       <div className="grid gap-3 md:grid-cols-3">
          <div className="md:col-span-2">
             <QuickActions onAddNote={onAddNote} />
