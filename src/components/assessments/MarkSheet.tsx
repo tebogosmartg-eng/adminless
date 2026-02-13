@@ -1,4 +1,4 @@
-import { ClassInfo, Learner, QuestionMark } from '@/lib/types';
+import { ClassInfo, Learner, QuestionMark, Assessment } from '@/lib/types';
 import { useMarkSheetLogic } from '@/hooks/useMarkSheetLogic';
 import { MarkSheetToolbar } from './MarkSheetToolbar';
 import { MarkSheetTable } from './MarkSheetTable';
@@ -11,6 +11,7 @@ import { RapidEntryDialog } from '@/components/dialogs/RapidEntryDialog';
 import { VoiceEntryDialog } from '@/components/dialogs/VoiceEntryDialog';
 import { RubricMarkingDialog } from './RubricMarkingDialog';
 import { QuestionMarkingDialog } from './QuestionMarkingDialog';
+import { QuestionDiagnosticDialog } from './QuestionDiagnosticDialog';
 import { useMemo, useState } from 'react';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
@@ -23,12 +24,17 @@ interface MarkSheetProps {
 export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) => {
   const { state, actions } = useMarkSheetLogic(classInfo);
 
-  // Question marking state
+  // Question marking & diagnostic state
   const [qMarking, setQMarking] = useState<{
     open: boolean;
     assessmentId: string | null;
     learner: Learner | null;
   }>({ open: false, assessmentId: null, learner: null });
+
+  const [qDiagnostic, setQDiagnostic] = useState<{
+      open: boolean;
+      assessment: Assessment | null;
+  }>({ open: false, assessment: null });
 
   // Use the robust integrity utility for the current context
   const integrityReport = useMemo(() => {
@@ -62,6 +68,10 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
             question_marks: questionMarks
         } as any]);
     }
+  };
+
+  const handleOpenDiagnostic = (ass: Assessment) => {
+      setQDiagnostic({ open: true, assessment: ass });
   };
 
   const handleNextQ = () => {
@@ -159,7 +169,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           atRiskThreshold={state.atRiskThreshold}
           sortConfig={state.sortConfig}
           setIsAddOpen={actions.setIsAddOpen}
-          openAnalytics={actions.openAnalytics}
+          openAnalytics={(ass) => ass.questions && ass.questions.length > 0 ? handleOpenDiagnostic(ass) : actions.openAnalytics(ass)}
           deleteAssessment={actions.deleteAssessment}
           onEditAssessment={(ass) => {
             actions.setEditingAssessment(ass);
@@ -247,6 +257,15 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
               initialMarks={currentQMark?.question_marks}
               onNext={handleNextQ}
               onPrev={handlePrevQ}
+           />
+       )}
+
+       {qDiagnostic.open && qDiagnostic.assessment && (
+           <QuestionDiagnosticDialog 
+                open={qDiagnostic.open}
+                onOpenChange={(open) => setQDiagnostic(prev => ({ ...prev, open }))}
+                assessment={qDiagnostic.assessment}
+                learners={state.filteredLearners}
            />
        )}
     </div>
