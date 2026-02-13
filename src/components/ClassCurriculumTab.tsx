@@ -1,4 +1,3 @@
-character in the instructions text to fix TS1382 error.">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";
