@@ -46,8 +46,7 @@ export const DataManagementSettings = () => {
     recalculateAllActiveAverages, 
     runDataVacuum, 
     diagnosticMode, 
-    setDiagnosticMode,
-    resetToTermOne 
+    setDiagnosticMode
   } = useAcademic();
   const { runRecovery, isRecovering } = useAccountRecovery();
   const { runDiagnostic, isRunning: isDiagnosing } = useAlignmentDiagnostic();
@@ -71,26 +70,38 @@ export const DataManagementSettings = () => {
       setIsVacuuming(false);
   };
 
-  const handleAcademicReset = async () => {
-      if (!activeYear) return;
+  const handleBackendAcademicReset = async () => {
+      if (!activeYear || !isOnline) {
+          showError("Backend reset requires an internet connection and an active year.");
+          return;
+      }
+
       const termOne = terms.find(t => t.name === "Term 1");
       if (!termOne) {
-          showError("Could not find Term 1 for the current year.");
+          showError("Could not identify Term 1 context.");
           return;
       }
 
       setIsResetting(true);
       try {
-          const report = await resetToTermOne(activeYear.id, termOne.id);
-          if (report.success) {
-              console.log("[Academic Reset] Counts:", report.counts);
-              showSuccess(`Consolidation Complete: Moved ${report.total} records to Term 1.`);
-              // Final verification log
-              const remaining = await db.classes.where('term_id').notEqual(termOne.id).count();
-              console.log(`[Academic Reset] Post-check: ${remaining} records remain in Terms 2-4.`);
+          // Trigger the Backend Edge Function
+          const { data, error } = await supabase.functions.invoke('academic-reset', {
+              body: { term1Id: termOne.id }
+          });
+
+          if (error) throw error;
+
+          if (data.success) {
+              showSuccess(data.message);
+              console.log("[Backend Reset] Statistics:", data.counts);
+              
+              // Synchronize local DB with the new backend state
+              await forceSync();
+              await recalculateAllActiveAverages(true);
           }
-      } catch (e) {
-          showError("Reset failed.");
+      } catch (e: any) {
+          console.error("[Backend Reset] Failed:", e);
+          showError(e.message || "Reset failed.");
       } finally {
           setIsResetting(false);
       }
@@ -200,36 +211,36 @@ export const DataManagementSettings = () => {
             <CardHeader>
                 <div className="flex items-center gap-2">
                     <ArrowRightCircle className="h-5 w-5 text-amber-600" />
-                    <CardTitle>Controlled Academic Reset</CardTitle>
+                    <CardTitle>Controlled Academic Reset (Backend)</CardTitle>
                 </div>
                 <CardDescription>
-                    Move ALL your current data into Term 1 to restart your academic workflow.
+                    Move ALL your current data into Term 1 directly on the server.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex items-start gap-3 p-3 bg-white border rounded-lg text-xs text-amber-800">
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                     <p>
-                        This will update all classes, tasks, and marks to belong to "Term 1". Terms 2–4 will be cleared. This action is tracked in your activity log.
+                        This will execute a server-side update across all classes, tasks, and marks to belong to "Term 1". Terms 2–4 will be cleared on the server and then synced to your device.
                     </p>
                 </div>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button variant="outline" className="border-amber-300 hover:bg-amber-50 text-amber-700" disabled={isResetting}>
+                        <Button variant="outline" className="border-amber-300 hover:bg-amber-50 text-amber-700" disabled={isResetting || !isOnline}>
                             {isResetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightCircle className="h-4 w-4 mr-2" />}
-                            Consolidate all data into Term 1
+                            Execute Server-Side Consolidation
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Execute Consolidation Reset?</AlertDialogTitle>
+                            <AlertDialogTitle>Execute Backend Reset?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                This will re-assign every record in your account to Term 1 of your active year. Are you sure?
+                                This will re-assign every record in your account to Term 1 on the Supabase database. Are you sure?
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleAcademicReset} className="bg-amber-600 hover:bg-amber-700">Continue</AlertDialogAction>
+                            <AlertDialogAction onClick={handleBackendAcademicReset} className="bg-amber-600 hover:bg-amber-700">Continue</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
