@@ -1,4 +1,4 @@
-' character">
+character in the compliance description to fix TS1382 error.">
 import {
   Dialog,
   DialogContent,
