@@ -1,4 +1,4 @@
-in JSX">
+character in JSX">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";
