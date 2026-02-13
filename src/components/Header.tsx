@@ -43,7 +43,7 @@ const Header = () => {
   const handleYearSwitch = (year: any) => {
     if (year.id === activeYear?.id) return;
     
-    if (confirm(`Switch working academic cycle to ${year.name}? This will update the context for your entire dashboard.`)) {
+    if (confirm(`Switch to ${year.name}? This will update your entire dashboard context.`)) {
         setActiveYear(year);
         showSuccess(`Switched to ${year.name}`);
     }
@@ -61,12 +61,11 @@ const Header = () => {
         showSuccess("Signed out successfully");
         navigate("/welcome");
     } catch (err: any) {
-        console.error("Logout error:", err);
-        showError(err.message || "Failed to sign out properly.");
+        showError(err.message || "Failed to sign out.");
     }
   };
 
-  const sortedTerms = [...terms].sort((a, b) => a.name.localeCompare(b.name));
+  const sortedTerms = [...terms].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-blue-700 dark:bg-blue-950 px-4 md:px-8 no-print shadow-md z-30 transition-all duration-300 text-white border-blue-800">
@@ -94,7 +93,7 @@ const Header = () => {
             <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10 animate-in slide-in-from-top-1">
                 <BookMarked className="h-3.5 w-3.5 text-blue-200" />
                 <span className="text-[9px] font-black uppercase tracking-tight text-blue-100">
-                    Teaching Session {currentPeriod.period}
+                    Session {currentPeriod.period}
                 </span>
                 <span className="w-1 h-1 rounded-full bg-blue-300" />
                 <span className="text-[10px] font-bold truncate max-w-[120px]">{currentPeriod.class_name}</span>
@@ -106,26 +105,22 @@ const Header = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-9 px-3 gap-2 font-normal text-white/80 hover:bg-white/10 relative">
                   <CalendarDays className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wider font-bold text-white">{activeYear?.name || "Select Year"}</span>
-                  <span className="text-xs font-medium text-white/70">{activeTerm?.name || "Select Term"}</span>
+                  <span className="text-xs uppercase tracking-wider font-bold text-white">{activeYear?.name || "Year"}</span>
+                  <span className="text-xs font-medium text-white/70">{activeTerm?.name || "Term"}</span>
                   <ChevronDown className="h-3 w-3 opacity-60" />
-                  
-                  {!isReadyForFinalization && activeYear && (
-                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-                      </span>
-                  )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuContent align="start" className="w-64">
                 <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Academic Progression</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {sortedTerms.length > 0 ? (
                     sortedTerms.map((term, index, array) => {
-                        const isUnlocked = index === 0 || array[index - 1].is_finalised;
-                        const isActive = activeTerm?.id === term.id;
                         const isFinalised = term.is_finalised;
+                        const isPrevFinalised = index === 0 || array[index - 1].is_finalised;
+                        const isCurrentActive = activeTerm?.id === term.id;
+                        
+                        // Strict progression: Only unlocked if previous is finalised or it is the first term
+                        const isUnlocked = isPrevFinalised;
                         
                         return (
                             <TooltipProvider key={term.id}>
@@ -135,24 +130,29 @@ const Header = () => {
                                             <DropdownMenuItem 
                                                 onClick={() => isUnlocked && handleTermSwitch(term)} 
                                                 className={cn(
-                                                    "justify-between text-sm py-2",
-                                                    !isUnlocked ? "opacity-50 cursor-not-allowed bg-muted/20" : "cursor-pointer",
-                                                    isActive && "bg-primary/5 font-bold"
+                                                    "justify-between text-sm py-2.5 px-3",
+                                                    !isUnlocked ? "opacity-50 cursor-not-allowed bg-muted/5" : "cursor-pointer",
+                                                    isCurrentActive && "bg-primary/5 font-bold border-l-2 border-primary"
                                                 )}
                                                 disabled={!isUnlocked}
                                             >
-                                                <div className="flex items-center gap-2">
-                                                    {term.name}
-                                                    {!isUnlocked && <Lock className="h-3 w-3 opacity-40" />}
-                                                    {isFinalised && <CheckCircle2 className="h-3 w-3 text-green-600" />}
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={cn(isCurrentActive ? "text-primary" : "text-foreground")}>{term.name}</span>
+                                                        {!isUnlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                                        {isFinalised && <CheckCircle2 className="h-3 w-3 text-green-600" />}
+                                                    </div>
+                                                    <span className="text-[9px] font-black uppercase text-muted-foreground">
+                                                        {isCurrentActive ? "Currently Working" : isFinalised ? "Historical Record" : isUnlocked ? "Unlocked" : `Locked until ${array[index-1].name} finalised`}
+                                                    </span>
                                                 </div>
-                                                {isActive && <Check className="h-4 w-4 text-primary" />}
+                                                {isCurrentActive && <Check className="h-4 w-4 text-primary" />}
                                             </DropdownMenuItem>
                                         </div>
                                     </TooltipTrigger>
                                     {!isUnlocked && (
                                         <TooltipContent side="right">
-                                            <p className="text-xs">Finalise current term to unlock next term.</p>
+                                            <p className="text-xs">Finalise {array[index-1].name} to unlock this term.</p>
                                         </TooltipContent>
                                     )}
                                 </Tooltip>
@@ -176,17 +176,6 @@ const Header = () => {
                     ))}
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
-                
-                {!isReadyForFinalization && activeYear && (
-                    <>
-                        <DropdownMenuSeparator />
-                        <div className="px-2 py-2">
-                            <Button variant="outline" size="sm" className="w-full h-8 text-[10px] font-black uppercase text-amber-600 border-amber-200 bg-amber-50" asChild>
-                                <Link to="/">Setup Incomplete</Link>
-                            </Button>
-                        </div>
-                    </>
-                )}
               </DropdownMenuContent>
             </DropdownMenu>
         </div>

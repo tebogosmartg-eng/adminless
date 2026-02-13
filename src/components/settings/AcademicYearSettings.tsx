@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Unlock, Plus, Loader2, Archive, Trash2, ArrowRightCircle } from "lucide-react";
+import { Lock, Unlock, Plus, Loader2, Archive, Trash2, ArrowRightCircle, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useAcademic } from '@/context/AcademicContext';
 import { cn } from "@/lib/utils";
 import { useTermValidation, ValidationError } from '@/hooks/useTermValidation';
@@ -44,12 +44,12 @@ export const AcademicYearSettings = () => {
     if (currentFinalised) {
         if (activeYear?.closed) { showError("Year is finalized."); return; }
         
-        const termList = [...terms].sort((a,b) => a.name.localeCompare(b.name));
+        const termList = [...terms].sort((a,b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
         const idx = termList.findIndex(t => t.id === termId);
         const hasSubsequentFinalised = termList.slice(idx + 1).some(t => t.is_finalised);
         
         if (hasSubsequentFinalised) {
-            showError("Progression Rule: Cannot re-open this term while a subsequent term is finalised.");
+            showError("Progression Block: Cannot re-open a term if future terms are already finalised.");
             return;
         }
 
@@ -73,7 +73,7 @@ export const AcademicYearSettings = () => {
   const initiateRollForward = (sourceId: string) => {
       const nextOpenTerm = terms.find(t => !t.is_finalised);
       if (!nextOpenTerm) {
-          showError("No open term found to receive data. Activate the next term first.");
+          showError("No open term found to receive data.");
           return;
       }
       setRollForwardSourceId(sourceId);
@@ -98,9 +98,9 @@ export const AcademicYearSettings = () => {
       <Card className="border shadow-sm">
         <CardHeader>
           <div className="flex justify-between items-center">
-            <div>
-                <CardTitle>Academic Configuration</CardTitle>
-                <CardDescription>Finalise a term to lock data and enable Roll Forward migration.</CardDescription>
+            <div className="space-y-1">
+                <CardTitle>Term Progression Control</CardTitle>
+                <CardDescription>Strict academic sequence. Finalise your current term to unlock the next period.</CardDescription>
             </div>
             <div className="flex gap-2">
                 {activeYear && !activeYear.closed && (
@@ -109,7 +109,7 @@ export const AcademicYearSettings = () => {
                             <Trash2 className="h-4 w-4 mr-2" /> Delete Cycle
                         </Button>
                         <Button variant="destructive" size="sm" onClick={() => { if(allTermsClosed && isWeightValid) closeYear(activeYear.id); }} disabled={!allTermsClosed || !isWeightValid}>
-                            <Archive className="mr-2 h-4 w-4" /> Finalize Year
+                            <Archive className="mr-2 h-4 w-4" /> Close Year
                         </Button>
                     </>
                 )}
@@ -120,17 +120,17 @@ export const AcademicYearSettings = () => {
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-muted-foreground">Working Year</label>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Active Academic Cycle</label>
                 <Select value={activeYear?.id} onValueChange={(val) => setActiveYear(years.find(y => y.id === val) || null)}>
                     <SelectTrigger className="w-[240px]"><SelectValue placeholder="Select Year" /></SelectTrigger>
                     <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name} {y.closed ? "(Finalized)" : ""}</SelectItem>)}</SelectContent>
                 </Select>
              </div>
              <div className="space-y-1.5 ml-auto">
-                 <label className="text-[10px] uppercase font-bold text-muted-foreground">New Cycle</label>
+                 <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Initialise New Year</label>
                  <div className="flex gap-2">
                     <Input placeholder="e.g. 2026" value={newYearName} onChange={(e) => setNewYearName(e.target.value)} className="w-[120px]" />
-                    <Button onClick={handleCreateYear} variant="secondary"><Plus className="mr-2 h-4 w-4" /> Create</Button>
+                    <Button onClick={handleCreateYear} variant="secondary"><Plus className="mr-2 h-4 w-4" /> Initialise</Button>
                  </div>
              </div>
           </div>
@@ -140,40 +140,57 @@ export const AcademicYearSettings = () => {
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-muted/30">
-                            <TableHead className="font-bold">Term / Period</TableHead>
+                            <TableHead className="font-bold">Term / Progression</TableHead>
                             <TableHead className="font-bold">Status</TableHead>
                             <TableHead className="text-right font-bold">Migration Gate</TableHead>
-                            <TableHead className="text-right font-bold">Action</TableHead>
+                            <TableHead className="text-right font-bold">Control Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {[...terms].sort((a,b) => a.name.localeCompare(b.name)).map((term, idx, arr) => {
+                        {[...terms].sort((a,b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((term, idx, arr) => {
                             const isPrevFinalised = idx === 0 || arr[idx-1].is_finalised;
+                            const isUnlocked = isPrevFinalised;
+                            
                             return (
-                                <TableRow key={term.id} className={cn("hover:bg-muted/10", !term.is_finalised && "bg-primary/[0.02]")}>
-                                    <TableCell className="font-bold">{term.name}</TableCell>
+                                <TableRow key={term.id} className={cn("hover:bg-muted/10 transition-colors", !term.is_finalised && isUnlocked && "bg-primary/[0.02]")}>
+                                    <TableCell className="font-bold">
+                                        <div className="flex items-center gap-2">
+                                            {term.name}
+                                            {!isUnlocked && <Lock className="h-3 w-3 opacity-30" />}
+                                        </div>
+                                    </TableCell>
                                     <TableCell>
-                                        {term.is_finalised ? <Badge variant="secondary">Finalised (Locked)</Badge> : <Badge variant="outline" className="bg-green-50 text-green-700">Open (Working)</Badge>}
+                                        {term.is_finalised ? (
+                                            <Badge variant="secondary" className="gap-1.5"><CheckCircle2 className="h-3 w-3 text-green-600" /> Finalised (Locked)</Badge>
+                                        ) : isUnlocked ? (
+                                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Open (Current)</Badge>
+                                        ) : (
+                                            <Badge variant="outline" className="text-muted-foreground opacity-50">Locked</Badge>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        {term.is_finalised && terms.some(t => !t.is_finalised) ? (
+                                        {term.is_finalised && nextOpenTerm ? (
                                             <Button variant="outline" size="sm" onClick={() => initiateRollForward(term.id)} className="h-8 gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
                                                 <ArrowRightCircle className="h-3 w-3" />
-                                                Roll Forward Roster
+                                                Roll Forward
                                             </Button>
-                                        ) : !term.is_finalised ? (
-                                            <span className="text-[10px] text-muted-foreground italic">Finalise term to unlock migration.</span>
                                         ) : null}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Button 
                                             variant={term.is_finalised ? "ghost" : "outline"} 
                                             size="sm" 
-                                            disabled={validating || !!activeYear.closed || (!isPrevFinalised && !term.is_finalised)} 
+                                            disabled={validating || !!activeYear.closed || !isUnlocked} 
                                             onClick={() => handleTermAction(term.id, term.is_finalised)} 
-                                            className="h-8"
+                                            className={cn("h-8 min-w-[100px]", !term.is_finalised && isUnlocked && "border-primary text-primary hover:bg-primary/5")}
                                         >
-                                            {validating && selectedTermId === term.id ? <Loader2 className="h-4 w-4 animate-spin" /> : term.is_finalised ? <><Unlock className="h-4 w-4 mr-1 opacity-50" /> Re-open</> : <><Lock className="h-4 w-4 mr-1 opacity-50" /> Finalise</>}
+                                            {validating && selectedTermId === term.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : term.is_finalised ? (
+                                                <><Unlock className="h-3.5 w-3.5 mr-2 opacity-50" /> Re-open</>
+                                            ) : (
+                                                <><Lock className="h-3.5 w-3.5 mr-2 opacity-50" /> Finalise</>
+                                            )}
                                         </Button>
                                     </TableCell>
                                 </TableRow>
@@ -181,6 +198,18 @@ export const AcademicYearSettings = () => {
                         })}
                     </TableBody>
                 </Table>
+                
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border-t border-amber-100 dark:border-amber-900/30 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                    <div className="space-y-1">
+                        <p className="text-sm font-bold text-amber-800 dark:text-amber-400">Progression Rules</p>
+                        <ul className="text-xs text-amber-700/80 dark:text-amber-500 list-disc pl-4 space-y-1">
+                            <li>You must finalise a term before the next one becomes available for data entry.</li>
+                            <li>Finalising a term locks all assessments, marks, and attendance records as an official record.</li>
+                            <li>A finalised term can only be re-opened if no subsequent terms have been finalised yet.</li>
+                        </ul>
+                    </div>
+                </div>
              </div>
           )}
         </CardContent>

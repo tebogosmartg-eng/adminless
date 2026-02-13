@@ -21,13 +21,14 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
   const activeTerm = useMemo(() => {
     if (!terms.length || !activeTermId) return null;
     const found = terms.find(t => t.id === activeTermId);
+    // Strict Scope: Only allow term if it belongs to the active year
     if (found && activeYear && found.year_id !== activeYear.id) return null;
     return found || null;
   }, [terms, activeTermId, activeYear]);
 
   /**
-   * STABILISATION: Automatic Context Restoration
-   * On startup, find the active year and the lowest non-finalised term.
+   * STABILISATION: Context Restoration
+   * Finds the active year and the FIRST non-finalised term.
    */
   useEffect(() => {
     if (years.length > 0 && !activeYear) {
@@ -38,18 +39,22 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
   }, [years, activeYear]);
 
   useEffect(() => {
+    // If we have a year but no term, or the current term is finalised,
+    // we should only default to the earliest available non-finalised term.
     if (activeYear && terms.length > 0 && !activeTerm) {
-      // Find terms for this year and sort them
       const yearTerms = terms
         .filter(t => t.year_id === activeYear.id)
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
-      // Find the first term that isn't finalised
-      const nextOpenTerm = yearTerms.find(t => !t.is_finalised) || yearTerms[0];
+      // Rule: Default to the first non-finalised term
+      const firstOpenTerm = yearTerms.find(t => !t.is_finalised);
       
-      if (nextOpenTerm) {
-        setActiveTermIdState(nextOpenTerm.id);
-        localStorage.setItem(STORAGE_KEYS.TERM, nextOpenTerm.id);
+      // If all are finalised, pick the last one, otherwise pick the first open one
+      const targetTerm = firstOpenTerm || yearTerms[yearTerms.length - 1];
+      
+      if (targetTerm) {
+        setActiveTermIdState(targetTerm.id);
+        localStorage.setItem(STORAGE_KEYS.TERM, targetTerm.id);
       }
     }
   }, [activeYear, terms, activeTerm]);
@@ -60,7 +65,7 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
     if (id) localStorage.setItem(STORAGE_KEYS.YEAR, id);
     else localStorage.removeItem(STORAGE_KEYS.YEAR);
     
-    // Reset term when year changes to allow the auto-selector to find the start of the new year
+    // Clear term to let the auto-selector pick the correct starting term for the new year
     setActiveTermIdState(null);
     localStorage.removeItem(STORAGE_KEYS.TERM);
   };
@@ -73,7 +78,7 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
     }
 
     // STRICT PROGRESSION GUARD:
-    // User cannot switch to a term if the preceding term in the sequence is not finalised.
+    // Check if all terms preceding the target are finalised
     if (activeYear && term.year_id === activeYear.id) {
         const yearTerms = [...terms]
             .filter(t => t.year_id === activeYear.id)
@@ -83,7 +88,7 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
         
         for (let i = 0; i < targetIndex; i++) {
             if (!yearTerms[i].is_finalised) {
-                showError(`Term Progression Locked: You must finalise ${yearTerms[i].name} before activating ${term.name}.`);
+                showError(`Locked: Finalise ${yearTerms[i].name} to unlock ${term.name}.`);
                 return;
             }
         }
