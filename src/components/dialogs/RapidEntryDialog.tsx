@@ -29,7 +29,7 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
     }
   }, [open]);
 
-  // Update local input when navigating between students
+  // Update local input when navigating between learners
   useEffect(() => {
     if (open && learners[currentIndex]) {
         setCurrentMark(learners[currentIndex].mark || '');
@@ -44,7 +44,7 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
     // Pass the mark to the parent for validation and saving
     onUpdateMark(currentIndex, currentMark);
     
-    // Move to next student or close if done
+    // Move to next learner or close if done
     if (currentIndex < learners.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
@@ -80,7 +80,7 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
                 />
             </div>
             <p className="text-[10px] uppercase font-bold text-right text-muted-foreground tracking-widest">
-                Student {currentIndex + 1} of {learners.length}
+                Learner {currentIndex + 1} of {learners.length}
             </p>
 
             <div className="flex flex-col items-center justify-center space-y-6 py-6">

@@ -23,12 +23,12 @@ const FAQS = [
       a: "AdminLess isn't a replacement for SA-SAMS; it's a productivity bridge. We provide official CSV and PDF formats that match SAMS requirements, so you just copy the totals across without manually calculating weighted averages." 
   },
   { 
-      q: "Can I import my existing class lists?", 
-      a: "Yes. You can upload any CSV file or even scan a paper class list using our built-in AI camera tool to populate your rosters in seconds." 
+      q: "Can I import my existing learner lists?", 
+      a: "Yes. You can upload any CSV file or even scan a paper learner list using our built-in AI camera tool to populate your rosters in seconds." 
   },
   { 
-      q: "Is my student data secure?", 
-      a: "Data privacy is our top priority. All student information is encrypted and stored in your private account. We do not share data with third parties or use it for advertising." 
+      q: "Is my learner data secure?", 
+      a: "Data privacy is our top priority. All learner information is encrypted and stored in your private account. We do not share data with third parties or use it for advertising." 
   }
 ];
 

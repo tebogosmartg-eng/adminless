@@ -10,7 +10,7 @@ export const useAcademicMigration = (
 ) => {
   /**
    * ROLL FORWARD Rosters
-   * Copies student names from a source term to a target term.
+   * Copies learner names from a source term to a target term.
    */
   const rollForwardClasses = useCallback(async (
     yearId: string, 

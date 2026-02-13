@@ -195,7 +195,7 @@ const EvidenceAudit = () => {
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        placeholder="Search student, class, or file name..." 
+                        placeholder="Search learner, class, or file name..." 
                         className="pl-9"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -220,7 +220,7 @@ const EvidenceAudit = () => {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Categories</SelectItem>
-                        <SelectItem value="script">Student Scripts</SelectItem>
+                        <SelectItem value="script">Learner Scripts</SelectItem>
                         <SelectItem value="moderation">Moderation Notes</SelectItem>
                         <SelectItem value="photo">Photos/Portfolios</SelectItem>
                         <SelectItem value="general">General</SelectItem>

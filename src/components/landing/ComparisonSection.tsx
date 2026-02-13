@@ -15,7 +15,7 @@ const COMPARISONS = [
   },
   {
     pain: "Searching through emails for script photos",
-    relief: "Secure, linked evidence folder per student"
+    relief: "Secure, linked evidence folder per learner"
   },
   {
     pain: "Calculating pass rates with formulas",

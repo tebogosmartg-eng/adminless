@@ -73,7 +73,7 @@ export const DataCommitmentDialog = ({ children }: { children: React.ReactNode }
           </div>
           <DialogTitle className="text-2xl font-bold">Our Data & AI Commitment</DialogTitle>
           <DialogDescription>
-            How we protect educator privacy and student information.
+            How we protect educator privacy and learner information.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-6 py-4">
@@ -92,7 +92,7 @@ export const DataCommitmentDialog = ({ children }: { children: React.ReactNode }
               Zero Data Selling
             </h4>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              AdminLess is not supported by ads. We do not sell student or teacher data to third-party advertisers. Your classroom is a private workspace.
+              AdminLess is not supported by ads. We do not sell learner or teacher data to third-party advertisers. Your classroom is a private workspace.
             </p>
           </div>
           <div className="space-y-3">

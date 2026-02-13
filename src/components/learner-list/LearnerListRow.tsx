@@ -68,7 +68,7 @@ export const LearnerListRow = ({
   };
 
   const handleRename = () => {
-    const newName = prompt("Enter new name for student:", learner.name);
+    const newName = prompt("Enter new name for learner:", learner.name);
     if (newName && newName.trim() && newName !== learner.name) {
         onRenameLearner(learner.originalIndex, newName.trim());
     }
@@ -180,7 +180,7 @@ export const LearnerListRow = ({
                     <User className="mr-2 h-4 w-4" /> View Profile
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleRename}>
-                    <Edit2 className="mr-2 h-4 w-4" /> Rename Student
+                    <Edit2 className="mr-2 h-4 w-4" /> Rename Learner
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onRemoveLearner(learner.originalIndex)} className="text-destructive">

@@ -53,8 +53,8 @@ export const RollForwardDialog = ({
   const [loading, setLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // For adding a student in preview
-  const [newStudentName, setNewStudentName] = useState("");
+  // For adding a learner in preview
+  const [newLearnerName, setNewLearnerName] = useState("");
   const [activePreviewClassIdx, setActivePreviewClassIdx] = useState(0);
 
   useEffect(() => {
@@ -97,15 +97,15 @@ export const RollForwardDialog = ({
   };
 
   const handleAddLearner = (classIdx: number) => {
-      if (!newStudentName.trim()) return;
+      if (!newLearnerName.trim()) return;
       const updated = [...stagedClasses];
       updated[classIdx].learners.push({ 
-          name: newStudentName.trim(), 
+          name: newLearnerName.trim(), 
           mark: "", 
           id: crypto.randomUUID() 
       });
       setStagedClasses(updated);
-      setNewStudentName("");
+      setNewLearnerName("");
   };
 
   const handleConfirm = async () => {
@@ -138,7 +138,7 @@ export const RollForwardDialog = ({
                 <DialogDescription>
                     {step === 'select' 
                         ? "Choose which class rosters you want to carry over to the next term."
-                        : "Verify and clean up student lists before finalizing the migration."}
+                        : "Verify and clean up learner lists before finalizing the migration."}
                 </DialogDescription>
             </DialogHeader>
         </div>
@@ -150,7 +150,7 @@ export const RollForwardDialog = ({
                     <div className="bg-amber-50 border border-amber-100 p-3 rounded-lg flex items-start gap-3 mb-4">
                         <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
                         <p className="text-[11px] text-amber-800 leading-tight">
-                            Carry over student names only. No marks, comments, or assessments will be copied.
+                            Carry over learner names only. No marks, comments, or assessments will be copied.
                         </p>
                     </div>
 
@@ -214,13 +214,13 @@ export const RollForwardDialog = ({
                             <h4 className="font-bold text-sm">Roster: {stagedClasses[activePreviewClassIdx]?.className}</h4>
                             <div className="flex items-center gap-2">
                                 <Input 
-                                    placeholder="Add student..." 
+                                    placeholder="Add learner..." 
                                     className="h-8 text-xs w-40" 
-                                    value={newStudentName}
-                                    onChange={(e) => setNewStudentName(e.target.value)}
+                                    value={newLearnerName}
+                                    onChange={(e) => setNewLearnerName(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleAddLearner(activePreviewClassIdx)}
                                 />
-                                <Button size="icon" className="h-8 w-8" onClick={() => handleAddLearner(activePreviewClassIdx)} disabled={!newStudentName.trim()}>
+                                <Button size="icon" className="h-8 w-8" onClick={() => handleAddLearner(activePreviewClassIdx)} disabled={!newLearnerName.trim()}>
                                     <Plus className="h-4 w-4" />
                                 </Button>
                             </div>
@@ -242,7 +242,7 @@ export const RollForwardDialog = ({
                                 ))}
                                 {stagedClasses[activePreviewClassIdx]?.learners.length === 0 && (
                                     <div className="py-12 text-center text-muted-foreground italic text-xs">
-                                        No students in this list. Add some above.
+                                        No learners in this list. Add some above.
                                     </div>
                                 )}
                             </div>

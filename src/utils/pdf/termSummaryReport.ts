@@ -37,7 +37,7 @@ export const generateTermSummaryPDF = (
     doc.text("AGGREGATED PERFORMANCE", margin, startY + 5);
     autoTable(doc, {
         startY: startY + 8,
-        head: [['Total Students', 'Subject Avg', 'Pass Rate']],
+        head: [['Total Learners', 'Subject Avg', 'Pass Rate']],
         body: [[reportData.length, `${classAvg}%`, `${passRate}%`]],
         theme: 'grid',
         styles: { fontSize: 9, halign: 'center' },

@@ -69,7 +69,7 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Add Quick Note</DialogTitle>
-          <DialogDescription>Record an observation for any student.</DialogDescription>
+          <DialogDescription>Record an observation for any learner.</DialogDescription>
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
@@ -89,7 +89,7 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Student</Label>
+                <Label className="text-right">Learner</Label>
                 <div className="col-span-3 space-y-2">
                     {!selectedClass && (
                         <div className="relative">
@@ -104,7 +104,7 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
                     )}
                     <Select value={selectedLearnerId} onValueChange={setSelectedLearnerId} disabled={!selectedClass && availableLearners.length === 0}>
                         <SelectTrigger>
-                            <SelectValue placeholder="Select Student" />
+                            <SelectValue placeholder="Select Learner" />
                         </SelectTrigger>
                         <SelectContent>
                             {availableLearners.map((l: any) => (

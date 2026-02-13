@@ -81,7 +81,7 @@ const Header = () => {
             onClick={triggerSearch}
             >
             <Search className="mr-2 h-3.5 w-3.5 text-white/70" />
-            <span className="hidden lg:inline-flex">Search students...</span>
+            <span className="hidden lg:inline-flex">Search learners...</span>
             <span className="inline-flex lg:hidden">Search...</span>
             <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border border-blue-600 bg-blue-800/50 px-1.5 font-mono text-[9px] font-medium text-white/50 sm:flex">
                 <span className="text-[10px]">⌘</span>K

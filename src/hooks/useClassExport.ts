@@ -229,7 +229,7 @@ Lowest Mark: ${stats.lowestMark}%
     try {
       const exportClassInfo = { ...classInfo, learners };
       generateBlankClassListPDF(exportClassInfo, schoolName, teacherName, schoolLogo, contactEmail, contactPhone);
-      showSuccess("Blank class list generated!");
+      showSuccess("Blank learner list generated!");
     } catch (error) {
       console.error(error);
       showError("Failed to generate PDF.");

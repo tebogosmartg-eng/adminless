@@ -207,6 +207,7 @@ export const AcademicYearSettings = () => {
                             <li>You must finalise a term before the next one becomes available for data entry.</li>
                             <li>Finalising a term locks all assessments, marks, and attendance records as an official record.</li>
                             <li>A finalised term can only be re-opened if no subsequent terms have been finalised yet.</li>
+                            <li>Roll forward allows you to copy learner lists to the next term without marks.</li>
                         </ul>
                     </div>
                 </div>

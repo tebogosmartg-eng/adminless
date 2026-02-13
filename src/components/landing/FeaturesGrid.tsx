@@ -5,7 +5,7 @@ import { CalendarRange, Users, FileCheck, BarChart3, ClipboardList, ShieldCheck,
 
 const FEATURES = [
   { title: "Academic Control", icon: CalendarRange, desc: "Manage multi-year data with strict term-based scoping." },
-  { title: "Roster Management", icon: Users, desc: "Simple student lists with CSV import and AI roster scanning." },
+  { title: "Roster Management", icon: Users, desc: "Simple learner lists with CSV import and AI roster scanning." },
   { title: "Aligned Marksheets", icon: FileCheck, desc: "Automatic weighting and totals prepared for official submission." },
   { title: "Class Analytics", icon: BarChart3, desc: "Real-time pass rates and performance trends for every group." },
   { title: "Attendance Registers", icon: ClipboardList, desc: "Daily tracking with automated monthly consolidated logs." },

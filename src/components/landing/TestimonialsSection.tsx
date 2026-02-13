@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const TESTIMONIALS = [
   {
-    quote: "AdminLess saved me 4 hours of marking prep every week. I can finally focus on my students instead of fighting with spreadsheets.",
+    quote: "AdminLess saved me 4 hours of marking prep every week. I can finally focus on my learners instead of fighting with spreadsheets.",
     author: "Mrs. Mndeni",
     role: "Grade 10 Mathematics",
     initials: "NM"

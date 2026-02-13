@@ -56,13 +56,13 @@ export function SearchCommand() {
       }))
     );
     
-    // Sort so current class students appear first
+    // Sort so current class learners appear first
     return list.sort((a, b) => (a.isCurrentClass === b.isCurrentClass ? 0 : a.isCurrentClass ? -1 : 1));
   }, [classes, classId]);
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Type a command or search for a student..." />
+      <CommandInput placeholder="Type a command or search for a learner..." />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         
@@ -83,7 +83,7 @@ export function SearchCommand() {
 
         <CommandSeparator />
 
-        <CommandGroup heading="Global Student Search">
+        <CommandGroup heading="Global Learner Search">
            {allLearners.filter(l => !l.isCurrentClass).map((l) => (
              <CommandItem 
                 key={l.key} 

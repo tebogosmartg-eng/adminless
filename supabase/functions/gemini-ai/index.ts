@@ -87,8 +87,8 @@ serve(async (req) => {
         console.log(`[gemini-ai] Action: scan-images, Image count: ${images?.length}`)
         
         const prompt = `
-            Analyze these images of student test scripts, mark sheets, or class lists.
-            Extract the assessment details (subject, grade, test name, date) and the list of student names and their marks.
+            Analyze these images of learner test scripts, mark sheets, or class lists.
+            Extract the assessment details (subject, grade, test name, date) and the list of learner names and their marks.
             
             If this is just a class list without marks, extract the names and leave the marks as empty strings.
             
@@ -101,7 +101,7 @@ serve(async (req) => {
                     "date": "YYYY-MM-DD" 
                 },
                 "learners": [ 
-                    { "name": "Student Name", "mark": "85" } 
+                    { "name": "Learner Name", "mark": "85" } 
                 ]
             }
             For marks: 
@@ -166,11 +166,11 @@ serve(async (req) => {
 
     if (action === 'generate-report') {
         const { learner, classInfo, assessmentData } = payload;
-        console.log(`[gemini-ai] Action: generate-report for student ${learner?.name}`)
+        console.log(`[gemini-ai] Action: generate-report for learner ${learner?.name}`)
         
         const prompt = `
             Write a formal school report card comment for:
-            Student: ${learner.name}
+            Learner: ${learner.name}
             Class: ${classInfo.grade} ${classInfo.subject}
             Overall Mark: ${learner.mark || 'N/A'}%
             Teacher's Existing Note: ${learner.comment || 'None'}
@@ -193,11 +193,11 @@ serve(async (req) => {
 
     if (action === 'generate-single-comment') {
         const { learner, tone } = payload;
-        console.log(`[gemini-ai] Action: generate-single-comment for student ${learner?.name}`)
+        console.log(`[gemini-ai] Action: generate-single-comment for learner ${learner?.name}`)
         
         const prompt = `
             Write a short, single-sentence report card comment for:
-            Student: ${learner.name}
+            Learner: ${learner.name}
             Mark: ${learner.mark}%
             Tone: ${tone || 'Professional'}
             
@@ -214,19 +214,19 @@ serve(async (req) => {
 
     if (action === 'generate-bulk-comments') {
         const { learners, tone } = payload;
-        console.log(`[gemini-ai] Action: generate-bulk-comments for ${learners?.length} students`)
+        console.log(`[gemini-ai] Action: generate-bulk-comments for ${learners?.length} learners`)
         
         const prompt = `
-            Generate short, unique, single-sentence report card comments for the following students based on their marks.
+            Generate short, unique, single-sentence report card comments for the following learners based on their marks.
             Tone: ${tone || 'Professional'}
             
-            Students:
+            Learners:
             ${JSON.stringify(learners)}
             
             Output JSON only with an array of objects:
             {
                 "comments": [
-                    { "name": "Student Name", "comment": "The comment." },
+                    { "name": "Learner Name", "comment": "The comment." },
                     ...
                 ]
             }

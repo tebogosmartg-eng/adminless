@@ -73,7 +73,7 @@ export function HelpDialog() {
                     AdminLess uses strict scoping. This means you will only see data (classes, tasks, alerts) belonging to the year and term selected in the top bar.
                   </p>
                   <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
-                    <li><strong>Global Search:</strong> Press <kbd className="px-1.5 py-0.5 rounded border bg-muted text-[10px] font-mono">Cmd + K</kbd> to find any student, even those in different classes.</li>
+                    <li><strong>Global Search:</strong> Press <kbd className="px-1.5 py-0.5 rounded border bg-muted text-[10px] font-mono">Cmd + K</kbd> to find any learner, even those in different classes.</li>
                     <li><strong>Archiving:</strong> Use the "Archive" button on a class card to hide it from your dashboard without losing historical data.</li>
                   </ul>
                 </section>
@@ -106,7 +106,7 @@ export function HelpDialog() {
                   <div className="grid gap-3 sm:grid-cols-2 mt-2">
                     <div className="border p-3 rounded-lg bg-muted/20">
                         <h4 className="font-bold text-xs uppercase mb-1">Voice Entry</h4>
-                        <p className="text-xs text-muted-foreground">Dictate marks hands-free. Say "John 85" and the system will match the student automatically.</p>
+                        <p className="text-xs text-muted-foreground">Dictate marks hands-free. Say "John 85" and the system will match the learner automatically.</p>
                     </div>
                     <div className="border p-3 rounded-lg bg-muted/20">
                         <h4 className="font-bold text-xs uppercase mb-1">Fraction Parsing</h4>
@@ -147,7 +147,7 @@ export function HelpDialog() {
                     Learners scoring below <strong>{atRiskThreshold}%</strong> are currently flagged for intervention.
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    You can adjust this threshold in <strong>Settings &gt; School Profile</strong>.
+                    You can adjust this threshold in <strong>Settings > School Profile</strong>.
                   </p>
                 </section>
 
@@ -159,7 +159,7 @@ export function HelpDialog() {
                   <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
                     <li><strong>10% Rule:</strong> The Evidence Audit tool tracks if you have uploaded scripts for at least 10% of your class roster.</li>
                     <li><strong>Finalization:</strong> Closing a term in Settings locks all marks. This creates a permanent audit trail for departmental review.</li>
-                    <li><strong>Roll Forward:</strong> After closing a term, use <strong>Roll Forward</strong> to copy student lists to the next active term without marks.</li>
+                    <li><strong>Roll Forward:</strong> After closing a term, use <strong>Roll Forward</strong> to copy learner lists to the next active term without marks.</li>
                   </ul>
                 </section>
               </TabsContent>

@@ -3,12 +3,13 @@
 import React from 'react';
 import { Clock, CheckCircle2, Mic, FileText, Coffee, Home } from "lucide-react";
 import { motion } from 'framer-motion';
+import { cn } from "@/lib/utils";
 
 const EVENTS = [
   {
     time: "08:00 AM",
     title: "Morning Register",
-    desc: "Mark attendance for 30 students in under a minute using the mobile-optimized grid.",
+    desc: "Mark attendance for 30 learners in under a minute using the mobile-optimized grid.",
     icon: Clock,
     color: "text-blue-600",
     bg: "bg-blue-50"
@@ -113,5 +114,3 @@ export const DailyTimeline = () => {
     </section>
   );
 };
-
-import { cn } from "@/lib/utils";

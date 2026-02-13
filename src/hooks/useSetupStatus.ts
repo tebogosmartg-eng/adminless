@@ -132,7 +132,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 5,
         title: 'Review Learner Lists',
-        description: 'Reviewing rosters ensures students are correctly captured for report cards.',
+        description: 'Reviewing rosters ensures learners are correctly captured for report cards.',
         status: step5Done ? 'completed' : (step4Done ? 'in-progress' : 'not-started'),
         isLocked: !step4Done
     });
@@ -182,7 +182,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 10,
         title: 'Roll Forward to Next Term',
-        description: 'Rolling forward saves time by moving student lists to the next term.',
+        description: 'Rolling forward saves time by moving learner lists to the next term.',
         status: 'not-started',
         isLocked: !step9Done,
         optional: true

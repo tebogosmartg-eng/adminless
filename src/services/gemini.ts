@@ -56,7 +56,7 @@ export const generateLearnerReport = async (
     return data?.report || "Could not generate report.";
   } catch (error) {
     console.error("Report Gen Error:", error);
-    return `Report for ${learner.name}\n\nGenerated (Offline Mode):\nStudent is performing adequately based on available data.`;
+    return `Report for ${learner.name}\n\nGenerated (Offline Mode):\nLearner is performing adequately based on available data.`;
   }
 };
 

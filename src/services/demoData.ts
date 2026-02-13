@@ -53,8 +53,8 @@ export const importDemoData = async () => {
   }));
 
   // 4. Create Learners
-  const studentNames = [
-    "Rorisang Setshedi", // Featured Student
+  const learnerNames = [
+    "Rorisang Setshedi", // Featured Learner
     "Thabo Mbeki", "Sarah Jenkins", "Liam Neeson", "Emma Watson", "John Snow", 
     "Arya Stark", "Peter Parker", "Bruce Wayne", "Diana Prince", "Tony Stark",
     "Steve Rogers", "Natasha Romanoff", "Wanda Maximoff", "Vision", "Sam Wilson"
@@ -64,7 +64,7 @@ export const importDemoData = async () => {
   classes.forEach(cls => {
     const isMath = cls.subject === "Mathematics";
     const count = 10 + Math.floor(Math.random() * 5);
-    const shuffled = [...studentNames].sort(() => 0.5 - Math.random());
+    const shuffled = [...learnerNames].sort(() => 0.5 - Math.random());
     
     // Ensure Rorisang is in Mathematics
     const finalNames = isMath 

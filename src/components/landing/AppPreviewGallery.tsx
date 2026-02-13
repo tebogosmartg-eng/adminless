@@ -4,11 +4,12 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Badge } from "@/components/ui/badge";
 import { LayoutDashboard, FileText, Camera, ShieldCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const SCREENSHOTS = [
   {
     title: "Insightful Dashboard",
-    desc: "A high-level view of your daily agenda, marking debt, and student alerts.",
+    desc: "A high-level view of your daily agenda, marking debt, and learner alerts.",
     icon: LayoutDashboard,
     color: "bg-blue-600",
     image: "/placeholder.svg" // In a real app, these would be actual UI screenshots
@@ -84,5 +85,3 @@ export const AppPreviewGallery = () => {
     </section>
   );
 };
-
-import { cn } from "@/lib/utils";

@@ -123,9 +123,9 @@ export const ClassroomToolsDialog = ({ open, onOpenChange, learners }: Classroom
               {pickedLearner || "Ready to pick..."}
             </div>
             <Button size="lg" onClick={handlePickRandom} disabled={isPicking || learners.length === 0} className="w-48 h-14 text-lg">
-               {isPicking ? "Choosing..." : "Pick Student"}
+               {isPicking ? "Choosing..." : "Pick Learner"}
             </Button>
-            <p className="text-sm text-muted-foreground">Selects a random student from the current class list.</p>
+            <p className="text-sm text-muted-foreground">Selects a random learner from the current class list.</p>
           </TabsContent>
 
           {/* Group Generator Tab */}

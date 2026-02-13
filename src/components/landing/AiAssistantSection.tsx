@@ -59,7 +59,7 @@ export const AiAssistantSection = () => {
                           </div>
                           <div className="flex gap-3 p-3 bg-purple-600/10 rounded-xl border border-purple-600/20">
                               <div className="h-5 w-5 rounded-full bg-purple-600 flex items-center justify-center text-[10px] font-bold shrink-0">2</div>
-                              <p className="text-xs text-purple-100">Identify top performers to assist struggling students in peer-learning groups.</p>
+                              <p className="text-xs text-purple-100">Identify top performers to assist struggling learners in peer-learning groups.</p>
                           </div>
                       </div>
                   </div>
