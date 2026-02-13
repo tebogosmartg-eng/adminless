@@ -2,9 +2,8 @@
 
 import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Circle, ChevronRight, ClipboardCheck, Rocket } from "lucide-react";
+import { CheckCircle2, Circle, ChevronRight, Rocket, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -14,9 +13,6 @@ export const GetStartedChecklist = () => {
 
   if (isLoading) return null;
 
-  // Hide the checklist once the term is finalised
-  if (isReadyForFinalization) return null;
-
   const handleStepClick = (id: number) => {
     switch (id) {
       case 1:
@@ -24,16 +20,16 @@ export const GetStartedChecklist = () => {
         navigate('/settings', { state: { highlightId: 'year-selector', fromOnboarding: true } });
         break;
       case 3:
-        navigate('/classes', { state: { highlightId: 'create-class-btn', fromOnboarding: true } });
+        navigate('/settings', { state: { highlightId: 'subject-config', fromOnboarding: true } });
         break;
       case 4:
-        navigate('/classes', { state: { highlightId: 'class-list-roster', fromOnboarding: true } });
+        navigate('/classes', { state: { highlightId: 'create-class-btn', fromOnboarding: true } });
         break;
       case 5:
-        navigate('/classes', { state: { highlightId: 'new-task-btn', fromOnboarding: true } });
+        navigate('/classes', { state: { highlightId: 'class-list-roster', fromOnboarding: true } });
         break;
       case 6:
-        navigate('/classes', { state: { highlightId: 'mark-sheet-grid', fromOnboarding: true } });
+        navigate('/classes', { state: { highlightId: 'new-task-btn', fromOnboarding: true } });
         break;
       case 7:
         navigate('/classes', { state: { highlightId: 'mark-sheet-grid', fromOnboarding: true } });
@@ -43,6 +39,9 @@ export const GetStartedChecklist = () => {
         break;
       case 9:
         navigate('/settings', { state: { highlightId: 'finalize-term-btn', fromOnboarding: true } });
+        break;
+      case 10:
+        navigate('/settings', { state: { highlightId: 'roll-forward-btn', fromOnboarding: true } });
         break;
       default:
         navigate('/settings');
@@ -63,21 +62,18 @@ export const GetStartedChecklist = () => {
                     </div>
                     <div>
                         <CardTitle className="text-xl font-black tracking-tight">
-                            Get Started
+                            Setup Workflow
                         </CardTitle>
                         <CardDescription className="text-xs font-medium uppercase tracking-wider text-primary/70">
-                            Professional Onboarding
+                            Academic Preparation Guide
                         </CardDescription>
                     </div>
                 </div>
-                <p className="text-sm text-muted-foreground max-w-md pt-2">
-                    Welcome to AdminLess! Follow these steps to set up your digital classroom and prepare for term-end reporting.
-                </p>
             </div>
             
             <div className="w-full md:w-64 space-y-2">
                 <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-primary">
-                    <span>Setup Progress</span>
+                    <span>Term Progress</span>
                     <span>{progress}%</span>
                 </div>
                 <Progress value={progress} className="h-2 bg-primary/10" />
@@ -90,10 +86,9 @@ export const GetStartedChecklist = () => {
           {coreSteps.map((step) => (
               <button
               key={step.id}
-              onClick={() => !step.done && handleStepClick(step.id)}
-              disabled={step.done}
+              onClick={() => handleStepClick(step.id)}
               className={cn(
-                  "flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all duration-300 group",
+                  "flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all duration-300 group relative",
                   step.done 
                   ? "bg-green-50/30 border-green-100 opacity-60 cursor-default" 
                   : "bg-white dark:bg-card border-border hover:border-primary/40 hover:shadow-md active:scale-[0.98]"
@@ -106,12 +101,19 @@ export const GetStartedChecklist = () => {
                     )}>
                     {step.done ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
                     </div>
-                    <span className={cn(
-                        "text-xs font-bold truncate transition-colors",
-                        step.done ? "text-green-800 line-through" : "text-foreground group-hover:text-primary"
-                    )}>
-                    {step.title}
-                    </span>
+                    <div className="flex flex-col min-w-0">
+                        <span className={cn(
+                            "text-xs font-bold truncate transition-colors",
+                            step.done ? "text-green-800 line-through" : "text-foreground group-hover:text-primary"
+                        )}>
+                            {step.title}
+                        </span>
+                        {step.optional && (
+                            <span className="text-[9px] font-black uppercase text-blue-600 flex items-center gap-1">
+                                <Star className="h-2 w-2 fill-current" /> Recommended
+                            </span>
+                        )}
+                    </div>
                 </div>
                 {!step.done && <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-transform group-hover:translate-x-0.5" />}
               </button>
