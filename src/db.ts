@@ -112,6 +112,11 @@ export class SmaRegDB extends Dexie {
     this.version(19).stores({
       classes: 'id, user_id, term_id, year_id, sync_status'
     });
+
+    // Version 20: Indexing year_id for timetable to support strict academic scoping
+    this.version(20).stores({
+      timetable: 'id, user_id, year_id, class_id, day, period'
+    });
   }
 }
 
