@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { db, AssessmentDiagnostic } from '@/db';
 import { Assessment, Learner, AssessmentMark } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 export interface QuestionStat {
   id: string;
@@ -20,23 +21,18 @@ export interface QuestionStat {
 }
 
 export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[]) => {
-  const [loading, setLoading] = useState(true);
-  const [marks, setMarks] = useState<AssessmentMark[]>([]);
-  const [savedDiagnostic, setSavedDiagnostic] = useState<AssessmentDiagnostic | null>(null);
+  // Use LiveQuery for marks so stats update instantly when QuestionMarkingDialog saves
+  const marks = useLiveQuery(
+    () => db.assessment_marks.where('assessment_id').equals(assessment.id).toArray(),
+    [assessment.id]
+  ) || [];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const [marksData, diagnosticData] = await Promise.all([
-        db.assessment_marks.where('assessment_id').equals(assessment.id).toArray(),
-        db.diagnostics.where('assessment_id').equals(assessment.id).first()
-      ]);
-      setMarks(marksData);
-      setSavedDiagnostic(diagnosticData || null);
-      setLoading(false);
-    };
-    fetchData();
-  }, [assessment.id]);
+  const savedDiagnostic = useLiveQuery(
+    () => db.diagnostics.where('assessment_id').equals(assessment.id).first(),
+    [assessment.id]
+  );
+
+  const loading = marks === undefined;
 
   const stats = useMemo(() => {
     if (!assessment.questions || assessment.questions.length === 0 || marks.length === 0) return null;
@@ -74,18 +70,20 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
     const weakQuestions = qStats.filter(s => s.isWeak);
     const weakSkills = Array.from(new Set(weakQuestions.map(s => s.skill))).filter(Boolean);
 
-    const findings = savedDiagnostic?.findings || `The overall class performance for "${assessment.title}" shows an average achievement of ${(qStats.reduce((a, b) => a + b.avg, 0) / qStats.length).toFixed(1)}% across all questions. ${weakQuestions.length > 0 ? `Critical gaps were identified in ${weakQuestions.map(q => q.number).join(', ')}, which primarily assessed ${weakSkills.join(' and ')}.` : 'Learners demonstrated a consistent grasp of the skills assessed.'}`;
+    // Dynamic AI Draft Generation
+    const findings = `The overall class performance for "${assessment.title}" shows an average achievement of ${(qStats.reduce((a, b) => a + b.avg, 0) / qStats.length).toFixed(1)}% across all questions. ${weakQuestions.length > 0 ? `Critical gaps were identified in ${weakQuestions.map(q => q.number).join(', ')}, which primarily assessed ${weakSkills.join(' and ')}.` : 'Learners demonstrated a consistent grasp of the skills assessed.'}`;
     
-    const interventions = savedDiagnostic?.interventions || (weakQuestions.length > 0 
+    const interventions = weakQuestions.length > 0 
         ? `1. Remedial sessions focused on ${weakSkills.join(', ')}.\n2. Re-teaching of core concepts linked to Question ${weakQuestions[0]?.number}.\n3. Individual support for learners scoring below 40% in these specific sections.`
-        : "Continue with the current teaching plan, incorporating extension activities for high performers.");
+        : "Continue with the current teaching plan, incorporating extension activities for high performers.";
 
     return { 
         qStats, 
         weakQuestions, 
         weakSkills,
         drafts: { findings, interventions },
-        rawMarks: marks 
+        rawMarks: marks,
+        savedDiagnostic: savedDiagnostic || null
     };
   }, [assessment, marks, savedDiagnostic]);
 
@@ -105,7 +103,6 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
 
           await db.diagnostics.put(payload);
           await queueAction('diagnostics', 'upsert', payload);
-          setSavedDiagnostic(payload);
           showSuccess("Diagnostic analysis saved.");
       } catch (e) {
           showError("Failed to save diagnostic.");

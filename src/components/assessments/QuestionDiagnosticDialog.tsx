@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,9 +14,10 @@ import {
     BrainCircuit,
     ClipboardList,
     FileSearch,
-    ShieldAlert,
     Save,
-    CheckCircle2
+    CheckCircle2,
+    RefreshCw,
+    ShieldCheck
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { useQuestionAnalysis } from '@/hooks/useQuestionAnalysis';
@@ -40,18 +41,37 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
   const [interventions, setInterventions] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const initializedRef = useRef(false);
 
+  // Initialize fields from saved data or drafts, but only once per assessment load
   useEffect(() => {
-    if (stats) {
-        setFindings(stats.drafts.findings);
-        setInterventions(stats.drafts.interventions);
+    if (stats && !initializedRef.current) {
+        setFindings(stats.savedDiagnostic?.findings || stats.drafts.findings);
+        setInterventions(stats.savedDiagnostic?.interventions || stats.drafts.interventions);
+        initializedRef.current = true;
     }
   }, [stats]);
+
+  // Reset initialization ref when dialog closes or assessment changes
+  useEffect(() => {
+      if (!open) {
+          initializedRef.current = false;
+      }
+  }, [open, assessment.id]);
 
   const handleSave = async () => {
     setIsSaving(true);
     await saveDiagnostic(findings, interventions);
     setIsSaving(false);
+  };
+
+  const handleRefreshDraft = () => {
+      if (stats) {
+          setFindings(stats.drafts.findings);
+          setInterventions(stats.drafts.interventions);
+          showSuccess("Reset to latest AI diagnostic draft.");
+      }
   };
 
   const handleExport = () => {
@@ -80,20 +100,27 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
           <DialogHeader>
             <div className="flex justify-between items-start">
                 <div className="space-y-1">
-                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black">
-                        Diagnostic Engine
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black">
+                            Diagnostic Engine
+                        </Badge>
+                        {stats?.savedDiagnostic && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-700 border-none text-[9px] font-black uppercase">
+                                <CheckCircle2 className="h-2.5 w-2.5 mr-1" /> Approved
+                            </Badge>
+                        )}
+                    </div>
                     <DialogTitle className="text-2xl font-bold">{assessment.title}</DialogTitle>
                     <DialogDescription>Question-Level Analysis & Intervention Planning</DialogDescription>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleSave} disabled={isSaving || loading} className="gap-2">
+                    <Button variant="outline" onClick={handleSave} disabled={isSaving || loading} className="gap-2 font-bold h-9">
                         {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        Save Analysis
+                        Approve & Save
                     </Button>
-                    <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-2">
+                    <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-2 h-9">
                         {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                        Export Official PDF
+                        Export PDF
                     </Button>
                 </div>
             </div>
@@ -104,7 +131,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-                <p className="text-sm font-medium text-muted-foreground animate-pulse">Processing per-question performance data...</p>
+                <p className="text-sm font-medium text-muted-foreground animate-pulse">Processing performance data...</p>
             </div>
           ) : stats ? (
             <div className="space-y-8 pb-10">
@@ -126,9 +153,14 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
 
                 <div className="grid gap-6">
                     <div className="space-y-3">
-                        <Label className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                            <BrainCircuit className="h-4 w-4" /> 1. Diagnostic Findings & Skill Analysis
-                        </Label>
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                <BrainCircuit className="h-4 w-4" /> 1. Diagnostic Findings & Skill Analysis
+                            </Label>
+                            <Button variant="ghost" size="sm" onClick={handleRefreshDraft} className="h-7 text-[10px] font-bold uppercase text-muted-foreground">
+                                <RefreshCw className="h-3 w-3 mr-1" /> Reset to AI Draft
+                            </Button>
+                        </div>
                         <Textarea 
                             value={findings}
                             onChange={(e) => setFindings(e.target.value)}
@@ -154,7 +186,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
 
                 <div className="space-y-3 pt-4 border-t">
                     <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <FileSearch className="h-4 w-4" /> Review class question-marks
+                        <FileSearch className="h-4 w-4" /> Class question-marks verification
                     </h4>
                     <div className="border rounded-lg overflow-hidden h-[200px]">
                         <ScrollArea className="h-full">
@@ -187,8 +219,9 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                 </div>
             </div>
           ) : (
-            <div className="p-20 text-center text-muted-foreground italic">
-                Insufficient data to run diagnostic. Please capture question-level marks first.
+            <div className="p-20 text-center text-muted-foreground italic flex flex-col items-center gap-3">
+                <ShieldCheck className="h-12 w-12 opacity-10" />
+                <p>Insufficient data to run diagnostic. Please capture question-level marks first.</p>
             </div>
           )}
         </ScrollArea>
