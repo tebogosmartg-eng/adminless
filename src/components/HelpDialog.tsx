@@ -1,4 +1,4 @@
-character in JSX text.">
+' character in JSX">
 import {
   Dialog,
   DialogContent,
