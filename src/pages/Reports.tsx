@@ -132,7 +132,11 @@ const Reports = () => {
   const handleExportYearPDF = () => {
       if (!yearData || !selectedYearId) return;
       const yearName = years.find(y => y.id === selectedYearId)?.name || "Year";
-      const termNames = terms.filter(t => t.year_id === selectedYearId).map(t => t.name);
+      // Ensure terms are listed in sequence for the report
+      const termNames = terms
+        .filter(t => t.year_id === selectedYearId)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+        .map(t => t.name);
 
       generateYearSummaryPDF(
           yearData,
@@ -161,6 +165,13 @@ const Reports = () => {
     generateSASAMSExport(exportLearners, targetClass.className, targetClass.grade, selectedSubject, selectedTerm.name, activeYear.name, teacherName, schoolCode);
     showSuccess("SASAMS CSV exported.");
   };
+
+  // Helper to get strictly sequenced terms for selectors
+  const sequencedTerms = useMemo(() => {
+    return [...terms]
+      .filter(t => t.year_id === selectedYearId)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  }, [terms, selectedYearId]);
 
   return (
     <div className="space-y-6 pb-10">
@@ -191,7 +202,7 @@ const Reports = () => {
                                 </Select>
                                 <Select value={selectedTermId} onValueChange={setSelectedTermId}>
                                     <SelectTrigger className="h-9"><SelectValue placeholder="Term" /></SelectTrigger>
-                                    <SelectContent>{terms.filter(t => t.year_id === selectedYearId).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                                    <SelectContent>{sequencedTerms.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                                 </Select>
                             </div>
                         </div>
@@ -341,7 +352,7 @@ const Reports = () => {
                                 <TableHeader className="bg-muted/30">
                                     <TableRow>
                                         <TableHead>Learner Name</TableHead>
-                                        {terms.filter(t => t.year_id === selectedYearId).map(t => <TableHead key={t.id} className="text-right">{t.name}</TableHead>)}
+                                        {sequencedTerms.map(t => <TableHead key={t.id} className="text-right">{t.name}</TableHead>)}
                                         <TableHead className="text-right font-bold bg-primary/5">Year Final %</TableHead>
                                         <TableHead className="text-center bg-primary/5">Status</TableHead>
                                     </TableRow>
@@ -349,7 +360,7 @@ const Reports = () => {
                                 <TableBody>{yearData.map((r, i) => (
                                     <TableRow key={i} className="hover:bg-muted/30">
                                         <TableCell className="font-medium">{r.learnerName}</TableCell>
-                                        {terms.filter(t => t.year_id === selectedYearId).map(t => (
+                                        {sequencedTerms.map(t => (
                                             <TableCell key={t.id} className="text-right text-xs">
                                                 {r.termMarks[t.name] !== null ? `${r.termMarks[t.name]}%` : "-"}
                                             </TableCell>

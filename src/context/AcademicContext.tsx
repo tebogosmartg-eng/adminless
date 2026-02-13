@@ -62,9 +62,9 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const { activeYear, activeTerm, setActiveYear, setActiveTerm } = useAcademicSelection(years, allTerms);
 
   const terms = useMemo(() => {
-    if (diagnosticMode) return allTerms;
-    if (!activeYear) return [];
-    return allTerms.filter(t => t.year_id === activeYear.id);
+    const list = diagnosticMode ? allTerms : (activeYear ? allTerms.filter(t => t.year_id === activeYear.id) : []);
+    // Ensure terms are ALWAYS returned in sequence 1, 2, 3, 4
+    return [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   }, [allTerms, activeYear?.id, diagnosticMode]);
 
   const assessments = useLiveQuery(async () => {

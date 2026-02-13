@@ -21,11 +21,13 @@ export const useYearReportData = () => {
 
     setLoading(true);
     try {
-      // 1. Get Terms for Year from Local DB
-      const terms = await db.terms
+      // 1. Get Terms for Year from Local DB and sort them numerically
+      const rawTerms = await db.terms
         .where('year_id')
         .equals(yearId)
         .toArray();
+      
+      const terms = [...rawTerms].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
       
       // 2. Get Class
       const classInfo = await db.classes.get(classId);
