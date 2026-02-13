@@ -25,10 +25,10 @@ export const importDemoData = async () => {
   const term3End = addDays(today, 60);
 
   const terms = [
-    { id: crypto.randomUUID(), name: "Term 1", weight: 25, closed: true, start_date: null, end_date: null },
-    { id: crypto.randomUUID(), name: "Term 2", weight: 25, closed: true, start_date: null, end_date: null },
-    { id: crypto.randomUUID(), name: "Term 3", weight: 25, closed: false, start_date: term3Start.toISOString(), end_date: term3End.toISOString() },
-    { id: crypto.randomUUID(), name: "Term 4", weight: 25, closed: true, start_date: null, end_date: null }
+    { id: crypto.randomUUID(), name: "Term 1", weight: 25, closed: true, is_finalised: true, start_date: null, end_date: null },
+    { id: crypto.randomUUID(), name: "Term 2", weight: 25, closed: true, is_finalised: true, start_date: null, end_date: null },
+    { id: crypto.randomUUID(), name: "Term 3", weight: 25, closed: false, is_finalised: false, start_date: term3Start.toISOString(), end_date: term3End.toISOString() },
+    { id: crypto.randomUUID(), name: "Term 4", weight: 25, closed: true, is_finalised: false, start_date: null, end_date: null }
   ].map(t => ({
     ...t,
     year_id: yearId,

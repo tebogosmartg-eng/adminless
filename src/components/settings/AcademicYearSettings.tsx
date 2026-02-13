@@ -43,11 +43,19 @@ export const AcademicYearSettings = () => {
     }
   };
 
-  const handleTermAction = async (termId: string, currentStatus: boolean) => {
-    if (currentStatus) {
+  const handleTermAction = async (termId: string, currentFinalised: boolean) => {
+    if (currentFinalised) {
         if (activeYear?.closed) { showError("Year is finalized."); return; }
-        const openTerm = terms.find(t => !t.closed);
-        if (openTerm) { showError(`${openTerm.name} is still active.`); return; }
+        // Rule: Only the last finalised term can be re-opened to maintain sequence
+        const termList = [...terms].sort((a,b) => a.name.localeCompare(b.name));
+        const idx = termList.findIndex(t => t.id === termId);
+        const hasSubsequentFinalised = termList.slice(idx + 1).some(t => t.is_finalised);
+        
+        if (hasSubsequentFinalised) {
+            showError("Progression Rule: Cannot re-open this term while a subsequent term is finalised.");
+            return;
+        }
+
         await toggleTermStatus(termId, false);
     } else {
         setSelectedTermId(termId);
@@ -66,7 +74,7 @@ export const AcademicYearSettings = () => {
   };
 
   const initiateRollForward = (sourceId: string) => {
-      const nextOpenTerm = terms.find(t => !t.closed);
+      const nextOpenTerm = terms.find(t => !t.is_finalised);
       if (!nextOpenTerm) {
           showError("No open term found to receive data. Activate the next term first.");
           return;
@@ -76,29 +84,17 @@ export const AcademicYearSettings = () => {
   };
 
   const handleConfirmRollForward = async (preparedClasses: any[]) => {
-      const nextOpenTerm = terms.find(t => !t.closed);
+      const nextOpenTerm = terms.find(t => !t.is_finalised);
       if (rollForwardSourceId && nextOpenTerm) {
           await rollForwardClasses(rollForwardSourceId, nextOpenTerm.id, preparedClasses);
       }
   };
 
-  const DatePicker = ({ date, onSelect, disabled }: { date: string | null, onSelect: (d: Date | undefined) => void, disabled: boolean }) => (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" disabled={disabled} className={cn("w-[130px] justify-start text-left font-normal h-8", !date && "text-muted-foreground")}>
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(new Date(date), "dd/MM/yyyy") : <span>Pick date</span>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date ? new Date(date) : undefined} onSelect={onSelect} initialFocus /></PopoverContent>
-    </Popover>
-  );
-
   const totalWeight = useMemo(() => terms.reduce((acc, t) => acc + Number(t.weight), 0), [terms]);
   const isWeightValid = totalWeight === 100;
-  const allTermsClosed = terms.length > 0 && terms.every(t => t.closed);
+  const allTermsClosed = terms.length > 0 && terms.every(t => t.is_finalised);
 
-  const nextOpenTerm = terms.find(t => !t.closed);
+  const nextOpenTerm = terms.find(t => !t.is_finalised);
 
   return (
     <div className="grid gap-6 md:grid-cols-1">
@@ -107,7 +103,7 @@ export const AcademicYearSettings = () => {
           <div className="flex justify-between items-center">
             <div>
                 <CardTitle>Academic Configuration</CardTitle>
-                <CardDescription>Finalize a term to lock data and enable Roll Forward migration.</CardDescription>
+                <CardDescription>Finalise a term to lock data and enable Roll Forward migration.</CardDescription>
             </div>
             <div className="flex gap-2">
                 {activeYear && !activeYear.closed && (
@@ -154,29 +150,38 @@ export const AcademicYearSettings = () => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {terms.map(term => (
-                            <TableRow key={term.id} className={cn("hover:bg-muted/10", !term.closed && "bg-primary/[0.02]")}>
-                                <TableCell className="font-bold">{term.name}</TableCell>
-                                <TableCell>
-                                    {term.closed ? <Badge variant="secondary">Finalized (Locked)</Badge> : <Badge variant="outline" className="bg-green-50 text-green-700">Open (Working)</Badge>}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    {term.closed && terms.some(t => !t.closed) ? (
-                                        <Button variant="outline" size="sm" onClick={() => initiateRollForward(term.id)} className="h-8 gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
-                                            <ArrowRightCircle className="h-3 w-3" />
-                                            Roll Forward Roster
+                        {terms.sort((a,b) => a.name.localeCompare(b.name)).map((term, idx, arr) => {
+                            const isPrevFinalised = idx === 0 || arr[idx-1].is_finalised;
+                            return (
+                                <TableRow key={term.id} className={cn("hover:bg-muted/10", !term.is_finalised && "bg-primary/[0.02]")}>
+                                    <TableCell className="font-bold">{term.name}</TableCell>
+                                    <TableCell>
+                                        {term.is_finalised ? <Badge variant="secondary">Finalised (Locked)</Badge> : <Badge variant="outline" className="bg-green-50 text-green-700">Open (Working)</Badge>}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        {term.is_finalised && terms.some(t => !t.is_finalised) ? (
+                                            <Button variant="outline" size="sm" onClick={() => initiateRollForward(term.id)} className="h-8 gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
+                                                <ArrowRightCircle className="h-3 w-3" />
+                                                Roll Forward Roster
+                                            </Button>
+                                        ) : !term.is_finalised ? (
+                                            <span className="text-[10px] text-muted-foreground italic">Finalise term to unlock migration.</span>
+                                        ) : null}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button 
+                                            variant={term.is_finalised ? "ghost" : "outline"} 
+                                            size="sm" 
+                                            disabled={validating || !!activeYear.closed || (!isPrevFinalised && !term.is_finalised)} 
+                                            onClick={() => handleTermAction(term.id, term.is_finalised)} 
+                                            className="h-8"
+                                        >
+                                            {validating && selectedTermId === term.id ? <Loader2 className="h-4 w-4 animate-spin" /> : term.is_finalised ? <><Unlock className="h-4 w-4 mr-1 opacity-50" /> Re-open</> : <><Lock className="h-4 w-4 mr-1 opacity-50" /> Finalise</>}
                                         </Button>
-                                    ) : !term.closed ? (
-                                        <span className="text-[10px] text-muted-foreground italic">Finalize term to unlock migration.</span>
-                                    ) : null}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant={term.closed ? "ghost" : "outline"} size="sm" disabled={validating || !!activeYear.closed} onClick={() => handleTermAction(term.id, term.closed)} className="h-8">
-                                        {validating && selectedTermId === term.id ? <Loader2 className="h-4 w-4 animate-spin" /> : term.closed ? <><Unlock className="h-4 w-4 mr-1 opacity-50" /> Re-open</> : <><Lock className="h-4 w-4 mr-1 opacity-50" /> Finalize</>}
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </Table>
              </div>

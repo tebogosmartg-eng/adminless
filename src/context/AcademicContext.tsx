@@ -36,7 +36,7 @@ interface AcademicContextType {
   deleteAssessment: (id: string) => Promise<void>;
   updateMarks: (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => Promise<void>;
   refreshAssessments: (classId: string, termId?: string) => Promise<void>;
-  toggleTermStatus: (termId: string, closed: boolean) => Promise<void>;
+  toggleTermStatus: (termId: string, finalised: boolean) => Promise<void>;
   closeYear: (yearId: string) => Promise<void>;
   recalculateAllActiveAverages: (silent?: boolean) => Promise<void>;
   runDataVacuum: () => Promise<void>;
@@ -52,7 +52,6 @@ const AcademicContext = createContext<AcademicContextType | undefined>(undefined
 export const AcademicProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const [diagnosticMode, setDiagnosticMode] = useState(false);
   const [currentClassFilter, setCurrentClassFilter] = useState<{classId: string, termId: string} | null>(null);
-  const [hasRunSilentMigration, setHasRunSilentMigration] = useState(false);
 
   const years = useLiveQuery(
     () => session?.user.id 
@@ -125,48 +124,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     logInternalActivity
   );
 
-  // AUTOMATIC RESET TRIGGER
-  useEffect(() => {
-    const runBackgroundTask = async () => {
-        if (!activeYear || !activeTerm || !session?.user.id) return;
-        
-        // Check if we've already handled the term 1 migration for this year
-        const migrationFlag = `adminless_term1_reset_${activeYear.id}`;
-        if (localStorage.getItem(migrationFlag)) return;
-
-        console.log("[Background] Initiating automatic academic reset check...");
-        
-        // Identify Term 1
-        const termOne = allTerms.find(t => t.year_id === activeYear.id && t.name === "Term 1");
-        if (!termOne) return;
-
-        // Verify if data exists in other terms
-        const otherTerms = allTerms.filter(t => t.year_id === activeYear.id && t.name !== "Term 1").map(t => t.id);
-        const hasOtherData = await db.classes.where('term_id').anyOf(otherTerms).count() > 0;
-
-        if (hasOtherData) {
-            console.log("[Background] Found records in Terms 2-4. Migrating to Term 1...");
-            try {
-                const { data, error } = await supabase.functions.invoke('academic-reset', {
-                    body: { term1Id: termOne.id }
-                });
-                if (!error && data.success) {
-                    console.log("[Background] Reset Complete:", data.message);
-                    localStorage.setItem(migrationFlag, 'done');
-                }
-            } catch (e) {
-                console.warn("[Background] Automatic reset failed:", e);
-            }
-        } else {
-            localStorage.setItem(migrationFlag, 'done');
-        }
-    };
-
-    if (activeYear && activeTerm && session?.user.id) {
-        runBackgroundTask();
-    }
-  }, [activeYear?.id, activeTerm?.id, session?.user.id, allTerms]);
-
   const createYear = useCallback(async (name: string) => {
     if (!session?.user.id) return;
     const yearId = crypto.randomUUID();
@@ -179,6 +136,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       name: tName, 
       user_id: session.user.id, 
       closed: false,
+      is_finalised: false,
       weight: 25, 
       start_date: null, 
       end_date: null
@@ -206,26 +164,52 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [recalculateAllActiveAverages]);
 
   const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
+    const currentTerm = allTerms.find(t => t.id === assessment.term_id);
+    if (currentTerm?.is_finalised) {
+        showError("Action Blocked: Cannot add assessments to a finalised term.");
+        throw new Error("Finalised term");
+    }
+
     const id = crypto.randomUUID();
     const data = { ...assessment, id, user_id: session?.user.id || '' };
     await db.assessments.add(data);
     await queueAction('assessments', 'create', data);
     return id;
-  }, [session?.user.id]);
+  }, [session?.user.id, allTerms]);
 
   const updateAssessment = useCallback(async (a: Assessment) => {
+    const currentTerm = allTerms.find(t => t.id === a.term_id);
+    if (currentTerm?.is_finalised) {
+        showError("Action Blocked: Cannot modify assessments in a finalised term.");
+        return;
+    }
     await db.assessments.put(a);
     await queueAction('assessments', 'update', a);
-  }, []);
+  }, [allTerms]);
 
   const deleteAssessment = useCallback(async (id: string) => {
+    const ass = await db.assessments.get(id);
+    const currentTerm = allTerms.find(t => t.id === ass?.term_id);
+    if (currentTerm?.is_finalised) {
+        showError("Action Blocked: Cannot delete assessments in a finalised term.");
+        return;
+    }
     await db.assessment_marks.where('assessment_id').equals(id).delete(); 
     await db.assessments.delete(id);
     await queueAction('assessments', 'delete', { id });
-  }, []);
+  }, [allTerms]);
 
   const updateMarks = useCallback(async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
-    if (!session?.user.id) return;
+    if (!session?.user.id || updates.length === 0) return;
+    
+    // Check if any mark belongs to a finalised term
+    const firstAss = await db.assessments.get(updates[0].assessment_id);
+    const currentTerm = allTerms.find(t => t.id === firstAss?.term_id);
+    if (currentTerm?.is_finalised) {
+        showError("Action Blocked: Data in a finalised term is read-only.");
+        return;
+    }
+
     const toUpsert = await Promise.all(updates.map(async (u) => {
         const existing = await db.assessment_marks.where('[assessment_id+learner_id]').equals([u.assessment_id, u.learner_id]).first();
         return { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id } as AssessmentMark;
@@ -233,7 +217,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     await db.assessment_marks.bulkPut(toUpsert);
     await queueAction('assessment_marks', 'upsert', toUpsert);
     await updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
-  }, [session?.user.id, updateLearnerActiveAverages]);
+  }, [session?.user.id, updateLearnerActiveAverages, allTerms]);
 
   const refreshAssessments = useCallback(async (c: string, t?: string) => {
     const targetTermId = t || activeTerm?.id || '';
@@ -243,11 +227,17 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     });
   }, [activeTerm?.id]);
 
-  const toggleTermStatus = useCallback(async (termId: string, closed: boolean) => {
-    await db.terms.update(termId, { closed });
-    await queueAction('terms', 'update', { id: termId, closed });
-    showSuccess(`Term ${closed ? 'finalized' : 'activated'}.`);
-  }, []);
+  const toggleTermStatus = useCallback(async (termId: string, finalised: boolean) => {
+    // Update both closed (compatibility) and is_finalised (new logic)
+    await db.terms.update(termId, { is_finalised: finalised, closed: finalised });
+    await queueAction('terms', 'update', { id: termId, is_finalised: finalised, closed: finalised });
+    
+    if (finalised) {
+        logInternalActivity(`Finalised term: ${allTerms.find(t => t.id === termId)?.name}`);
+    }
+    
+    showSuccess(`Term ${finalised ? 'finalised and locked' : 're-activated'}.`);
+  }, [allTerms, logInternalActivity]);
 
   const closeYear = useCallback(async (id: string) => {
     await db.academic_years.update(id, { closed: true });

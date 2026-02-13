@@ -4,7 +4,7 @@ import MobileSidebar from "./MobileSidebar";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { Button } from "@/components/ui/button";
-import { Search, CalendarDays, ChevronDown, Check, Clock, AlertTriangle, BookMarked, LogOut, Settings, Lock } from "lucide-react";
+import { Search, CalendarDays, ChevronDown, Check, Clock, AlertTriangle, BookMarked, LogOut, Settings, Lock, CheckCircle2 } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
 import {
   DropdownMenu,
@@ -123,8 +123,9 @@ const Header = () => {
                 <DropdownMenuSeparator />
                 {sortedTerms.length > 0 ? (
                     sortedTerms.map((term, index, array) => {
-                        const isUnlocked = index === 0 || array[index - 1].closed;
+                        const isUnlocked = index === 0 || array[index - 1].is_finalised;
                         const isActive = activeTerm?.id === term.id;
+                        const isFinalised = term.is_finalised;
                         
                         return (
                             <TooltipProvider key={term.id}>
@@ -135,13 +136,15 @@ const Header = () => {
                                                 onClick={() => isUnlocked && handleTermSwitch(term)} 
                                                 className={cn(
                                                     "justify-between text-sm py-2",
-                                                    !isUnlocked ? "opacity-50 cursor-not-allowed bg-muted/20" : "cursor-pointer"
+                                                    !isUnlocked ? "opacity-50 cursor-not-allowed bg-muted/20" : "cursor-pointer",
+                                                    isActive && "bg-primary/5 font-bold"
                                                 )}
                                                 disabled={!isUnlocked}
                                             >
                                                 <div className="flex items-center gap-2">
                                                     {term.name}
-                                                    {!isUnlocked && <Lock className="h-3 w-3" />}
+                                                    {!isUnlocked && <Lock className="h-3 w-3 opacity-40" />}
+                                                    {isFinalised && <CheckCircle2 className="h-3 w-3 text-green-600" />}
                                                 </div>
                                                 {isActive && <Check className="h-4 w-4 text-primary" />}
                                             </DropdownMenuItem>

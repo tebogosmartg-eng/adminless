@@ -61,9 +61,9 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
             
         const targetIndex = yearTerms.findIndex(t => t.id === term.id);
         
-        // Verify all terms before the target are 'closed' (finalised)
+        // Verify all terms before the target are 'is_finalised'
         for (let i = 0; i < targetIndex; i++) {
-            if (!yearTerms[i].closed) {
+            if (!yearTerms[i].is_finalised) {
                 showError(`Term Progression Locked: You must finalise ${yearTerms[i].name} before activating ${term.name}.`);
                 return;
             }

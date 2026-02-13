@@ -110,7 +110,8 @@ export interface Term {
   name: string; // "Term 1"
   start_date: string | null;
   end_date: string | null;
-  closed: boolean;
+  closed: boolean; // Keep for DB compatibility
+  is_finalised: boolean; // Explicit rule field
   weight: number; // Percentage contribution to year mark
   user_id?: string;
 }
