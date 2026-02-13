@@ -1,9 +1,9 @@
 "use client";
 
-import { useSetupStatus } from "@/hooks/useSetupStatus";
+import { useSetupStatus, StepStatus } from "@/hooks/useSetupStatus";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Circle, ChevronRight, Rocket, Star } from "lucide-react";
+import { CheckCircle2, Circle, ChevronRight, Rocket, Star, Lock, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -13,7 +13,9 @@ export const GetStartedChecklist = () => {
 
   if (isLoading) return null;
 
-  const handleStepClick = (id: number) => {
+  const handleStepClick = (id: number, isLocked: boolean, status: StepStatus) => {
+    if (isLocked || status === 'completed') return;
+
     switch (id) {
       case 1:
       case 2:
@@ -48,6 +50,13 @@ export const GetStartedChecklist = () => {
     }
   };
 
+  const getStepIcon = (status: StepStatus, isLocked: boolean) => {
+    if (isLocked) return <Lock className="h-5 w-5 text-muted-foreground/40" />;
+    if (status === 'completed') return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+    if (status === 'in-progress') return <Timer className="h-5 w-5 text-primary animate-pulse" />;
+    return <Circle className="h-5 w-5 text-muted-foreground" />;
+  };
+
   return (
     <Card className={cn(
         "border-primary/20 shadow-lg overflow-hidden transition-all duration-500 mb-6",
@@ -73,7 +82,7 @@ export const GetStartedChecklist = () => {
             
             <div className="w-full md:w-64 space-y-2">
                 <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-primary">
-                    <span>Term Progress</span>
+                    <span>Term Readiness</span>
                     <span>{progress}%</span>
                 </div>
                 <Progress value={progress} className="h-2 bg-primary/10" />
@@ -86,36 +95,38 @@ export const GetStartedChecklist = () => {
           {coreSteps.map((step) => (
               <button
               key={step.id}
-              onClick={() => handleStepClick(step.id)}
+              onClick={() => handleStepClick(step.id, step.isLocked, step.status)}
               className={cn(
                   "flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all duration-300 group relative",
-                  step.done 
+                  step.status === 'completed' 
                   ? "bg-green-50/30 border-green-100 opacity-60 cursor-default" 
+                  : step.isLocked 
+                  ? "bg-muted/10 border-transparent opacity-40 cursor-not-allowed"
                   : "bg-white dark:bg-card border-border hover:border-primary/40 hover:shadow-md active:scale-[0.98]"
               )}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className={cn(
-                        "flex-shrink-0 transition-colors",
-                        step.done ? "text-green-600" : "text-muted-foreground group-hover:text-primary"
-                    )}>
-                    {step.done ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+                    <div className="flex-shrink-0">
+                        {getStepIcon(step.status, step.isLocked)}
                     </div>
                     <div className="flex flex-col min-w-0">
                         <span className={cn(
                             "text-xs font-bold truncate transition-colors",
-                            step.done ? "text-green-800 line-through" : "text-foreground group-hover:text-primary"
+                            step.status === 'completed' ? "text-green-800 line-through" : step.isLocked ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
                         )}>
                             {step.title}
                         </span>
-                        {step.optional && (
+                        {step.optional && !step.isLocked && (
                             <span className="text-[9px] font-black uppercase text-blue-600 flex items-center gap-1">
                                 <Star className="h-2 w-2 fill-current" /> Recommended
                             </span>
                         )}
+                        {step.status === 'in-progress' && !step.isLocked && (
+                             <span className="text-[8px] font-black uppercase text-primary/60">Continue working</span>
+                        )}
                     </div>
                 </div>
-                {!step.done && <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-transform group-hover:translate-x-0.5" />}
+                {!step.isLocked && step.status !== 'completed' && <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-transform group-hover:translate-x-0.5" />}
               </button>
           ))}
           </div>

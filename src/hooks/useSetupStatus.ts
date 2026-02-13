@@ -7,87 +7,188 @@ import { useSettings } from '@/context/SettingsContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 
+export type StepStatus = 'not-started' | 'in-progress' | 'completed';
+
+export interface SetupStep {
+  id: number;
+  title: string;
+  status: StepStatus;
+  isLocked: boolean;
+  optional?: boolean;
+}
+
 export const useSetupStatus = () => {
   const { activeYear, activeTerm, loading: academicLoading } = useAcademic();
   const { classes, loading: classesLoading } = useClasses();
   const { savedSubjects } = useSettings();
 
   // Scoped Data Presence Checks
-  const yearData = useLiveQuery(async () => {
-    if (!activeYear) return { learners: 0, assessments: 0, marks: 0, attendance: 0 };
+  const stats = useLiveQuery(async () => {
+    if (!activeYear) return { learners: 0, assessments: 0, marks: 0, attendance: 0, totalExpectedMarks: 0 };
     
     const yearClasses = await db.classes.where('year_id').equals(activeYear.id).toArray();
     const classIds = yearClasses.map(c => c.id);
     
-    if (classIds.length === 0) return { learners: 0, assessments: 0, marks: 0, attendance: 0 };
+    if (classIds.length === 0) return { learners: 0, assessments: 0, marks: 0, attendance: 0, totalExpectedMarks: 0 };
 
-    const learnersCount = await db.learners.where('class_id').anyOf(classIds).count();
+    const learners = await db.learners.where('class_id').anyOf(classIds).toArray();
     const assessments = await db.assessments.where('class_id').anyOf(classIds).toArray();
     const assessmentIds = assessments.map(a => a.id);
     
     const marksCount = assessmentIds.length > 0 
-        ? await db.assessment_marks.where('assessment_id').anyOf(assessmentIds).count() 
+        ? await db.assessment_marks.where('assessment_id').anyOf(assessmentIds).filter(m => m.score !== null).count() 
         : 0;
     
+    const totalExpected = assessments.length * learners.length;
+
     return { 
-        learners: learnersCount, 
+        learners: learners.length, 
         assessments: assessments.length, 
-        marks: marksCount
+        marks: marksCount,
+        totalExpectedMarks: totalExpected
     };
-  }, [activeYear?.id]) || { learners: 0, assessments: 0, marks: 0 };
+  }, [activeYear?.id, activeTerm?.id]) || { learners: 0, assessments: 0, marks: 0, totalExpectedMarks: 0 };
   
   const weightingReport = useLiveQuery(async () => {
-    if (!activeTerm) return { isValid: false };
+    if (!activeTerm) return { isValid: false, classCount: 0, validWeightCount: 0 };
     
     const termAss = await db.assessments.where('term_id').equals(activeTerm.id).toArray();
-    if (termAss.length === 0) return { isValid: false };
+    const activeClassesInTerm = classes.filter(c => !c.archived && c.term_id === activeTerm.id);
+    
+    if (termAss.length === 0) return { isValid: false, classCount: activeClassesInTerm.length, validWeightCount: 0 };
 
     const classGroups: Record<string, number> = {};
     termAss.forEach(a => {
         classGroups[a.class_id] = (classGroups[a.class_id] || 0) + Number(a.weight);
     });
 
-    const invalidCount = Object.values(classGroups).filter(w => w !== 100).length;
-    return { isValid: termAss.length > 0 && invalidCount === 0 };
-  }, [activeTerm?.id]) || { isValid: false };
+    const validWeightCount = Object.values(classGroups).filter(w => w === 100).length;
+    
+    return { 
+        isValid: activeClassesInTerm.length > 0 && validWeightCount === activeClassesInTerm.length,
+        classCount: activeClassesInTerm.length,
+        validWeightCount
+    };
+  }, [activeTerm?.id, classes]) || { isValid: false, classCount: 0, validWeightCount: 0 };
 
   const status = useMemo(() => {
     if (academicLoading || classesLoading) {
-        return {
-            coreSteps: [],
-            missingRequired: [],
+        return { 
+            coreSteps: [] as SetupStep[], 
+            progress: 0, 
+            isLoading: true,
             isReadyForFinalization: false,
             hasMarksCaptured: false,
-            isLoading: true,
-            progress: 0
+            missingRequired: [] as SetupStep[]
         };
     }
 
-    const steps = [
-        { id: 1, title: 'Select Academic Year', done: !!activeYear },
-        { id: 2, title: 'Select Active Term', done: !!activeTerm },
-        { id: 3, title: 'Confirm Subjects Taught', done: savedSubjects.length > 0 },
-        { id: 4, title: 'Create or Import Classes', done: classes.length > 0 },
-        { id: 5, title: 'Review Learner Lists', done: yearData.learners > 0 },
-        { id: 6, title: 'Create Assessment Activities', done: yearData.assessments > 0 },
-        { id: 7, title: 'Capture Marks', done: yearData.marks > 0 },
-        { id: 8, title: 'Resolve Validation Issues', done: weightingReport.isValid && yearData.marks > 0 },
-        { id: 9, title: 'Finalise Term', done: !!activeTerm?.is_finalised },
-        { id: 10, title: 'Roll Forward (Optional)', done: false, optional: true }
-    ];
+    const steps: SetupStep[] = [];
 
-    const completedCount = steps.filter(s => s.done && !s.optional).length;
-    const progress = Math.round((completedCount / (steps.length - 1)) * 100);
+    // 1. Academic Year
+    const step1Done = !!activeYear;
+    steps.push({
+        id: 1,
+        title: 'Select Academic Year',
+        status: step1Done ? 'completed' : 'in-progress',
+        isLocked: false
+    });
+
+    // 2. Active Term
+    const step2Done = !!activeTerm;
+    steps.push({
+        id: 2,
+        title: 'Select Active Term',
+        status: step2Done ? 'completed' : (step1Done ? 'in-progress' : 'not-started'),
+        isLocked: !step1Done
+    });
+
+    // 3. Confirm Subjects
+    const step3Done = savedSubjects.length > 0;
+    steps.push({
+        id: 3,
+        title: 'Confirm Subjects Taught',
+        status: step3Done ? 'completed' : (step2Done ? 'in-progress' : 'not-started'),
+        isLocked: !step2Done
+    });
+
+    // 4. Create Classes
+    const step4Done = classes.length > 0;
+    steps.push({
+        id: 4,
+        title: 'Create or Import Classes',
+        status: step4Done ? 'completed' : (step3Done ? 'in-progress' : 'not-started'),
+        isLocked: !step3Done
+    });
+
+    // 5. Learner Lists
+    const step5Done = stats.learners > 0;
+    steps.push({
+        id: 5,
+        title: 'Review Learner Lists',
+        status: step5Done ? 'completed' : (step4Done ? 'in-progress' : 'not-started'),
+        isLocked: !step4Done
+    });
+
+    // 6. Assessment Activities
+    const step6Done = stats.assessments > 0;
+    steps.push({
+        id: 6,
+        title: 'Create Assessment Activities',
+        status: step6Done ? 'completed' : (step5Done ? 'in-progress' : 'not-started'),
+        isLocked: !step5Done
+    });
+
+    // 7. Capture Marks
+    const marksCaptured = stats.marks > 0;
+    const allMarksDone = stats.totalExpectedMarks > 0 && stats.marks >= stats.totalExpectedMarks;
+    steps.push({
+        id: 7,
+        title: 'Capture Marks',
+        status: allMarksDone ? 'completed' : (marksCaptured ? 'in-progress' : (step6Done ? 'in-progress' : 'not-started')),
+        isLocked: !step6Done
+    });
+
+    // 8. Validation Issues
+    const step8Done = weightingReport.isValid && allMarksDone;
+    steps.push({
+        id: 8,
+        title: 'Resolve Validation Issues',
+        status: step8Done ? 'completed' : (allMarksDone ? 'in-progress' : 'not-started'),
+        isLocked: !allMarksDone
+    });
+
+    // 9. Finalise Term
+    const step9Done = !!activeTerm?.is_finalised;
+    steps.push({
+        id: 9,
+        title: 'Finalise Term',
+        status: step9Done ? 'completed' : (step8Done ? 'in-progress' : 'not-started'),
+        isLocked: !step8Done
+    });
+
+    // 10. Roll Forward
+    steps.push({
+        id: 10,
+        title: 'Roll Forward to Next Term',
+        status: 'not-started',
+        isLocked: !step9Done,
+        optional: true
+    });
+
+    const completedCount = steps.filter(s => s.status === 'completed' && !s.optional).length;
+    const totalRequired = steps.filter(s => !s.optional).length;
+    const progress = Math.round((completedCount / totalRequired) * 100);
 
     return {
         coreSteps: steps,
-        missingRequired: steps.filter(s => !s.done && !s.optional),
-        isReadyForFinalization: !!activeTerm?.is_finalised,
-        hasMarksCaptured: yearData.marks > 0,
+        progress,
         isLoading: false,
-        progress
+        isReadyForFinalization: step9Done,
+        hasMarksCaptured: marksCaptured,
+        missingRequired: steps.filter(s => s.status !== 'completed' && !s.optional)
     };
-  }, [activeYear, activeTerm, classes, yearData, weightingReport, savedSubjects, academicLoading, classesLoading]);
+  }, [activeYear, activeTerm, classes, stats, weightingReport, savedSubjects, academicLoading, classesLoading]);
 
   return status;
 };
