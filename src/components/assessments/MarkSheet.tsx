@@ -1,4 +1,4 @@
-import { ClassInfo, Learner } from '@/lib/types';
+import { ClassInfo, Learner, QuestionMark } from '@/lib/types';
 import { useMarkSheetLogic } from '@/hooks/useMarkSheetLogic';
 import { MarkSheetToolbar } from './MarkSheetToolbar';
 import { MarkSheetTable } from './MarkSheetTable';
@@ -10,7 +10,8 @@ import { CalendarClock, ShieldCheck } from 'lucide-react';
 import { RapidEntryDialog } from '@/components/dialogs/RapidEntryDialog';
 import { VoiceEntryDialog } from '@/components/dialogs/VoiceEntryDialog';
 import { RubricMarkingDialog } from './RubricMarkingDialog';
-import { useMemo } from 'react';
+import { QuestionMarkingDialog } from './QuestionMarkingDialog';
+import { useMemo, useState } from 'react';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
 
@@ -21,6 +22,13 @@ interface MarkSheetProps {
 
 export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) => {
   const { state, actions } = useMarkSheetLogic(classInfo);
+
+  // Question marking state
+  const [qMarking, setQMarking] = useState<{
+    open: boolean;
+    assessmentId: string | null;
+    learner: Learner | null;
+  }>({ open: false, assessmentId: null, learner: null });
 
   // Use the robust integrity utility for the current context
   const integrityReport = useMemo(() => {
@@ -41,6 +49,37 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
       }
   };
 
+  const handleOpenQuestions = (assId: string, learner: Learner) => {
+    setQMarking({ open: true, assessmentId: assId, learner });
+  };
+
+  const handleQuestionSave = async (score: number, questionMarks: QuestionMark[]) => {
+    if (qMarking.assessmentId && qMarking.learner?.id) {
+        await actions.updateMarks([{
+            assessment_id: qMarking.assessmentId,
+            learner_id: qMarking.learner.id,
+            score,
+            question_marks: questionMarks
+        } as any]);
+    }
+  };
+
+  const handleNextQ = () => {
+    const idx = state.filteredLearners.findIndex(l => l.id === qMarking.learner?.id);
+    if (idx < state.filteredLearners.length - 1) {
+        setQMarking(prev => ({ ...prev, learner: state.filteredLearners[idx + 1] }));
+    } else {
+        setQMarking({ open: false, assessmentId: null, learner: null });
+    }
+  };
+
+  const handlePrevQ = () => {
+    const idx = state.filteredLearners.findIndex(l => l.id === qMarking.learner?.id);
+    if (idx > 0) {
+        setQMarking(prev => ({ ...prev, learner: state.filteredLearners[idx - 1] }));
+    }
+  };
+
   if (!state.currentViewTerm) {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground bg-muted/10 border rounded-lg border-dashed">
@@ -57,6 +96,11 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
   const currentMark = state.marks.find(m => 
     m.assessment_id === state.rubricMarking.assessmentId && 
     m.learner_id === state.rubricMarking.learner?.id
+  );
+
+  const currentQMark = state.marks.find(m => 
+    m.assessment_id === qMarking.assessmentId && 
+    m.learner_id === qMarking.learner?.id
   );
 
   const currentIndex = state.filteredLearners.findIndex(l => l.id === state.rubricMarking.learner?.id);
@@ -133,6 +177,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           onOpenTool={actions.openTool}
           onOpenRubric={actions.openRubricForLearner}
           validateAndCommitMark={actions.validateAndCommitMark}
+          onOpenQuestions={handleOpenQuestions}
        />
 
        <MarkSheetDialogs 
@@ -189,6 +234,19 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
                 onSave={actions.handleRubricSave}
                 onNext={currentIndex < state.filteredLearners.length - 1 ? actions.handleNextRubric : undefined}
                 onPrev={currentIndex > 0 ? actions.handlePrevRubric : undefined}
+           />
+       )}
+
+       {qMarking.open && qMarking.learner && qMarking.assessmentId && (
+           <QuestionMarkingDialog 
+              open={qMarking.open}
+              onOpenChange={(open) => setQMarking(prev => ({ ...prev, open }))}
+              assessment={state.assessments.find(a => a.id === qMarking.assessmentId)!}
+              learner={qMarking.learner}
+              onSave={handleQuestionSave}
+              initialMarks={currentQMark?.question_marks}
+              onNext={handleNextQ}
+              onPrev={handlePrevQ}
            />
        )}
     </div>

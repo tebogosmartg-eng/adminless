@@ -108,14 +108,18 @@ export class SmaRegDB extends Dexie {
       terms: 'id, year_id, name, user_id'
     });
 
-    // Version 19: Indexing classes table for term-based and year-based queries
     this.version(19).stores({
       classes: 'id, user_id, term_id, year_id, sync_status'
     });
 
-    // Version 20: Indexing year_id for timetable to support strict academic scoping
     this.version(20).stores({
       timetable: 'id, user_id, year_id, class_id, day, period'
+    });
+
+    // Version 21: Added JSONB structure support for assessments and marks
+    this.version(21).stores({
+      assessments: 'id, class_id, term_id, [class_id+term_id], user_id',
+      assessment_marks: 'id, assessment_id, learner_id, [assessment_id+learner_id], user_id'
     });
   }
 }

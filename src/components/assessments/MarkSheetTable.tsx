@@ -19,7 +19,7 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare, ListChecks
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -52,8 +52,10 @@ interface MarkSheetTableProps {
   getAssessmentStats: (assId: string) => { avg: string; max: string | number; min: string | number };
   onViewLearnerProfile?: (learner: Learner) => void;
   onSort?: (key: string) => void;
+  onSortConfig?: { key: string; direction: 'asc' | 'desc' };
   onOpenTool?: (type: 'rapid' | 'voice', assId: string) => void;
   onOpenRubric?: (assId: string, learner: Learner) => void;
+  onOpenQuestions?: (assId: string, learner: Learner) => void;
   validateAndCommitMark?: (assId: string, lId: string, val: string) => Promise<boolean> | boolean;
 }
 
@@ -61,7 +63,7 @@ export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
   isLocked, isUsingVisibleTotal, atRiskThreshold, sortConfig, setIsAddOpen,
   openAnalytics, deleteAssessment, onEditAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
-  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool, onOpenRubric,
+  calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool, onOpenRubric, onOpenQuestions,
   validateAndCommitMark
 }: MarkSheetTableProps) => {
 
@@ -179,6 +181,7 @@ export const MarkSheetTable = ({
                               {ass.max_mark} • {ass.weight}%
                             </span>
                             {ass.rubric_id && <Layers className="h-2.5 w-2.5 text-primary opacity-60" />}
+                            {ass.questions && ass.questions.length > 0 && <ListChecks className="h-2.5 w-2.5 text-blue-500 opacity-60" />}
                         </div>
                         {!isLocked && (
                         <DropdownMenu>
@@ -264,6 +267,7 @@ export const MarkSheetTable = ({
                     {visibleAssessments.map((ass, colIdx) => {
                         const comment = learner.id ? getMarkComment(ass.id, learner.id) : "";
                         const markValue = getMarkValue(ass.id, learner.id || '');
+                        const hasQuestions = ass.questions && ass.questions.length > 0;
                         
                         return (
                         <TableCell key={ass.id} className="p-0 border-r last:border-r-0 relative">
@@ -277,17 +281,19 @@ export const MarkSheetTable = ({
                                         "border border-transparent hover:border-muted-foreground/20",
                                         "focus:bg-white dark:focus:bg-background focus:ring-2 focus:ring-primary focus:z-10",
                                         isLocked && "bg-muted/50 cursor-not-allowed text-muted-foreground",
-                                        comment && "font-bold text-primary"
+                                        comment && "font-bold text-primary",
+                                        hasQuestions && "cursor-pointer"
                                     )}
                                     value={markValue}
                                     onFocus={() => setActiveRow(rowIdx)}
-                                    onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
+                                    onChange={(e) => !hasQuestions && learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
                                     onBlur={(e) => {
-                                        if (learner.id) handleInputBlur(ass.id, learner.id, e.target.value);
+                                        if (learner.id && !hasQuestions) handleInputBlur(ass.id, learner.id, e.target.value);
                                         setActiveRow(null);
                                     }}
                                     onKeyDown={(e) => handleGridKeyDown(e, colIdx, rowIdx)}
-                                    disabled={!learner.id || !!isLocked}
+                                    onClick={() => hasQuestions && learner.id && onOpenQuestions && onOpenQuestions(ass.id, learner)}
+                                    disabled={!learner.id || !!isLocked || hasQuestions}
                                     placeholder="-"
                                 />
                                 
@@ -303,6 +309,18 @@ export const MarkSheetTable = ({
                                     </Button>
                                 )}
 
+                                {hasQuestions && !isLocked && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 absolute right-0.5 opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-blue-100 hover:text-blue-600"
+                                        onClick={() => onOpenQuestions && onOpenQuestions(ass.id, learner)}
+                                        title="Question-Level marking"
+                                    >
+                                        <ListChecks className="h-3 w-3" />
+                                    </Button>
+                                )}
+
                                 {comment && (
                                     <div className="absolute top-1 left-1">
                                         <MessageSquare className="h-2 w-2 text-primary opacity-50" />
@@ -314,6 +332,11 @@ export const MarkSheetTable = ({
                                 {ass.rubric_id && (
                                     <ContextMenuItem onClick={() => onOpenRubric && onOpenRubric(ass.id, learner)}>
                                         <Layers className="mr-2 h-4 w-4" /> Open Rubric Grid
+                                    </ContextMenuItem>
+                                )}
+                                {hasQuestions && (
+                                    <ContextMenuItem onClick={() => onOpenQuestions && onOpenQuestions(ass.id, learner)}>
+                                        <ListChecks className="mr-2 h-4 w-4" /> Open Question Breakdown
                                     </ContextMenuItem>
                                 )}
                                 <ContextMenuItem onClick={() => learner.id && openNoteDialog(ass.id, learner.id, learner.name)}>

@@ -41,7 +41,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   }>({ open: false, rubric: null, learner: null, assessmentId: null });
 
   const [activeTool, setActiveTool] = useState<{ type: 'rapid' | 'voice' | null, assessmentId: string | null, termId: string | null }>({ type: null, assessmentId: null, termId: null });
-  const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "", rubricId: "", termId: "" });
+  const [newAss, setNewAss] = useState({ title: "", type: "Test", max: 50, weight: 10, date: "", rubricId: "", termId: "", questions: [] });
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
   
   const [isAutoSaving, setIsAutoSaving] = useState(false);
@@ -86,7 +86,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
             assessment_id: assessmentId, 
             learner_id: learnerId, 
             score,
-            comment: editedComments[key] || existingMark?.comment || ""
+            comment: editedComments[key] || existingMark?.comment || "",
+            question_marks: existingMark?.question_marks || []
         }]);
         
         setEditedMarks(prev => {
@@ -197,7 +198,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           term_id: targetTermId, 
           max_mark: Number(newAss.max), 
           weight: Number(newAss.weight), 
-          rubric_id: newAss.rubricId === 'none' ? null : (newAss.rubricId || null) 
+          rubric_id: newAss.rubricId === 'none' ? null : (newAss.rubricId || null),
+          questions: newAss.questions
       });
       setIsAddOpen(false);
   }, [newAss, activeTerm?.id, classInfo.id, createAssessment]);
@@ -266,7 +268,8 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       handlePrevRubric: () => {
           const idx = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
           if (idx > 0) setRubricMarking(p => ({ ...p, learner: sortedAndFilteredLearners[idx - 1] }));
-      }
+      },
+      updateMarks // Exposing for QuestionMarkingDialog use
   }), [
     handleTermChange, handleMarkChange, handleCommentChange, handleAddAssessment, 
     updateAssessment, calculateLearnerTotal, marks, assessments, deleteAssessment, 

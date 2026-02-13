@@ -116,6 +116,13 @@ export interface Term {
   user_id?: string;
 }
 
+export interface AssessmentQuestion {
+  id: string;
+  question_number: string;
+  skill_description: string;
+  max_mark: number;
+}
+
 export interface Assessment {
   id: string;
   class_id: string;
@@ -127,6 +134,12 @@ export interface Assessment {
   date: string | null;
   user_id?: string;
   rubric_id?: string | null; // Link to a rubric
+  questions?: AssessmentQuestion[]; // New: Sub-questions
+}
+
+export interface QuestionMark {
+  question_id: string;
+  score: number | null;
 }
 
 export interface AssessmentMark {
@@ -137,6 +150,7 @@ export interface AssessmentMark {
   comment?: string;
   rubric_selections?: Record<string, string>; // Maps Criterion ID -> Level ID
   user_id?: string;
+  question_marks?: QuestionMark[]; // New: Per-question scores
 }
 
 export interface TimetableEntry {
