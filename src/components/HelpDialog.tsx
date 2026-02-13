@@ -1,3 +1,4 @@
+' character in the HelpDialog.">
 import {
   Dialog,
   DialogContent,

@@ -112,6 +112,14 @@ export class SmaRegDB extends Dexie {
       curriculum_topics: 'id, user_id, term_id, [subject+grade+term_id]',
       diagnostics: 'id, user_id, assessment_id'
     });
+
+    // Version 23: Fix missing indexes for sorting (created_at)
+    this.version(23).stores({
+      learner_notes: 'id, user_id, learner_id, term_id, date, created_at',
+      lesson_logs: 'id, user_id, timetable_id, date, [timetable_id+date], created_at',
+      evidence: 'id, user_id, class_id, learner_id, term_id, created_at',
+      todos: 'id, user_id, term_id, completed, created_at'
+    });
   }
 }
 
