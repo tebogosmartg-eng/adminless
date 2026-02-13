@@ -1,4 +1,4 @@
-character in strong tag text to fix TS1382 error.">
+in JSX">
 import {
   Dialog,
   DialogContent,
