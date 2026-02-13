@@ -15,11 +15,14 @@ import {
     ArrowUpRight,
     ArrowDownRight,
     Minus,
-    ClipboardList
+    ClipboardList,
+    ShieldAlert,
+    XCircle
 } from 'lucide-react';
 import { ClassInfo, Term, AcademicYear } from '@/lib/types';
 import { useDiagnosticReportData } from '@/hooks/useDiagnosticReportData';
 import { useSettings } from '@/context/SettingsContext';
+import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { generateDiagnosticReportPDF } from '@/utils/pdf/diagnosticReport';
 import { showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -35,20 +38,24 @@ interface DiagnosticReportDialogProps {
 export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, year }: DiagnosticReportDialogProps) => {
   const { atRiskThreshold, schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   const { data, loading } = useDiagnosticReportData(classInfo, term.id, atRiskThreshold);
+  const { missingRequired, progress } = useSetupStatus();
   
   const [diagnosticSummary, setDiagnosticSummary] = useState("");
   const [interventionPlan, setInterventionPlan] = useState("");
   const [isExporting, setIsExporting] = useState(false);
 
+  // Critical Guard: Is the data actually ready for a diagnostic?
+  const isDataReady = progress >= 80; // Steps 1-8 must be complete
+
   useEffect(() => {
-    if (data) {
+    if (data && isDataReady) {
       setDiagnosticSummary(data.autoSummary);
       setInterventionPlan(`Based on the diagnostic findings, the following intervention strategies will be implemented:\n\n1. Small-group support for the ${data.summary.belowThresholdCount} identified learners.\n2. Targeted revision on tasks where average performance was below 50%.\n3. Parental consultation for high-risk individuals.`);
     }
-  }, [data]);
+  }, [data, isDataReady]);
 
   const handleExport = async () => {
-    if (!data) return;
+    if (!data || !isDataReady) return;
     setIsExporting(true);
     try {
         generateDiagnosticReportPDF(
@@ -72,13 +79,13 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
           <DialogHeader>
             <div className="flex justify-between items-start">
                 <div className="space-y-1">
-                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black">Moderation Ready</Badge>
+                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black">Moderation Tool</Badge>
                     <DialogTitle className="text-2xl font-bold">Diagnostic Analysis Report</DialogTitle>
                     <DialogDescription>
                         {classInfo.className} • {classInfo.subject} • {term.name}
                     </DialogDescription>
                 </div>
-                <Button onClick={handleExport} disabled={isExporting || !data} className="font-bold gap-2">
+                <Button onClick={handleExport} disabled={isExporting || !data || !isDataReady} className="font-bold gap-2">
                     {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                     Export Official PDF
                 </Button>
@@ -87,7 +94,28 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
         </div>
 
         <ScrollArea className="flex-1 p-6">
-          {loading ? (
+          {!isDataReady ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-6 text-center max-w-md mx-auto">
+                  <div className="bg-amber-100 p-4 rounded-full">
+                      <ShieldAlert className="h-12 w-12 text-amber-600" />
+                  </div>
+                  <div className="space-y-2">
+                      <h3 className="text-xl font-bold">Diagnostic Blocked</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                          A diagnostic report requires high-quality, validated data. Please complete the following setup steps on your Dashboard before generating this report.
+                      </p>
+                  </div>
+                  <div className="w-full space-y-2">
+                      {missingRequired.filter(s => s.id <= 8).map(step => (
+                          <div key={step.id} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 text-left">
+                              <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                              <span className="text-xs font-bold">{step.title}</span>
+                          </div>
+                      ))}
+                  </div>
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>Return to Workspace</Button>
+              </div>
+          ) : loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
                 <p className="text-sm font-medium text-muted-foreground animate-pulse">Running Diagnostic Algorithms...</p>

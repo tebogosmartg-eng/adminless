@@ -7,11 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, BarChart3 } from 'lucide-react';
+import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, BarChart3, ShieldCheck, XCircle } from 'lucide-react';
 import { Assessment, Term, AcademicYear, Rubric, ClassInfo } from '@/lib/types';
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { DiagnosticReportDialog } from "./DiagnosticReportDialog";
+import { useSetupStatus } from "@/hooks/useSetupStatus";
 
 interface MarkSheetToolbarProps {
   terms: Term[];
@@ -56,6 +57,7 @@ export const MarkSheetToolbar = ({
 }: MarkSheetToolbarProps) => {
 
   const [diagOpen, setDiagOpen] = useState(false);
+  const { progress, missingRequired } = useSetupStatus();
 
   const handleRubricSelect = (val: string) => {
       const rubric = availableRubrics.find(r => r.id === val);
@@ -88,6 +90,40 @@ export const MarkSheetToolbar = ({
 
           {currentViewTerm?.closed && <Badge variant="secondary"><Eye className="mr-1 h-3 w-3" /> Read Only</Badge>}
           
+          <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className={cn(
+                        "flex items-center gap-2 px-3 py-1 rounded-full border transition-all cursor-help",
+                        progress === 100 ? "bg-green-50 text-green-700 border-green-100" : "bg-amber-50 text-amber-700 border-amber-100"
+                    )}>
+                        {progress === 100 ? <ShieldCheck className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                        <span className="text-[10px] font-black uppercase tracking-widest">Setup: {progress}%</span>
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                    <div className="space-y-1.5 p-1">
+                        <p className="font-bold text-xs">Term Setup Status</p>
+                        {progress === 100 ? (
+                            <p className="text-[10px]">Your academic context is fully validated and ready for finalisation.</p>
+                        ) : (
+                            <>
+                                <p className="text-[10px] text-muted-foreground">Outstanding requirements:</p>
+                                <div className="space-y-1 mt-1">
+                                    {missingRequired.slice(0, 3).map(s => (
+                                        <div key={s.id} className="flex items-center gap-2 text-[9px] font-medium">
+                                            <XCircle className="h-2.5 w-2.5 text-red-500" /> {s.title}
+                                        </div>
+                                    ))}
+                                    {missingRequired.length > 3 && <p className="text-[9px] italic">+ {missingRequired.length - 3} more</p>}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           <div className="flex items-center gap-2 px-3 py-1 bg-muted/40 rounded-full border border-transparent transition-all">
             {isAutoSaving ? (
                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-primary animate-pulse">
@@ -263,3 +299,5 @@ export const MarkSheetToolbar = ({
     </div>
   );
 };
+
+import { TooltipProvider } from "@/components/ui/tooltip";
