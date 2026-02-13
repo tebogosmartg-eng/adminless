@@ -68,12 +68,13 @@ export const useSetupStatus = () => {
     const steps = [
         { id: 1, title: 'Select Academic Year', done: !!activeYear },
         { id: 2, title: 'Select Active Term', done: !!activeTerm },
-        { id: 3, title: 'Create First Class', done: classes.length > 0 },
-        { id: 4, title: 'Enroll Students', done: yearData.learners > 0 },
-        { id: 5, title: 'Plan Assessment', done: yearData.assessments > 0 },
+        { id: 3, title: 'Create Your Classes', done: classes.length > 0 },
+        { id: 4, title: 'Enroll Learners', done: yearData.learners > 0 },
+        { id: 5, title: 'Plan Assessments', done: yearData.assessments > 0 },
         { id: 6, title: 'Record Attendance', done: yearData.attendance > 0 },
         { id: 7, title: 'Capture Marks', done: yearData.marks > 0 },
-        { id: 8, title: 'Ready for Reports', done: weightingReport.isValid }
+        { id: 8, title: 'Verify Weighting', done: weightingReport.isValid },
+        { id: 9, title: 'Finalise Term', done: !!activeTerm?.is_finalised }
     ];
 
     const completedCount = steps.filter(s => s.done).length;
@@ -82,7 +83,7 @@ export const useSetupStatus = () => {
     return {
         coreSteps: steps,
         missingRequired: steps.filter(s => !s.done),
-        isReadyForFinalization: progress === 100,
+        isReadyForFinalization: !!activeTerm?.is_finalised,
         hasMarksCaptured: yearData.marks > 0,
         isLoading: false,
         progress
