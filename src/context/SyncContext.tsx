@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 import { pullData, pushChanges } from '@/services/sync';
@@ -21,35 +21,27 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const syncInProgress = useRef(false);
   
   const pendingChanges = useLiveQuery(() => db.sync_queue.count()) || 0;
 
   useEffect(() => {
     const handleOnline = () => {
         setIsOnline(true);
-        toast.success("Connection restored. Synchronizing your data...");
+        toast.success("Connection restored. Synchronizing...");
         forceSync();
     };
     const handleOffline = () => {
         setIsOnline(false);
-        toast.info("Offline mode active. All work will be saved locally.");
+        toast.info("Offline mode active.");
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Pull data when tab is refocused (ensures multi-device consistency)
-    const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible') {
-            forceSync();
-        }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -64,20 +56,21 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const forceSync = async () => {
-    if (isSyncing || !isOnline) return;
+    if (syncInProgress.current || !isOnline) return;
+    
+    syncInProgress.current = true;
     setIsSyncing(true);
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Always push local changes first, then pull down the current state from Supabase
         await pushChanges(); 
         await pullData(user.id); 
         setLastSyncTime(new Date());
       }
-    } catch (e) {
-      console.error("[sync] Operation failed:", e);
     } finally {
       setIsSyncing(false);
+      syncInProgress.current = false;
     }
   };
 

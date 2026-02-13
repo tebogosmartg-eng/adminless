@@ -2,6 +2,7 @@ import { db, DBSyncItem } from '@/db';
 import { supabase } from '@/integrations/supabase/client';
 
 let isPushing = false;
+let isPulling = false;
 
 export const pushChanges = async () => {
   if (isPushing || !navigator.onLine) return;
@@ -10,7 +11,7 @@ export const pushChanges = async () => {
   if (queueCount === 0) return;
 
   isPushing = true;
-  console.log(`[Diagnostic: Sync] Pushing ${queueCount} changes to Supabase...`);
+  console.log(`[Sync] Pushing ${queueCount} changes to Supabase...`);
   
   try {
     const queue = await db.sync_queue.orderBy('timestamp').toArray();
@@ -19,7 +20,6 @@ export const pushChanges = async () => {
       const { table, action, data, id } = item;
       const payload = { ...data };
       
-      // Security Check: Ensure user_id exists for RLS compliance
       if (!payload.user_id && table !== 'profiles') {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) payload.user_id = user.id;
@@ -27,15 +27,12 @@ export const pushChanges = async () => {
 
       delete payload.sync_status;
 
-      // Handle field name mapping for PostgREST compatibility
       if (table === 'classes' && payload.className !== undefined) {
         payload.class_name = payload.className;
         delete payload.className;
       }
 
       let error = null;
-      console.log(`[Diagnostic: Sync] Executing ${action} on ${table}`, { id: payload.id });
-
       if (action === 'create' || action === 'upsert') {
         const { error: e } = await supabase.from(table as any).upsert(payload);
         error = e;
@@ -48,26 +45,23 @@ export const pushChanges = async () => {
       }
 
       if (error) {
-        console.error(`[Diagnostic: Sync] Push failed for ${table}:`, error.message, error.details);
-        if (error.code === 'PGRST301' || error.code === '42501') {
-            console.error("[Diagnostic: Sync] Critical Permission Error. Stopping Queue.");
-            break;
-        }
-        await db.sync_queue.delete(id!); 
-      } else {
-        await db.sync_queue.delete(id!);
+        console.error(`[Sync] Push failed for ${table}:`, error.message);
+        if (error.code === 'PGRST301' || error.code === '42501') break;
       }
+      
+      await db.sync_queue.delete(id!);
     }
-  } catch (err) {
-    console.error("[Diagnostic: Sync] Critical error during push:", err);
   } finally {
     isPushing = false;
   }
 };
 
 export const pullData = async (userId: string) => {
+  if (isPulling || !navigator.onLine) return;
+  isPulling = true;
+  
   try {
-    console.group(`[Diagnostic: Sync] Restoring Context for User: ${userId}`);
+    console.log(`[Sync] Starting data pull for user: ${userId}`);
     
     const pending = await db.sync_queue.toArray();
     const pendingIdsByTable = pending.reduce((acc, item) => {
@@ -78,16 +72,7 @@ export const pullData = async (userId: string) => {
 
     const pullTable = async (tableName: string, query: any) => {
       const { data, error } = await query;
-      
-      if (error) {
-          console.error(`[Diagnostic: Sync] Error pulling ${tableName}:`, error.message);
-          return;
-      }
-
-      if (!data || data.length === 0) {
-          console.log(`[Diagnostic: Sync] No remote records for ${tableName}`);
-          return;
-      }
+      if (error || !data) return;
 
       const itemsToPut = data.filter((item: any) => !pendingIdsByTable[tableName]?.has(item.id));
 
@@ -106,6 +91,7 @@ export const pullData = async (userId: string) => {
       }
     };
 
+    // Sequential pull to respect foreign keys where possible
     await pullTable('academic_years', supabase.from('academic_years').select('*').eq('user_id', userId));
     await pullTable('terms', supabase.from('terms').select('*').eq('user_id', userId));
     await pullTable('profiles', supabase.from('profiles').select('*').eq('id', userId));
@@ -118,9 +104,6 @@ export const pullData = async (userId: string) => {
       await pullTable('learners', supabase.from('learners').select('*').in('class_id', classIds));
       await pullTable('assessments', supabase.from('assessments').select('*').in('class_id', classIds));
       
-      const localLearners = await db.learners.toArray();
-      const learnerIds = localLearners.map(l => l.id!);
-      
       const localAssessments = await db.assessments.toArray();
       const assIds = localAssessments.map(a => a.id);
 
@@ -129,12 +112,6 @@ export const pullData = async (userId: string) => {
       }
 
       await pullTable('attendance', supabase.from('attendance').select('*').in('class_id', classIds));
-      
-      // REPAIR: Link learner_notes to learnerIds, not classIds
-      if (learnerIds.length > 0) {
-        await pullTable('learner_notes', supabase.from('learner_notes').select('*').in('learner_id', learnerIds));
-      }
-
       await pullTable('evidence', supabase.from('evidence').select('*').in('class_id', classIds));
     }
 
@@ -145,10 +122,11 @@ export const pullData = async (userId: string) => {
     await pullTable('rubrics', supabase.from('rubrics').select('*').eq('user_id', userId));
     await pullTable('activities', supabase.from('activities').select('*').eq('user_id', userId));
 
-    console.groupEnd();
+    console.log(`[Sync] Data pull complete.`);
   } catch (error) {
-    console.groupEnd();
-    console.error("[Diagnostic: Sync] Global pull operation failed:", error);
+    console.error("[Sync] Pull operation failed:", error);
+  } finally {
+    isPulling = false;
   }
 };
 

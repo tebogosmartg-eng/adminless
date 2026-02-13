@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useRef, useEffect } from 'react';
 import { ClassInfo, Learner } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { Session } from '@supabase/supabase-js';
@@ -26,21 +26,31 @@ const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
 export const ClassesProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
   const { activeYear, activeTerm, diagnosticMode } = useAcademic();
+  const fetchCount = useRef(0);
 
+  // Live Query with strict dependency management
   const rawClasses = useLiveQuery(async () => {
     if (!session?.user.id) return [];
     
-    // Strict Scope: filter by user immediately
+    // Log the fetch trigger
+    fetchCount.current++;
+    console.log(`[Diagnostic] Class Data Resolution #${fetchCount.current} | Scope: ${activeYear?.name || 'None'}/${activeTerm?.name || 'None'}`);
+
+    // Fetch classes from local DB
     const userClasses = await db.classes
         .where('user_id')
         .equals(session.user.id)
         .toArray();
     
-    // Academic Scope: filter by active year and term
+    // CRITICAL: If academic scope is missing and not in diagnostic mode, 
+    // return undefined to signal "still loading context" rather than "empty list"
+    if (!diagnosticMode && (!activeYear || !activeTerm)) {
+        return undefined; 
+    }
+
     const visibleClasses = userClasses.filter(c => {
         if (diagnosticMode) return true;
-        if (!activeYear || !activeTerm) return false;
-        return c.year_id === activeYear.id && c.term_id === activeTerm.id;
+        return c.year_id === activeYear?.id && c.term_id === activeTerm?.id;
     });
 
     if (visibleClasses.length === 0) return [];
@@ -61,13 +71,13 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     })) as ClassInfo[];
   }, [session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode]);
 
+  // Loading is true only if the query hasn't returned any array (including empty)
+  const loading = rawClasses === undefined;
   const classes = rawClasses || [];
-  const loading = rawClasses === undefined && !!session?.user.id;
 
   const addClass = async (newClass: ClassInfo) => {
-    // VALIDATION: Prevent creation without loaded scope
     if (!session?.user.id || !activeYear || !activeTerm) {
-        showError("Academic context not loaded. Please select a Year and Term before creating classes.");
+        showError("Academic context not loaded. Please select a Year and Term.");
         return;
     }
 
@@ -75,8 +85,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       const classData = {
         id: newClass.id, 
         user_id: session.user.id,
-        year_id: activeYear.id, // Enforce current context
-        term_id: activeTerm.id, // Enforce current context
+        year_id: activeYear.id,
+        term_id: activeTerm.id,
         grade: newClass.grade,
         subject: newClass.subject,
         className: newClass.className, 
@@ -105,7 +115,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       logActivity(`Created class: "${newClass.className}" for ${activeTerm.name}`);
     } catch (e) {
       console.error(e);
-      showError("Failed to create class locally.");
+      showError("Failed to create class.");
     }
   };
 
@@ -131,7 +141,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             }
 
             const toDelete = currentDbLearners.filter(l => !newIds.has(l.id)).map(l => l.id!);
-
             if (toDelete.length > 0) await db.learners.bulkDelete(toDelete);
             await db.learners.bulkPut(toUpsert as any);
 
@@ -142,7 +151,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         });
     } catch (e) {
         console.error(e);
-        showError("Failed to save roster updates.");
+        showError("Failed to update roster.");
     }
   };
 
@@ -195,7 +204,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         await db.classes.update(classId, { archived });
         await queueAction('classes', 'update', { id: classId, archived });
     } catch (e) {
-        showError("Failed to update status.");
+        showError("Status update failed.");
     }
   };
 
