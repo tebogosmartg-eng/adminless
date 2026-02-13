@@ -1,4 +1,4 @@
-in JSX">
+character in JSX text to fix TS1382 error.">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";
@@ -22,7 +22,7 @@ export const ClassCurriculumTab = ({ classId, subject, grade }: ClassCurriculumT
   if (!data || data.topics.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground border-2 border-dashed rounded-lg bg-muted/5 mt-6">
-        < BookOpen className="h-10 w-10 mb-2 opacity-20" />
+        <BookOpen className="h-10 w-10 mb-2 opacity-20" />
         <h3 className="font-semibold text-foreground">No Plan for {subject}</h3>
         <p className="text-xs max-w-xs mt-1">
           Define topics for this subject and grade in Settings > Curriculum to see your progress checklist here.
