@@ -1,4 +1,3 @@
-symbol">
 import {
   Dialog,
   DialogContent,
