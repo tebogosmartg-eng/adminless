@@ -9,15 +9,21 @@ import { useAcademic } from '@/context/AcademicContext';
 export const useLearnerNotes = (learnerId: string | undefined) => {
   const { activeYear, activeTerm } = useAcademic();
   
+  // Scoped Query
   const notes = useLiveQuery(
-    () => learnerId 
-      ? db.learner_notes.where('learner_id').equals(learnerId).reverse().sortBy('date') 
+    () => (learnerId && activeTerm) 
+      ? db.learner_notes.where('learner_id').equals(learnerId).filter(n => n.term_id === activeTerm.id).reverse().sortBy('date') 
       : [],
-    [learnerId]
+    [learnerId, activeTerm?.id]
   );
 
   const addNote = async (content: string, category: LearnerNote['category'], date: string) => {
-    if (!learnerId || !activeYear || !activeTerm) return;
+    // VALIDATION: Throw if context missing
+    if (!learnerId || !activeYear || !activeTerm) {
+        showError("Note creation blocked: Academic context not loaded.");
+        return;
+    }
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -26,8 +32,8 @@ export const useLearnerNotes = (learnerId: string | undefined) => {
         id: crypto.randomUUID(),
         learner_id: learnerId,
         user_id: user.id,
-        year_id: activeYear.id,
-        term_id: activeTerm.id,
+        year_id: activeYear.id, // Automatic Scoping
+        term_id: activeTerm.id, // Automatic Scoping
         content,
         category,
         date,

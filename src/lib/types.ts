@@ -142,6 +142,7 @@ export interface AssessmentMark {
 export interface TimetableEntry {
   id: string;
   user_id?: string;
+  year_id: string; // Scoped to year
   day: string; // "Monday", "Tuesday"...
   period: number; // 1, 2, 3...
   subject: string;

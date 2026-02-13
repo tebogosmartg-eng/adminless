@@ -18,7 +18,6 @@ export const useNotesLogic = () => {
   const [recentAlerts, setRecentAlerts] = useState<AlertWithLearner[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
 
-  // Trigger query when notes change
   const trigger = useLiveQuery(() => db.learner_notes.orderBy('created_at').reverse().limit(1).toArray());
 
   useEffect(() => {
@@ -31,10 +30,9 @@ export const useNotesLogic = () => {
 
       setLoadingAlerts(true);
       try {
-        // Strict Isolation: Query by term_id
         const notes = await db.learner_notes
           .where('term_id')
-          .equals(activeTerm.id)
+          .equals(activeTerm.id) // Enforce term filter
           .and(n => ['behavior', 'academic', 'parent'].includes(n.category))
           .reverse()
           .sortBy('date');
@@ -79,8 +77,9 @@ export const useNotesLogic = () => {
   }, [trigger, activeTerm?.id]);
 
   const addNoteGlobal = async (learnerId: string, content: string, category: LearnerNote['category'], date: string) => {
+    // VALIDATION: Prevent insertion without loaded scope
     if (!activeYear || !activeTerm) {
-        showError("Select an active term first.");
+        showError("Note creation blocked: Please select an active Academic Cycle first.");
         return false;
     }
 
@@ -92,8 +91,8 @@ export const useNotesLogic = () => {
         id: crypto.randomUUID(),
         learner_id: learnerId,
         user_id: user.id,
-        year_id: activeYear.id,
-        term_id: activeTerm.id,
+        year_id: activeYear.id, // Enforce current context
+        term_id: activeTerm.id, // Enforce current context
         content,
         category,
         date,

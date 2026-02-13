@@ -18,11 +18,13 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   const formattedDate = format(date, 'yyyy-MM-dd');
 
   const liveAttendance = useLiveQuery(
-    () => db.attendance
-        .where('class_id')
-        .equals(classId)
-        .filter(r => r.date === formattedDate && r.term_id === activeTerm?.id)
-        .toArray(),
+    () => (classId && activeTerm)
+        ? db.attendance
+            .where('class_id')
+            .equals(classId)
+            .filter(r => r.date === formattedDate && r.term_id === activeTerm.id)
+            .toArray()
+        : [],
     [classId, formattedDate, activeTerm?.id]
   );
 
@@ -44,7 +46,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
 
   const handleStatusChange = (learnerId: string, status: AttendanceStatus) => {
     if (!learnerId || !activeTerm) {
-      showError("Context missing: Selection restricted to active term.");
+      showError("Action blocked: Active term context required.");
       return;
     }
 
@@ -56,14 +58,17 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
           status, 
           date: formattedDate, 
           class_id: classId,
-          term_id: activeTerm.id
+          term_id: activeTerm.id // Automatic scoping
       }
     }));
     setHasChanges(true);
   };
 
   const handleMarkAll = (status: AttendanceStatus) => {
-    if (!activeTerm) return;
+    if (!activeTerm) {
+        showError("Action blocked: Active term context required.");
+        return;
+    }
     const newData = { ...attendanceData };
     learners.forEach(l => {
       if (l.id) {
@@ -73,7 +78,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
             status, 
             date: formattedDate, 
             class_id: classId,
-            term_id: activeTerm.id
+            term_id: activeTerm.id // Automatic scoping
         };
       }
     });
@@ -82,8 +87,9 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   };
 
   const saveAttendance = async () => {
+    // VALIDATION: Prevent insertion without term scope
     if (!activeTerm) {
-        showError("No active term selected.");
+        showError("Save blocked: Academic context required.");
         return;
     }
     setSaving(true);
@@ -93,12 +99,11 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
 
         const recordsToSave = Object.values(attendanceData).map(r => ({
             ...r,
+            term_id: activeTerm.id, // Enforce scope
             user_id: user.id
         }));
 
         if (recordsToSave.length === 0) return;
-
-        console.log(`[Diagnostic: Attendance] Saving ${recordsToSave.length} records for term ${activeTerm.id}`);
         
         await db.attendance.bulkPut(recordsToSave);
         await queueAction('attendance', 'upsert', recordsToSave);
@@ -106,7 +111,6 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
         setHasChanges(false);
         showSuccess('Attendance saved successfully.');
     } catch (e: any) {
-        console.error("[Diagnostic: Attendance] Save failed:", e);
         showError('Save failed: ' + e.message);
     } finally {
         setSaving(false);

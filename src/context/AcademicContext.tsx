@@ -96,7 +96,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (!session?.user.id) return;
     const targetYearId = yearId || activeYear?.id;
     const targetTermId = termId || activeTerm?.id;
-    if (!targetYearId || !targetTermId) return;
+    
+    // VALIDATION: Prevent activity log without scope
+    if (!targetYearId || !targetTermId) {
+        console.error("[Scoping] Activity log blocked: missing year or term context.");
+        return;
+    }
 
     const newActivity = {
       id: crypto.randomUUID(),
@@ -115,11 +120,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     logInternalActivity
   );
 
-  /**
-   * AUTOMATIC SILENT MIGRATION
-   * Detects and fixes NULL scope records once context is available.
-   * This ensures all legacy data belongs to the active year's Term 1.
-   */
   useEffect(() => {
     const runSilentMigration = async () => {
       if (!activeYear || !session?.user.id) return;
@@ -144,7 +144,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
               const needsYear = ['classes', 'activities', 'todos', 'learner_notes', 'evidence'].includes(table);
               const hasYear = needsYear ? !!i.year_id : true;
               const hasTerm = !!i.term_id;
-              // Check if record belongs to current user and lacks scoping
               return (!hasYear || !hasTerm) && (i.user_id === session.user.id || !i.user_id);
             });
 
@@ -157,7 +156,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                 newItem.term_id = term1.id;
                 if (!newItem.user_id) newItem.user_id = session.user.id;
                 
-                // Consistency fix for naming conventions across versions
                 if (table === 'classes' && newItem.class_name && !newItem.className) {
                   newItem.className = newItem.class_name;
                   delete newItem.class_name;
@@ -227,6 +225,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [recalculateAllActiveAverages]);
 
   const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
+    // VALIDATION: Prevent creation without term scope
+    if (!assessment.term_id) {
+        showError("Assessment creation blocked: Term context required.");
+        throw new Error("Missing term scope");
+    }
+
     const currentTerm = allTerms.find(t => t.id === assessment.term_id);
     if (currentTerm?.is_finalised) {
         showError("Action Blocked: Cannot add assessments to a finalised term.");
@@ -241,6 +245,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [session?.user.id, allTerms]);
 
   const updateAssessment = useCallback(async (a: Assessment) => {
+    if (!a.term_id) {
+        showError("Assessment update blocked: Record missing term scope.");
+        return;
+    }
     const currentTerm = allTerms.find(t => t.id === a.term_id);
     if (currentTerm?.is_finalised) {
         showError("Action Blocked: Cannot modify assessments in a finalised term.");
@@ -252,6 +260,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const deleteAssessment = useCallback(async (id: string) => {
     const ass = await db.assessments.get(id);
+    if (!ass?.term_id) {
+        showError("Assessment deletion blocked: Scope missing.");
+        return;
+    }
     const currentTerm = allTerms.find(t => t.id === ass?.term_id);
     if (currentTerm?.is_finalised) {
         showError("Action Blocked: Cannot delete assessments in a finalised term.");
@@ -266,6 +278,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (!session?.user.id || updates.length === 0) return;
     
     const firstAss = await db.assessments.get(updates[0].assessment_id);
+    if (!firstAss?.term_id) {
+        showError("Mark entry blocked: Assessment has no term scope.");
+        return;
+    }
+
     const currentTerm = allTerms.find(t => t.id === firstAss?.term_id);
     if (currentTerm?.is_finalised) {
         showError("Action Blocked: Data in a finalised term is read-only.");

@@ -65,8 +65,9 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const loading = rawClasses === undefined && !!session?.user.id;
 
   const addClass = async (newClass: ClassInfo) => {
+    // VALIDATION: Prevent creation without loaded scope
     if (!session?.user.id || !activeYear || !activeTerm) {
-        showError("Active academic cycle required to create a class.");
+        showError("Academic context not loaded. Please select a Year and Term before creating classes.");
         return;
     }
 
@@ -74,8 +75,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       const classData = {
         id: newClass.id, 
         user_id: session.user.id,
-        year_id: activeYear.id,
-        term_id: activeTerm.id,
+        year_id: activeYear.id, // Enforce current context
+        term_id: activeTerm.id, // Enforce current context
         grade: newClass.grade,
         subject: newClass.subject,
         className: newClass.className, 

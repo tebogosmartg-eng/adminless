@@ -21,16 +21,13 @@ export const useScanLogic = () => {
   const [scannedDetails, setScannedDetails] = useState<ScannedDetails | null>(null);
   const [scannedLearners, setScannedLearners] = useState<ScannedLearner[]>([]);
   
-  // State for "Update Existing"
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
   const [availableAssessments, setAvailableAssessments] = useState<Assessment[]>([]);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("new");
   
-  // State for "Create New"
   const [newClassName, setNewClassName] = useState("");
   const [activeTab, setActiveTab] = useState("update");
 
-  // Initial values
   const initialValuesRef = useRef<{
     grade?: string;
     subject?: string;
@@ -57,7 +54,6 @@ export const useScanLogic = () => {
     }
   }, [location.state]);
 
-  // Fetch assessments locally when class is selected
   useEffect(() => {
     const fetchClassAssessments = async () => {
       if (!selectedClassId || !activeTerm) return;
@@ -178,12 +174,14 @@ export const useScanLogic = () => {
   };
 
   const handleSaveToExisting = async () => {
+    // VALIDATION: Prevent scan saving without loaded scope
+    if (!activeYear || !activeTerm) {
+        showError("Save blocked: Academic cycle not loaded.");
+        return;
+    }
+
     if (!selectedClassId) {
       showError("Please select a class.");
-      return;
-    }
-    if (!activeTerm) {
-      showError("No active term selected in Academic Settings.");
       return;
     }
 
@@ -193,16 +191,14 @@ export const useScanLogic = () => {
       return;
     }
 
-    // 1. Determine Assessment ID
     let targetAssessmentId = selectedAssessmentId;
     
     if (selectedAssessmentId === 'new') {
         const title = scannedDetails?.testNumber || "Scanned Assessment";
         
-        // Use Offline-friendly createAssessment
         targetAssessmentId = await createAssessment({
             class_id: selectedClassId,
-            term_id: activeTerm.id,
+            term_id: activeTerm.id, // Strictly scoped
             title: title,
             type: 'Test',
             max_mark: 100, 
@@ -211,42 +207,32 @@ export const useScanLogic = () => {
         });
     }
 
-    // 2. Map Learners & Update/Create
     const learnersMap = new Map(targetClass.learners.map(l => [l.name.toLowerCase(), l]));
     const newLearnersToAdd: any[] = [];
     const markUpdates: { assessment_id: string; learner_id: string; score: number }[] = [];
 
-    // Pre-process to identify new learners
     scannedLearners.forEach(sl => {
         const slNameLower = sl.name.toLowerCase();
-        
-        // Try match
         let matchedKey = Array.from(learnersMap.keys()).find(key => 
             key.includes(slNameLower) || slNameLower.includes(key)
         );
 
         if (!matchedKey) {
-            // Create ID immediately for offline use
             const newId = crypto.randomUUID();
             const newLearner = { id: newId, name: sl.name, mark: "", comment: "" };
-            
             newLearnersToAdd.push(newLearner);
             learnersMap.set(slNameLower, newLearner as any);
         }
     });
 
-    // 2a. Save new learners to DB via Context (Offline friendly)
     if (newLearnersToAdd.length > 0) {
-        // Construct the full updated list for the context
         const fullRoster = [...targetClass.learners, ...newLearnersToAdd];
         await updateLearners(selectedClassId, fullRoster);
     }
 
-    // 3. Prepare Mark Updates
     let count = 0;
     scannedLearners.forEach(sl => {
         const slNameLower = sl.name.toLowerCase();
-        // Re-match to find (including newly added)
         const matchedKey = Array.from(learnersMap.keys()).find(key => 
             key.includes(slNameLower) || slNameLower.includes(key)
         );
@@ -254,9 +240,7 @@ export const useScanLogic = () => {
         if (matchedKey) {
             const learner = learnersMap.get(matchedKey)!;
             if (sl.mark && sl.mark.trim() !== '') {
-                // Parse mark
                 let score = parseFloat(sl.mark);
-                // Handle "15/20"
                 if (sl.mark.includes('/')) {
                     const parts = sl.mark.split('/');
                     if (parts.length === 2) {
@@ -286,20 +270,21 @@ export const useScanLogic = () => {
   };
 
   const handleCreateNewClass = () => {
+    // VALIDATION: Throw if context missing
     if (!scannedDetails || !newClassName || !activeYear || !activeTerm) {
-      showError("Please ensure all class details are filled out.");
+      showError("Setup Incomplete: Please ensure a Year and Term are active before creating new classes.");
       return;
     }
 
     const newLearners = scannedLearners.map(sl => ({
         name: sl.name,
-        mark: sl.mark // Legacy string storage for immediate view
+        mark: sl.mark 
     }));
 
     addClass({
       id: crypto.randomUUID(),
-      year_id: activeYear.id,
-      term_id: activeTerm.id,
+      year_id: activeYear.id, // Explicit scoping
+      term_id: activeTerm.id, // Explicit scoping
       grade: scannedDetails.grade,
       subject: scannedDetails.subject,
       className: newClassName,

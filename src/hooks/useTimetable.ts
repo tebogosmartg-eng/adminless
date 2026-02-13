@@ -4,21 +4,36 @@ import { TimetableEntry } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
+import { useAcademic } from '@/context/AcademicContext';
 
 export const useTimetable = () => {
-  const timetable = useLiveQuery(() => db.timetable.toArray()) || [];
+  const { activeYear } = useAcademic();
+  
+  // Scoped Query: routines typically change per year
+  const timetable = useLiveQuery(
+    () => activeYear 
+        ? db.timetable.where('year_id').equals(activeYear.id).toArray() 
+        : [],
+    [activeYear?.id]
+  ) || [];
 
   const updateEntry = async (entry: Partial<TimetableEntry> & { day: string; period: number }) => {
+    // VALIDATION: Prevent insertion without year scope
+    if (!activeYear) {
+        showError("Schedule update blocked: No active year cycle selected.");
+        return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Check if entry exists for this day/period
       const existing = timetable.find(t => t.day === entry.day && t.period === entry.period);
       
       const payload: TimetableEntry = {
         id: existing?.id || crypto.randomUUID(),
         user_id: user.id,
+        year_id: activeYear.id, // Automatic scoping
         day: entry.day,
         period: entry.period,
         subject: entry.subject || '',
@@ -31,8 +46,6 @@ export const useTimetable = () => {
 
       await db.timetable.put(payload);
       await queueAction('timetable', 'upsert', payload);
-      
-      // We avoid excessive toasts for routine updates
     } catch (e) {
       console.error(e);
       showError("Failed to update routine entry.");

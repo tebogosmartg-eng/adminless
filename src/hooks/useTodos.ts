@@ -10,20 +10,21 @@ export const useTodos = () => {
   const { activeYear, activeTerm } = useAcademic();
   const [adding, setAdding] = useState(false);
 
-  // Updated Scoping: Load items for active term AND legacy items without term IDs
+  // Scoped Loading: Only show items for active term
   const todos = useLiveQuery(
     async () => {
-        const allTodos = await db.todos.toArray();
-        
-        if (!activeTerm) return allTodos; // Show all if no term selected
-
-        return allTodos.filter(t => t.term_id === activeTerm.id || !t.term_id);
+        if (!activeTerm) return [];
+        return db.todos.where('term_id').equals(activeTerm.id).toArray();
     },
     [activeTerm?.id]
   ) || [];
 
   const addTodo = async (title: string) => {
-    if (!title.trim() || !activeYear || !activeTerm) return;
+    // VALIDATION: Prevent creation without loaded scope
+    if (!title.trim() || !activeYear || !activeTerm) {
+        showError("Task creation blocked: Academic context required.");
+        return;
+    }
     setAdding(true);
 
     try {
@@ -33,8 +34,8 @@ export const useTodos = () => {
         const newTodo = {
             id: crypto.randomUUID(),
             user_id: user.id,
-            year_id: activeYear.id,
-            term_id: activeTerm.id,
+            year_id: activeYear.id, // Automatic assignment
+            term_id: activeTerm.id, // Automatic assignment
             title: title.trim(),
             completed: false,
             created_at: new Date().toISOString()
@@ -58,10 +59,6 @@ export const useTodos = () => {
     } catch (e) {
         showError('Failed to update task.');
     }
-  };
-
-  const handleBatchUpdate = async (ids: string[], updates: any) => {
-      // Internal utility for migration if needed
   };
 
   const deleteTodo = async (id: string) => {
