@@ -1,4 +1,4 @@
-' in JSX.">
+character in JSX text to fix compilation error">
 import {
   Dialog,
   DialogContent,
