@@ -25,24 +25,14 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
     return found || null;
   }, [terms, activeTermId, activeYear]);
 
-  // Persistent Context Recovery
+  // STABILISATION: Ensure we have a year selected, but do NOT auto-jump terms.
   useEffect(() => {
     if (!activeYear && years.length > 0) {
       const openYear = years.find(y => !y.closed) || years[0];
       setActiveYearIdState(openYear.id);
       localStorage.setItem(STORAGE_KEYS.YEAR, openYear.id);
     }
-    
-    if (activeYear && !activeTerm && terms.length > 0) {
-      const yearTerms = terms.filter(t => t.year_id === activeYear.id);
-      if (yearTerms.length > 0) {
-          const openTerm = yearTerms.find(t => !t.closed);
-          const targetTerm = openTerm || yearTerms[0];
-          setActiveTermIdState(targetTerm.id);
-          localStorage.setItem(STORAGE_KEYS.TERM, targetTerm.id);
-      }
-    }
-  }, [years, activeYear, terms, activeTerm]);
+  }, [years, activeYear]);
 
   const setActiveYear = (year: AcademicYear | null) => {
     const id = year?.id || null;
@@ -50,6 +40,7 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
     if (id) localStorage.setItem(STORAGE_KEYS.YEAR, id);
     else localStorage.removeItem(STORAGE_KEYS.YEAR);
     
+    // Reset term when year changes to force explicit selection/load of the new year's start
     setActiveTermIdState(null);
     localStorage.removeItem(STORAGE_KEYS.TERM);
   };
@@ -61,15 +52,21 @@ export const useAcademicSelection = (years: AcademicYear[], terms: Term[]) => {
         return;
     }
 
-    // Workflow Guard: Ensure term finalisation before moving forward
-    if (activeTerm && !activeTerm.closed && activeYear && term.year_id === activeYear.id) {
-        const yearTerms = terms.filter(t => t.year_id === activeYear.id);
-        const currentIndex = yearTerms.findIndex(t => t.id === activeTerm.id);
+    // STRICT PROGRESSION GUARD:
+    // User cannot switch to a term if the preceding term in the 1-2-3-4 sequence is not finalised.
+    if (activeYear && term.year_id === activeYear.id) {
+        const yearTerms = [...terms]
+            .filter(t => t.year_id === activeYear.id)
+            .sort((a, b) => a.name.localeCompare(b.name));
+            
         const targetIndex = yearTerms.findIndex(t => t.id === term.id);
-
-        if (targetIndex > currentIndex) {
-            showError(`Workflow Restriction: Finalise ${activeTerm.name} in Settings before activating ${term.name}.`);
-            return;
+        
+        // Verify all terms before the target are 'closed' (finalised)
+        for (let i = 0; i < targetIndex; i++) {
+            if (!yearTerms[i].closed) {
+                showError(`Term Progression Locked: You must finalise ${yearTerms[i].name} before activating ${term.name}.`);
+                return;
+            }
         }
     }
 

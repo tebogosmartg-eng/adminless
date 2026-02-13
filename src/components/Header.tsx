@@ -4,7 +4,7 @@ import MobileSidebar from "./MobileSidebar";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { Button } from "@/components/ui/button";
-import { Search, CalendarDays, ChevronDown, Check, Clock, AlertTriangle, BookMarked, LogOut, Settings } from "lucide-react";
+import { Search, CalendarDays, ChevronDown, Check, Clock, AlertTriangle, BookMarked, LogOut, Settings, Lock } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
 import {
   DropdownMenu,
@@ -17,11 +17,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { showSuccess, showError } from "@/utils/toast";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 const Header = () => {
   const navigate = useNavigate();
@@ -49,11 +51,7 @@ const Header = () => {
 
   const handleTermSwitch = (term: any) => {
     if (term.id === activeTerm?.id) return;
-
-    if (confirm(`Switch active term to ${term.name}?`)) {
-        setActiveTerm(term);
-        showSuccess(`Switched to ${term.name}`);
-    }
+    setActiveTerm(term);
   };
 
   const handleLogout = async () => {
@@ -61,13 +59,14 @@ const Header = () => {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
         showSuccess("Signed out successfully");
-        // Navigation is handled by auth state observer in App.tsx
         navigate("/welcome");
     } catch (err: any) {
         console.error("Logout error:", err);
         showError(err.message || "Failed to sign out properly.");
     }
   };
+
+  const sortedTerms = [...terms].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-blue-700 dark:bg-blue-950 px-4 md:px-8 no-print shadow-md z-30 transition-all duration-300 text-white border-blue-800">
@@ -120,15 +119,43 @@ const Header = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Manual Context Switch</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Academic Progression</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {terms.length > 0 ? (
-                    terms.map(term => (
-                        <DropdownMenuItem key={term.id} onClick={() => handleTermSwitch(term)} className="justify-between text-sm py-2 cursor-pointer">
-                            {term.name}
-                            {activeTerm?.id === term.id && <Check className="h-4 w-4 text-primary" />}
-                        </DropdownMenuItem>
-                    ))
+                {sortedTerms.length > 0 ? (
+                    sortedTerms.map((term, index, array) => {
+                        const isUnlocked = index === 0 || array[index - 1].closed;
+                        const isActive = activeTerm?.id === term.id;
+                        
+                        return (
+                            <TooltipProvider key={term.id}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="w-full">
+                                            <DropdownMenuItem 
+                                                onClick={() => isUnlocked && handleTermSwitch(term)} 
+                                                className={cn(
+                                                    "justify-between text-sm py-2",
+                                                    !isUnlocked ? "opacity-50 cursor-not-allowed bg-muted/20" : "cursor-pointer"
+                                                )}
+                                                disabled={!isUnlocked}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    {term.name}
+                                                    {!isUnlocked && <Lock className="h-3 w-3" />}
+                                                </div>
+                                                {isActive && <Check className="h-4 w-4 text-primary" />}
+                                            </DropdownMenuItem>
+                                        </div>
+                                    </TooltipTrigger>
+                                    {!isUnlocked && (
+                                        <TooltipContent side="right">
+                                            <p className="text-xs">Finalise current term to unlock next term.</p>
+                                        </TooltipContent>
+                                    )}
+                                </Tooltip>
+                            </TooltipProvider>
+                        )
+                    })
                 ) : (
                     <div className="px-2 py-4 text-center text-xs text-muted-foreground italic">
                         Select a year first
