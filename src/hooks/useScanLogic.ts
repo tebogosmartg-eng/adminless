@@ -5,7 +5,7 @@ import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ScannedDetails, ScannedLearner, Assessment } from '@/lib/types';
+import { ScannedDetails, ScannedLearner, Assessment, AssessmentQuestion, QuestionMark } from '@/lib/types';
 import { db } from '@/db';
 import { compressImage } from '@/utils/image';
 
@@ -140,8 +140,22 @@ export const useScanLogic = () => {
       };
 
       const mockLearners: ScannedLearner[] = [
-        { name: "Thabo Mbeki", mark: "78" },
-        { name: "Sarah Connor", mark: "45" },
+        { 
+            name: "Thabo Mbeki", 
+            mark: "78",
+            questionMarks: [
+                { num: "1", score: "40" },
+                { num: "2", score: "38" }
+            ]
+        },
+        { 
+            name: "Sarah Connor", 
+            mark: "45",
+            questionMarks: [
+                { num: "1", score: "20" },
+                { num: "2", score: "25" }
+            ]
+        },
         { name: "John Wick", mark: "92" },
         { name: "Ellen Ripley", mark: "88" },
         { name: "Marty McFly", mark: "32" }
@@ -167,14 +181,13 @@ export const useScanLogic = () => {
     }
   };
 
-  const updateScannedLearner = (index: number, field: keyof ScannedLearner, value: string) => {
+  const updateScannedLearner = (index: number, field: keyof ScannedLearner, value: any) => {
     const updated = [...scannedLearners];
     updated[index] = { ...updated[index], [field]: value };
     setScannedLearners(updated);
   };
 
   const handleSaveToExisting = async () => {
-    // VALIDATION: Prevent scan saving without loaded scope
     if (!activeYear || !activeTerm) {
         showError("Save blocked: Academic cycle not loaded.");
         return;
@@ -192,24 +205,41 @@ export const useScanLogic = () => {
     }
 
     let targetAssessmentId = selectedAssessmentId;
-    
+    let targetQuestions: AssessmentQuestion[] = [];
+
     if (selectedAssessmentId === 'new') {
         const title = scannedDetails?.testNumber || "Scanned Assessment";
         
+        // Prepare questions if present in scan
+        const uniqueQNums = Array.from(new Set(
+            scannedLearners.flatMap(l => (l.questionMarks || []).map(q => q.num))
+        )).sort();
+
+        targetQuestions = uniqueQNums.map(num => ({
+            id: crypto.randomUUID(),
+            question_number: `Q${num}`,
+            skill_description: "",
+            max_mark: 0 // Will be derived from highest scanned score or default
+        }));
+
         targetAssessmentId = await createAssessment({
             class_id: selectedClassId,
-            term_id: activeTerm.id, // Strictly scoped
+            term_id: activeTerm.id,
             title: title,
             type: 'Test',
             max_mark: 100, 
             weight: 0,
-            date: scannedDetails?.date || new Date().toISOString()
+            date: scannedDetails?.date || new Date().toISOString(),
+            questions: targetQuestions
         });
+    } else {
+        const existing = availableAssessments.find(a => a.id === selectedAssessmentId);
+        targetQuestions = existing?.questions || [];
     }
 
     const learnersMap = new Map(targetClass.learners.map(l => [l.name.toLowerCase(), l]));
     const newLearnersToAdd: any[] = [];
-    const markUpdates: { assessment_id: string; learner_id: string; score: number }[] = [];
+    const markUpdates: any[] = [];
 
     scannedLearners.forEach(sl => {
         const slNameLower = sl.name.toLowerCase();
@@ -230,7 +260,6 @@ export const useScanLogic = () => {
         await updateLearners(selectedClassId, fullRoster);
     }
 
-    let count = 0;
     scannedLearners.forEach(sl => {
         const slNameLower = sl.name.toLowerCase();
         const matchedKey = Array.from(learnersMap.keys()).find(key => 
@@ -239,30 +268,30 @@ export const useScanLogic = () => {
 
         if (matchedKey) {
             const learner = learnersMap.get(matchedKey)!;
-            if (sl.mark && sl.mark.trim() !== '') {
-                let score = parseFloat(sl.mark);
-                if (sl.mark.includes('/')) {
-                    const parts = sl.mark.split('/');
-                    if (parts.length === 2) {
-                        score = parseFloat(parts[0]);
-                    }
-                }
-                
-                if (!isNaN(score) && learner.id) {
-                    markUpdates.push({
-                        assessment_id: targetAssessmentId,
-                        learner_id: learner.id,
-                        score: score
-                    });
-                    count++;
-                }
+            const score = parseFloat(sl.mark) || 0;
+            
+            const questionMarks: QuestionMark[] = (sl.questionMarks || []).map(sq => {
+                const qDef = targetQuestions.find(tq => tq.question_number.includes(sq.num));
+                return {
+                    question_id: qDef?.id || crypto.randomUUID(),
+                    score: parseFloat(sq.score) || 0
+                };
+            });
+
+            if (learner.id) {
+                markUpdates.push({
+                    assessment_id: targetAssessmentId,
+                    learner_id: learner.id,
+                    score: score,
+                    question_marks: questionMarks
+                });
             }
         }
     });
 
     if (markUpdates.length > 0) {
         await updateMarks(markUpdates);
-        showSuccess(`Saved ${count} marks to assessment.`);
+        showSuccess(`Saved marks for ${markUpdates.length} learners.`);
         navigate(`/classes/${selectedClassId}`);
     } else {
         showError("No valid marks found to save.");
@@ -270,9 +299,8 @@ export const useScanLogic = () => {
   };
 
   const handleCreateNewClass = () => {
-    // VALIDATION: Throw if context missing
     if (!scannedDetails || !newClassName || !activeYear || !activeTerm) {
-      showError("Setup Incomplete: Please ensure a Year and Term are active before creating new classes.");
+      showError("Setup Incomplete: Please ensure a Year and Term are active.");
       return;
     }
 
@@ -283,8 +311,8 @@ export const useScanLogic = () => {
 
     addClass({
       id: crypto.randomUUID(),
-      year_id: activeYear.id, // Explicit scoping
-      term_id: activeTerm.id, // Explicit scoping
+      year_id: activeYear.id,
+      term_id: activeTerm.id,
       grade: scannedDetails.grade,
       subject: scannedDetails.subject,
       className: newClassName,

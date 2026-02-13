@@ -44,6 +44,7 @@ export interface GradeSymbol {
 export interface ScannedLearner {
   name: string;
   mark: string;
+  questionMarks?: { num: string; score: string }[];
 }
 
 export interface ScannedDetails {

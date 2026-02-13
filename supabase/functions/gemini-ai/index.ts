@@ -90,7 +90,7 @@ serve(async (req) => {
             Analyze these images of learner test scripts, mark sheets, or class lists.
             Extract the assessment details (subject, grade, test name, date) and the list of learner names and their marks.
             
-            If this is just a class list without marks, extract the names and leave the marks as empty strings.
+            If the image contains marks for individual questions (e.g., Q1, Q2, Q3 or 1, 2, 3), extract those as well.
             
             Output JSON only with this exact schema:
             {
@@ -101,9 +101,19 @@ serve(async (req) => {
                     "date": "YYYY-MM-DD" 
                 },
                 "learners": [ 
-                    { "name": "Learner Name", "mark": "85" } 
+                    { 
+                        "name": "Learner Name", 
+                        "mark": "Total Mark (e.g. 85)",
+                        "questionMarks": [
+                            { "num": "1", "score": "15" },
+                            { "num": "2", "score": "20" }
+                        ]
+                    } 
                 ]
             }
+            
+            If this is just a class list without marks, extract the names and leave the mark and questionMarks as empty.
+            
             For marks: 
             - If "25/30", keep "25/30". 
             - If "85%", keep "85%".
