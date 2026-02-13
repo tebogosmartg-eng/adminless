@@ -6,15 +6,20 @@ import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, Circle, ChevronRight, Rocket, Star, Lock, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { useClasses } from "@/context/ClassesContext";
 
 export const GetStartedChecklist = () => {
-  const { coreSteps, isReadyForFinalization, progress, isLoading } = useSetupStatus();
+  const { coreSteps, progress, isLoading } = useSetupStatus();
+  const { classes } = useClasses();
   const navigate = useNavigate();
 
   if (isLoading) return null;
 
   const handleStepClick = (id: number, isLocked: boolean, status: StepStatus) => {
     if (isLocked || status === 'completed') return;
+
+    // Determine the first available class for deep-linking class-specific steps
+    const firstClassId = classes.length > 0 ? classes[0].id : null;
 
     switch (id) {
       case 1:
@@ -28,16 +33,32 @@ export const GetStartedChecklist = () => {
         navigate('/classes', { state: { highlightId: 'create-class-btn', fromOnboarding: true } });
         break;
       case 5:
-        navigate('/classes', { state: { highlightId: 'class-list-roster', fromOnboarding: true } });
+        if (firstClassId) {
+            navigate(`/classes/${firstClassId}`, { state: { fromOnboarding: true } });
+        } else {
+            navigate('/classes', { state: { highlightId: 'class-list-roster', fromOnboarding: true } });
+        }
         break;
       case 6:
-        navigate('/classes', { state: { highlightId: 'new-task-btn', fromOnboarding: true } });
+        if (firstClassId) {
+            navigate(`/classes/${firstClassId}`, { state: { highlightId: 'new-task-btn', fromOnboarding: true } });
+        } else {
+            navigate('/classes');
+        }
         break;
       case 7:
-        navigate('/classes', { state: { highlightId: 'mark-sheet-grid', fromOnboarding: true } });
+        if (firstClassId) {
+            navigate(`/classes/${firstClassId}`, { state: { highlightId: 'mark-sheet-grid', fromOnboarding: true } });
+        } else {
+            navigate('/classes');
+        }
         break;
       case 8:
-        navigate('/classes', { state: { highlightId: 'integrity-guard', fromOnboarding: true } });
+        if (firstClassId) {
+            navigate(`/classes/${firstClassId}`, { state: { highlightId: 'integrity-guard', fromOnboarding: true } });
+        } else {
+            navigate('/classes');
+        }
         break;
       case 9:
         navigate('/settings', { state: { highlightId: 'finalize-term-btn', fromOnboarding: true } });
@@ -51,10 +72,10 @@ export const GetStartedChecklist = () => {
   };
 
   const getStepIcon = (status: StepStatus, isLocked: boolean) => {
-    if (isLocked) return <Lock className="h-5 w-5 text-muted-foreground/40" />;
-    if (status === 'completed') return <CheckCircle2 className="h-5 w-5 text-green-600" />;
-    if (status === 'in-progress') return <Timer className="h-5 w-5 text-primary animate-pulse" />;
-    return <Circle className="h-5 w-5 text-muted-foreground" />;
+    if (isLocked) return <Lock className="h-4 w-4 text-muted-foreground/40" />;
+    if (status === 'completed') return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+    if (status === 'in-progress') return <Timer className="h-4 w-4 text-primary animate-pulse" />;
+    return <Circle className="h-4 w-4 text-muted-foreground" />;
   };
 
   return (
@@ -82,7 +103,7 @@ export const GetStartedChecklist = () => {
             
             <div className="w-full md:w-64 space-y-2">
                 <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-primary">
-                    <span>Term Readiness</span>
+                    <span>Onboarding Progress</span>
                     <span>{progress}%</span>
                 </div>
                 <Progress value={progress} className="h-2 bg-primary/10" />
@@ -111,18 +132,18 @@ export const GetStartedChecklist = () => {
                     </div>
                     <div className="flex flex-col min-w-0">
                         <span className={cn(
-                            "text-xs font-bold truncate transition-colors",
+                            "text-[11px] font-bold truncate transition-colors",
                             step.status === 'completed' ? "text-green-800 line-through" : step.isLocked ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
                         )}>
                             {step.title}
                         </span>
                         {step.optional && !step.isLocked && (
-                            <span className="text-[9px] font-black uppercase text-blue-600 flex items-center gap-1">
+                            <span className="text-[8px] font-black uppercase text-blue-600 flex items-center gap-1">
                                 <Star className="h-2 w-2 fill-current" /> Recommended
                             </span>
                         )}
                         {step.status === 'in-progress' && !step.isLocked && (
-                             <span className="text-[8px] font-black uppercase text-primary/60">Continue working</span>
+                             <span className="text-[8px] font-black uppercase text-primary/60">Take Action</span>
                         )}
                     </div>
                 </div>
