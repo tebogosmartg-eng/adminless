@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { db } from '@/db';
-import { Assessment, Learner, AssessmentMark, QuestionMark } from '@/lib/types';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { db, AssessmentDiagnostic } from '@/db';
+import { Assessment, Learner, AssessmentMark } from '@/lib/types';
+import { supabase } from '@/integrations/supabase/client';
+import { queueAction } from '@/services/sync';
+import { showSuccess, showError } from '@/utils/toast';
 
 export interface QuestionStat {
   id: string;
@@ -19,18 +22,20 @@ export interface QuestionStat {
 export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[]) => {
   const [loading, setLoading] = useState(true);
   const [marks, setMarks] = useState<AssessmentMark[]>([]);
+  const [savedDiagnostic, setSavedDiagnostic] = useState<AssessmentDiagnostic | null>(null);
 
   useEffect(() => {
-    const fetchMarks = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      const data = await db.assessment_marks
-        .where('assessment_id')
-        .equals(assessment.id)
-        .toArray();
-      setMarks(data);
+      const [marksData, diagnosticData] = await Promise.all([
+        db.assessment_marks.where('assessment_id').equals(assessment.id).toArray(),
+        db.diagnostics.where('assessment_id').equals(assessment.id).first()
+      ]);
+      setMarks(marksData);
+      setSavedDiagnostic(diagnosticData || null);
       setLoading(false);
     };
-    fetchMarks();
+    fetchData();
   }, [assessment.id]);
 
   const stats = useMemo(() => {
@@ -69,11 +74,11 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
     const weakQuestions = qStats.filter(s => s.isWeak);
     const weakSkills = Array.from(new Set(weakQuestions.map(s => s.skill))).filter(Boolean);
 
-    const findings = `The overall class performance for "${assessment.title}" shows an average achievement of ${qStats.reduce((a, b) => a + b.avg, 0) / qStats.length}% across all questions. ${weakQuestions.length > 0 ? `Critical gaps were identified in ${weakQuestions.map(q => q.number).join(', ')}, which primarily assessed ${weakSkills.join(' and ')}.` : 'Learners demonstrated a consistent grasp of the skills assessed.'}`;
+    const findings = savedDiagnostic?.findings || `The overall class performance for "${assessment.title}" shows an average achievement of ${(qStats.reduce((a, b) => a + b.avg, 0) / qStats.length).toFixed(1)}% across all questions. ${weakQuestions.length > 0 ? `Critical gaps were identified in ${weakQuestions.map(q => q.number).join(', ')}, which primarily assessed ${weakSkills.join(' and ')}.` : 'Learners demonstrated a consistent grasp of the skills assessed.'}`;
     
-    const interventions = weakQuestions.length > 0 
-        ? `1. Remedial sessions focused on ${weakSkills.join(', ')}.\n2. Re-teaching of core concepts linked to Question ${weakQuestions[0].number}.\n3. Individual support for learners scoring below 40% in these specific sections.`
-        : "Continue with the current teaching plan, incorporating extension activities for high performers.";
+    const interventions = savedDiagnostic?.interventions || (weakQuestions.length > 0 
+        ? `1. Remedial sessions focused on ${weakSkills.join(', ')}.\n2. Re-teaching of core concepts linked to Question ${weakQuestions[0]?.number}.\n3. Individual support for learners scoring below 40% in these specific sections.`
+        : "Continue with the current teaching plan, incorporating extension activities for high performers.");
 
     return { 
         qStats, 
@@ -82,7 +87,30 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
         drafts: { findings, interventions },
         rawMarks: marks 
     };
-  }, [assessment, marks]);
+  }, [assessment, marks, savedDiagnostic]);
 
-  return { stats, loading };
+  const saveDiagnostic = useCallback(async (findings: string, interventions: string) => {
+      try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          const payload: AssessmentDiagnostic = {
+              id: savedDiagnostic?.id || crypto.randomUUID(),
+              assessment_id: assessment.id,
+              user_id: user.id,
+              findings,
+              interventions,
+              updated_at: new Date().toISOString()
+          };
+
+          await db.diagnostics.put(payload);
+          await queueAction('diagnostics', 'upsert', payload);
+          setSavedDiagnostic(payload);
+          showSuccess("Diagnostic analysis saved.");
+      } catch (e) {
+          showError("Failed to save diagnostic.");
+      }
+  }, [assessment.id, savedDiagnostic]);
+
+  return { stats, loading, saveDiagnostic };
 };

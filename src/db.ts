@@ -10,7 +10,7 @@ export interface LessonLog {
   date: string; 
   content: string;
   homework?: string;
-  topic_ids?: string[]; // Link to curriculum topics
+  topic_ids?: string[]; 
   created_at: string;
 }
 
@@ -23,6 +23,15 @@ export interface CurriculumTopic {
   title: string;
   description?: string;
   order: number;
+}
+
+export interface AssessmentDiagnostic {
+  id: string;
+  assessment_id: string;
+  user_id: string;
+  findings: string;
+  interventions: string;
+  updated_at: string;
 }
 
 export interface DBClass extends Omit<ClassInfo, 'learners'> {
@@ -60,6 +69,7 @@ export class SmaRegDB extends Dexie {
   rubrics!: Table<Rubric>;
   lesson_logs!: Table<LessonLog>;
   curriculum_topics!: Table<CurriculumTopic>;
+  diagnostics!: Table<AssessmentDiagnostic>;
 
   constructor() {
     super('SmaRegDB');
@@ -77,49 +87,10 @@ export class SmaRegDB extends Dexie {
       profiles: 'id'
     });
 
-    this.version(14).stores({
-      lesson_logs: 'id, user_id, timetable_id, date, [timetable_id+date]'
-    });
-
-    this.version(15).stores({
-      curriculum_topics: 'id, user_id, term_id, [subject+grade+term_id]'
-    });
-
-    this.version(16).stores({
-      academic_years: 'id, closed, name',
-      terms: 'id, year_id, name',
-      activities: 'id, timestamp, term_id',
-      todos: 'id, completed, term_id',
-      learner_notes: 'id, learner_id, term_id, date, created_at',
-      evidence: 'id, class_id, learner_id, term_id, created_at',
-      attendance: 'id, class_id, learner_id, term_id, date',
-      timetable: 'id, user_id, class_id, day, period',
-      assessments: 'id, class_id, term_id, [class_id+term_id]',
-      rubrics: 'id, user_id'
-    });
-
-    this.version(17).stores({
-        activities: 'id, timestamp, term_id, user_id',
-        todos: 'id, completed, term_id, user_id'
-    });
-
-    this.version(18).stores({
-      academic_years: 'id, closed, name, user_id',
-      terms: 'id, year_id, name, user_id'
-    });
-
-    this.version(19).stores({
-      classes: 'id, user_id, term_id, year_id, sync_status'
-    });
-
-    this.version(20).stores({
-      timetable: 'id, user_id, year_id, class_id, day, period'
-    });
-
-    // Version 21: Restored composite primary key for assessment_marks to fix UpgradeError
     this.version(21).stores({
       assessments: 'id, class_id, term_id, [class_id+term_id], user_id',
-      assessment_marks: '[assessment_id+learner_id], id, assessment_id, learner_id, user_id'
+      assessment_marks: '[assessment_id+learner_id], id, assessment_id, learner_id, user_id',
+      diagnostics: 'id, assessment_id, user_id'
     });
   }
 }

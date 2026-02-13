@@ -8,15 +8,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { 
-    BarChart3, 
     Download, 
     Loader2, 
     AlertTriangle, 
-    CheckCircle2, 
     BrainCircuit,
     ClipboardList,
     FileSearch,
-    ShieldAlert
+    ShieldAlert,
+    Save,
+    CheckCircle2
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { useQuestionAnalysis } from '@/hooks/useQuestionAnalysis';
@@ -33,12 +33,13 @@ interface QuestionDiagnosticDialogProps {
 }
 
 export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learners }: QuestionDiagnosticDialogProps) => {
-  const { stats, loading } = useQuestionAnalysis(assessment, learners);
+  const { stats, loading, saveDiagnostic } = useQuestionAnalysis(assessment, learners);
   const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   
   const [findings, setFindings] = useState("");
   const [interventions, setInterventions] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (stats) {
@@ -46,6 +47,12 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
         setInterventions(stats.drafts.interventions);
     }
   }, [stats]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    await saveDiagnostic(findings, interventions);
+    setIsSaving(false);
+  };
 
   const handleExport = () => {
     if (!stats) return;
@@ -79,10 +86,16 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     <DialogTitle className="text-2xl font-bold">{assessment.title}</DialogTitle>
                     <DialogDescription>Question-Level Analysis & Intervention Planning</DialogDescription>
                 </div>
-                <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-2">
-                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                    Generate Departmental PDF
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={handleSave} disabled={isSaving || loading} className="gap-2">
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        Save Analysis
+                    </Button>
+                    <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-2">
+                        {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        Export Official PDF
+                    </Button>
+                </div>
             </div>
           </DialogHeader>
         </div>
@@ -110,16 +123,6 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         </div>
                     ))}
                 </div>
-
-                {stats.weakSkills.length > 0 && (
-                    <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-4">
-                        <div className="bg-amber-100 p-2 rounded-full"><ShieldAlert className="h-5 w-5 text-amber-600" /></div>
-                        <div>
-                            <h4 className="text-sm font-bold text-amber-900 uppercase tracking-tight">Weak Skills Identified</h4>
-                            <p className="text-xs text-amber-700 mt-1">Intervention is recommended for: <strong>{stats.weakSkills.join(', ')}</strong></p>
-                        </div>
-                    </div>
-                )}
 
                 <div className="grid gap-6">
                     <div className="space-y-3">

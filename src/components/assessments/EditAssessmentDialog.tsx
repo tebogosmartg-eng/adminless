@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Assessment, Rubric } from '@/lib/types';
-import { Layers } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Assessment, Rubric, AssessmentQuestion } from '@/lib/types';
+import { Layers, Plus, Trash2, ListChecks } from 'lucide-react';
 
 interface EditAssessmentDialogProps {
   open: boolean;
@@ -43,71 +44,166 @@ export const EditAssessmentDialog = ({
       setFormData({ 
           ...formData, 
           rubric_id: rubricId,
-          max_mark: rubric ? rubric.total_points : formData.max_mark 
+          max_mark: rubric ? rubric.total_points : formData.max_mark,
+          questions: [] // Rubrics and questions are mutually exclusive
       });
+  };
+
+  const addQuestion = () => {
+    const questions = [...(formData.questions || [])];
+    const nextNum = questions.length + 1;
+    questions.push({
+      id: crypto.randomUUID(),
+      question_number: `Q${nextNum}`,
+      skill_description: "",
+      max_mark: 10
+    });
+    
+    const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
+    setFormData({ ...formData, questions, max_mark: totalMax, rubric_id: null });
+  };
+
+  const removeQuestion = (id: string) => {
+    const questions = (formData.questions || []).filter((q: any) => q.id !== id);
+    const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
+    setFormData({ ...formData, questions, max_mark: totalMax || (formData.max_mark || 50) });
+  };
+
+  const updateQuestion = (id: string, updates: Partial<AssessmentQuestion>) => {
+    const questions = (formData.questions || []).map((q: any) => 
+      q.id === id ? { ...q, ...updates } : q
+    );
+    const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
+    setFormData({ ...formData, questions, max_mark: totalMax });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px]">
-        <DialogHeader>
-          <DialogTitle>Edit Assessment Settings</DialogTitle>
-          <DialogDescription>
-            Update the title, total marks, and weight for this task.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right text-xs">Title</Label>
-            <Input 
-              value={formData.title || ""} 
-              onChange={e => setFormData({ ...formData, title: e.target.value })} 
-              className="col-span-3 h-9" 
-            />
-          </div>
-          
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right text-xs">Rubric</Label>
-            <Select value={formData.rubric_id || "none"} onValueChange={handleRubricSelect}>
-                <SelectTrigger className="col-span-3 h-9">
-                    <SelectValue placeholder="None (Standard Mark)" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="none">-- Standard Score --</SelectItem>
-                    {availableRubrics.map(r => (
-                        <SelectItem key={r.id} value={r.id}>
-                            <div className="flex items-center gap-2">
-                                <Layers className="h-3 w-3 text-muted-foreground" />
-                                {r.title} ({r.total_points} pts)
-                            </div>
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right text-xs">Max Mark</Label>
-            <Input 
-                type="number" 
-                value={formData.max_mark || ""} 
-                onChange={e => setFormData({ ...formData, max_mark: parseInt(e.target.value) })} 
-                className="col-span-3 h-9"
-                disabled={!!formData.rubric_id}
-            />
-          </div>
-          
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right text-xs">Weight (%)</Label>
-            <Input 
-              type="number" 
-              value={formData.weight || ""} 
-              onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) })} 
-              className="col-span-3 h-9" 
-            />
-          </div>
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <div className="p-6 pb-2">
+            <DialogHeader>
+                <DialogTitle>Assessment Settings</DialogTitle>
+                <DialogDescription>
+                    Update the task structure and weighting.
+                </DialogDescription>
+            </DialogHeader>
         </div>
-        <DialogFooter>
+
+        <ScrollArea className="flex-1 p-6 pt-0">
+            <div className="grid gap-6 py-4">
+                <div className="grid gap-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right text-xs">Title</Label>
+                        <Input 
+                            value={formData.title || ""} 
+                            onChange={e => setFormData({ ...formData, title: e.target.value })} 
+                            className="col-span-3 h-9" 
+                        />
+                    </div>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right text-xs">Rubric</Label>
+                        <Select value={formData.rubric_id || "none"} onValueChange={handleRubricSelect}>
+                            <SelectTrigger className="col-span-3 h-9">
+                                <SelectValue placeholder="None (Standard Mark)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">-- Standard Score --</SelectItem>
+                                {availableRubrics.map(r => (
+                                    <SelectItem key={r.id} value={r.id}>
+                                        <div className="flex items-center gap-2">
+                                            <Layers className="h-3 w-3 text-muted-foreground" />
+                                            {r.title} ({r.total_points} pts)
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right text-xs">Max Mark</Label>
+                        <Input 
+                            type="number" 
+                            value={formData.max_mark || ""} 
+                            onChange={e => setFormData({ ...formData, max_mark: parseInt(e.target.value) })} 
+                            className="col-span-3 h-9"
+                            disabled={!!formData.rubric_id || (formData.questions && formData.questions.length > 0)}
+                        />
+                    </div>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right text-xs">Weight (%)</Label>
+                        <Input 
+                            type="number" 
+                            value={formData.weight || ""} 
+                            onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) })} 
+                            className="col-span-3 h-9" 
+                        />
+                    </div>
+                </div>
+
+                <div className="border-t pt-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <ListChecks className="h-4 w-4 text-primary" />
+                            <h4 className="text-sm font-bold">Question Breakdown</h4>
+                        </div>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={addQuestion}
+                            disabled={!!formData.rubric_id}
+                            className="h-8"
+                        >
+                            <Plus className="h-3 w-3 mr-1" /> Add Question
+                        </Button>
+                    </div>
+
+                    <div className="space-y-3">
+                        {(formData.questions || []).map((q: AssessmentQuestion) => (
+                            <div key={q.id} className="flex gap-3 p-3 rounded-lg border bg-muted/20">
+                                <div className="w-16">
+                                    <Label className="text-[10px] font-bold mb-1 block">Num</Label>
+                                    <Input 
+                                        value={q.question_number} 
+                                        onChange={(e) => updateQuestion(q.id, { question_number: e.target.value })}
+                                        className="h-8 text-xs font-bold"
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <Label className="text-[10px] font-bold mb-1 block">Skill</Label>
+                                    <Input 
+                                        value={q.skill_description} 
+                                        onChange={(e) => updateQuestion(q.id, { skill_description: e.target.value })}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                                <div className="w-20">
+                                    <Label className="text-[10px] font-bold mb-1 block">Max</Label>
+                                    <Input 
+                                        type="number"
+                                        value={q.max_mark} 
+                                        onChange={(e) => updateQuestion(q.id, { max_mark: parseInt(e.target.value) || 0 })}
+                                        className="h-8 text-xs text-center"
+                                    />
+                                </div>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => removeQuestion(q.id)}
+                                    className="mt-5 h-8 w-8 text-muted-foreground hover:text-destructive"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </ScrollArea>
+
+        <DialogFooter className="p-6 border-t bg-muted/5">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
