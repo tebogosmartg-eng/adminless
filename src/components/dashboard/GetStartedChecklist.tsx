@@ -13,27 +13,62 @@ import {
     Timer, 
     ChevronDown, 
     ChevronUp,
-    LayoutList
+    Sparkles,
+    Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useClasses } from "@/context/ClassesContext";
 import { Button } from "@/components/ui/button";
+import { importDemoData } from "@/services/demoData";
+import { useAcademic } from "@/context/AcademicContext";
+import { showSuccess, showError } from "@/utils/toast";
+import confetti from 'canvas-confetti';
 
 export const GetStartedChecklist = () => {
   const { coreSteps, progress, isLoading } = useSetupStatus();
   const { classes } = useClasses();
+  const { recalculateAllActiveAverages } = useAcademic();
   const navigate = useNavigate();
   
-  // Persistence for minimized state
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
     return localStorage.getItem('adminless_checklist_minimized') === 'true';
   });
+
+  // Celebrate on 100% completion
+  useEffect(() => {
+    if (progress === 100) {
+        confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#2563eb', '#16a34a', '#fbbf24']
+        });
+    }
+  }, [progress]);
 
   const toggleMinimized = () => {
     const nextState = !isMinimized;
     setIsMinimized(nextState);
     localStorage.setItem('adminless_checklist_minimized', String(nextState));
+  };
+
+  const handleLoadDemo = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDemoLoading(true);
+    try {
+        const { yearId, activeTermId } = await importDemoData();
+        localStorage.setItem('adminless_active_year_id', yearId);
+        localStorage.setItem('adminless_active_term_id', activeTermId);
+        await recalculateAllActiveAverages(true);
+        showSuccess("Demo context initialized. Refreshing...");
+        setTimeout(() => window.location.reload(), 1000);
+    } catch (err: any) {
+        showError("Demo load failed.");
+    } finally {
+        setIsDemoLoading(false);
+    }
   };
 
   if (isLoading) return null;
@@ -44,7 +79,7 @@ export const GetStartedChecklist = () => {
     if (progress <= 60) return "Great work! You’re ready to start marking.";
     if (progress <= 80) return "Almost there — just a few steps left.";
     if (progress < 100) return "One final step to go!";
-    return "Your term is fully set up.";
+    return "Your term is fully set up and ready for audit.";
   };
 
   const handleStepClick = (id: number, isLocked: boolean, status: StepStatus) => {
@@ -147,9 +182,23 @@ export const GetStartedChecklist = () => {
                     </div>
                 </div>
 
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={toggleMinimized}>
-                    {isMinimized ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
-                </Button>
+                <div className="flex items-center gap-2">
+                    {progress === 0 && !isMinimized && (
+                        <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            onClick={handleLoadDemo} 
+                            disabled={isDemoLoading}
+                            className="h-8 gap-2 font-bold text-[10px] uppercase tracking-tighter"
+                        >
+                            {isDemoLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                            Quick Start with Demo Data
+                        </Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={toggleMinimized}>
+                        {isMinimized ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+                    </Button>
+                </div>
             </div>
             
             <div className={cn("w-full md:w-64 space-y-2 transition-all", isMinimized && "md:w-48")}>
