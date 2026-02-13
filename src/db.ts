@@ -116,10 +116,10 @@ export class SmaRegDB extends Dexie {
       timetable: 'id, user_id, year_id, class_id, day, period'
     });
 
-    // Version 21: Added JSONB structure support for assessments and marks
+    // Version 21: Restored composite primary key for assessment_marks to fix UpgradeError
     this.version(21).stores({
       assessments: 'id, class_id, term_id, [class_id+term_id], user_id',
-      assessment_marks: 'id, assessment_id, learner_id, [assessment_id+learner_id], user_id'
+      assessment_marks: '[assessment_id+learner_id], id, assessment_id, learner_id, user_id'
     });
   }
 }
