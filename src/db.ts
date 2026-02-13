@@ -85,7 +85,6 @@ export class SmaRegDB extends Dexie {
       curriculum_topics: 'id, user_id, term_id, [subject+grade+term_id]'
     });
 
-    // Version 16: Adding missing indices for complex queries
     this.version(16).stores({
       academic_years: 'id, closed, name',
       terms: 'id, year_id, name',
@@ -99,16 +98,19 @@ export class SmaRegDB extends Dexie {
       rubrics: 'id, user_id'
     });
 
-    // Version 17: Indexing user_id for activity feed and todo list scoping
     this.version(17).stores({
         activities: 'id, timestamp, term_id, user_id',
         todos: 'id, completed, term_id, user_id'
     });
 
-    // Version 18: Adding user_id index to academic_years and terms to support strict scoping
     this.version(18).stores({
       academic_years: 'id, closed, name, user_id',
       terms: 'id, year_id, name, user_id'
+    });
+
+    // Version 19: Indexing classes table for term-based and year-based queries
+    this.version(19).stores({
+      classes: 'id, user_id, term_id, year_id, sync_status'
     });
   }
 }
