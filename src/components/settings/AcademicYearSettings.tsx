@@ -5,19 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Lock, Unlock, Plus, AlertCircle, Loader2, Archive, Play, Trash2, ArrowRightCircle } from "lucide-react";
+import { Lock, Unlock, Plus, Loader2, Archive, Trash2, ArrowRightCircle } from "lucide-react";
 import { useAcademic } from '@/context/AcademicContext';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTermValidation, ValidationError } from '@/hooks/useTermValidation';
 import { TermClosureDialog } from '@/components/dialogs/TermClosureDialog';
 import { RollForwardDialog } from '@/components/dialogs/RollForwardDialog';
-import { showError, showSuccess } from '@/utils/toast';
+import { showError } from '@/utils/toast';
 
 export const AcademicYearSettings = () => {
-  const { years, terms, activeYear, setActiveYear, createYear, deleteYear, updateTerm, toggleTermStatus, closeYear, rollForwardClasses } = useAcademic();
+  const { years, terms, activeYear, setActiveYear, createYear, deleteYear, toggleTermStatus, closeYear, rollForwardClasses } = useAcademic();
   const [newYearName, setNewYearName] = useState("");
   
   const { validateTerm, validating } = useTermValidation();
@@ -46,7 +43,7 @@ export const AcademicYearSettings = () => {
   const handleTermAction = async (termId: string, currentFinalised: boolean) => {
     if (currentFinalised) {
         if (activeYear?.closed) { showError("Year is finalized."); return; }
-        // Rule: Only the last finalised term can be re-opened to maintain sequence
+        
         const termList = [...terms].sort((a,b) => a.name.localeCompare(b.name));
         const idx = termList.findIndex(t => t.id === termId);
         const hasSubsequentFinalised = termList.slice(idx + 1).some(t => t.is_finalised);
@@ -150,7 +147,7 @@ export const AcademicYearSettings = () => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {terms.sort((a,b) => a.name.localeCompare(b.name)).map((term, idx, arr) => {
+                        {[...terms].sort((a,b) => a.name.localeCompare(b.name)).map((term, idx, arr) => {
                             const isPrevFinalised = idx === 0 || arr[idx-1].is_finalised;
                             return (
                                 <TableRow key={term.id} className={cn("hover:bg-muted/10", !term.is_finalised && "bg-primary/[0.02]")}>

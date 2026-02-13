@@ -124,6 +124,77 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     logInternalActivity
   );
 
+  /**
+   * AUTOMATIC SILENT MIGRATION
+   * Detects and fixes NULL scope records once context is available.
+   */
+  useEffect(() => {
+    const runSilentMigration = async () => {
+      if (!activeYear || !session?.user.id) return;
+      
+      const term1 = terms.find(t => t.name.includes("Term 1")) || terms[0];
+      if (!term1) return;
+
+      const tables = ['classes', 'assessments', 'activities', 'todos', 'learner_notes', 'evidence', 'attendance'];
+      let totalMigrated = 0;
+      const counts: Record<string, number> = {};
+
+      try {
+        await db.transaction('rw', [
+          db.classes, db.assessments, db.activities, db.todos, 
+          db.learner_notes, db.evidence, db.attendance, db.sync_queue, db.learners
+        ], async () => {
+          for (const table of tables) {
+            // @ts-ignore
+            const all = await db[table].toArray();
+            
+            const legacy = all.filter((i: any) => {
+              const needsYear = ['classes', 'activities', 'todos', 'learner_notes', 'evidence'].includes(table);
+              const hasYear = needsYear ? !!i.year_id : true;
+              const hasTerm = !!i.term_id;
+              return (!hasYear || !hasTerm) && (i.user_id === session.user.id || !i.user_id);
+            });
+
+            if (legacy.length > 0) {
+              const updates = legacy.map((item: any) => {
+                const newItem = { ...item };
+                if (['classes', 'activities', 'todos', 'learner_notes', 'evidence'].includes(table)) {
+                  newItem.year_id = activeYear.id;
+                }
+                newItem.term_id = term1.id;
+                if (!newItem.user_id) newItem.user_id = session.user.id;
+                
+                // Consistency fix for class_name vs className
+                if (table === 'classes' && newItem.class_name && !newItem.className) {
+                  newItem.className = newItem.class_name;
+                  delete newItem.class_name;
+                }
+                return newItem;
+              });
+
+              // @ts-ignore
+              await db[table].bulkPut(updates);
+              await queueAction(table, 'upsert', updates);
+              
+              counts[table] = legacy.length;
+              totalMigrated += legacy.length;
+            }
+          }
+        });
+
+        if (totalMigrated > 0) {
+          console.log(`%c[Migration] Silent Scoping Fix: ${totalMigrated} records moved to ${term1.name}`, "color: #16a34a; font-weight: bold;");
+          console.table(counts);
+          await recalculateAllActiveAverages(true);
+        }
+      } catch (e) {
+        console.error("[Migration] Silent fix failed:", e);
+      }
+    };
+
+    runSilentMigration();
+  }, [activeYear?.id, terms, session?.user.id, recalculateAllActiveAverages]);
+
   const createYear = useCallback(async (name: string) => {
     if (!session?.user.id) return;
     const yearId = crypto.randomUUID();
