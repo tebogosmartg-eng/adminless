@@ -23,17 +23,18 @@ export const useSetupStatus = () => {
   const { classes, loading: classesLoading } = useClasses();
   const { savedSubjects } = useSettings();
 
-  // Scoped Data Presence Checks
+  // Scoped Data Presence Checks - Reactive to activeYear AND activeTerm
   const stats = useLiveQuery(async () => {
-    if (!activeYear) return { learners: 0, assessments: 0, marks: 0, attendance: 0, totalExpectedMarks: 0 };
+    if (!activeYear || !activeTerm) return { learners: 0, assessments: 0, marks: 0, attendance: 0, totalExpectedMarks: 0 };
     
-    const yearClasses = await db.classes.where('year_id').equals(activeYear.id).toArray();
-    const classIds = yearClasses.map(c => c.id);
+    // Classes are scoped to the active term
+    const termClasses = await db.classes.where('term_id').equals(activeTerm.id).toArray();
+    const classIds = termClasses.map(c => c.id);
     
     if (classIds.length === 0) return { learners: 0, assessments: 0, marks: 0, attendance: 0, totalExpectedMarks: 0 };
 
     const learners = await db.learners.where('class_id').anyOf(classIds).toArray();
-    const assessments = await db.assessments.where('class_id').anyOf(classIds).toArray();
+    const assessments = await db.assessments.where('term_id').equals(activeTerm.id).toArray();
     const assessmentIds = assessments.map(a => a.id);
     
     const marksCount = assessmentIds.length > 0 
@@ -111,17 +112,17 @@ export const useSetupStatus = () => {
     steps.push({
         id: 3,
         title: 'Confirm Subjects Taught',
-        description: 'Confirming your subjects ensures your reports and marksheets are professional and accurate.',
+        description: 'Confirming your subjects ensures your reports and marksheets are professional.',
         status: step3Done ? 'completed' : (step2Done ? 'in-progress' : 'not-started'),
         isLocked: !step2Done
     });
 
     // 4. Create Classes
-    const step4Done = classes.length > 0;
+    const step4Done = classes.filter(c => c.term_id === activeTerm?.id).length > 0;
     steps.push({
         id: 4,
         title: 'Create or Import Classes',
-        description: 'Creating classes provides the digital register needed for your daily administration.',
+        description: 'Creating classes provides the digital register needed for daily admin.',
         status: step4Done ? 'completed' : (step3Done ? 'in-progress' : 'not-started'),
         isLocked: !step3Done
     });
@@ -131,7 +132,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 5,
         title: 'Review Learner Lists',
-        description: 'Reviewing your rosters ensures every student is correctly captured for their report cards.',
+        description: 'Reviewing rosters ensures students are correctly captured for report cards.',
         status: step5Done ? 'completed' : (step4Done ? 'in-progress' : 'not-started'),
         isLocked: !step4Done
     });
@@ -141,7 +142,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 6,
         title: 'Create Assessment Activities',
-        description: 'Planning your tasks allows the system to organize your marksheet and calculations.',
+        description: 'Planning tasks allows the system to organize marksheets and calculations.',
         status: step6Done ? 'completed' : (step5Done ? 'in-progress' : 'not-started'),
         isLocked: !step5Done
     });
@@ -152,17 +153,17 @@ export const useSetupStatus = () => {
     steps.push({
         id: 7,
         title: 'Capture Marks',
-        description: 'Recording scores lets the system calculate final weighted averages for you instantly.',
+        description: 'Recording scores lets the system calculate weighted averages instantly.',
         status: allMarksDone ? 'completed' : (marksCaptured ? 'in-progress' : (step6Done ? 'in-progress' : 'not-started')),
         isLocked: !step6Done
     });
 
-    // 8. Validation Issues
+    // 8. Resolve Validation Issues
     const step8Done = weightingReport.isValid && allMarksDone;
     steps.push({
         id: 8,
         title: 'Resolve Validation Issues',
-        description: 'Resolving issues ensures your data is accurate and ready for departmental moderation.',
+        description: 'Resolving issues ensures your data is accurate and ready for moderation.',
         status: step8Done ? 'completed' : (allMarksDone ? 'in-progress' : 'not-started'),
         isLocked: !allMarksDone
     });
@@ -172,7 +173,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 9,
         title: 'Finalise Term',
-        description: 'Finalising locks your work into a professional record that is safe from accidental changes.',
+        description: 'Finalising locks your work into a professional record safe from changes.',
         status: step9Done ? 'completed' : (step8Done ? 'in-progress' : 'not-started'),
         isLocked: !step8Done
     });
@@ -181,7 +182,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 10,
         title: 'Roll Forward to Next Term',
-        description: 'Rolling forward saves you time by moving your student lists into the next term automatically.',
+        description: 'Rolling forward saves time by moving student lists to the next term.',
         status: 'not-started',
         isLocked: !step9Done,
         optional: true
