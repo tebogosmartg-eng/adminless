@@ -1,4 +1,4 @@
-in JSX">
+character in JSX text to fix TS1382 error.">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";
