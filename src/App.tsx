@@ -33,7 +33,6 @@ const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children, session }: { children: React.ReactNode; session: Session | null }) => {
   if (!session) {
-    console.log("[ProtectedRoute] No session found, redirecting to welcome");
     return <Navigate to="/welcome" replace />;
   }
   return <>{children}</>;
@@ -45,32 +44,12 @@ const App = () => {
 
   useEffect(() => {
     const initAuth = async () => {
-      console.log("[Stabilisation: Auth] Initializing session check...");
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         if (error) throw error;
-        
-        if (initialSession) {
-            console.log(`[Stabilisation: Auth] User Authenticated: ${initialSession.user.id} (${initialSession.user.email})`);
-            // AUTOMATIC RECOVERY CHECK
-            const recoveryFlag = `adminless_recovery_${initialSession.user.id}`;
-            if (!localStorage.getItem(recoveryFlag)) {
-                console.log("[Background] Running automatic account linkage audit...");
-                supabase.functions.invoke('account-recovery').then(({ data }) => {
-                    if (data?.success && data.migratedCount > 0) {
-                        console.log(`[Background] Recovered ${data.migratedCount} classes.`);
-                        localStorage.setItem(recoveryFlag, 'done');
-                        window.location.reload(); 
-                    } else {
-                        localStorage.setItem(recoveryFlag, 'done');
-                    }
-                });
-            }
-        }
-        
         setSession(initialSession);
       } catch (err) {
-        console.error("[Stabilisation: Auth] Initial session load failed:", err);
+        console.error("[Auth] Initial session load failed:", err);
       } finally {
         setLoading(false);
       }
@@ -89,12 +68,12 @@ const App = () => {
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4 animate-in fade-in duration-500">
+        <div className="flex flex-col items-center gap-4">
            <div className="relative">
              <div className="h-16 w-16 rounded-full border-4 border-primary/30" />
              <div className="absolute top-0 left-0 h-16 w-16 rounded-full border-4 border-primary border-t-transparent animate-spin" />
            </div>
-           <p className="text-muted-foreground font-medium animate-pulse">Establishing Secure Session...</p>
+           <p className="text-muted-foreground font-medium animate-pulse">Loading Workspace...</p>
         </div>
       </div>
     );
