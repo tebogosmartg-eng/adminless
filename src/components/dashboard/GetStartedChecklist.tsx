@@ -3,7 +3,7 @@
 import { useSetupStatus, StepStatus } from "@/hooks/useSetupStatus";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Circle, ChevronRight, Rocket, Star, Lock, Timer } from "lucide-react";
+import { CheckCircle2, Circle, ChevronRight, Rocket, Star, Lock, Timer, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useClasses } from "@/context/ClassesContext";
@@ -15,10 +15,18 @@ export const GetStartedChecklist = () => {
 
   if (isLoading) return null;
 
+  const getProgressMessage = () => {
+    if (progress === 0) return "Welcome! Let's build your academic foundation.";
+    if (progress <= 30) return "Foundation set. Now, let's organize your classes.";
+    if (progress <= 60) return "Great work! You’re ready to start marking.";
+    if (progress <= 80) return "Almost there — just a few steps left.";
+    if (progress < 100) return "One final step to go!";
+    return "Your term is fully set up.";
+  };
+
   const handleStepClick = (id: number, isLocked: boolean, status: StepStatus) => {
     if (isLocked || status === 'completed') return;
 
-    // Determine the first available class for deep-linking class-specific steps
     const firstClassId = classes.length > 0 ? classes[0].id : null;
 
     switch (id) {
@@ -87,15 +95,21 @@ export const GetStartedChecklist = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-1.5">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary text-primary-foreground rounded-xl shadow-md">
-                        <Rocket className="h-5 w-5" />
+                    <div className={cn(
+                        "p-2 rounded-xl shadow-md transition-colors",
+                        progress === 100 ? "bg-green-600 text-white" : "bg-primary text-primary-foreground"
+                    )}>
+                        {progress === 100 ? <Star className="h-5 w-5" /> : <Rocket className="h-5 w-5" />}
                     </div>
                     <div>
                         <CardTitle className="text-xl font-black tracking-tight">
                             Setup Workflow
                         </CardTitle>
-                        <CardDescription className="text-xs font-medium uppercase tracking-wider text-primary/70">
-                            Academic Preparation Guide
+                        <CardDescription className={cn(
+                            "text-sm font-bold transition-colors",
+                            progress === 100 ? "text-green-600" : "text-primary/70"
+                        )}>
+                            {getProgressMessage()}
                         </CardDescription>
                     </div>
                 </div>
