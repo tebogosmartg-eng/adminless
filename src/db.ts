@@ -74,6 +74,7 @@ export class SmaRegDB extends Dexie {
   constructor() {
     super('SmaRegDB');
     
+    // Initial schema
     this.version(1).stores({
       classes: 'id, user_id, sync_status',
       learners: 'id, class_id, sync_status', 
@@ -87,10 +88,29 @@ export class SmaRegDB extends Dexie {
       profiles: 'id'
     });
 
+    // Version 21: Added composite keys and user_id for specific tables
     this.version(21).stores({
       assessments: 'id, class_id, term_id, [class_id+term_id], user_id',
       assessment_marks: '[assessment_id+learner_id], id, assessment_id, learner_id, user_id',
       diagnostics: 'id, assessment_id, user_id'
+    });
+
+    // Version 22: Universal user_id indexing for all tables to fix KeyPath errors
+    this.version(22).stores({
+      academic_years: 'id, user_id, closed',
+      terms: 'id, year_id, user_id',
+      classes: 'id, user_id, term_id, [year_id+term_id], sync_status',
+      learners: 'id, class_id, user_id',
+      activities: 'id, user_id, term_id, timestamp',
+      todos: 'id, user_id, term_id, completed',
+      attendance: 'id, user_id, class_id, learner_id, term_id, date, [class_id+date]',
+      timetable: 'id, user_id, year_id, day, period',
+      learner_notes: 'id, user_id, learner_id, term_id, date',
+      evidence: 'id, user_id, class_id, learner_id, term_id',
+      rubrics: 'id, user_id',
+      lesson_logs: 'id, user_id, timetable_id, date, [timetable_id+date]',
+      curriculum_topics: 'id, user_id, term_id, [subject+grade+term_id]',
+      diagnostics: 'id, user_id, assessment_id'
     });
   }
 }

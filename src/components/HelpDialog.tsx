@@ -81,8 +81,10 @@ export function HelpDialog() {
 
               <TabsContent value="marking" className="space-y-6 mt-0">
                 <section>
-                  <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-full w-fit mb-3"><Layers className="h-5 w-5 text-purple-600" /></div>
-                  <h3 className="font-bold text-lg mb-1">Your Grading Rules</h3>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-full"><Layers className="h-5 w-5 text-purple-600" /></div>
+                    <h3 className="font-bold text-lg">Your Grading Rules</h3>
+                  </div>
                   <p className="text-sm text-muted-foreground mb-4">
                     Based on your current <strong>Grading Scheme</strong> settings, the system will apply the following symbols:
                   </p>
