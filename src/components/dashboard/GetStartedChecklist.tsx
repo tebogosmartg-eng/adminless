@@ -118,7 +118,7 @@ export const GetStartedChecklist = () => {
               key={step.id}
               onClick={() => handleStepClick(step.id, step.isLocked, step.status)}
               className={cn(
-                  "flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all duration-300 group relative",
+                  "flex items-start justify-between p-4 rounded-2xl border text-left transition-all duration-300 group relative min-h-[100px]",
                   step.status === 'completed' 
                   ? "bg-green-50/30 border-green-100 opacity-60 cursor-default" 
                   : step.isLocked 
@@ -126,28 +126,30 @@ export const GetStartedChecklist = () => {
                   : "bg-white dark:bg-card border-border hover:border-primary/40 hover:shadow-md active:scale-[0.98]"
               )}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex-shrink-0">
-                        {getStepIcon(step.status, step.isLocked)}
-                    </div>
-                    <div className="flex flex-col min-w-0">
+                <div className="flex flex-col gap-2 min-w-0">
+                    <div className="flex items-center gap-2">
+                        <div className="flex-shrink-0">
+                            {getStepIcon(step.status, step.isLocked)}
+                        </div>
                         <span className={cn(
                             "text-[11px] font-bold truncate transition-colors",
                             step.status === 'completed' ? "text-green-800 line-through" : step.isLocked ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
                         )}>
                             {step.title}
                         </span>
-                        {step.optional && !step.isLocked && (
-                            <span className="text-[8px] font-black uppercase text-blue-600 flex items-center gap-1">
-                                <Star className="h-2 w-2 fill-current" /> Recommended
-                            </span>
-                        )}
-                        {step.status === 'in-progress' && !step.isLocked && (
-                             <span className="text-[8px] font-black uppercase text-primary/60">Take Action</span>
-                        )}
                     </div>
+                    <p className={cn(
+                        "text-[10px] leading-tight line-clamp-3",
+                        step.status === 'completed' ? "text-green-700/60" : "text-muted-foreground"
+                    )}>
+                        {step.description}
+                    </p>
+                    {step.optional && !step.isLocked && (
+                        <span className="text-[8px] font-black uppercase text-blue-600 flex items-center gap-1 mt-1">
+                            <Star className="h-2 w-2 fill-current" /> Recommended
+                        </span>
+                    )}
                 </div>
-                {!step.isLocked && step.status !== 'completed' && <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-transform group-hover:translate-x-0.5" />}
               </button>
           ))}
           </div>

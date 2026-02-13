@@ -12,6 +12,7 @@ export type StepStatus = 'not-started' | 'in-progress' | 'completed';
 export interface SetupStep {
   id: number;
   title: string;
+  description: string;
   status: StepStatus;
   isLocked: boolean;
   optional?: boolean;
@@ -90,6 +91,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 1,
         title: 'Select Academic Year',
+        description: 'This ensures all your records are filed under the correct school year.',
         status: step1Done ? 'completed' : 'in-progress',
         isLocked: false
     });
@@ -99,6 +101,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 2,
         title: 'Select Active Term',
+        description: 'This ensures your daily work and marks are saved in the right term.',
         status: step2Done ? 'completed' : (step1Done ? 'in-progress' : 'not-started'),
         isLocked: !step1Done
     });
@@ -108,6 +111,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 3,
         title: 'Confirm Subjects Taught',
+        description: 'Confirming your subjects ensures your reports and marksheets are professional and accurate.',
         status: step3Done ? 'completed' : (step2Done ? 'in-progress' : 'not-started'),
         isLocked: !step2Done
     });
@@ -117,6 +121,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 4,
         title: 'Create or Import Classes',
+        description: 'Creating classes provides the digital register needed for your daily administration.',
         status: step4Done ? 'completed' : (step3Done ? 'in-progress' : 'not-started'),
         isLocked: !step3Done
     });
@@ -126,6 +131,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 5,
         title: 'Review Learner Lists',
+        description: 'Reviewing your rosters ensures every student is correctly captured for their report cards.',
         status: step5Done ? 'completed' : (step4Done ? 'in-progress' : 'not-started'),
         isLocked: !step4Done
     });
@@ -135,6 +141,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 6,
         title: 'Create Assessment Activities',
+        description: 'Planning your tasks allows the system to organize your marksheet and calculations.',
         status: step6Done ? 'completed' : (step5Done ? 'in-progress' : 'not-started'),
         isLocked: !step5Done
     });
@@ -145,6 +152,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 7,
         title: 'Capture Marks',
+        description: 'Recording scores lets the system calculate final weighted averages for you instantly.',
         status: allMarksDone ? 'completed' : (marksCaptured ? 'in-progress' : (step6Done ? 'in-progress' : 'not-started')),
         isLocked: !step6Done
     });
@@ -154,6 +162,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 8,
         title: 'Resolve Validation Issues',
+        description: 'Resolving issues ensures your data is accurate and ready for departmental moderation.',
         status: step8Done ? 'completed' : (allMarksDone ? 'in-progress' : 'not-started'),
         isLocked: !allMarksDone
     });
@@ -163,6 +172,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 9,
         title: 'Finalise Term',
+        description: 'Finalising locks your work into a professional record that is safe from accidental changes.',
         status: step9Done ? 'completed' : (step8Done ? 'in-progress' : 'not-started'),
         isLocked: !step8Done
     });
@@ -171,6 +181,7 @@ export const useSetupStatus = () => {
     steps.push({
         id: 10,
         title: 'Roll Forward to Next Term',
+        description: 'Rolling forward saves you time by moving your student lists into the next term automatically.',
         status: 'not-started',
         isLocked: !step9Done,
         optional: true
