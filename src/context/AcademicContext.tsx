@@ -12,12 +12,6 @@ import { useAcademicMigration } from '@/hooks/useAcademicMigration';
 import { useAcademicAverages } from '@/hooks/useAcademicAverages';
 import { supabase } from '@/integrations/supabase/client';
 
-interface MigrationReport {
-    success: boolean;
-    counts: { [table: string]: number };
-    total: number;
-}
-
 interface AcademicContextType {
   years: AcademicYear[];
   terms: Term[];
@@ -41,8 +35,6 @@ interface AcademicContextType {
   recalculateAllActiveAverages: (silent?: boolean) => Promise<void>;
   runDataVacuum: () => Promise<void>;
   rollForwardClasses: (sourceTermId: string, targetTermId: string, preparedClasses: any[]) => Promise<void>;
-  migrateLegacyData: (yearId: string, termId: string) => Promise<MigrationReport>;
-  resetToTermOne: (yearId: string, termOneId: string) => Promise<MigrationReport>;
   diagnosticMode: boolean;
   setDiagnosticMode: (active: boolean) => void;
 }
@@ -118,15 +110,15 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     await queueAction('activities', 'create', newActivity);
   }, [session?.user.id, activeYear?.id, activeTerm?.id]);
 
-  const { migrateLegacyData, resetToTermOne, rollForwardClasses: doRollForward } = useAcademicMigration(
+  const { rollForwardClasses: doRollForward } = useAcademicMigration(
     session?.user.id, 
-    recalculateAllActiveAverages, 
     logInternalActivity
   );
 
   /**
    * AUTOMATIC SILENT MIGRATION
    * Detects and fixes NULL scope records once context is available.
+   * This ensures all legacy data belongs to the active year's Term 1.
    */
   useEffect(() => {
     const runSilentMigration = async () => {
@@ -152,6 +144,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
               const needsYear = ['classes', 'activities', 'todos', 'learner_notes', 'evidence'].includes(table);
               const hasYear = needsYear ? !!i.year_id : true;
               const hasTerm = !!i.term_id;
+              // Check if record belongs to current user and lacks scoping
               return (!hasYear || !hasTerm) && (i.user_id === session.user.id || !i.user_id);
             });
 
@@ -164,7 +157,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                 newItem.term_id = term1.id;
                 if (!newItem.user_id) newItem.user_id = session.user.id;
                 
-                // Consistency fix for class_name vs className
+                // Consistency fix for naming conventions across versions
                 if (table === 'classes' && newItem.class_name && !newItem.className) {
                   newItem.className = newItem.class_name;
                   delete newItem.class_name;
@@ -183,12 +176,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         });
 
         if (totalMigrated > 0) {
-          console.log(`%c[Migration] Silent Scoping Fix: ${totalMigrated} records moved to ${term1.name}`, "color: #16a34a; font-weight: bold;");
-          console.table(counts);
+          console.log(`%c[AdminLess] Auto-Migration: Scoped ${totalMigrated} records to ${term1.name}`, "color: #16a34a; font-weight: bold;");
           await recalculateAllActiveAverages(true);
         }
       } catch (e) {
-        console.error("[Migration] Silent fix failed:", e);
+        console.error("[AdminLess] Background scoping migration failed:", e);
       }
     };
 
@@ -273,7 +265,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const updateMarks = useCallback(async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
     if (!session?.user.id || updates.length === 0) return;
     
-    // Check if any mark belongs to a finalised term
     const firstAss = await db.assessments.get(updates[0].assessment_id);
     const currentTerm = allTerms.find(t => t.id === firstAss?.term_id);
     if (currentTerm?.is_finalised) {
@@ -299,7 +290,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [activeTerm?.id]);
 
   const toggleTermStatus = useCallback(async (termId: string, finalised: boolean) => {
-    // Update both closed (compatibility) and is_finalised (new logic)
     await db.terms.update(termId, { is_finalised: finalised, closed: finalised });
     await queueAction('terms', 'update', { id: termId, is_finalised: finalised, closed: finalised });
     
@@ -328,13 +318,13 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     createAssessment, updateAssessment, deleteAssessment,
     updateMarks, refreshAssessments, toggleTermStatus, closeYear,
     recalculateAllActiveAverages, runDataVacuum, rollForwardClasses,
-    migrateLegacyData, resetToTermOne, diagnosticMode, setDiagnosticMode
+    diagnosticMode, setDiagnosticMode
   }), [
     years, terms, assessments, marks, activeYear, activeTerm, 
     setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm, 
     createAssessment, updateAssessment, deleteAssessment, updateMarks, 
     refreshAssessments, toggleTermStatus, closeYear, recalculateAllActiveAverages, 
-    runDataVacuum, rollForwardClasses, migrateLegacyData, resetToTermOne, diagnosticMode, session?.user.id
+    runDataVacuum, rollForwardClasses, diagnosticMode, session?.user.id
   ]);
 
   return (
