@@ -53,7 +53,7 @@ serve(async (req) => {
                 ${questions.map(q => `- ${q.question_number}: ${q.skill_description} (Max: ${q.max_mark})`).join('\n')}
             `;
         } else if (scanMode === 'individual_script') {
-            questionGuidance = "Look for a question-by-question breakdown. For each question, extract the number, the student's score, and the total possible mark (max).";
+            questionGuidance = "Look for a question-by-question breakdown table or list. For each question found, extract the number (e.g. Q1, Q1.1), the student's score, and the total possible mark (max).";
         }
 
         if (scanMode === 'class_marksheet') {
@@ -89,8 +89,9 @@ serve(async (req) => {
             Normalization Rules:
             - If "25/30", record "25" in score/mark and "30" in max.
             - "discoveredQuestions" should list all unique questions found across the pages.
-            - Ensure question numbers in "learners" match "discoveredQuestions".
+            - Ensure question numbers in "learners" match "discoveredQuestions" exactly.
             - If handwriting is ambiguous, provide your best guess.
+            - If a name is written at the top, prioritize it for the "name" field.
         `;
 
         const imageParts = images.map(img => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Save, Eye, AlertCircle, Info, CheckCircle2, ShieldCheck, Database, ListChecks, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
+import { Save, Eye, AlertCircle, Info, CheckCircle2, ShieldCheck, Database, ListChecks, ChevronDown, ChevronRight, Sparkles, Wand2 } from 'lucide-react';
 import { ClassInfo, ScannedDetails, ScannedLearner, Assessment, ScanType } from '@/lib/types';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -84,7 +84,15 @@ export const ScanReviewSection = ({
       qMarks.forEach(qm => total += parseFloat(qm.score) || 0);
       
       onLearnerChange(learnerIdx, 'questionMarks', qMarks);
-      onLearnerChange(learnerIdx, 'mark', total.toString());
+      onLearnerChange(learnerIdx, 'mark', total.toFixed(1).replace(/\.0$/, ''));
+  };
+
+  const handleFixTotal = (idx: number) => {
+      const learner = scannedLearners[idx];
+      if (!learner.questionMarks) return;
+      let total = 0;
+      learner.questionMarks.forEach(qm => total += parseFloat(qm.score) || 0);
+      onLearnerChange(idx, 'mark', total.toFixed(1).replace(/\.0$/, ''));
   };
 
   return (
@@ -264,9 +272,14 @@ export const ScanReviewSection = ({
                                                 <div className="flex items-center justify-between">
                                                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Question Breakdown</p>
                                                     {isSumMismatch && (
-                                                        <Badge variant="destructive" className="h-5 text-[9px] gap-1 px-2">
-                                                            <AlertCircle className="h-3 w-3" /> Sum Mismatch
-                                                        </Badge>
+                                                        <Button 
+                                                            variant="destructive" 
+                                                            size="sm" 
+                                                            className="h-6 text-[9px] gap-1 px-2 bg-red-600 hover:bg-red-700"
+                                                            onClick={() => handleFixTotal(index)}
+                                                        >
+                                                            <Wand2 className="h-3 w-3" /> Fix Total to {qSum}
+                                                        </Button>
                                                     )}
                                                 </div>
                                                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
