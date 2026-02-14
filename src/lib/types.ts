@@ -66,7 +66,7 @@ export type ScanType =
   | 'diagnostic_form' 
   | 'moderation_sample';
 
-export type ScanMode = 'bulk' | 'individual'; // Keep for legacy/UI toggles but we primarily use ScanType now
+export type ScanMode = 'bulk' | 'individual'; 
 
 export interface GeminiScanResult {
   details: ScannedDetails | null;
@@ -257,4 +257,10 @@ export interface ScanHistory {
   file_path?: string;
   before_snapshot: any; 
   after_snapshot: any;  
+}
+
+export interface DiagnosticRow {
+  id: string;
+  finding: string;
+  intervention: string;
 }

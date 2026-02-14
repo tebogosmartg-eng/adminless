@@ -24,7 +24,7 @@ export const ClassCurriculumTab = ({ classId, subject, grade }: ClassCurriculumT
         <BookOpen className="h-10 w-10 mb-2 opacity-20" />
         <h3 className="font-semibold text-foreground">No Plan for {subject}</h3>
         <p className="text-xs max-w-xs mt-1">
-          Define topics for this subject and grade in Settings > Curriculum to see your progress checklist here.
+          Define topics for this subject and grade in Settings {'>'} Curriculum to see your progress checklist here.
         </p>
       </div>
     );

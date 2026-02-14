@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Assessment, Learner, AssessmentMark } from '@/lib/types';
+import { Assessment, Learner, AssessmentMark, DiagnosticRow } from '@/lib/types';
 import { QuestionStat } from '@/hooks/useQuestionAnalysis';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { format } from 'date-fns';
@@ -10,15 +10,14 @@ export const generateQuestionDiagnosticPDF = (
   learners: Learner[],
   qStats: QuestionStat[],
   marks: AssessmentMark[],
-  findings: string,
-  interventions: string,
+  diagRows: DiagnosticRow[],
   profile: SchoolProfile
 ) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
 
-  const startY = addHeader(doc, profile, "Assessment Diagnostic & Question Analysis");
+  const startY = addHeader(doc, profile, "Assessment Diagnostic & Item Analysis");
 
   // 1. Meta Details
   doc.setFontSize(10);
@@ -33,7 +32,7 @@ export const generateQuestionDiagnosticPDF = (
   doc.setFontSize(11);
   doc.setTextColor(0);
   doc.setFont("helvetica", "bold");
-  doc.text("Question-Level Performance Statistics", margin, currentY);
+  doc.text("Item Analysis Statistics", margin, currentY);
 
   autoTable(doc, {
     startY: currentY + 3,
@@ -61,31 +60,32 @@ export const generateQuestionDiagnosticPDF = (
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
 
-  // 3. Narrative Analysis
-  const addBlock = (title: string, text: string, y: number) => {
-    const splitText = doc.splitTextToSize(text, pageWidth - (margin * 2));
-    if (y + 20 + (splitText.length * 5) > doc.internal.pageSize.height - 40) {
-        doc.addPage();
-        y = 20;
-    }
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text(title, margin, y);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(splitText, margin, y + 6);
-    return y + 15 + (splitText.length * 5);
-  };
+  // 3. Tabular Analysis (New Structured Format)
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Analysis of Findings & Intervention Strategies", margin, currentY);
 
-  currentY = addBlock("Diagnostic Analysis & Interpretation of Findings", findings, currentY);
-  currentY = addBlock("Proposed Intervention Plan & Teacher Action", interventions, currentY);
+  autoTable(doc, {
+      startY: currentY + 3,
+      head: [['Diagnostic Findings / Interpretation', 'Proposed Intervention Strategy']],
+      body: diagRows.map(r => [r.finding, r.intervention]),
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold' },
+      columnStyles: {
+          0: { cellWidth: (pageWidth - margin * 2) / 2 },
+          1: { cellWidth: (pageWidth - margin * 2) / 2 }
+      }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 10;
 
   // 4. Class Breakdown (Detailed Grid)
   doc.addPage();
-  addHeader(doc, profile, "Learner breakdown per question");
+  addHeader(doc, profile, "Learner Performance Breakdown");
   
   const headers = ['#', 'Learner Name'];
-  assessment.questions?.forEach(q => headers.push(q.question_number));
+  assessment.questions?.forEach(q => headers.push(`Q${q.question_number}`));
   headers.push('Total');
 
   const body = learners.map((l, i) => {
@@ -93,7 +93,7 @@ export const generateQuestionDiagnosticPDF = (
       const row: any[] = [i + 1, l.name];
       assessment.questions?.forEach(q => {
           const qScore = lMark?.question_marks?.find(qm => qm.question_id === q.id)?.score;
-          row.push(qScore !== undefined ? qScore : "-");
+          row.push(qScore !== undefined && qScore !== null ? qScore : "-");
       });
       row.push(lMark?.score || "-");
       return row;

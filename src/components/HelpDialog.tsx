@@ -108,7 +108,7 @@ export function HelpDialog() {
                     Learners scoring below <strong>{atRiskThreshold}%</strong> are currently flagged for intervention.
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    You can adjust this threshold in <strong>Settings > School Profile</strong>.
+                    You can adjust this threshold in <strong>Settings {'>'} School Profile</strong>.
                   </p>
                 </section>
               </TabsContent>

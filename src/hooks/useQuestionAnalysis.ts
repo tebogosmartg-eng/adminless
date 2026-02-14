@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { db, AssessmentDiagnostic } from '@/db';
-import { Assessment, Learner, AssessmentMark } from '@/lib/types';
+import { Assessment, Learner, AssessmentMark, DiagnosticRow } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
@@ -22,7 +22,6 @@ export interface QuestionStat {
 }
 
 export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[]) => {
-  // Reactive subscription to all marks for this assessment
   const marks = useLiveQuery(
     () => db.assessment_marks.where('assessment_id').equals(assessment.id).toArray(),
     [assessment.id]
@@ -54,7 +53,6 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
       const high = Math.max(...qMarks);
       const low = Math.min(...qMarks);
       
-      // Calculate Pass Rate based on 50% threshold for the specific question
       const passes = qMarks.filter(s => (s / q.max_mark) >= 0.5).length;
       const passRate = (passes / qMarks.length) * 100;
 
@@ -73,61 +71,55 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
     });
 
     const weakQuestions = qStats.filter(s => s.isWeak);
-    const strongQuestions = qStats.filter(s => s.avg >= 75);
-    const weakSkills = Array.from(new Set(weakQuestions.map(s => s.skill))).filter(Boolean);
-    
     const overallAvg = (qStats.reduce((a, b) => a + b.avg, 0) / qStats.length).toFixed(1);
 
-    // --- TEMPLATE-BASED AI DRAFT GENERATION ---
-    
-    let findings = `Diagnostic Summary for "${assessment.title}":\n`;
-    findings += `The class achieved an overall question-average of ${overallAvg}%. `;
-    
-    if (weakQuestions.length > 0) {
-        findings += `Significant learning gaps were identified in ${weakQuestions.map(q => `Q${q.number}`).join(', ')}. `;
-        if (weakSkills.length > 0) {
-            findings += `These questions primarily assessed "${weakSkills.join(', ')}", suggesting a thematic struggle with these concepts. `;
-        }
-    } else {
-        findings += "Learners demonstrated a strong grasp across all sections, with no critical failures identified at the question level. ";
-    }
+    // --- GENERATE STRUCTURED ROWS ---
+    const diagnosticRows: DiagnosticRow[] = [];
 
-    if (strongQuestions.length > 0) {
-        findings += `The class excelled in ${strongQuestions.map(q => `Q${q.number}`).join(', ')}, showing mastery of ${Array.from(new Set(strongQuestions.map(s => s.skill))).filter(Boolean).join(' and ')}.`;
-    }
+    // General Summary Row
+    diagnosticRows.push({
+        id: 'summary',
+        finding: `The class achieved an overall question-average of ${overallAvg}%. ${weakQuestions.length > 0 ? `${weakQuestions.length} questions fell below the 50% threshold.` : "Consistent performance shown across all items."}`,
+        intervention: weakQuestions.length > 0 ? "Implement targeted remediation sessions for identified weak concepts." : "Continue with current instructional sequence; provide extension tasks for high performers."
+    });
 
-    let interventions = "Proposed Instructional Strategy:\n";
-    if (weakQuestions.length > 0) {
-        interventions += `1. Targeted Remediation: Conduct focused group sessions on ${weakSkills.slice(0, 2).join(' and ')}.\n`;
-        interventions += `2. Peer Learning: Pair top performers from ${strongQuestions[0]?.number ? `Q${strongQuestions[0].number}` : 'successful sections'} with struggling learners.\n`;
-        interventions += `3. Re-teaching: Dedicated 15-minute recap of core theory behind Question ${weakQuestions[0].number} before the next assessment cycle.`;
-    } else {
-        interventions += "1. Extension Tasks: Provide high-performing learners with more complex application problems.\n";
-        interventions += "2. Consolidation: Briefly review the few minor errors caught in the next lesson to maintain momentum.";
+    // Per-Weak Question Rows
+    weakQuestions.forEach(q => {
+        diagnosticRows.push({
+            id: `q-${q.id}`,
+            finding: `Question ${q.number} (${q.skill || 'Unspecified Skill'}): Critical failure with only ${q.passRate}% pass rate and ${q.avg}% average score.`,
+            intervention: `Re-teach core concepts of ${q.skill || 'this section'}. Provide scaffolded practice examples before the next cycle.`
+        });
+    });
+
+    // Handle Backward Compatibility: Convert old narrative to rows if they exist
+    let convertedRows: DiagnosticRow[] = diagnosticRows;
+    if (savedDiagnostic?.findings && !Array.isArray(savedDiagnostic.findings)) {
+        // This is an old format record (string)
+        // We'll keep the AI generated rows but could optionally try to parse the old string.
+        // For simplicity and data safety, we'll suggest the user resets to draft.
     }
 
     return { 
         qStats, 
-        weakQuestions, 
-        weakSkills,
-        drafts: { findings, interventions },
+        diagnosticRows,
         rawMarks: marks,
         savedDiagnostic: savedDiagnostic || null,
         overallAvg
     };
   }, [assessment, marks, savedDiagnostic]);
 
-  const saveDiagnostic = useCallback(async (findings: string, interventions: string) => {
+  const saveDiagnostic = useCallback(async (rows: DiagnosticRow[]) => {
       try {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
-          const payload: AssessmentDiagnostic = {
+          const payload: any = {
               id: savedDiagnostic?.id || crypto.randomUUID(),
               assessment_id: assessment.id,
               user_id: user.id,
-              findings,
-              interventions,
+              findings: JSON.stringify(rows), // Store as JSON string for flexibility
+              interventions: "", // Legacy field, kept for schema safety
               updated_at: new Date().toISOString()
           };
 

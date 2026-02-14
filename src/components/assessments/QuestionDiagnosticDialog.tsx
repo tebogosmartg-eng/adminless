@@ -5,22 +5,21 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
     Download, 
     Loader2, 
     AlertTriangle, 
-    BrainCircuit,
-    ClipboardList,
-    FileSearch,
     Save,
     CheckCircle2,
     RefreshCw,
-    ShieldCheck,
-    Target
+    Plus,
+    Trash2,
+    ListChecks,
+    Table as TableIcon
 } from 'lucide-react';
-import { Assessment, Learner } from '@/lib/types';
+import { Assessment, Learner, DiagnosticRow } from '@/lib/types';
 import { useQuestionAnalysis } from '@/hooks/useQuestionAnalysis';
 import { useSettings } from '@/context/SettingsContext';
 import { generateQuestionDiagnosticPDF } from '@/utils/pdf/questionDiagnosticReport';
@@ -38,8 +37,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
   const { stats, loading, saveDiagnostic } = useQuestionAnalysis(assessment, learners);
   const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   
-  const [findings, setFindings] = useState("");
-  const [interventions, setInterventions] = useState("");
+  const [rows, setRows] = useState<DiagnosticRow[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -47,8 +45,30 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
 
   useEffect(() => {
     if (stats && !initializedRef.current) {
-        setFindings(stats.savedDiagnostic?.findings || stats.drafts.findings);
-        setInterventions(stats.savedDiagnostic?.interventions || stats.drafts.interventions);
+        let loadedRows: DiagnosticRow[] = [];
+        
+        if (stats.savedDiagnostic?.findings) {
+            try {
+                const parsed = JSON.parse(stats.savedDiagnostic.findings);
+                if (Array.isArray(parsed)) {
+                    loadedRows = parsed;
+                } else {
+                    // Fallback if findings was a simple string
+                    loadedRows = stats.diagnosticRows;
+                }
+            } catch (e) {
+                // Backward compatibility: Convert string findings to first row
+                loadedRows = [{
+                    id: 'legacy',
+                    finding: stats.savedDiagnostic.findings as any as string,
+                    intervention: stats.savedDiagnostic.interventions as any as string
+                }, ...stats.diagnosticRows.filter(r => r.id !== 'summary')];
+            }
+        } else {
+            loadedRows = stats.diagnosticRows;
+        }
+
+        setRows(loadedRows);
         initializedRef.current = true;
     }
   }, [stats]);
@@ -59,17 +79,32 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
       }
   }, [open, assessment.id]);
 
+  const handleUpdateRow = (id: string, field: 'finding' | 'intervention', value: string) => {
+      setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+  };
+
+  const handleAddRow = () => {
+      setRows(prev => [...prev, {
+          id: crypto.randomUUID(),
+          finding: "",
+          intervention: ""
+      }]);
+  };
+
+  const handleDeleteRow = (id: string) => {
+      setRows(prev => prev.filter(r => r.id !== id));
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
-    await saveDiagnostic(findings, interventions);
+    await saveDiagnostic(rows);
     setIsSaving(false);
   };
 
   const handleRefreshDraft = () => {
       if (stats) {
-          setFindings(stats.drafts.findings);
-          setInterventions(stats.drafts.interventions);
-          showSuccess("Draft reset to latest data analysis.");
+          setRows(stats.diagnosticRows);
+          showSuccess("Reset to AI analysis table.");
       }
   };
 
@@ -82,11 +117,10 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
             learners,
             stats.qStats,
             stats.rawMarks,
-            findings,
-            interventions,
+            rows,
             { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone }
         );
-        showSuccess("Detailed diagnostic report exported.");
+        showSuccess("Tabular diagnostic report exported.");
     } finally {
         setIsExporting(false);
     }
@@ -94,28 +128,28 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden">
         <div className="p-6 pb-4 border-b bg-muted/20 shrink-0">
           <DialogHeader>
             <div className="flex justify-between items-start">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
                         <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black">
-                            Diagnostic Analysis
+                            Tabular Diagnostic
                         </Badge>
                         {stats?.savedDiagnostic && (
                             <Badge variant="secondary" className="bg-green-100 text-green-700 border-none text-[9px] font-black uppercase">
-                                <CheckCircle2 className="h-2.5 w-2.5 mr-1" /> Analysis Approved
+                                <CheckCircle2 className="h-2.5 w-2.5 mr-1" /> Approved
                             </Badge>
                         )}
                     </div>
                     <DialogTitle className="text-2xl font-bold">{assessment.title}</DialogTitle>
-                    <DialogDescription>Question-level performance metrics and intervention roadmap.</DialogDescription>
+                    <DialogDescription>Structure findings and interventions in a departmental-ready table.</DialogDescription>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={handleSave} disabled={isSaving || loading} className="gap-2 font-bold h-9">
                         {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        Save Analysis
+                        Save Changes
                     </Button>
                     <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-2 h-9">
                         {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -130,7 +164,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-                <p className="text-sm font-medium text-muted-foreground animate-pulse">Recalculating diagnostic stats...</p>
+                <p className="text-sm font-medium text-muted-foreground animate-pulse">Processing analysis...</p>
             </div>
           ) : stats ? (
             <div className="space-y-10 pb-10">
@@ -149,7 +183,6 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                                 <p className="text-[9px] text-muted-foreground uppercase font-bold truncate max-w-[80px]" title={s.skill}>{s.skill || "Skill"}</p>
                                 <span className="text-[8px] font-black text-muted-foreground/60">{s.passRate}% Pass</span>
                             </div>
-                            {/* Simple visual background fill */}
                             <div 
                                 className={cn("absolute bottom-0 left-0 h-1 transition-all", s.isWeak ? "bg-red-500" : "bg-green-500")} 
                                 style={{ width: `${s.passRate}%` }} 
@@ -158,45 +191,72 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     ))}
                 </div>
 
-                <div className="grid gap-8 lg:grid-cols-2">
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                                <BrainCircuit className="h-4 w-4" /> 1. Findings & Interpretation
-                            </Label>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <TableIcon className="h-4 w-4 text-primary" />
+                            <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Analysis & Intervention Grid</h4>
+                        </div>
+                        <div className="flex gap-2">
                             <Button variant="ghost" size="sm" onClick={handleRefreshDraft} className="h-7 text-[10px] font-bold uppercase text-muted-foreground">
-                                <RefreshCw className="h-3 w-3 mr-1" /> Reset to Draft
+                                <RefreshCw className="h-3 w-3 mr-1" /> Reset AI Draft
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={handleAddRow} className="h-7 text-[10px] font-bold uppercase">
+                                <Plus className="h-3 w-3 mr-1" /> Add Row
                             </Button>
                         </div>
-                        <Textarea 
-                            value={findings}
-                            onChange={(e) => setFindings(e.target.value)}
-                            rows={8}
-                            className="bg-muted/10 text-sm leading-relaxed border-none shadow-inner"
-                            placeholder="Interpret the performance data..."
-                        />
                     </div>
 
-                    <div className="space-y-4">
-                        <Label className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                            <ClipboardList className="h-4 w-4" /> 2. Remedial Action Plan
-                        </Label>
-                        <Textarea 
-                            value={interventions}
-                            onChange={(e) => setInterventions(e.target.value)}
-                            rows={8}
-                            className="bg-muted/10 text-sm leading-relaxed border-none shadow-inner"
-                            placeholder="Detail your strategy for weak areas..."
-                        />
+                    <div className="border rounded-xl overflow-hidden bg-background shadow-sm">
+                        <Table>
+                            <TableHeader className="bg-muted/50">
+                                <TableRow>
+                                    <TableHead className="w-[45%] font-black text-[10px] uppercase tracking-widest py-3">Diagnostic Findings / Interpretation</TableHead>
+                                    <TableHead className="w-[45%] font-black text-[10px] uppercase tracking-widest py-3">Proposed Intervention Strategy</TableHead>
+                                    <TableHead className="w-[10%]"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {rows.map((row) => (
+                                    <TableRow key={row.id} className="group hover:bg-muted/10 transition-colors">
+                                        <TableCell className="p-2 align-top">
+                                            <Textarea 
+                                                value={row.finding}
+                                                onChange={(e) => handleUpdateRow(row.id, 'finding', e.target.value)}
+                                                className="border-none shadow-none resize-none bg-transparent min-h-[80px] focus-visible:ring-1 text-sm leading-relaxed"
+                                                placeholder="What did the data reveal?"
+                                            />
+                                        </TableCell>
+                                        <TableCell className="p-2 align-top border-l">
+                                            <Textarea 
+                                                value={row.intervention}
+                                                onChange={(e) => handleUpdateRow(row.id, 'intervention', e.target.value)}
+                                                className="border-none shadow-none resize-none bg-transparent min-h-[80px] focus-visible:ring-1 text-sm leading-relaxed"
+                                                placeholder="What is the plan of action?"
+                                            />
+                                        </TableCell>
+                                        <TableCell className="text-right p-2 align-top">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={() => handleDeleteRow(row.id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                     </div>
                 </div>
 
                 <div className="space-y-4 pt-6 border-t">
                     <div className="flex items-center justify-between">
                         <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                            <FileSearch className="h-4 w-4" /> Item Analysis Data Table
+                            <ListChecks className="h-4 w-4" /> Item Analysis Records
                         </h4>
-                        <Badge variant="outline" className="text-[10px] uppercase">{stats.overallAvg}% Overall Average</Badge>
                     </div>
                     <div className="border rounded-xl overflow-hidden bg-background shadow-sm">
                         <table className="w-full text-xs text-left border-collapse">
@@ -233,12 +293,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     </div>
                 </div>
             </div>
-          ) : (
-            <div className="p-20 text-center text-muted-foreground italic flex flex-col items-center gap-3">
-                <Target className="h-12 w-12 opacity-10" />
-                <p>Insufficient question-level data. Capture marks per question to enable diagnostic logic.</p>
-            </div>
-          )}
+          ) : null}
         </ScrollArea>
       </DialogContent>
     </Dialog>
