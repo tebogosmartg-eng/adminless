@@ -1,4 +1,4 @@
-' character in template">
+character in the help center instructions">
 import {
   Dialog,
   DialogContent,

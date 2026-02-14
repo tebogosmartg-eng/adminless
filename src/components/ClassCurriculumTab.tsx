@@ -1,4 +1,4 @@
-' character in template">
+character in the curriculum tab instructions">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";
