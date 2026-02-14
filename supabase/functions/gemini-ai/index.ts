@@ -9,16 +9,13 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // 1. Verify Authentication (Fixes High Security Finding)
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      console.error("[gemini-ai] Missing Authorization header")
       return new Response(JSON.stringify({ error: "Unauthorized: Missing token" }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -32,26 +29,19 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     })
 
-    // This verifies the JWT and ensures the user has a valid session
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {
-      console.error("[gemini-ai] Invalid session token", { authError })
       return new Response(JSON.stringify({ error: "Unauthorized: Invalid session" }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    console.log(`[gemini-ai] Processing request for user: ${user.id}`)
-
     const { action, payload } = await req.json()
     
     const apiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!apiKey) {
-      console.error("[gemini-ai] API key configuration missing")
-      throw new Error('GEMINI_API_KEY not set.')
-    }
+    if (!apiKey) throw new Error('GEMINI_API_KEY not set.')
 
     const genAI = new GoogleGenerativeAI(apiKey)
     const modelName = Deno.env.get('GEMINI_MODEL_NAME') || "gemini-1.5-flash"
@@ -83,27 +73,34 @@ serve(async (req) => {
     };
 
     if (action === 'scan-images') {
-        const { images } = payload;
-        console.log(`[gemini-ai] Action: scan-images, Image count: ${images?.length}`)
+        const { images, scanMode } = payload;
         
+        let contextPrompt = "";
+        if (scanMode === 'bulk') {
+            contextPrompt = "This is a BULK CLASS MARKSHEET. Multiple students are listed on one or more pages. Extract all names and their corresponding marks.";
+        } else {
+            contextPrompt = "This is an INDIVIDUAL LEARNER SCRIPT. One student per set of images. Extract the student name (usually at the top) and all marks for questions/sections.";
+        }
+
         const prompt = `
-            Analyze these images of learner test scripts, mark sheets, or class lists.
-            Extract the assessment details (subject, grade, test name, date) and the list of learner names and their marks.
+            Analyze these images of school assessments. ${contextPrompt}
             
-            If the image contains marks for individual questions (e.g., Q1, Q2, Q3 or 1, 2, 3), extract those as well.
+            Extract the assessment details (subject, grade, test name, date) and the learner information.
             
-            Output JSON only with this exact schema:
+            Always look for marks for individual questions (e.g., Q1, Q2, Q3 or 1, 2, 3) and extract them.
+            
+            Output JSON only:
             {
                 "details": { 
-                    "subject": "string (e.g. Mathematics)", 
-                    "grade": "string (e.g. Grade 10)", 
-                    "testNumber": "string (e.g. Term 1 Test)", 
+                    "subject": "string", 
+                    "grade": "string", 
+                    "testNumber": "string", 
                     "date": "YYYY-MM-DD" 
                 },
                 "learners": [ 
                     { 
                         "name": "Learner Name", 
-                        "mark": "Total Mark (e.g. 85)",
+                        "mark": "Total Mark (numeric string)",
                         "questionMarks": [
                             { "num": "1", "score": "15" },
                             { "num": "2", "score": "20" }
@@ -112,14 +109,11 @@ serve(async (req) => {
                 ]
             }
             
-            If this is just a class list without marks, extract the names and leave the mark and questionMarks as empty.
-            
-            For marks: 
-            - If "25/30", keep "25/30". 
-            - If "85%", keep "85%".
-            - If just a number "85", keep "85".
-            - If no mark is found for a name, use "".
-            - Ignore rows that look like headers or totals.
+            Validation Rules:
+            - If "25/30", record "25" as mark.
+            - If no mark is found for a row, use "".
+            - If multiple learners found (in bulk mode), list them all.
+            - In individual mode, typically there is only one learner, but verify names across multiple images.
         `;
 
         const imageParts = images.map((img: any) => ({
@@ -137,123 +131,42 @@ serve(async (req) => {
             const data = JSON.parse(jsonStr);
             return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         } catch (e) {
-            console.error("[gemini-ai] JSON Parse Error in scan-images:", e, jsonStr);
-            throw new Error("Failed to parse AI response as JSON.");
+            console.error("[gemini-ai] JSON Parse Error:", e, jsonStr);
+            throw new Error("Failed to parse AI response.");
         }
     }
 
     if (action === 'generate-insights') {
         const { subject, grade, learners, assessmentData } = payload;
-        console.log(`[gemini-ai] Action: generate-insights for ${grade} ${subject}`)
-        
-        const prompt = `
-            Analyze the performance of the following class.
-            Subject: ${subject}
-            Grade: ${grade}
-            
-            Learner Data (Current Aggregate): 
-            ${JSON.stringify(learners.map(l => ({ name: l.name, mark: l.mark })))}
-
-            Assessment History (Context):
-            ${assessmentData ? JSON.stringify(assessmentData.assessments.map(a => ({ title: a.title, type: a.type, max: a.max_mark }))) : "No detailed assessment history."}
-
-            Provide a strategic analysis for the teacher.
-            Output JSON only:
-            {
-                "summary": "A concise 2-3 sentence overview of class performance trends.",
-                "strengths": ["Strength 1", "Strength 2", "Strength 3"],
-                "areasForImprovement": ["Weakness 1", "Weakness 2", "Weakness 3"],
-                "recommendations": ["Strategy 1", "Strategy 2", "Strategy 3"]
-            }
-        `;
-        
+        const prompt = `Analyze class performance for ${grade} ${subject}. Data: ${JSON.stringify(learners.map(l => ({ name: l.name, mark: l.mark })))}`;
         const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const jsonStr = cleanJson(response.text());
-        
-        return new Response(jsonStr, { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return new Response(cleanJson((await result.response).text()), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     if (action === 'generate-report') {
         const { learner, classInfo, assessmentData } = payload;
-        console.log(`[gemini-ai] Action: generate-report for learner ${learner?.name}`)
-        
-        const prompt = `
-            Write a formal school report card comment for:
-            Learner: ${learner.name}
-            Class: ${classInfo.grade} ${classInfo.subject}
-            Overall Mark: ${learner.mark || 'N/A'}%
-            Teacher's Existing Note: ${learner.comment || 'None'}
-            
-            Detailed Assessment History: ${JSON.stringify(assessmentData)}
-            
-            The tone should be professional and constructive.
-            Focus on their strengths and specific areas where they can improve based on the assessment history provided.
-            
-            Output JSON only:
-            { "report": "The generated paragraph text..." }
-        `;
-
+        const prompt = `Write a formal school report card comment for ${learner.name} in ${classInfo.grade} ${classInfo.subject}. Mark: ${learner.mark}%`;
         const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const jsonStr = cleanJson(response.text());
-        
-        return new Response(jsonStr, { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return new Response(cleanJson((await result.response).text()), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     if (action === 'generate-single-comment') {
         const { learner, tone } = payload;
-        console.log(`[gemini-ai] Action: generate-single-comment for learner ${learner?.name}`)
-        
-        const prompt = `
-            Write a short, single-sentence report card comment for:
-            Learner: ${learner.name}
-            Mark: ${learner.mark}%
-            Tone: ${tone || 'Professional'}
-            
-            Output JSON only:
-            { "comment": "The comment text." }
-        `;
-
+        const prompt = `Write a short report comment for ${learner.name}. Mark: ${learner.mark}%. Tone: ${tone}`;
         const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const jsonStr = cleanJson(response.text());
-        
-        return new Response(jsonStr, { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return new Response(cleanJson((await result.response).text()), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     if (action === 'generate-bulk-comments') {
         const { learners, tone } = payload;
-        console.log(`[gemini-ai] Action: generate-bulk-comments for ${learners?.length} learners`)
-        
-        const prompt = `
-            Generate short, unique, single-sentence report card comments for the following learners based on their marks.
-            Tone: ${tone || 'Professional'}
-            
-            Learners:
-            ${JSON.stringify(learners)}
-            
-            Output JSON only with an array of objects:
-            {
-                "comments": [
-                    { "name": "Learner Name", "comment": "The comment." },
-                    ...
-                ]
-            }
-            Ensure the order matches or names are accurate.
-        `;
-
+        const prompt = `Generate short report comments for: ${JSON.stringify(learners)}. Tone: ${tone}`;
         const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const jsonStr = cleanJson(response.text());
-        
-        return new Response(jsonStr, { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return new Response(cleanJson((await result.response).text()), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     throw new Error(`Unknown action: ${action}`);
 
   } catch (error) {
-    console.error("[gemini-ai] Error in function handler:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

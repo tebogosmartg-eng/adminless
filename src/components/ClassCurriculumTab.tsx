@@ -1,3 +1,4 @@
+' character in template">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";

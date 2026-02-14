@@ -4,6 +4,7 @@ import { ScanReviewSection } from '@/components/scan/ScanReviewSection';
 
 const Scan = () => {
   const {
+    scanMode, setScanMode,
     imagePreviews,
     isProcessing,
     scannedDetails,
@@ -28,21 +29,23 @@ const Scan = () => {
     <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-10">
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-bold tracking-tight">Scan Scripts</h1>
-        <p className="text-sm text-muted-foreground">Extract marks from paper lists or scripts using AI.</p>
+        <p className="text-sm text-muted-foreground">Automated mark extraction for marksheets and learner scripts.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:h-[calc(100vh-220px)] items-start">
-        <div className="flex flex-col min-h-[400px]">
+        <div className="flex flex-col h-full">
             <ScanUploadSection 
               imagePreviews={imagePreviews}
               isProcessing={isProcessing}
+              scanMode={scanMode}
+              onModeChange={setScanMode}
               onFileChange={handleFileChange}
               onProcess={handleProcessImage}
               onSimulate={handleSimulateScan}
             />
         </div>
 
-        <div className="flex flex-col h-full overflow-hidden min-h-[600px] border rounded-lg bg-card shadow-sm">
+        <div className="flex flex-col h-full overflow-hidden border rounded-lg bg-card shadow-sm">
             <ScanReviewSection 
               scannedDetails={scannedDetails}
               scannedLearners={scannedLearners}

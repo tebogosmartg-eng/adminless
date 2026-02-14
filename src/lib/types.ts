@@ -54,13 +54,20 @@ export interface ScannedDetails {
   date: string;
 }
 
+export type ScanMode = 'bulk' | 'individual';
+
+export interface GeminiScanResult {
+  details: ScannedDetails | null;
+  learners: ScannedLearner[];
+}
+
 export interface Activity {
   id: string;
   user_id: string;
   year_id: string;
   term_id: string;
-  timestamp: string;
   message: string;
+  timestamp: string;
 }
 
 export interface Todo {
@@ -71,12 +78,6 @@ export interface Todo {
   title: string;
   completed: boolean;
   created_at: string;
-}
-
-export interface AggregatedLearner {
-  name: string;
-  marks: { [classId: string]: number | null };
-  finalMark: number;
 }
 
 export interface ClassInsight {
@@ -91,9 +92,10 @@ export interface LearnerComment {
   comment: string;
 }
 
-export interface GeminiScanResult {
-  details: ScannedDetails | null;
-  learners: ScannedLearner[];
+export interface AggregatedLearner {
+  name: string;
+  marks: { [classId: string]: number | null };
+  finalMark: number;
 }
 
 // --- NEW TERM BASED TYPES ---

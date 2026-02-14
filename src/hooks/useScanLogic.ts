@@ -5,17 +5,18 @@ import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ScannedDetails, ScannedLearner, Assessment, AssessmentQuestion, QuestionMark } from '@/lib/types';
+import { ScannedDetails, ScannedLearner, Assessment, AssessmentQuestion, ScanMode } from '@/lib/types';
 import { db } from '@/db';
 import { compressImage } from '@/utils/image';
 
 export const useScanLogic = () => {
-  const { classes, updateLearners, addClass } = useClasses();
+  const { classes, addClass } = useClasses();
   const { activeYear, activeTerm, createAssessment, updateMarks } = useAcademic();
   const { isOnline } = useSync();
   const navigate = useNavigate();
   const location = useLocation();
   
+  const [scanMode, setScanMode] = useState<ScanMode>('bulk');
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [scannedDetails, setScannedDetails] = useState<ScannedDetails | null>(null);
@@ -28,12 +29,6 @@ export const useScanLogic = () => {
   const [newClassName, setNewClassName] = useState("");
   const [activeTab, setActiveTab] = useState("update");
 
-  const initialValuesRef = useRef<{
-    grade?: string;
-    subject?: string;
-    className?: string;
-  }>({});
-
   useEffect(() => {
     if (location.state) {
         if (location.state.classId) {
@@ -42,11 +37,6 @@ export const useScanLogic = () => {
         }
         if (location.state.createMode) {
             setActiveTab("create");
-            initialValuesRef.current = {
-                grade: location.state.initialGrade,
-                subject: location.state.initialSubject,
-                className: location.state.initialClassName
-            };
             if (location.state.initialClassName) {
                 setNewClassName(location.state.initialClassName);
             }
@@ -57,16 +47,12 @@ export const useScanLogic = () => {
   useEffect(() => {
     const fetchClassAssessments = async () => {
       if (!selectedClassId || !activeTerm) return;
-      
       const data = await db.assessments
         .where('[class_id+term_id]')
         .equals([selectedClassId, activeTerm.id])
         .toArray();
-      
       setAvailableAssessments(data || []);
-      setSelectedAssessmentId("new");
     };
-
     fetchClassAssessments();
   }, [selectedClassId, activeTerm]);
 
@@ -77,13 +63,11 @@ export const useScanLogic = () => {
         const compressedImages = await Promise.all(
             Array.from(files).map(file => compressImage(file))
         );
-        
         setImagePreviews(compressedImages);
         setScannedLearners([]);
         setScannedDetails(null);
-        showSuccess(`Loaded ${files.length} image(s). Ready to process.`);
+        showSuccess(`Loaded ${files.length} image(s). Mode: ${scanMode}`);
       } catch (e) {
-        console.error("Image loading failed", e);
         showError("Failed to load or compress images.");
       }
     }
@@ -101,29 +85,14 @@ export const useScanLogic = () => {
     }
     
     setIsProcessing(true);
-    setScannedLearners([]);
-    setScannedDetails(null);
-
     try {
-      const result = await processImagesWithGemini(imagePreviews);
-      
-      const mergedDetails = { ...result.details };
-      if (initialValuesRef.current.grade) mergedDetails.grade = initialValuesRef.current.grade;
-      if (initialValuesRef.current.subject) mergedDetails.subject = initialValuesRef.current.subject;
-
-      setScannedDetails(mergedDetails as ScannedDetails);
-      setScannedLearners(result.learners);
-      
-      if (initialValuesRef.current.className) {
-        setNewClassName(initialValuesRef.current.className);
-      } else if (result.details) {
-        setNewClassName(`${result.details.grade} - ${result.details.testNumber || 'Test'}`);
-      }
-      
-      showSuccess(`Processed successfully! Found ${result.learners.length} learners.`);
+      const result = await processImagesWithGemini(imagePreviews, scanMode);
+      setScannedDetails(result.details || null);
+      setScannedLearners(result.learners || []);
+      if (result.details?.testNumber) setNewClassName(result.details.testNumber);
+      showSuccess(`AI analysis complete. Found ${result.learners.length} results.`);
     } catch (error: any) {
-      console.error(error);
-      showError(error.message || "Failed to process images. Please try again.");
+      showError(error.message || "Failed to process images.");
     } finally {
       setIsProcessing(false);
     }
@@ -133,52 +102,25 @@ export const useScanLogic = () => {
     setIsProcessing(true);
     setTimeout(() => {
       const mockDetails: ScannedDetails = {
-        subject: initialValuesRef.current.subject || "Physical Sciences",
-        grade: initialValuesRef.current.grade || "Grade 11",
-        testNumber: "Term 3 Control Test",
+        subject: "Life Sciences",
+        grade: "Grade 10",
+        testNumber: "Practical Test 2",
         date: new Date().toISOString().split('T')[0]
       };
-
       const mockLearners: ScannedLearner[] = [
-        { 
-            name: "Thabo Mbeki", 
-            mark: "78",
-            questionMarks: [
-                { num: "1", score: "40" },
-                { num: "2", score: "38" }
-            ]
-        },
-        { 
-            name: "Sarah Connor", 
-            mark: "45",
-            questionMarks: [
-                { num: "1", score: "20" },
-                { num: "2", score: "25" }
-            ]
-        },
-        { name: "John Wick", mark: "92" },
-        { name: "Ellen Ripley", mark: "88" },
-        { name: "Marty McFly", mark: "32" }
+        { name: "Thabo Mbeki", mark: "45", questionMarks: [{ num: "1", score: "20" }, { num: "2", score: "25" }] },
+        { name: "Sarah Jenkins", mark: "38", questionMarks: [{ num: "1", score: "15" }, { num: "2", score: "23" }] }
       ];
-
       setScannedDetails(mockDetails);
       setScannedLearners(mockLearners);
-      
-      if (initialValuesRef.current.className) {
-        setNewClassName(initialValuesRef.current.className);
-      } else {
-        setNewClassName(`${mockDetails.grade} - ${mockDetails.testNumber}`);
-      }
-      
+      setNewClassName(mockDetails.testNumber);
       setIsProcessing(false);
       showSuccess("Simulated scan complete!");
-    }, 1500);
+    }, 1000);
   };
 
   const updateScannedDetail = (field: keyof ScannedDetails, value: string) => {
-    if (scannedDetails) {
-      setScannedDetails({ ...scannedDetails, [field]: value });
-    }
+    if (scannedDetails) setScannedDetails({ ...scannedDetails, [field]: value });
   };
 
   const updateScannedLearner = (index: number, field: keyof ScannedLearner, value: any) => {
@@ -188,48 +130,24 @@ export const useScanLogic = () => {
   };
 
   const handleSaveToExisting = async () => {
-    if (!activeYear || !activeTerm) {
-        showError("Save blocked: Academic cycle not loaded.");
-        return;
-    }
-
-    if (!selectedClassId) {
-      showError("Please select a class.");
-      return;
-    }
-
+    if (!activeTerm || !selectedClassId) return;
     const targetClass = classes.find(c => c.id === selectedClassId);
-    if (!targetClass) {
-      showError("Selected class not found.");
-      return;
-    }
+    if (!targetClass) return;
 
     let targetAssessmentId = selectedAssessmentId;
     let targetQuestions: AssessmentQuestion[] = [];
 
     if (selectedAssessmentId === 'new') {
-        const title = scannedDetails?.testNumber || "Scanned Assessment";
-        
-        // Prepare questions if present in scan
-        const uniqueQNums = Array.from(new Set(
-            scannedLearners.flatMap(l => (l.questionMarks || []).map(q => q.num))
-        )).sort();
-
-        targetQuestions = uniqueQNums.map(num => ({
-            id: crypto.randomUUID(),
-            question_number: `Q${num}`,
-            skill_description: "",
-            max_mark: 0 // Will be derived from highest scanned score or default
-        }));
-
+        const uniqueQNums = Array.from(new Set(scannedLearners.flatMap(l => (l.questionMarks || []).map(q => q.num)))).sort();
+        targetQuestions = uniqueQNums.map(num => ({ id: crypto.randomUUID(), question_number: `Q${num}`, skill_description: "", max_mark: 0 }));
         targetAssessmentId = await createAssessment({
             class_id: selectedClassId,
             term_id: activeTerm.id,
-            title: title,
+            title: scannedDetails?.testNumber || "Scanned Task",
             type: 'Test',
             max_mark: 100, 
-            weight: 0,
-            date: scannedDetails?.date || new Date().toISOString(),
+            weight: 10,
+            date: new Date().toISOString(),
             questions: targetQuestions
         });
     } else {
@@ -238,77 +156,34 @@ export const useScanLogic = () => {
     }
 
     const learnersMap = new Map(targetClass.learners.map(l => [l.name.toLowerCase(), l]));
-    const newLearnersToAdd: any[] = [];
     const markUpdates: any[] = [];
 
-    scannedLearners.forEach(sl => {
-        const slNameLower = sl.name.toLowerCase();
-        let matchedKey = Array.from(learnersMap.keys()).find(key => 
-            key.includes(slNameLower) || slNameLower.includes(key)
-        );
-
-        if (!matchedKey) {
-            const newId = crypto.randomUUID();
-            const newLearner = { id: newId, name: sl.name, mark: "", comment: "" };
-            newLearnersToAdd.push(newLearner);
-            learnersMap.set(slNameLower, newLearner as any);
-        }
-    });
-
-    if (newLearnersToAdd.length > 0) {
-        const fullRoster = [...targetClass.learners, ...newLearnersToAdd];
-        await updateLearners(selectedClassId, fullRoster);
-    }
-
-    scannedLearners.forEach(sl => {
-        const slNameLower = sl.name.toLowerCase();
-        const matchedKey = Array.from(learnersMap.keys()).find(key => 
-            key.includes(slNameLower) || slNameLower.includes(key)
-        );
-
-        if (matchedKey) {
-            const learner = learnersMap.get(matchedKey)!;
-            const score = parseFloat(sl.mark) || 0;
-            
-            const questionMarks: QuestionMark[] = (sl.questionMarks || []).map(sq => {
-                const qDef = targetQuestions.find(tq => tq.question_number.includes(sq.num));
-                return {
-                    question_id: qDef?.id || crypto.randomUUID(),
-                    score: parseFloat(sq.score) || 0
-                };
+    for (const sl of scannedLearners) {
+        const matchedLearner = Array.from(learnersMap.values()).find(l => l.name.toLowerCase().includes(sl.name.toLowerCase()) || sl.name.toLowerCase().includes(l.name.toLowerCase()));
+        if (matchedLearner?.id) {
+            markUpdates.push({
+                assessment_id: targetAssessmentId,
+                learner_id: matchedLearner.id,
+                score: parseFloat(sl.mark),
+                question_marks: (sl.questionMarks || []).map(sq => {
+                    const qDef = targetQuestions.find(tq => tq.question_number.includes(sq.num));
+                    return { question_id: qDef?.id || crypto.randomUUID(), score: parseFloat(sq.score) };
+                })
             });
-
-            if (learner.id) {
-                markUpdates.push({
-                    assessment_id: targetAssessmentId,
-                    learner_id: learner.id,
-                    score: score,
-                    question_marks: questionMarks
-                });
-            }
         }
-    });
+    }
 
     if (markUpdates.length > 0) {
         await updateMarks(markUpdates);
-        showSuccess(`Saved marks for ${markUpdates.length} learners.`);
+        showSuccess(`Saved ${markUpdates.length} marks.`);
         navigate(`/classes/${selectedClassId}`);
     } else {
-        showError("No valid marks found to save.");
+        showError("No matching learners found to save marks.");
     }
   };
 
   const handleCreateNewClass = () => {
-    if (!scannedDetails || !newClassName || !activeYear || !activeTerm) {
-      showError("Setup Incomplete: Please ensure a Year and Term are active.");
-      return;
-    }
-
-    const newLearners = scannedLearners.map(sl => ({
-        name: sl.name,
-        mark: sl.mark 
-    }));
-
+    if (!scannedDetails || !activeTerm || !activeYear) return;
     addClass({
       id: crypto.randomUUID(),
       year_id: activeYear.id,
@@ -316,43 +191,18 @@ export const useScanLogic = () => {
       grade: scannedDetails.grade,
       subject: scannedDetails.subject,
       className: newClassName,
-      learners: newLearners,
-      archived: false,
-      notes: ""
+      learners: scannedLearners.map(sl => ({ name: sl.name, mark: sl.mark })),
+      archived: false
     });
-
-    showSuccess(`Created new class "${newClassName}".`);
-    resetState();
     navigate('/classes');
   };
 
-  const resetState = () => {
-    setImagePreviews([]);
-    setScannedLearners([]);
-    setScannedDetails(null);
-    setNewClassName("");
-    setSelectedClassId(undefined);
-    initialValuesRef.current = {};
-  };
-
   return {
-    imagePreviews,
-    isProcessing,
-    scannedDetails,
-    scannedLearners,
-    selectedClassId, setSelectedClassId,
-    newClassName, setNewClassName,
-    activeTab, setActiveTab,
-    handleFileChange,
-    handleProcessImage,
-    handleSimulateScan,
-    updateScannedDetail,
-    updateScannedLearner,
-    handleSaveToExisting,
-    handleCreateNewClass,
-    classes,
-    availableAssessments,
-    selectedAssessmentId,
-    setSelectedAssessmentId
+    scanMode, setScanMode,
+    imagePreviews, isProcessing, scannedDetails, scannedLearners,
+    selectedClassId, setSelectedClassId, newClassName, setNewClassName,
+    activeTab, setActiveTab, handleFileChange, handleProcessImage, handleSimulateScan,
+    updateScannedDetail, updateScannedLearner, handleSaveToExisting, handleCreateNewClass,
+    classes, availableAssessments, selectedAssessmentId, setSelectedAssessmentId
   };
 };

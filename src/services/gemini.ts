@@ -1,13 +1,5 @@
-import { ClassInfo, Learner, ClassInsight, LearnerComment } from "@/lib/types";
+import { ClassInfo, Learner, ClassInsight, LearnerComment, ScanMode } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
-
-// Helper to handle offline/error states gracefully
-const mockInsights: ClassInsight = {
-  summary: "Class performance is stable with steady improvement in core concepts.",
-  strengths: ["Consistent attendance", "Strong engagement in group tasks"],
-  areasForImprovement: ["Complex problem solving", "Time management during tests"],
-  recommendations: ["Incorporate more timed practice sessions", "Use peer-review for complex problems"]
-};
 
 // Unified helper for calling the monolith edge function
 const invokeGemini = async (action: string, payload: any) => {
@@ -31,10 +23,15 @@ export const generateClassInsights = async (
       learners, 
       assessmentData 
     });
-    return data || mockInsights;
+    return data;
   } catch (error) {
     console.error("AI Insight Generation Failed:", error);
-    return mockInsights;
+    return {
+        summary: "Could not generate insights.",
+        strengths: [],
+        areasForImprovement: [],
+        recommendations: []
+    };
   }
 };
 
@@ -56,24 +53,8 @@ export const generateLearnerReport = async (
     return data?.report || "Could not generate report.";
   } catch (error) {
     console.error("Report Gen Error:", error);
-    return `Report for ${learner.name}\n\nGenerated (Offline Mode):\nLearner is performing adequately based on available data.`;
+    return `Report generation unavailable.`;
   }
-};
-
-export const generateLearnerComment = async (
-    learner: Learner,
-    tone: string
-): Promise<string> => {
-    try {
-        const data = await invokeGemini('generate-single-comment', {
-            learner,
-            tone
-        });
-        return data?.comment || "";
-    } catch (e) {
-        console.error("Comment Gen Error", e);
-        return "";
-    }
 };
 
 export const generateBulkComments = async (
@@ -92,9 +73,9 @@ export const generateBulkComments = async (
     }
 };
 
-export const processImagesWithGemini = async (images: string[]): Promise<any> => {
+export const processImagesWithGemini = async (images: string[], scanMode: ScanMode = 'bulk'): Promise<any> => {
   try {
-    const data = await invokeGemini('scan-images', { images });
+    const data = await invokeGemini('scan-images', { images, scanMode });
     return data;
   } catch (error) {
     console.error("Image Processing Failed:", error);
