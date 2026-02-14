@@ -21,6 +21,7 @@ interface QuestionMarkingDialogProps {
   initialMarks?: QuestionMark[];
   onNext?: () => void;
   onPrev?: () => void;
+  isLocked?: boolean;
 }
 
 export const QuestionMarkingDialog = ({
@@ -31,9 +32,19 @@ export const QuestionMarkingDialog = ({
   onSave,
   initialMarks = [],
   onNext,
-  onPrev
+  onPrev,
+  isLocked = false
 }: QuestionMarkingDialogProps) => {
   const [qMarks, setQMarks] = useState<Record<string, string>>({});
+
+  // Diagnostic Logging
+  useEffect(() => {
+    if (open) {
+      console.log(`[Diagnostic: QuestionMarking] Dialog opened for ${learner.name}.`);
+      console.log(`[Diagnostic: QuestionMarking] isLocked state: ${isLocked}`);
+      console.log(`[Diagnostic: QuestionMarking] term.is_finalised (implied by isLocked): ${isLocked}`);
+    }
+  }, [open, isLocked, learner.name]);
 
   useEffect(() => {
     if (open) {
@@ -52,10 +63,14 @@ export const QuestionMarkingDialog = ({
         const n = parseFloat(val);
         if (!isNaN(n)) total += n;
     });
-    return total;
+    // Return rounded result to match system precision
+    return parseFloat(total.toFixed(1));
   }, [qMarks]);
 
   const handleUpdate = (qId: string, val: string) => {
+    // Basic validation to allow digits and a single decimal point during typing
+    if (val !== "" && !/^\d*\.?\d*$/.test(val)) return;
+    
     setQMarks(prev => ({ ...prev, [qId]: val }));
   };
 
@@ -101,8 +116,8 @@ export const QuestionMarkingDialog = ({
                         Next <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
                 </div>
-                <Button variant="secondary" size="sm" onClick={handleSave} className="font-bold">
-                    <Save className="h-4 w-4 mr-2" /> Save & Next
+                <Button variant="secondary" size="sm" onClick={handleSave} className="font-bold" disabled={isLocked}>
+                    <Save className="h-4 w-4 mr-2" /> {onNext ? "Save & Next" : "Save Analysis"}
                 </Button>
             </div>
         </div>
@@ -120,12 +135,17 @@ export const QuestionMarkingDialog = ({
                         </div>
                         <div className="w-24">
                             <Input 
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 value={qMarks[q.id] || ""}
                                 onChange={(e) => handleUpdate(q.id, e.target.value)}
-                                className="text-center text-lg font-bold h-12 bg-muted/30 focus:bg-background"
+                                className={cn(
+                                    "text-center text-lg font-bold h-12 bg-muted/30 focus:bg-background",
+                                    isLocked && "opacity-50 cursor-not-allowed"
+                                )}
                                 placeholder="-"
                                 autoFocus={idx === 0}
+                                disabled={isLocked}
                             />
                         </div>
                     </div>

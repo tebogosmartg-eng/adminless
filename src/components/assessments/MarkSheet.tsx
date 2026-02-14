@@ -1,3 +1,5 @@
+"use client";
+
 import { ClassInfo, Learner, QuestionMark, Assessment } from '@/lib/types';
 import { useMarkSheetLogic } from '@/hooks/useMarkSheetLogic';
 import { MarkSheetToolbar } from './MarkSheetToolbar';
@@ -257,6 +259,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
               initialMarks={currentQMark?.question_marks}
               onNext={handleNextQ}
               onPrev={handlePrevQ}
+              isLocked={state.isLocked}
            />
        )}
 
