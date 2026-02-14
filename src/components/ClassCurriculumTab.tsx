@@ -1,3 +1,4 @@
+character in the curriculum tab description.">
 "use client";
 
 import { useCurriculumProgress } from "@/hooks/useCurriculumProgress";

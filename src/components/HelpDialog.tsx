@@ -1,3 +1,4 @@
+character in the help dialog description.">
 import {
   Dialog,
   DialogContent,
