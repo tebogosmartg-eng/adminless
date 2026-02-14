@@ -49,9 +49,11 @@ serve(async (req) => {
 
         if (questions && questions.length > 0) {
             questionGuidance = `
-                The user has provided a specific question structure. Please extract marks for these EXACT questions:
+                The user has provided a specific question structure. Extract marks for these EXACT questions:
                 ${questions.map(q => `- ${q.question_number}: ${q.skill_description} (Max: ${q.max_mark})`).join('\n')}
             `;
+        } else if (scanMode === 'individual_script') {
+            questionGuidance = "Look for a question-by-question breakdown. For each question, extract the number, the student's score, and the total possible mark (max).";
         }
 
         if (scanMode === 'class_marksheet') {
@@ -60,8 +62,6 @@ serve(async (req) => {
             contextRules = "This is an INDIVIDUAL LEARNER SCRIPT. Extract the student name and ALL individual question marks. If a total score is visible, extract that too.";
         } else if (scanMode === 'learner_roster') {
             contextRules = "This is a CLASS ROSTER. Extract all learner names. Marks are not required.";
-        } else if (scanMode === 'attendance_register') {
-            contextRules = "This is an ATTENDANCE REGISTER. Extract learner names and map their status to 'present', 'absent', 'late', or 'excused'.";
         }
 
         const prompt = `
@@ -70,23 +70,27 @@ serve(async (req) => {
             
             Strictly output JSON only in this format:
             {
-                "details": { "subject": "string", "grade": "string", "testNumber": "string", "date": "YYYY-MM-DD" },
+                "details": { 
+                    "subject": "string", 
+                    "grade": "string", 
+                    "testNumber": "string", 
+                    "date": "YYYY-MM-DD",
+                    "discoveredQuestions": [ { "num": "Q1", "max": "10", "skill": "Skill if visible" } ]
+                },
                 "learners": [ 
                     { 
                         "name": "Full Name", 
                         "mark": "Numeric total mark (string)", 
-                        "attendanceStatus": "present|absent|late|excused (opt)",
-                        "questionMarks": [ { "num": "Q1", "score": "15" } ] 
+                        "questionMarks": [ { "num": "Q1", "score": "8" } ] 
                     } 
                 ]
             }
 
             Normalization Rules:
-            - If "25/30", record "25" in mark.
-            - If questions are provided, "questionMarks" must use the exact question numbers provided (e.g. "Q1", "Q1.1").
-            - If a total total score is not clearly written, calculate it by summing the individual question marks.
-            - Trim whitespace from names.
-            - If handwriting is ambiguous for a mark, provide your best guess but prioritize consistency with the total if present.
+            - If "25/30", record "25" in score/mark and "30" in max.
+            - "discoveredQuestions" should list all unique questions found across the pages.
+            - Ensure question numbers in "learners" match "discoveredQuestions".
+            - If handwriting is ambiguous, provide your best guess.
         `;
 
         const imageParts = images.map(img => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));

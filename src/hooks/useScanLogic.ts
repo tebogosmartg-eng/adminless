@@ -5,7 +5,7 @@ import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ScannedDetails, ScannedLearner, Assessment, ScanType, Learner, AttendanceRecord, AssessmentMark, ScanHistory } from '@/lib/types';
+import { ScannedDetails, ScannedLearner, Assessment, ScanType, Learner, AttendanceRecord, AssessmentMark, ScanHistory, AssessmentQuestion } from '@/lib/types';
 import { db } from '@/db';
 import { compressImage } from '@/utils/image';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,7 +52,7 @@ export const useScanLogic = () => {
   const [scanType, setScanType] = useState<ScanType>('class_marksheet');
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [scannedDetails, setScannedDetails] = useState<ScannedDetails | null>(null);
+  const [scannedDetails, setScannedDetails] = useState<(ScannedDetails & { discoveredQuestions?: any[] }) | null>(null);
   const [scannedLearners, setScannedLearners] = useState<ScannedLearner[]>([]);
   const [learnerMappings, setLearnerMappings] = useState<Record<number, string>>({});
   
@@ -223,33 +223,39 @@ export const useScanLogic = () => {
     }
     setIsProcessing(true);
     setTimeout(() => {
-      let mockDetails: ScannedDetails = {
+      let mockQuestions = [
+          { num: "Q1", max: "10", skill: "Trigonometry" },
+          { num: "Q2", max: "15", skill: "Algebra" },
+          { num: "Q3", max: "5", skill: "Logic" }
+      ];
+
+      let mockDetails: any = {
         subject: targetClass?.subject || "Mathematics", 
         grade: targetClass?.grade || "Grade 11", 
         testNumber: targetAssessment?.title || "Test 1",
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        discoveredQuestions: targetAssessment?.questions ? [] : mockQuestions
       };
       
       const randomLearner = targetClass?.learners[Math.floor(Math.random() * targetClass.learners.length)];
       
+      const activeQs = targetAssessment?.questions || mockQuestions;
       let mockLearners: ScannedLearner[] = [
         { 
             name: randomLearner?.name || "Thabo Mbeki", 
             mark: "45", 
             attendanceStatus: 'present',
-            questionMarks: targetAssessment?.questions?.map(q => ({ 
-                num: q.question_number, 
-                score: (Math.random() * q.max_mark).toFixed(1).replace(/\.0$/, '') 
+            questionMarks: activeQs.map(q => ({ 
+                num: (q as any).question_number || (q as any).num, 
+                score: (Math.random() * parseFloat((q as any).max_mark || (q as any).max)).toFixed(1).replace(/\.0$/, '') 
             })) || []
         }
       ];
 
-      // If we simulated question marks, ensure the total matches for the simulation
-      if (mockLearners[0].questionMarks && mockLearners[0].questionMarks.length > 0) {
-          let total = 0;
-          mockLearners[0].questionMarks.forEach(qm => total += parseFloat(qm.score) || 0);
-          mockLearners[0].mark = total.toString();
-      }
+      // Sum the total for simulation
+      let total = 0;
+      mockLearners[0].questionMarks!.forEach(qm => total += parseFloat(qm.score) || 0);
+      mockLearners[0].mark = total.toString();
       
       setScannedDetails(mockDetails);
       setScannedLearners(mockLearners);
@@ -317,26 +323,45 @@ export const useScanLogic = () => {
         let targetAssessmentId = selectedAssessmentId;
         
         if (selectedAssessmentId === 'new' && (scanType === 'class_marksheet' || scanType === 'individual_script')) {
+            // Create questions from discovery if available
+            const questions: AssessmentQuestion[] = (scannedDetails?.discoveredQuestions || []).map(dq => ({
+                id: crypto.randomUUID(),
+                question_number: dq.num,
+                skill_description: dq.skill || "Discovered Topic",
+                max_mark: parseInt(dq.max) || 10
+            }));
+
+            // Total is sum of questions or extracted total
+            const totalMax = questions.length > 0 
+                ? questions.reduce((s, q) => s + q.max_mark, 0)
+                : 100;
+
             targetAssessmentId = await createAssessment({
                 class_id: selectedClassId!,
                 term_id: activeTerm!.id,
                 title: scannedDetails?.testNumber || "Scanned Assessment",
-                type: 'Test', max_mark: 100, weight: 10, date: new Date().toISOString()
+                type: 'Test', 
+                max_mark: totalMax, 
+                weight: 10, 
+                date: new Date().toISOString(),
+                questions
             });
         }
 
         let markUpdates = overriddenUpdates;
         
         if (!markUpdates) {
+            // Refetch assessment if just created to get the IDs
+            const currentAss = await db.assessments.get(targetAssessmentId!);
+
             markUpdates = scannedLearners
                 .filter((_, idx) => learnerMappings[idx])
                 .map((sl, idx) => {
                     const lId = learnerMappings[idx];
-                    const assessment = availableAssessments.find(a => a.id === targetAssessmentId);
                     
-                    // Format question marks if available
+                    // Format question marks using newly created or existing question IDs
                     const questionMarks = sl.questionMarks?.map(qm => {
-                        const qObj = assessment?.questions?.find(q => q.question_number === qm.num);
+                        const qObj = currentAss?.questions?.find(q => q.question_number === qm.num);
                         return {
                             question_id: qObj?.id || qm.num,
                             score: parseFloat(qm.score)

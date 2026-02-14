@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Save, Eye, AlertCircle, Info, CheckCircle2, ShieldCheck, Database, ListChecks, ChevronDown, ChevronRight } from 'lucide-react';
+import { Save, Eye, AlertCircle, Info, CheckCircle2, ShieldCheck, Database, ListChecks, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { ClassInfo, ScannedDetails, ScannedLearner, Assessment, ScanType } from '@/lib/types';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 
 interface ScanReviewSectionProps {
-  scannedDetails: ScannedDetails | null;
+  scannedDetails: (ScannedDetails & { discoveredQuestions?: any[] }) | null;
   scannedLearners: ScannedLearner[];
   learnerMappings: Record<number, string>;
   updateLearnerMapping: (scannedIdx: number, learnerId: string) => void;
@@ -127,11 +127,19 @@ export const ScanReviewSection = ({
                       {isMarkMode && (
                           <div className="col-span-2 space-y-1 border-t pt-2 mt-1">
                               <Label className="text-[9px] font-bold text-muted-foreground uppercase">Target Assessment Column</Label>
-                              <div className="flex items-center gap-2">
-                                  <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black py-1 px-2">
-                                      {selectedAssessmentId === 'new' ? 'CREATE NEW FAT' : targetAssessment?.title || 'UNSELECTED'}
-                                  </Badge>
-                                  {targetAssessment && <span className="text-[10px] font-bold text-muted-foreground">Total Marks: {targetAssessment.max_mark}</span>}
+                              <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black py-1 px-2">
+                                        {selectedAssessmentId === 'new' ? 'CREATE NEW FAT' : targetAssessment?.title || 'UNSELECTED'}
+                                    </Badge>
+                                    {targetAssessment && <span className="text-[10px] font-bold text-muted-foreground">Total Marks: {targetAssessment.max_mark}</span>}
+                                  </div>
+                                  {selectedAssessmentId === 'new' && scannedDetails.discoveredQuestions && scannedDetails.discoveredQuestions.length > 0 && (
+                                      <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 animate-in slide-in-from-right-2">
+                                          <Sparkles className="h-2.5 w-2.5" />
+                                          <span>AI found {scannedDetails.discoveredQuestions.length} Questions</span>
+                                      </div>
+                                  )}
                               </div>
                           </div>
                       )}
@@ -251,8 +259,8 @@ export const ScanReviewSection = ({
                                 </TableRow>
                                 {isExpanded && hasQuestions && (
                                     <TableRow className="bg-muted/10 animate-in slide-in-from-top-1">
-                                        <TableCell colSpan={4} className="p-0">
-                                            <div className="p-4 pl-12 space-y-4 border-b">
+                                        <TableCell colSpan={4} className="p-4 pl-12">
+                                            <div className="space-y-4 border-b pb-4">
                                                 <div className="flex items-center justify-between">
                                                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Question Breakdown</p>
                                                     {isSumMismatch && (
@@ -263,19 +271,20 @@ export const ScanReviewSection = ({
                                                 </div>
                                                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                                                     {learner.questionMarks!.map((qm, qIdx) => {
-                                                        const targetQ = targetAssessment?.questions?.find(q => q.question_number === qm.num);
+                                                        const targetQ = targetAssessment?.questions?.find(q => q.question_number === qm.num) || 
+                                                                        scannedDetails.discoveredQuestions?.find(dq => dq.num === qm.num);
                                                         return (
                                                             <div key={qIdx} className="space-y-1 bg-background p-2 rounded-lg border shadow-sm group/q">
                                                                 <div className="flex justify-between items-center">
                                                                     <label className="text-[9px] font-black text-muted-foreground uppercase">{qm.num}</label>
-                                                                    {targetQ && <span className="text-[8px] text-muted-foreground font-bold">max {targetQ.max_mark}</span>}
+                                                                    {targetQ && <span className="text-[8px] text-muted-foreground font-bold">max {targetQ.max_mark || targetQ.max}</span>}
                                                                 </div>
                                                                 <Input 
                                                                     value={qm.score} 
                                                                     onChange={(e) => updateQuestionMark(index, qIdx, e.target.value)}
                                                                     className={cn(
                                                                         "h-7 text-xs bg-muted/10 text-center font-black transition-colors focus:bg-background",
-                                                                        targetQ && parseFloat(qm.score) > targetQ.max_mark ? "text-red-600 ring-1 ring-red-200" : ""
+                                                                        targetQ && parseFloat(qm.score) > (targetQ.max_mark || parseFloat(targetQ.max)) ? "text-red-600 ring-1 ring-red-200" : ""
                                                                     )} 
                                                                 />
                                                             </div>
@@ -287,7 +296,7 @@ export const ScanReviewSection = ({
                                                         <Info className="h-3.5 w-3.5" />
                                                         <p className="text-[10px] font-medium leading-tight">
                                                             The calculated sum of questions is <strong>{qSum}</strong>, but the extracted total is <strong>{learner.mark}</strong>. 
-                                                            Confirm the marks on the script before committing.
+                                                            Manual corrections will auto-calculate the total.
                                                         </p>
                                                     </div>
                                                 )}
