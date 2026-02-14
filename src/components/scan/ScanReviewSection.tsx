@@ -241,24 +241,43 @@ export const ScanReviewSection = ({
                                 {isExpanded && hasQuestions && (
                                     <TableRow className="bg-muted/10 animate-in slide-in-from-top-1">
                                         <TableCell colSpan={4} className="p-0">
-                                            <div className="p-3 pl-12 space-y-2 border-b">
-                                                <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-2">Question Breakdown</p>
-                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                                    {learner.questionMarks!.map((qm, qIdx) => (
-                                                        <div key={qIdx} className="space-y-1">
-                                                            <label className="text-[8px] font-bold text-muted-foreground uppercase">{qm.num}</label>
-                                                            <Input 
-                                                                value={qm.score} 
-                                                                onChange={(e) => updateQuestionMark(index, qIdx, e.target.value)}
-                                                                className="h-6 text-[10px] bg-background text-center font-bold" 
-                                                            />
-                                                        </div>
-                                                    ))}
+                                            <div className="p-4 pl-12 space-y-4 border-b">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Question Breakdown</p>
+                                                    {isSumMismatch && (
+                                                        <Badge variant="destructive" className="h-5 text-[9px] gap-1 px-2">
+                                                            <AlertCircle className="h-3 w-3" /> Sum Mismatch
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                                                    {learner.questionMarks!.map((qm, qIdx) => {
+                                                        const targetQ = targetAssessment?.questions?.find(q => q.question_number === qm.num);
+                                                        return (
+                                                            <div key={qIdx} className="space-y-1 bg-background p-2 rounded-lg border shadow-sm group/q">
+                                                                <div className="flex justify-between items-center">
+                                                                    <label className="text-[9px] font-black text-muted-foreground uppercase">{qm.num}</label>
+                                                                    {targetQ && <span className="text-[8px] text-muted-foreground font-bold">max {targetQ.max_mark}</span>}
+                                                                </div>
+                                                                <Input 
+                                                                    value={qm.score} 
+                                                                    onChange={(e) => updateQuestionMark(index, qIdx, e.target.value)}
+                                                                    className={cn(
+                                                                        "h-7 text-xs bg-muted/10 text-center font-black transition-colors focus:bg-background",
+                                                                        targetQ && parseFloat(qm.score) > targetQ.max_mark ? "text-red-600 ring-1 ring-red-200" : ""
+                                                                    )} 
+                                                                />
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                                 {isSumMismatch && (
-                                                    <div className="mt-2 text-[9px] font-bold text-red-600 bg-red-50 p-1.5 rounded flex items-center gap-1.5 border border-red-100">
-                                                        <AlertCircle className="h-2.5 w-2.5" />
-                                                        Sum of questions ({qSum}) ≠ Scanned total ({learner.mark}). Total updated to match questions.
+                                                    <div className="flex items-center gap-2 p-2 rounded bg-amber-50 text-amber-800 border border-amber-100">
+                                                        <Info className="h-3.5 w-3.5" />
+                                                        <p className="text-[10px] font-medium leading-tight">
+                                                            The calculated sum of questions is <strong>{qSum}</strong>, but the extracted total is <strong>{learner.mark}</strong>. 
+                                                            Confirm the marks on the script before committing.
+                                                        </p>
                                                     </div>
                                                 )}
                                             </div>

@@ -83,9 +83,10 @@ serve(async (req) => {
 
             Normalization Rules:
             - If "25/30", record "25" in mark.
-            - If questions are provided, "questionMarks" must use the exact question numbers (e.g. "Q1", "Q1.1").
-            - Sum the question marks and ensure it matches the provided "mark" (total).
+            - If questions are provided, "questionMarks" must use the exact question numbers provided (e.g. "Q1", "Q1.1").
+            - If a total total score is not clearly written, calculate it by summing the individual question marks.
             - Trim whitespace from names.
+            - If handwriting is ambiguous for a mark, provide your best guess but prioritize consistency with the total if present.
         `;
 
         const imageParts = images.map(img => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
