@@ -18,10 +18,11 @@ export interface QuestionStat {
   low: number;
   passRate: number;
   isWeak: boolean;
+  totalAttempts: number;
 }
 
 export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[]) => {
-  // Use LiveQuery for marks so stats update instantly when QuestionMarkingDialog saves
+  // Reactive subscription to all marks for this assessment
   const marks = useLiveQuery(
     () => db.assessment_marks.where('assessment_id').equals(assessment.id).toArray(),
     [assessment.id]
@@ -32,8 +33,6 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
     [assessment.id]
   );
 
-  const loading = marks === undefined;
-
   const stats = useMemo(() => {
     if (!assessment.questions || assessment.questions.length === 0 || marks.length === 0) return null;
 
@@ -43,14 +42,19 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
         .filter(s => s !== undefined && s !== null) as number[];
 
       if (qMarks.length === 0) {
-        return { id: q.id, number: q.question_number, skill: q.skill_description, max: q.max_mark, avg: 0, high: 0, low: 0, passRate: 0, isWeak: false };
+        return { 
+          id: q.id, number: q.question_number, skill: q.skill_description, 
+          max: q.max_mark, avg: 0, high: 0, low: 0, passRate: 0, isWeak: false, totalAttempts: 0 
+        };
       }
 
       const sum = qMarks.reduce((a, b) => a + b, 0);
-      const avg = (sum / qMarks.length);
-      const avgPct = (avg / q.max_mark) * 100;
+      const avgRaw = (sum / qMarks.length);
+      const avgPct = (avgRaw / q.max_mark) * 100;
       const high = Math.max(...qMarks);
       const low = Math.min(...qMarks);
+      
+      // Calculate Pass Rate based on 50% threshold for the specific question
       const passes = qMarks.filter(s => (s / q.max_mark) >= 0.5).length;
       const passRate = (passes / qMarks.length) * 100;
 
@@ -63,19 +67,44 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
         high,
         low,
         passRate: Math.round(passRate),
-        isWeak: avgPct < 50
+        isWeak: avgPct < 50,
+        totalAttempts: qMarks.length
       };
     });
 
     const weakQuestions = qStats.filter(s => s.isWeak);
+    const strongQuestions = qStats.filter(s => s.avg >= 75);
     const weakSkills = Array.from(new Set(weakQuestions.map(s => s.skill))).filter(Boolean);
-
-    // Dynamic AI Draft Generation
-    const findings = `The overall class performance for "${assessment.title}" shows an average achievement of ${(qStats.reduce((a, b) => a + b.avg, 0) / qStats.length).toFixed(1)}% across all questions. ${weakQuestions.length > 0 ? `Critical gaps were identified in ${weakQuestions.map(q => q.number).join(', ')}, which primarily assessed ${weakSkills.join(' and ')}.` : 'Learners demonstrated a consistent grasp of the skills assessed.'}`;
     
-    const interventions = weakQuestions.length > 0 
-        ? `1. Remedial sessions focused on ${weakSkills.join(', ')}.\n2. Re-teaching of core concepts linked to Question ${weakQuestions[0]?.number}.\n3. Individual support for learners scoring below 40% in these specific sections.`
-        : "Continue with the current teaching plan, incorporating extension activities for high performers.";
+    const overallAvg = (qStats.reduce((a, b) => a + b.avg, 0) / qStats.length).toFixed(1);
+
+    // --- TEMPLATE-BASED AI DRAFT GENERATION ---
+    
+    let findings = `Diagnostic Summary for "${assessment.title}":\n`;
+    findings += `The class achieved an overall question-average of ${overallAvg}%. `;
+    
+    if (weakQuestions.length > 0) {
+        findings += `Significant learning gaps were identified in ${weakQuestions.map(q => `Q${q.number}`).join(', ')}. `;
+        if (weakSkills.length > 0) {
+            findings += `These questions primarily assessed "${weakSkills.join(', ')}", suggesting a thematic struggle with these concepts. `;
+        }
+    } else {
+        findings += "Learners demonstrated a strong grasp across all sections, with no critical failures identified at the question level. ";
+    }
+
+    if (strongQuestions.length > 0) {
+        findings += `The class excelled in ${strongQuestions.map(q => `Q${q.number}`).join(', ')}, showing mastery of ${Array.from(new Set(strongQuestions.map(s => s.skill))).filter(Boolean).join(' and ')}.`;
+    }
+
+    let interventions = "Proposed Instructional Strategy:\n";
+    if (weakQuestions.length > 0) {
+        interventions += `1. Targeted Remediation: Conduct focused group sessions on ${weakSkills.slice(0, 2).join(' and ')}.\n`;
+        interventions += `2. Peer Learning: Pair top performers from ${strongQuestions[0]?.number ? `Q${strongQuestions[0].number}` : 'successful sections'} with struggling learners.\n`;
+        interventions += `3. Re-teaching: Dedicated 15-minute recap of core theory behind Question ${weakQuestions[0].number} before the next assessment cycle.`;
+    } else {
+        interventions += "1. Extension Tasks: Provide high-performing learners with more complex application problems.\n";
+        interventions += "2. Consolidation: Briefly review the few minor errors caught in the next lesson to maintain momentum.";
+    }
 
     return { 
         qStats, 
@@ -83,7 +112,8 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
         weakSkills,
         drafts: { findings, interventions },
         rawMarks: marks,
-        savedDiagnostic: savedDiagnostic || null
+        savedDiagnostic: savedDiagnostic || null,
+        overallAvg
     };
   }, [assessment, marks, savedDiagnostic]);
 
@@ -103,11 +133,11 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
 
           await db.diagnostics.put(payload);
           await queueAction('diagnostics', 'upsert', payload);
-          showSuccess("Diagnostic analysis saved.");
+          showSuccess("Diagnostic analysis finalized.");
       } catch (e) {
           showError("Failed to save diagnostic.");
       }
   }, [assessment.id, savedDiagnostic]);
 
-  return { stats, loading, saveDiagnostic };
+  return { stats, loading: marks === undefined, saveDiagnostic };
 };
