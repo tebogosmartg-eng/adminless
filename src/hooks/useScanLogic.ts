@@ -65,10 +65,12 @@ export const useScanLogic = () => {
 
   const [originalFile, setOriginalFile] = useState<File | null>(null);
 
+  // New class creation state
+  const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
+
   // Conflict Resolution State
   const [isConflictOpen, setIsConflictOpen] = useState(false);
   const [existingMarks, setExistingMarks] = useState<AssessmentMark[]>([]);
-  const [replacementType, setReplacementType] = useState<'replace' | 'merge' | 'manual'>('manual');
 
   const targetClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
 
@@ -243,6 +245,14 @@ export const useScanLogic = () => {
       setLearnerMappings(prev => ({ ...prev, [scannedIdx]: learnerId }));
   };
 
+  const handleClassChange = (id: string) => {
+    if (id === "new") {
+      setIsCreateClassOpen(true);
+    } else {
+      setSelectedClassId(id);
+    }
+  };
+
   const handleSaveToExisting = async () => {
     if (!activeTerm || !activeYear || !selectedClassId || !targetClass) {
         showError("Blocked: Full academic context required.");
@@ -388,11 +398,13 @@ export const useScanLogic = () => {
     scanType, setScanType,
     imagePreviews, isProcessing, scannedDetails, scannedLearners,
     learnerMappings, updateLearnerMapping,
-    selectedClassId, setSelectedClassId, newClassName, setNewClassName,
+    selectedClassId, setSelectedClassId, handleClassChange,
+    newClassName, setNewClassName,
     activeTab, setActiveTab, handleFileChange, handleProcessImage, handleSimulateScan,
     updateScannedDetail, updateScannedLearner, handleSaveToExisting, handleCreateNewClass,
     classes, availableAssessments, selectedAssessmentId, setSelectedAssessmentId,
     isExtractionReady,
-    isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass
+    isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass,
+    isCreateClassOpen, setIsCreateClassOpen
   };
 };

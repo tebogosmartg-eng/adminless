@@ -3,10 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Loader2, PlayCircle, Camera, WifiOff, Users, User, ClipboardList, ShieldCheck, FileSearch, UserPlus, AlertCircle, Info } from 'lucide-react';
+import { FileText, Loader2, PlayCircle, Camera, WifiOff, Users, User, ClipboardList, ShieldCheck, FileSearch, UserPlus, AlertCircle, Info, PlusCircle } from 'lucide-react';
 import { useSync } from '@/context/SyncContext';
 import { ScanType, ClassInfo, Assessment } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { CreateClassInlineDialog } from './CreateClassInlineDialog';
+import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 interface ScanUploadSectionProps {
   imagePreviews: string[];
@@ -23,6 +25,8 @@ interface ScanUploadSectionProps {
   selectedAssessmentId?: string;
   onAssessmentChange: (id: string) => void;
   isReady: boolean;
+  isCreateClassOpen: boolean;
+  setIsCreateClassOpen: (open: boolean) => void;
 }
 
 export const ScanUploadSection = ({
@@ -39,7 +43,9 @@ export const ScanUploadSection = ({
   availableAssessments,
   selectedAssessmentId,
   onAssessmentChange,
-  isReady
+  isReady,
+  isCreateClassOpen,
+  setIsCreateClassOpen
 }: ScanUploadSectionProps) => {
   const { isOnline } = useSync();
 
@@ -88,6 +94,13 @@ export const ScanUploadSection = ({
                         <SelectValue placeholder="Select class..." />
                     </SelectTrigger>
                     <SelectContent>
+                        <SelectItem value="new" className="font-bold text-primary">
+                          <div className="flex items-center gap-2">
+                            <PlusCircle className="h-4 w-4" />
+                            <span>Create New Class</span>
+                          </div>
+                        </SelectItem>
+                        <DropdownMenuSeparator />
                         {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.className} ({c.subject})</SelectItem>)}
                     </SelectContent>
                 </Select>
@@ -149,8 +162,12 @@ export const ScanUploadSection = ({
             </div>
         </div>
       </CardContent>
+
+      <CreateClassInlineDialog 
+        open={isCreateClassOpen} 
+        onOpenChange={setIsCreateClassOpen} 
+        onSuccess={(id) => onClassChange(id)} 
+      />
     </Card>
   );
 };
-
-import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';

@@ -12,7 +12,7 @@ const Scan = () => {
     scannedLearners,
     learnerMappings,
     updateLearnerMapping,
-    selectedClassId, setSelectedClassId,
+    selectedClassId, setSelectedClassId, handleClassChange,
     newClassName, setNewClassName,
     activeTab, setActiveTab,
     handleFileChange,
@@ -27,7 +27,8 @@ const Scan = () => {
     selectedAssessmentId,
     setSelectedAssessmentId,
     isExtractionReady,
-    isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass
+    isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass,
+    isCreateClassOpen, setIsCreateClassOpen
   } = useScanLogic();
 
   return (
@@ -49,11 +50,13 @@ const Scan = () => {
               onSimulate={handleSimulateScan}
               classes={classes}
               selectedClassId={selectedClassId}
-              onClassChange={setSelectedClassId}
+              onClassChange={handleClassChange}
               availableAssessments={availableAssessments}
               selectedAssessmentId={selectedAssessmentId}
               onAssessmentChange={setSelectedAssessmentId}
               isReady={isExtractionReady}
+              isCreateClassOpen={isCreateClassOpen}
+              setIsCreateClassOpen={setIsCreateClassOpen}
             />
         </div>
 
