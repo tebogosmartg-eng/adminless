@@ -4,7 +4,7 @@ import { ScanReviewSection } from '@/components/scan/ScanReviewSection';
 
 const Scan = () => {
   const {
-    scanMode, setScanMode,
+    scanType, setScanType,
     imagePreviews,
     isProcessing,
     scannedDetails,
@@ -39,8 +39,8 @@ const Scan = () => {
             <ScanUploadSection 
               imagePreviews={imagePreviews}
               isProcessing={isProcessing}
-              scanMode={scanMode}
-              onModeChange={setScanMode}
+              scanType={scanType}
+              onTypeChange={setScanType}
               onFileChange={handleFileChange}
               onProcess={handleProcessImage}
               onSimulate={handleSimulateScan}
@@ -68,6 +68,7 @@ const Scan = () => {
               availableAssessments={availableAssessments}
               selectedAssessmentId={selectedAssessmentId}
               setSelectedAssessmentId={setSelectedAssessmentId}
+              scanType={scanType}
             />
         </div>
       </div>

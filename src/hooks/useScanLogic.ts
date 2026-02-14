@@ -5,11 +5,12 @@ import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ScannedDetails, ScannedLearner, Assessment, AssessmentQuestion, ScanMode, Learner } from '@/lib/types';
+import { ScannedDetails, ScannedLearner, Assessment, ScanType, Learner, AttendanceRecord } from '@/lib/types';
 import { db } from '@/db';
 import { compressImage } from '@/utils/image';
+import { supabase } from '@/integrations/supabase/client';
+import { queueAction } from '@/services/sync';
 
-// Simple fuzzy match helper (Levenshtein distance based similarity)
 const calculateSimilarity = (s1: string, s2: string) => {
   const longer = s1.length > s2.length ? s1 : s2;
   const shorter = s1.length > s2.length ? s2 : s1;
@@ -41,19 +42,17 @@ const calculateSimilarity = (s1: string, s2: string) => {
 };
 
 export const useScanLogic = () => {
-  const { classes, addClass } = useClasses();
+  const { classes, addClass, updateLearners } = useClasses();
   const { activeYear, activeTerm, createAssessment, updateMarks } = useAcademic();
   const { isOnline } = useSync();
   const navigate = useNavigate();
   const location = useLocation();
   
-  const [scanMode, setScanMode] = useState<ScanMode>('bulk');
+  const [scanType, setScanType] = useState<ScanType>('class_marksheet');
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [scannedDetails, setScannedDetails] = useState<ScannedDetails | null>(null);
   const [scannedLearners, setScannedLearners] = useState<ScannedLearner[]>([]);
-  
-  // State for mapping scanned index to existing learner ID
   const [learnerMappings, setLearnerMappings] = useState<Record<number, string>>({});
   
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
@@ -65,7 +64,6 @@ export const useScanLogic = () => {
 
   const targetClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
 
-  // Automatic matching logic
   const performAutoMatching = useCallback((scanned: ScannedLearner[], existing: Learner[]) => {
     const newMappings: Record<number, string> = {};
     const usedIds = new Set<string>();
@@ -76,21 +74,15 @@ export const useScanLogic = () => {
 
         existing.forEach(el => {
             if (!el.id || usedIds.has(el.id)) return;
-            
             const eName = el.name.toLowerCase().trim();
             
-            // 1. Direct match
             if (eName === sName) {
                 bestMatch = { id: el.id, score: 1.0 };
                 return;
             }
-
-            // 2. Substring match
             if (eName.includes(sName) || sName.includes(eName)) {
                 bestMatch = { id: el.id, score: 0.9 };
             }
-
-            // 3. Fuzzy similarity
             const sim = calculateSimilarity(sName, eName);
             if (sim > 0.75 && sim > bestMatch.score) {
                 bestMatch = { id: el.id, score: sim };
@@ -120,9 +112,7 @@ export const useScanLogic = () => {
         }
         if (location.state.createMode) {
             setActiveTab("create");
-            if (location.state.initialClassName) {
-                setNewClassName(location.state.initialClassName);
-            }
+            if (location.state.initialClassName) setNewClassName(location.state.initialClassName);
         }
     }
   }, [location.state]);
@@ -150,7 +140,7 @@ export const useScanLogic = () => {
         setScannedLearners([]);
         setScannedDetails(null);
         setLearnerMappings({});
-        showSuccess(`Loaded ${files.length} image(s). Mode: ${scanMode}`);
+        showSuccess(`Loaded ${files.length} images for scanning.`);
       } catch (e) {
         showError("Failed to load or compress images.");
       }
@@ -162,21 +152,21 @@ export const useScanLogic = () => {
       showError("Please upload one or more images first.");
       return;
     }
-
     if (!isOnline) {
-      showError("You are offline. AI scanning requires an internet connection.");
+      showError("Offline: AI scanning requires a connection.");
       return;
     }
     
     setIsProcessing(true);
     try {
-      const result = await processImagesWithGemini(imagePreviews, scanMode);
+      // Use ScanType as the mode
+      const result = await processImagesWithGemini(imagePreviews, scanType as any);
       setScannedDetails(result.details || null);
       setScannedLearners(result.learners || []);
       if (result.details?.testNumber) setNewClassName(result.details.testNumber);
-      showSuccess(`AI analysis complete. Found ${result.learners.length} results.`);
+      showSuccess("AI extraction complete.");
     } catch (error: any) {
-      showError(error.message || "Failed to process images.");
+      showError(error.message || "AI Analysis failed.");
     } finally {
       setIsProcessing(false);
     }
@@ -185,21 +175,20 @@ export const useScanLogic = () => {
   const handleSimulateScan = () => {
     setIsProcessing(true);
     setTimeout(() => {
-      const mockDetails: ScannedDetails = {
-        subject: "Life Sciences",
-        grade: "Grade 10",
-        testNumber: "Practical Test 2",
+      let mockDetails: ScannedDetails = {
+        subject: "Mathematics", grade: "Grade 11", testNumber: "Algebra FAT 1",
         date: new Date().toISOString().split('T')[0]
       };
-      const mockLearners: ScannedLearner[] = [
-        { name: "Thabo Mbeki", mark: "45", questionMarks: [{ num: "1", score: "20" }, { num: "2", score: "25" }] },
-        { name: "Sarah Jenkins", mark: "38", questionMarks: [{ num: "1", score: "15" }, { num: "2", score: "23" }] }
+      let mockLearners: ScannedLearner[] = [
+        { name: "Thabo Mbeki", mark: "45", attendanceStatus: 'present' },
+        { name: "Sarah Jenkins", mark: "38", attendanceStatus: 'absent' }
       ];
+      
       setScannedDetails(mockDetails);
       setScannedLearners(mockLearners);
       setNewClassName(mockDetails.testNumber);
       setIsProcessing(false);
-      showSuccess("Simulated scan complete!");
+      showSuccess("Simulated context-aware scan complete!");
     }, 1000);
   };
 
@@ -218,56 +207,65 @@ export const useScanLogic = () => {
   };
 
   const handleSaveToExisting = async () => {
-    if (!activeTerm || !selectedClassId) return;
-    if (!targetClass) return;
-
-    let targetAssessmentId = selectedAssessmentId;
-    let targetQuestions: AssessmentQuestion[] = [];
-
-    if (selectedAssessmentId === 'new') {
-        const uniqueQNums = Array.from(new Set(scannedLearners.flatMap(l => (l.questionMarks || []).map(q => q.num)))).sort();
-        targetQuestions = uniqueQNums.map(num => ({ id: crypto.randomUUID(), question_number: `Q${num}`, skill_description: "", max_mark: 0 }));
-        targetAssessmentId = await createAssessment({
-            class_id: selectedClassId,
-            term_id: activeTerm.id,
-            title: scannedDetails?.testNumber || "Scanned Task",
-            type: 'Test',
-            max_mark: 100, 
-            weight: 10,
-            date: new Date().toISOString(),
-            questions: targetQuestions
-        });
-    } else {
-        const existing = availableAssessments.find(a => a.id === selectedAssessmentId);
-        targetQuestions = existing?.questions || [];
+    if (!activeTerm || !activeYear || !selectedClassId || !targetClass) {
+        showError("Blocked: Full academic context required.");
+        return;
     }
 
-    const markUpdates: any[] = [];
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-    scannedLearners.forEach((sl, idx) => {
-        const mappedId = learnerMappings[idx];
-        
-        // If not mapped to existing, we can potentially add as a new learner
-        // But for consistency, let's only update if a mapping exists (auto or manual)
-        if (mappedId) {
-            markUpdates.push({
-                assessment_id: targetAssessmentId,
-                learner_id: mappedId,
-                score: parseFloat(sl.mark),
-                question_marks: (sl.questionMarks || []).map(sq => {
-                    const qDef = targetQuestions.find(tq => tq.question_number.includes(sq.num));
-                    return { question_id: qDef?.id || crypto.randomUUID(), score: parseFloat(sq.score) };
-                })
-            });
+        if (scanType === 'class_marksheet' || scanType === 'individual_script') {
+            let targetAssessmentId = selectedAssessmentId;
+            if (selectedAssessmentId === 'new') {
+                targetAssessmentId = await createAssessment({
+                    class_id: selectedClassId,
+                    term_id: activeTerm.id,
+                    title: scannedDetails?.testNumber || "Scanned Assessment",
+                    type: 'Test', max_mark: 100, weight: 10, date: new Date().toISOString()
+                });
+            }
+            const markUpdates = scannedLearners
+                .filter((_, idx) => learnerMappings[idx])
+                .map((sl, idx) => ({
+                    assessment_id: targetAssessmentId!,
+                    learner_id: learnerMappings[idx],
+                    score: parseFloat(sl.mark)
+                }));
+            if (markUpdates.length > 0) await updateMarks(markUpdates);
         }
-    });
 
-    if (markUpdates.length > 0) {
-        await updateMarks(markUpdates);
-        showSuccess(`Saved ${markUpdates.length} marks.`);
+        if (scanType === 'attendance_register') {
+            const dateStr = scannedDetails?.date || new Date().toISOString().split('T')[0];
+            const attRecords: AttendanceRecord[] = scannedLearners
+                .filter((_, idx) => learnerMappings[idx])
+                .map((sl, idx) => ({
+                    id: crypto.randomUUID(),
+                    user_id: user.id,
+                    class_id: selectedClassId,
+                    term_id: activeTerm.id,
+                    learner_id: learnerMappings[idx],
+                    status: sl.attendanceStatus || 'present',
+                    date: dateStr
+                }));
+            if (attRecords.length > 0) {
+                await db.attendance.bulkPut(attRecords);
+                await queueAction('attendance', 'upsert', attRecords);
+            }
+        }
+
+        if (scanType === 'learner_roster') {
+            const existingLearners = targetClass.learners;
+            const newNames = scannedLearners.map(sl => ({ name: sl.name, mark: "" }));
+            await updateLearners(selectedClassId, [...existingLearners, ...newNames]);
+        }
+
+        showSuccess(`Saved data for ${scannedLearners.length} learners.`);
         navigate(`/classes/${selectedClassId}`);
-    } else {
-        showError("No mapped learners found. Please link scanned results to your class roster.");
+
+    } catch (e: any) {
+        showError("Save failed: " + e.message);
     }
   };
 
@@ -277,9 +275,9 @@ export const useScanLogic = () => {
       id: crypto.randomUUID(),
       year_id: activeYear.id,
       term_id: activeTerm.id,
-      grade: scannedDetails.grade,
-      subject: scannedDetails.subject,
-      className: newClassName,
+      grade: scannedDetails.grade || "Grade Unknown",
+      subject: scannedDetails.subject || "Subject Unknown",
+      className: newClassName || "New Class",
       learners: scannedLearners.map(sl => ({ name: sl.name, mark: sl.mark })),
       archived: false
     });
@@ -287,7 +285,7 @@ export const useScanLogic = () => {
   };
 
   return {
-    scanMode, setScanMode,
+    scanType, setScanType,
     imagePreviews, isProcessing, scannedDetails, scannedLearners,
     learnerMappings, updateLearnerMapping,
     selectedClassId, setSelectedClassId, newClassName, setNewClassName,

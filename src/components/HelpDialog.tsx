@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HelpCircle, BookOpen, Camera, Settings, FileBarChart, ShieldCheck, Layers, AlertCircle, BadgeCheck, Search } from "lucide-react";
+import { HelpCircle, Settings, Layers, AlertCircle, BadgeCheck } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
@@ -97,45 +97,6 @@ export function HelpDialog() {
                     ))}
                   </div>
                 </section>
-
-                <section>
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-full"><Search className="h-5 w-5 text-amber-600" /></div>
-                    <h3 className="font-bold text-lg">Smart Entry Modes</h3>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 mt-2">
-                    <div className="border p-3 rounded-lg bg-muted/20">
-                        <h4 className="font-bold text-xs uppercase mb-1">Voice Entry</h4>
-                        <p className="text-xs text-muted-foreground">Dictate marks hands-free. Say "John 85" and the system will match the learner automatically.</p>
-                    </div>
-                    <div className="border p-3 rounded-lg bg-muted/20">
-                        <h4 className="font-bold text-xs uppercase mb-1">Fraction Parsing</h4>
-                        <p className="text-xs text-muted-foreground">Type "17/20" in a mark cell. AdminLess will calculate <strong>85%</strong> for you.</p>
-                    </div>
-                  </div>
-                </section>
-              </TabsContent>
-
-              <TabsContent value="ai" className="space-y-6 mt-0">
-                <section>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-pink-100 dark:bg-pink-900/30 rounded-full"><Camera className="h-5 w-5 text-pink-600" /></div>
-                    <h3 className="font-bold text-lg">Vision Scanning</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Upload images of handwritten paper mark sheets to the <strong>Scan Scripts</strong> page. AI extracts names and scores directly into your digital register.
-                  </p>
-                </section>
-
-                <section>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-full"><FileBarChart className="h-5 w-5 text-indigo-600" /></div>
-                    <h3 className="font-bold text-lg">Performance Insights</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    In any Class View, go to the <strong>Analysis</strong> tab to see AI-generated trends and correlation between attendance and achievement.
-                  </p>
-                </section>
               </TabsContent>
 
               <TabsContent value="compliance" className="space-y-6 mt-0">
@@ -149,18 +110,6 @@ export function HelpDialog() {
                   <p className="text-[11px] text-muted-foreground mt-1">
                     You can adjust this threshold in <strong>Settings > School Profile</strong>.
                   </p>
-                </section>
-
-                <section>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full"><ShieldCheck className="h-5 w-5 text-green-600" /></div>
-                    <h3 className="font-bold text-lg">Moderation & Audit</h3>
-                  </div>
-                  <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
-                    <li><strong>10% Rule:</strong> The Evidence Audit tool tracks if you have uploaded scripts for at least 10% of your class roster.</li>
-                    <li><strong>Finalization:</strong> Closing a term in Settings locks all marks. This creates a permanent audit trail for departmental review.</li>
-                    <li><strong>Roll Forward:</strong> After closing a term, use <strong>Roll Forward</strong> to copy learner lists to the next active term without marks.</li>
-                  </ul>
                 </section>
               </TabsContent>
             </div>

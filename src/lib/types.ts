@@ -45,6 +45,7 @@ export interface ScannedLearner {
   name: string;
   mark: string;
   questionMarks?: { num: string; score: string }[];
+  attendanceStatus?: AttendanceStatus;
 }
 
 export interface ScannedDetails {
@@ -52,9 +53,20 @@ export interface ScannedDetails {
   testNumber: string;
   grade: string;
   date: string;
+  narrativeSummary?: string;
+  findings?: string;
+  interventions?: string;
 }
 
-export type ScanMode = 'bulk' | 'individual';
+export type ScanType = 
+  | 'class_marksheet' 
+  | 'individual_script' 
+  | 'learner_roster' 
+  | 'attendance_register' 
+  | 'diagnostic_form' 
+  | 'moderation_sample';
+
+export type ScanMode = 'bulk' | 'individual'; // Keep for legacy/UI toggles but we primarily use ScanType now
 
 export interface GeminiScanResult {
   details: ScannedDetails | null;
@@ -98,11 +110,9 @@ export interface AggregatedLearner {
   finalMark: number;
 }
 
-// --- NEW TERM BASED TYPES ---
-
 export interface AcademicYear {
   id: string;
-  name: string; // "2024"
+  name: string; 
   closed: boolean;
   user_id?: string;
 }
@@ -110,12 +120,12 @@ export interface AcademicYear {
 export interface Term {
   id: string;
   year_id: string;
-  name: string; // "Term 1"
+  name: string; 
   start_date: string | null;
   end_date: string | null;
-  closed: boolean; // Keep for DB compatibility
-  is_finalised: boolean; // Explicit rule field
-  weight: number; // Percentage contribution to year mark
+  closed: boolean; 
+  is_finalised: boolean; 
+  weight: number; 
   user_id?: string;
 }
 
@@ -131,13 +141,13 @@ export interface Assessment {
   class_id: string;
   term_id: string;
   title: string;
-  type: string; // "Test", "Exam", "Project", "Assignment"
+  type: string; 
   max_mark: number;
   weight: number;
   date: string | null;
   user_id?: string;
-  rubric_id?: string | null; // Link to a rubric
-  questions?: AssessmentQuestion[]; // New: Sub-questions
+  rubric_id?: string | null; 
+  questions?: AssessmentQuestion[]; 
 }
 
 export interface QuestionMark {
@@ -151,23 +161,23 @@ export interface AssessmentMark {
   learner_id: string;
   score: number | null;
   comment?: string;
-  rubric_selections?: Record<string, string>; // Maps Criterion ID -> Level ID
+  rubric_selections?: Record<string, string>; 
   user_id?: string;
-  question_marks?: QuestionMark[]; // New: Per-question scores
+  question_marks?: QuestionMark[]; 
 }
 
 export interface TimetableEntry {
   id: string;
   user_id?: string;
-  year_id: string; // Scoped to year
-  day: string; // "Monday", "Tuesday"...
-  period: number; // 1, 2, 3...
+  year_id: string; 
+  day: string; 
+  period: number; 
   subject: string;
   class_name: string;
-  class_id?: string | null; // Link to actual ClassInfo if available
+  class_id?: string | null; 
   start_time?: string;
   end_time?: string;
-  notes?: string; // New field for personal reminders
+  notes?: string; 
 }
 
 export interface AssessmentResult {
@@ -195,8 +205,6 @@ export interface LearnerNote {
   created_at?: string;
 }
 
-// --- EVIDENCE TYPES ---
-
 export interface Evidence {
   id: string;
   user_id?: string;
@@ -212,11 +220,9 @@ export interface Evidence {
   created_at?: string;
 }
 
-// --- RUBRIC TYPES ---
-
 export interface RubricLevel {
   id: string;
-  label: string; // "Excellent", "Good", etc.
+  label: string; 
   points: number;
   descriptor?: string;
 }
@@ -224,7 +230,7 @@ export interface RubricLevel {
 export interface RubricCriterion {
   id: string;
   title: string;
-  weight: number; // e.g. 10 points
+  weight: number; 
   levels: RubricLevel[];
 }
 
