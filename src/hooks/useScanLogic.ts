@@ -5,7 +5,7 @@ import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ScannedDetails, ScannedLearner, Assessment, ScanType, Learner, AttendanceRecord } from '@/lib/types';
+import { ScannedDetails, ScannedLearner, Assessment, ScanType, Learner, AttendanceRecord, AssessmentMark } from '@/lib/types';
 import { db } from '@/db';
 import { compressImage } from '@/utils/image';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,6 +61,11 @@ export const useScanLogic = () => {
   
   const [newClassName, setNewClassName] = useState("");
   const [activeTab, setActiveTab] = useState("update");
+
+  // Conflict Resolution State
+  const [isConflictOpen, setIsConflictOpen] = useState(false);
+  const [existingMarks, setExistingMarks] = useState<AssessmentMark[]>([]);
+  const [replacementType, setReplacementType] = useState<'replace' | 'merge' | 'manual'>('manual');
 
   const targetClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
 
@@ -125,7 +130,6 @@ export const useScanLogic = () => {
         .equals([selectedClassId, activeTerm.id])
         .toArray();
       setAvailableAssessments(data || []);
-      // Reset assessment selection if it's not in the new class
       if (selectedAssessmentId !== "new" && !data.some(a => a.id === selectedAssessmentId)) {
         setSelectedAssessmentId("");
       }
@@ -154,12 +158,9 @@ export const useScanLogic = () => {
   const isExtractionReady = useMemo(() => {
     if (!activeYear || !activeTerm) return false;
     if (!selectedClassId) return false;
-    
-    // For marking modes, an assessment must be selected
     if (['class_marksheet', 'individual_script'].includes(scanType)) {
         return !!selectedAssessmentId;
     }
-    
     return true;
   }, [activeYear, activeTerm, selectedClassId, selectedAssessmentId, scanType]);
 
@@ -183,7 +184,6 @@ export const useScanLogic = () => {
       setScannedDetails(result.details || null);
       setScannedLearners(result.learners || []);
       
-      // Log Scan Event
       const logMsg = `[SCAN] Type: ${scanType} | Assessment: ${selectedAssessmentId || 'N/A'} | Term: ${activeTerm?.name}`;
       await queueAction('activities', 'create', {
         id: crypto.randomUUID(),
@@ -245,6 +245,24 @@ export const useScanLogic = () => {
         return;
     }
 
+    // 1. Check for existing marks if it's an assessment scan
+    if (['class_marksheet', 'individual_script'].includes(scanType) && selectedAssessmentId !== 'new') {
+        const marks = await db.assessment_marks
+            .where('assessment_id')
+            .equals(selectedAssessmentId)
+            .toArray();
+
+        if (marks.length > 0) {
+            setExistingMarks(marks);
+            setIsConflictOpen(true);
+            return;
+        }
+    }
+
+    await applyScannedData();
+  };
+
+  const applyScannedData = async (overriddenUpdates?: any[]) => {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -252,29 +270,42 @@ export const useScanLogic = () => {
         if (scanType === 'class_marksheet' || scanType === 'individual_script') {
             let targetAssessmentId = selectedAssessmentId;
             
-            // Re-verify term mapping to prevent term-leakage
-            const assCheck = await db.assessments.get(targetAssessmentId);
-            if (assCheck && assCheck.term_id !== activeTerm.id) {
-                throw new Error("Integrity Failure: Target assessment does not belong to the active term.");
-            }
-
             if (selectedAssessmentId === 'new') {
                 targetAssessmentId = await createAssessment({
-                    class_id: selectedClassId,
-                    term_id: activeTerm.id,
+                    class_id: selectedClassId!,
+                    term_id: activeTerm!.id,
                     title: scannedDetails?.testNumber || "Scanned Assessment",
                     type: 'Test', max_mark: 100, weight: 10, date: new Date().toISOString()
                 });
             }
+
+            let markUpdates = overriddenUpdates;
             
-            const markUpdates = scannedLearners
-                .filter((_, idx) => learnerMappings[idx])
-                .map((sl, idx) => ({
-                    assessment_id: targetAssessmentId!,
-                    learner_id: learnerMappings[idx],
-                    score: parseFloat(sl.mark)
-                }));
-            if (markUpdates.length > 0) await updateMarks(markUpdates);
+            if (!markUpdates) {
+                markUpdates = scannedLearners
+                    .filter((_, idx) => learnerMappings[idx])
+                    .map((sl, idx) => ({
+                        assessment_id: targetAssessmentId!,
+                        learner_id: learnerMappings[idx],
+                        score: parseFloat(sl.mark)
+                    }));
+            }
+
+            if (markUpdates && markUpdates.length > 0) {
+                await updateMarks(markUpdates);
+                
+                // Log replacement action if conflict existed
+                if (overriddenUpdates) {
+                    await queueAction('activities', 'create', {
+                        id: crypto.randomUUID(),
+                        user_id: user.id,
+                        year_id: activeYear?.id,
+                        term_id: activeTerm?.id,
+                        message: `[REPLACE] Marks updated for ${targetAssessmentId} via Scan Conflict Resolution.`,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            }
         }
 
         if (scanType === 'attendance_register') {
@@ -285,7 +316,7 @@ export const useScanLogic = () => {
                     id: crypto.randomUUID(),
                     user_id: user.id,
                     class_id: selectedClassId,
-                    term_id: activeTerm.id,
+                    term_id: activeTerm!.id,
                     learner_id: learnerMappings[idx],
                     status: sl.attendanceStatus || 'present',
                     date: dateStr
@@ -297,12 +328,13 @@ export const useScanLogic = () => {
         }
 
         if (scanType === 'learner_roster') {
-            const existingLearners = targetClass.learners;
+            const existingLearners = targetClass!.learners;
             const newNames = scannedLearners.map(sl => ({ name: sl.name, mark: "" }));
-            await updateLearners(selectedClassId, [...existingLearners, ...newNames]);
+            await updateLearners(selectedClassId!, [...existingLearners, ...newNames]);
         }
 
         showSuccess(`Saved data for ${scannedLearners.length} learners.`);
+        setIsConflictOpen(false);
         navigate(`/classes/${selectedClassId}`);
 
     } catch (e: any) {
@@ -333,6 +365,7 @@ export const useScanLogic = () => {
     activeTab, setActiveTab, handleFileChange, handleProcessImage, handleSimulateScan,
     updateScannedDetail, updateScannedLearner, handleSaveToExisting, handleCreateNewClass,
     classes, availableAssessments, selectedAssessmentId, setSelectedAssessmentId,
-    isExtractionReady
+    isExtractionReady,
+    isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass
   };
 };

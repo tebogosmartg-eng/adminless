@@ -1,6 +1,7 @@
 import { useScanLogic } from '@/hooks/useScanLogic';
 import { ScanUploadSection } from '@/components/scan/ScanUploadSection';
 import { ScanReviewSection } from '@/components/scan/ScanReviewSection';
+import { ControlledReplacementDialog } from '@/components/scan/ControlledReplacementDialog';
 
 const Scan = () => {
   const {
@@ -25,7 +26,8 @@ const Scan = () => {
     availableAssessments,
     selectedAssessmentId,
     setSelectedAssessmentId,
-    isExtractionReady
+    isExtractionReady,
+    isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass
   } = useScanLogic();
 
   return (
@@ -80,6 +82,19 @@ const Scan = () => {
             />
         </div>
       </div>
+
+      {isConflictOpen && selectedAssessmentId && (
+          <ControlledReplacementDialog 
+            open={isConflictOpen}
+            onOpenChange={setIsConflictOpen}
+            existingMarks={existingMarks}
+            scannedLearners={scannedLearners}
+            learnerMappings={learnerMappings}
+            targetClass={targetClass}
+            assessmentId={selectedAssessmentId}
+            onConfirm={applyScannedData}
+          />
+      )}
     </div>
   );
 };
