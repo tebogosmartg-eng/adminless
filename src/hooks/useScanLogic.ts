@@ -224,18 +224,32 @@ export const useScanLogic = () => {
     setIsProcessing(true);
     setTimeout(() => {
       let mockDetails: ScannedDetails = {
-        subject: "Mathematics", grade: "Grade 11", testNumber: "Algebra FAT 1",
+        subject: targetClass?.subject || "Mathematics", 
+        grade: targetClass?.grade || "Grade 11", 
+        testNumber: targetAssessment?.title || "Test 1",
         date: new Date().toISOString().split('T')[0]
       };
       
+      const randomLearner = targetClass?.learners[Math.floor(Math.random() * targetClass.learners.length)];
+      
       let mockLearners: ScannedLearner[] = [
         { 
-            name: "Thabo Mbeki", 
+            name: randomLearner?.name || "Thabo Mbeki", 
             mark: "45", 
             attendanceStatus: 'present',
-            questionMarks: targetAssessment?.questions?.map(q => ({ num: q.question_number, score: (q.max_mark * 0.8).toString() })) || []
+            questionMarks: targetAssessment?.questions?.map(q => ({ 
+                num: q.question_number, 
+                score: (Math.random() * q.max_mark).toFixed(1).replace(/\.0$/, '') 
+            })) || []
         }
       ];
+
+      // If we simulated question marks, ensure the total matches for the simulation
+      if (mockLearners[0].questionMarks && mockLearners[0].questionMarks.length > 0) {
+          let total = 0;
+          mockLearners[0].questionMarks.forEach(qm => total += parseFloat(qm.score) || 0);
+          mockLearners[0].mark = total.toString();
+      }
       
       setScannedDetails(mockDetails);
       setScannedLearners(mockLearners);

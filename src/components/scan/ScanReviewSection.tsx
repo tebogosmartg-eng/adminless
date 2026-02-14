@@ -9,7 +9,7 @@ import { ClassInfo, ScannedDetails, ScannedLearner, Assessment, ScanType } from 
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 
 interface ScanReviewSectionProps {
@@ -46,6 +46,17 @@ export const ScanReviewSection = ({
 
   const { activeTerm } = useAcademic();
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
+  // AUTO-EXPAND individual scripts for easier review
+  useEffect(() => {
+    if (scanType === 'individual_script' && scannedLearners.length > 0) {
+        const next = new Set<number>();
+        scannedLearners.forEach((l, i) => {
+            if (l.questionMarks && l.questionMarks.length > 0) next.add(i);
+        });
+        setExpandedRows(next);
+    }
+  }, [scanType, scannedLearners.length]);
 
   const targetClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
   const targetAssessment = useMemo(() => availableAssessments.find(a => a.id === selectedAssessmentId), [availableAssessments, selectedAssessmentId]);

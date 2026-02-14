@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle2, ShieldAlert, ArrowRight, ArrowLeftRight, Save, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ShieldAlert, ArrowRight, ArrowLeftRight, Save, Loader2, ListChecks } from 'lucide-react';
 import { AssessmentMark, Learner, ScannedLearner, ClassInfo } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -51,7 +51,8 @@ export const ControlledReplacementDialog = ({
                   name: learner?.name || "Unknown",
                   existingScore: existing.score,
                   scannedScore: parseFloat(sl.mark),
-                  isDifferent: existing.score !== parseFloat(sl.mark)
+                  isDifferent: existing.score !== parseFloat(sl.mark),
+                  hasExistingQuestions: existing.question_marks && existing.question_marks.length > 0
               });
           }
       });
@@ -74,7 +75,8 @@ export const ControlledReplacementDialog = ({
         .map((sl, idx) => ({
             assessment_id: assessmentId,
             learner_id: learnerMappings[idx],
-            score: parseFloat(sl.mark)
+            score: parseFloat(sl.mark),
+            question_marks: sl.questionMarks // This will be processed by applyScannedData to map IDs
         }));
 
     if (resolutionMode === 'replace') {
@@ -96,10 +98,12 @@ export const ControlledReplacementDialog = ({
             if (choice === 'scanned') {
                 finalUpdates.push(update);
             } else {
+                const existing = existingMarks.find(m => m.learner_id === update.learner_id);
                 finalUpdates.push({
                     assessment_id: assessmentId,
                     learner_id: update.learner_id,
-                    score: conflict.existingScore
+                    score: conflict.existingScore,
+                    question_marks: existing?.question_marks
                 });
             }
         });
@@ -160,8 +164,13 @@ export const ControlledReplacementDialog = ({
         <ScrollArea className="flex-1 p-6">
             {resolutionMode === 'manual' ? (
                 <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground uppercase tracking-widest border-b pb-2">
-                        <ArrowLeftRight className="h-4 w-4" /> Comparison Table ({conflicts.length} Conflicts)
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                            <ArrowLeftRight className="h-4 w-4" /> Comparison Table ({conflicts.length} Conflicts)
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-amber-600">
+                            <ListChecks className="h-3 w-3" /> Includes Question Details
+                        </div>
                     </div>
 
                     <div className="border rounded-xl overflow-hidden">
@@ -177,7 +186,12 @@ export const ControlledReplacementDialog = ({
                             <TableBody>
                                 {conflicts.map((c, i) => (
                                     <TableRow key={i} className={cn(c.isDifferent && "bg-amber-50/30")}>
-                                        <TableCell className="font-bold text-sm">{c.name}</TableCell>
+                                        <TableCell className="font-bold text-sm">
+                                            {c.name}
+                                            {c.hasExistingQuestions && (
+                                                <Badge variant="outline" className="ml-2 h-4 text-[8px] uppercase border-amber-200 text-amber-700">Has Questions</Badge>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="text-center">
                                             <button 
                                                 onClick={() => handleChoice(c.learnerId, 'existing')}
@@ -217,7 +231,7 @@ export const ControlledReplacementDialog = ({
                             <div className="space-y-2">
                                 <h3 className="text-xl font-bold">Total Overwrite Selected</h3>
                                 <p className="text-sm text-muted-foreground max-w-sm">
-                                    All current marks in the database will be deleted and replaced with the scanned results.
+                                    All current marks AND question-level detail will be replaced with the scanned results.
                                 </p>
                             </div>
                         </>
@@ -227,7 +241,7 @@ export const ControlledReplacementDialog = ({
                             <div className="space-y-2">
                                 <h3 className="text-xl font-bold">Merge Selected</h3>
                                 <p className="text-sm text-muted-foreground max-w-sm">
-                                    We will only fill in missing marks. Existing database values will be preserved.
+                                    We will only fill in missing marks. Existing database values (including question details) will be preserved.
                                 </p>
                             </div>
                         </>
