@@ -17,6 +17,7 @@ import Scan from "./pages/Scan";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import EvidenceAudit from "./pages/EvidenceAudit";
+import ScanAudit from "./pages/ScanAudit";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
 import PilotSignup from "./pages/PilotSignup";
@@ -110,6 +111,7 @@ const App = () => {
                                     <Route path="/classes" element={<Classes />} />
                                     <Route path="/classes/:classId" element={<ClassDetails />} />
                                     <Route path="/scan" element={<Scan />} />
+                                    <Route path="/scan-audit" element={<ScanAudit />} />
                                     <Route path="/reports" element={<Reports />} />
                                     <Route path="/evidence-audit" element={<EvidenceAudit />} />
                                     <Route path="/settings" element={<Settings />} />

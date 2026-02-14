@@ -5,11 +5,12 @@ import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ScannedDetails, ScannedLearner, Assessment, ScanType, Learner, AttendanceRecord, AssessmentMark } from '@/lib/types';
+import { ScannedDetails, ScannedLearner, Assessment, ScanType, Learner, AttendanceRecord, AssessmentMark, ScanHistory } from '@/lib/types';
 import { db } from '@/db';
 import { compressImage } from '@/utils/image';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
+import { uploadEvidenceFile } from '@/services/storage';
 
 const calculateSimilarity = (s1: string, s2: string) => {
   const longer = s1.length > s2.length ? s1 : s2;
@@ -61,6 +62,8 @@ export const useScanLogic = () => {
   
   const [newClassName, setNewClassName] = useState("");
   const [activeTab, setActiveTab] = useState("update");
+
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
 
   // Conflict Resolution State
   const [isConflictOpen, setIsConflictOpen] = useState(false);
@@ -141,6 +144,7 @@ export const useScanLogic = () => {
     const files = event.target.files;
     if (files && files.length > 0) {
       try {
+        setOriginalFile(files[0]);
         const compressedImages = await Promise.all(
             Array.from(files).map(file => compressImage(file))
         );
@@ -267,45 +271,37 @@ export const useScanLogic = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        if (scanType === 'class_marksheet' || scanType === 'individual_script') {
-            let targetAssessmentId = selectedAssessmentId;
-            
-            if (selectedAssessmentId === 'new') {
-                targetAssessmentId = await createAssessment({
-                    class_id: selectedClassId!,
-                    term_id: activeTerm!.id,
-                    title: scannedDetails?.testNumber || "Scanned Assessment",
-                    type: 'Test', max_mark: 100, weight: 10, date: new Date().toISOString()
-                });
-            }
+        // Capture Before Snapshot
+        const beforeSnapshot = await db.assessment_marks
+            .where('assessment_id')
+            .equals(selectedAssessmentId || "")
+            .toArray();
 
-            let markUpdates = overriddenUpdates;
-            
-            if (!markUpdates) {
-                markUpdates = scannedLearners
-                    .filter((_, idx) => learnerMappings[idx])
-                    .map((sl, idx) => ({
-                        assessment_id: targetAssessmentId!,
-                        learner_id: learnerMappings[idx],
-                        score: parseFloat(sl.mark)
-                    }));
-            }
+        let targetAssessmentId = selectedAssessmentId;
+        
+        if (selectedAssessmentId === 'new' && (scanType === 'class_marksheet' || scanType === 'individual_script')) {
+            targetAssessmentId = await createAssessment({
+                class_id: selectedClassId!,
+                term_id: activeTerm!.id,
+                title: scannedDetails?.testNumber || "Scanned Assessment",
+                type: 'Test', max_mark: 100, weight: 10, date: new Date().toISOString()
+            });
+        }
 
-            if (markUpdates && markUpdates.length > 0) {
-                await updateMarks(markUpdates);
-                
-                // Log replacement action if conflict existed
-                if (overriddenUpdates) {
-                    await queueAction('activities', 'create', {
-                        id: crypto.randomUUID(),
-                        user_id: user.id,
-                        year_id: activeYear?.id,
-                        term_id: activeTerm?.id,
-                        message: `[REPLACE] Marks updated for ${targetAssessmentId} via Scan Conflict Resolution.`,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            }
+        let markUpdates = overriddenUpdates;
+        
+        if (!markUpdates) {
+            markUpdates = scannedLearners
+                .filter((_, idx) => learnerMappings[idx])
+                .map((sl, idx) => ({
+                    assessment_id: targetAssessmentId!,
+                    learner_id: learnerMappings[idx],
+                    score: parseFloat(sl.mark)
+                }));
+        }
+
+        if (markUpdates && markUpdates.length > 0) {
+            await updateMarks(markUpdates);
         }
 
         if (scanType === 'attendance_register') {
@@ -333,7 +329,38 @@ export const useScanLogic = () => {
             await updateLearners(selectedClassId!, [...existingLearners, ...newNames]);
         }
 
-        showSuccess(`Saved data for ${scannedLearners.length} learners.`);
+        // --- AUDIT LOGGING ---
+        let archivePath = "";
+        if (originalFile) {
+            const { path } = await uploadEvidenceFile(originalFile, user.id);
+            archivePath = path;
+        }
+
+        const afterSnapshot = await db.assessment_marks
+            .where('assessment_id')
+            .equals(targetAssessmentId || "")
+            .toArray();
+
+        const history: ScanHistory = {
+            id: crypto.randomUUID(),
+            user_id: user.id,
+            class_id: selectedClassId!,
+            assessment_id: targetAssessmentId,
+            academic_year_id: activeYear!.id,
+            term_id: activeTerm!.id,
+            scan_type: scanType,
+            replacement_mode: overriddenUpdates ? 'manual' : 'standard',
+            timestamp: new Date().toISOString(),
+            status: 'completed',
+            file_path: archivePath,
+            before_snapshot: beforeSnapshot,
+            after_snapshot: afterSnapshot
+        };
+
+        await db.scan_history.add(history);
+        await queueAction('scan_history', 'create', history);
+
+        showSuccess(`Saved data and archived audit record.`);
         setIsConflictOpen(false);
         navigate(`/classes/${selectedClassId}`);
 

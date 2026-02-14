@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { 
-  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote, Evidence, Rubric
+  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote, Evidence, Rubric, ScanHistory
 } from '@/lib/types';
 
 export interface LessonLog {
@@ -70,6 +70,7 @@ export class SmaRegDB extends Dexie {
   lesson_logs!: Table<LessonLog>;
   curriculum_topics!: Table<CurriculumTopic>;
   diagnostics!: Table<AssessmentDiagnostic>;
+  scan_history!: Table<ScanHistory>;
 
   constructor() {
     super('SmaRegDB');
@@ -119,6 +120,11 @@ export class SmaRegDB extends Dexie {
       lesson_logs: 'id, user_id, timetable_id, date, [timetable_id+date], created_at',
       evidence: 'id, user_id, class_id, learner_id, term_id, created_at',
       todos: 'id, user_id, term_id, completed, created_at'
+    });
+
+    // Version 24: Added scan_history for audit trail
+    this.version(24).stores({
+      scan_history: 'id, user_id, class_id, assessment_id, academic_year_id, term_id, timestamp'
     });
   }
 }

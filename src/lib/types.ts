@@ -242,3 +242,19 @@ export interface Rubric {
   criteria: RubricCriterion[];
   total_points: number;
 }
+
+export interface ScanHistory {
+  id: string;
+  user_id: string;
+  class_id: string;
+  assessment_id?: string | null;
+  academic_year_id: string;
+  term_id: string;
+  scan_type: string;
+  replacement_mode: string;
+  timestamp: string;
+  status: 'completed' | 'failed';
+  file_path?: string;
+  before_snapshot: any; 
+  after_snapshot: any;  
+}

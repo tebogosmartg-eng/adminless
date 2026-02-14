@@ -129,6 +129,7 @@ export const pullData = async (userId: string) => {
     await pullTable('curriculum_topics', supabase.from('curriculum_topics').select('*').eq('user_id', userId));
     await pullTable('rubrics', supabase.from('rubrics').select('*').eq('user_id', userId));
     await pullTable('activities', supabase.from('activities').select('*').eq('user_id', userId));
+    await pullTable('scan_history', supabase.from('scan_history').select('*').eq('user_id', userId));
 
     console.log(`[Sync] Data pull complete.`);
   } catch (error) {
