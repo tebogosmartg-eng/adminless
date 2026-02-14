@@ -4,12 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Save, Eye, AlertCircle, Info, CheckCircle2, ShieldCheck, Database, Calendar } from 'lucide-react';
+import { Save, Eye, AlertCircle, Info, CheckCircle2, ShieldCheck, Database, ListChecks, ChevronDown, ChevronRight } from 'lucide-react';
 import { ClassInfo, ScannedDetails, ScannedLearner, Assessment, ScanType } from '@/lib/types';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 
 interface ScanReviewSectionProps {
@@ -45,6 +45,8 @@ export const ScanReviewSection = ({
 }: ScanReviewSectionProps) => {
 
   const { activeTerm } = useAcademic();
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
   const targetClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
   const targetAssessment = useMemo(() => availableAssessments.find(a => a.id === selectedAssessmentId), [availableAssessments, selectedAssessmentId]);
 
@@ -53,6 +55,26 @@ export const ScanReviewSection = ({
   };
 
   const isMarkMode = ['class_marksheet', 'individual_script'].includes(scanType);
+
+  const toggleRow = (idx: number) => {
+      const next = new Set(expandedRows);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      setExpandedRows(next);
+  };
+
+  const updateQuestionMark = (learnerIdx: number, qIdx: number, val: string) => {
+      const updatedLearners = [...scannedLearners];
+      const qMarks = [...(updatedLearners[learnerIdx].questionMarks || [])];
+      qMarks[qIdx] = { ...qMarks[qIdx], score: val };
+      
+      // Auto-sum total
+      let total = 0;
+      qMarks.forEach(qm => total += parseFloat(qm.score) || 0);
+      
+      onLearnerChange(learnerIdx, 'questionMarks', qMarks);
+      onLearnerChange(learnerIdx, 'mark', total.toString());
+  };
 
   return (
     <Card className="h-full flex flex-col overflow-hidden border-none shadow-none">
@@ -77,7 +99,6 @@ export const ScanReviewSection = ({
         {scannedDetails && scannedLearners.length > 0 ? (
           <>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Bound Context Verification Header */}
               <div className="p-4 rounded-xl border-2 border-primary/20 bg-primary/[0.02] space-y-3">
                   <div className="flex items-center gap-2 text-[10px] font-black uppercase text-primary tracking-[0.2em]">
                       <ShieldCheck className="h-3.5 w-3.5" /> Deterministic Context
@@ -113,84 +134,138 @@ export const ScanReviewSection = ({
                         <TableHead className="w-8 h-9 py-0"></TableHead>
                         <TableHead className="text-[10px] h-9 py-0 font-black uppercase tracking-tighter">Verified Name</TableHead>
                         <TableHead className="text-[10px] h-9 py-0 font-black uppercase tracking-tighter w-36">Link</TableHead>
-                        {scanType === 'attendance_register' ? (
-                            <TableHead className="text-right text-[10px] h-9 py-0 w-24 font-black uppercase tracking-tighter">Status</TableHead>
-                        ) : (
-                            <TableHead className="text-right text-[10px] h-9 py-0 w-20 font-black uppercase tracking-tighter">Mark</TableHead>
-                        )}
+                        <TableHead className="text-right text-[10px] h-9 py-0 w-24 font-black uppercase tracking-tighter">Mark / Status</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
                     {scannedLearners.map((learner, index) => {
                         const mappedId = learnerMappings[index];
                         const isMapped = !!mappedId;
+                        const hasQuestions = learner.questionMarks && learner.questionMarks.length > 0;
+                        const isExpanded = expandedRows.has(index);
+
+                        // Validate sum
+                        let qSum = 0;
+                        if (hasQuestions) {
+                            learner.questionMarks!.forEach(qm => qSum += parseFloat(qm.score) || 0);
+                        }
+                        const isSumMismatch = hasQuestions && Math.abs(qSum - parseFloat(learner.mark)) > 0.1;
 
                         return (
-                            <TableRow key={index} className={cn("hover:bg-muted/20 h-11", !isMapped && "bg-amber-50/20")}>
-                            <TableCell className="p-0 text-center">
-                                {isMapped ? (
-                                    <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto" />
-                                ) : (
-                                    <AlertCircle className="h-4 w-4 text-amber-500 mx-auto" />
+                            <>
+                                <TableRow key={index} className={cn("hover:bg-muted/20 h-11", !isMapped && "bg-amber-50/20")}>
+                                    <TableCell className="p-0 text-center">
+                                        <div className="flex items-center justify-center">
+                                            {hasQuestions ? (
+                                                <button onClick={() => toggleRow(index)} className="p-1 hover:bg-muted rounded">
+                                                    {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                                </button>
+                                            ) : (
+                                                isMapped ? (
+                                                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                                                ) : (
+                                                    <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                                                )
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-1 px-2">
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                value={learner.name}
+                                                onChange={(e) => onLearnerChange(index, 'name', e.target.value)}
+                                                className="h-7 text-xs border-transparent bg-transparent focus:bg-background font-medium"
+                                            />
+                                            {hasQuestions && <ListChecks className="h-3 w-3 text-primary opacity-40 shrink-0" />}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-1 px-1">
+                                        {targetClass ? (
+                                            <Select 
+                                                value={mappedId || "unlinked"} 
+                                                onValueChange={(val) => updateLearnerMapping(index, val)}
+                                            >
+                                                <SelectTrigger className={cn(
+                                                    "h-7 text-[10px] py-0 border-none bg-muted/20",
+                                                    !isMapped && "text-amber-700 font-bold"
+                                                )}>
+                                                    <SelectValue placeholder="Link..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="unlinked" className="text-muted-foreground italic text-[10px]">Unmatched</SelectItem>
+                                                    {targetClass.learners.map(l => (
+                                                        <SelectItem 
+                                                            key={l.id} 
+                                                            value={l.id!}
+                                                            disabled={isIdMapped(l.id!, index)}
+                                                        >
+                                                            {l.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        ) : (
+                                            <span className="text-[9px] text-muted-foreground italic px-2">Missing class</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="py-1 px-2 text-right">
+                                        {scanType === 'attendance_register' ? (
+                                            <Select value={learner.attendanceStatus || 'present'} onValueChange={(v) => onLearnerChange(index, 'attendanceStatus', v)}>
+                                                <SelectTrigger className="h-7 text-[10px] border-none bg-muted/20"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="present">Present</SelectItem>
+                                                    <SelectItem value="absent">Absent</SelectItem>
+                                                    <SelectItem value="late">Late</SelectItem>
+                                                    <SelectItem value="excused">Excused</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        ) : (
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                {isSumMismatch && (
+                                                    <span title="Questions don't match total">
+                                                        <AlertCircle className="h-3 w-3 text-red-500 animate-pulse" />
+                                                    </span>
+                                                )}
+                                                <Input
+                                                    value={learner.mark}
+                                                    onChange={(e) => onLearnerChange(index, 'mark', e.target.value)}
+                                                    className={cn(
+                                                        "h-7 text-[11px] text-right border-transparent bg-transparent font-black w-14",
+                                                        isSumMismatch ? "text-red-600" : "text-primary"
+                                                    )}
+                                                />
+                                            </div>
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                                {isExpanded && hasQuestions && (
+                                    <TableRow className="bg-muted/10 animate-in slide-in-from-top-1">
+                                        <TableCell colSpan={4} className="p-0">
+                                            <div className="p-3 pl-12 space-y-2 border-b">
+                                                <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-2">Question Breakdown</p>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                    {learner.questionMarks!.map((qm, qIdx) => (
+                                                        <div key={qIdx} className="space-y-1">
+                                                            <label className="text-[8px] font-bold text-muted-foreground uppercase">{qm.num}</label>
+                                                            <Input 
+                                                                value={qm.score} 
+                                                                onChange={(e) => updateQuestionMark(index, qIdx, e.target.value)}
+                                                                className="h-6 text-[10px] bg-background text-center font-bold" 
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {isSumMismatch && (
+                                                    <div className="mt-2 text-[9px] font-bold text-red-600 bg-red-50 p-1.5 rounded flex items-center gap-1.5 border border-red-100">
+                                                        <AlertCircle className="h-2.5 w-2.5" />
+                                                        Sum of questions ({qSum}) ≠ Scanned total ({learner.mark}). Total updated to match questions.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
                                 )}
-                            </TableCell>
-                            <TableCell className="py-1 px-2">
-                                <Input
-                                    value={learner.name}
-                                    onChange={(e) => onLearnerChange(index, 'name', e.target.value)}
-                                    className="h-7 text-xs border-transparent bg-transparent focus:bg-background font-medium"
-                                />
-                            </TableCell>
-                            <TableCell className="py-1 px-1">
-                                {targetClass ? (
-                                    <Select 
-                                        value={mappedId || "unlinked"} 
-                                        onValueChange={(val) => updateLearnerMapping(index, val)}
-                                    >
-                                        <SelectTrigger className={cn(
-                                            "h-7 text-[10px] py-0 border-none bg-muted/20",
-                                            !isMapped && "text-amber-700 font-bold"
-                                        )}>
-                                            <SelectValue placeholder="Link..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="unlinked" className="text-muted-foreground italic text-[10px]">Unmatched</SelectItem>
-                                            <div className="px-2 py-1 text-[9px] font-black uppercase text-muted-foreground opacity-50 bg-muted/30">Class Roster</div>
-                                            {targetClass.learners.map(l => (
-                                                <SelectItem 
-                                                    key={l.id} 
-                                                    value={l.id!}
-                                                    disabled={isIdMapped(l.id!, index)}
-                                                >
-                                                    {l.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
-                                    <span className="text-[9px] text-muted-foreground italic px-2">Missing class</span>
-                                )}
-                            </TableCell>
-                            <TableCell className="py-1 px-2 text-right">
-                                {scanType === 'attendance_register' ? (
-                                    <Select value={learner.attendanceStatus || 'present'} onValueChange={(v) => onLearnerChange(index, 'attendanceStatus', v)}>
-                                        <SelectTrigger className="h-7 text-[10px] border-none bg-muted/20"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="present">Present</SelectItem>
-                                            <SelectItem value="absent">Absent</SelectItem>
-                                            <SelectItem value="late">Late</SelectItem>
-                                            <SelectItem value="excused">Excused</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
-                                    <Input
-                                        value={learner.mark}
-                                        onChange={(e) => onLearnerChange(index, 'mark', e.target.value)}
-                                        className="h-7 text-[11px] text-right border-transparent bg-transparent font-black text-primary"
-                                    />
-                                )}
-                            </TableCell>
-                            </TableRow>
+                            </>
                         );
                     })}
                     </TableBody>

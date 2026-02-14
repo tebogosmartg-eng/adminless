@@ -73,6 +73,7 @@ export const useScanLogic = () => {
   const [existingMarks, setExistingMarks] = useState<AssessmentMark[]>([]);
 
   const targetClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
+  const targetAssessment = useMemo(() => availableAssessments.find(a => a.id === selectedAssessmentId), [availableAssessments, selectedAssessmentId]);
 
   const performAutoMatching = useCallback((scanned: ScannedLearner[], existing: Learner[]) => {
     const newMappings: Record<number, string> = {};
@@ -186,7 +187,14 @@ export const useScanLogic = () => {
     
     setIsProcessing(true);
     try {
-      const result = await processImagesWithGemini(imagePreviews, scanType as any);
+      // Pass question structure if available for guided extraction
+      const payload = { 
+          images: imagePreviews, 
+          scanMode: scanType,
+          questions: targetAssessment?.questions || []
+      };
+
+      const result = await processImagesWithGemini(payload.images, payload.scanMode as any, payload.questions);
       setScannedDetails(result.details || null);
       setScannedLearners(result.learners || []);
       
@@ -219,9 +227,14 @@ export const useScanLogic = () => {
         subject: "Mathematics", grade: "Grade 11", testNumber: "Algebra FAT 1",
         date: new Date().toISOString().split('T')[0]
       };
+      
       let mockLearners: ScannedLearner[] = [
-        { name: "Thabo Mbeki", mark: "45", attendanceStatus: 'present' },
-        { name: "Sarah Jenkins", mark: "38", attendanceStatus: 'absent' }
+        { 
+            name: "Thabo Mbeki", 
+            mark: "45", 
+            attendanceStatus: 'present',
+            questionMarks: targetAssessment?.questions?.map(q => ({ num: q.question_number, score: (q.max_mark * 0.8).toString() })) || []
+        }
       ];
       
       setScannedDetails(mockDetails);
@@ -303,11 +316,26 @@ export const useScanLogic = () => {
         if (!markUpdates) {
             markUpdates = scannedLearners
                 .filter((_, idx) => learnerMappings[idx])
-                .map((sl, idx) => ({
-                    assessment_id: targetAssessmentId!,
-                    learner_id: learnerMappings[idx],
-                    score: parseFloat(sl.mark)
-                }));
+                .map((sl, idx) => {
+                    const lId = learnerMappings[idx];
+                    const assessment = availableAssessments.find(a => a.id === targetAssessmentId);
+                    
+                    // Format question marks if available
+                    const questionMarks = sl.questionMarks?.map(qm => {
+                        const qObj = assessment?.questions?.find(q => q.question_number === qm.num);
+                        return {
+                            question_id: qObj?.id || qm.num,
+                            score: parseFloat(qm.score)
+                        };
+                    });
+
+                    return {
+                        assessment_id: targetAssessmentId!,
+                        learner_id: lId,
+                        score: parseFloat(sl.mark),
+                        question_marks: questionMarks
+                    };
+                });
         }
 
         if (markUpdates && markUpdates.length > 0) {

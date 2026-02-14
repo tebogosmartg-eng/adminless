@@ -42,49 +42,58 @@ serve(async (req) => {
     };
 
     if (action === 'scan-images') {
-        const { images, scanMode } = payload; // scanMode is actually scanType here
+        const { images, scanMode, questions = [] } = payload;
         
         let contextRules = "";
+        let questionGuidance = "";
+
+        if (questions && questions.length > 0) {
+            questionGuidance = `
+                The user has provided a specific question structure. Please extract marks for these EXACT questions:
+                ${questions.map(q => `- ${q.question_number}: ${q.skill_description} (Max: ${q.max_mark})`).join('\n')}
+            `;
+        }
+
         if (scanMode === 'class_marksheet') {
             contextRules = "This is a BULK MARKSHEET. Extract multiple learner names and their total marks.";
         } else if (scanMode === 'individual_script') {
-            contextRules = "This is an INDIVIDUAL LEARNER SCRIPT. Extract the student name and total mark from the cover/first page.";
+            contextRules = "This is an INDIVIDUAL LEARNER SCRIPT. Extract the student name and ALL individual question marks. If a total score is visible, extract that too.";
         } else if (scanMode === 'learner_roster') {
             contextRules = "This is a CLASS ROSTER. Extract all learner names. Marks are not required.";
         } else if (scanMode === 'attendance_register') {
             contextRules = "This is an ATTENDANCE REGISTER. Extract learner names and map their status to 'present', 'absent', 'late', or 'excused'.";
-        } else if (scanMode === 'diagnostic_form' || scanMode === 'moderation_sample') {
-            contextRules = "This is formal MODERATION EVIDENCE. Extract student name, subject, and any findings or narrative summary text.";
         }
 
         const prompt = `
             Analyze these images of South African school documents. ${contextRules}
+            ${questionGuidance}
             
             Strictly output JSON only in this format:
             {
-                "details": { "subject": "string", "grade": "string", "testNumber": "string", "date": "YYYY-MM-DD", "findings": "string (opt)", "interventions": "string (opt)" },
+                "details": { "subject": "string", "grade": "string", "testNumber": "string", "date": "YYYY-MM-DD" },
                 "learners": [ 
                     { 
                         "name": "Full Name", 
                         "mark": "Numeric total mark (string)", 
                         "attendanceStatus": "present|absent|late|excused (opt)",
-                        "questionMarks": [ { "num": "1", "score": "15" } ] 
+                        "questionMarks": [ { "num": "Q1", "score": "15" } ] 
                     } 
                 ]
             }
 
             Normalization Rules:
             - If "25/30", record "25" in mark.
+            - If questions are provided, "questionMarks" must use the exact question numbers (e.g. "Q1", "Q1.1").
+            - Sum the question marks and ensure it matches the provided "mark" (total).
             - Trim whitespace from names.
-            - If no date found, use "".
         `;
 
         const imageParts = images.map(img => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
         const result = await model.generateContent([prompt, ...imageParts]);
-        return new Response(JSON.stringify(JSON.parse(cleanJson((await result.response).text()))), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        const responseText = (await result.response).text();
+        return new Response(JSON.stringify(JSON.parse(cleanJson(responseText))), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Pass through other actions...
     if (action === 'generate-insights') {
         const { subject, grade, learners } = payload;
         const result = await model.generateContent(`Analyze class performance for ${grade} ${subject}. Data: ${JSON.stringify(learners)}`);

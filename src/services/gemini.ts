@@ -73,9 +73,9 @@ export const generateBulkComments = async (
     }
 };
 
-export const processImagesWithGemini = async (images: string[], scanMode: ScanMode = 'bulk'): Promise<any> => {
+export const processImagesWithGemini = async (images: string[], scanMode: ScanMode = 'bulk', questions: any[] = []): Promise<any> => {
   try {
-    const data = await invokeGemini('scan-images', { images, scanMode });
+    const data = await invokeGemini('scan-images', { images, scanMode, questions });
     return data;
   } catch (error) {
     console.error("Image Processing Failed:", error);
