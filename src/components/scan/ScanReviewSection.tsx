@@ -4,13 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, PlusCircle, Eye, AlertCircle, Info, Calculator, ShieldAlert, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Save, Eye, AlertCircle, Info, CheckCircle2, ShieldCheck, Database, Calendar } from 'lucide-react';
 import { ClassInfo, ScannedDetails, ScannedLearner, Assessment, ScanType } from '@/lib/types';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
+import { useAcademic } from '@/context/AcademicContext';
 
 interface ScanReviewSectionProps {
   scannedDetails: ScannedDetails | null;
@@ -44,17 +44,15 @@ export const ScanReviewSection = ({
   scanType = 'class_marksheet'
 }: ScanReviewSectionProps) => {
 
-  const questionHeaders = useMemo(() => {
-    const qNums = new Set<string>();
-    scannedLearners.forEach(l => l.questionMarks?.forEach(q => qNums.add(q.num)));
-    return Array.from(qNums).sort((a, b) => parseInt(a) - parseInt(b));
-  }, [scannedLearners]);
-
+  const { activeTerm } = useAcademic();
   const targetClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
+  const targetAssessment = useMemo(() => availableAssessments.find(a => a.id === selectedAssessmentId), [availableAssessments, selectedAssessmentId]);
 
   const isIdMapped = (id: string, currentIdx: number) => {
       return Object.entries(learnerMappings).some(([idx, mappedId]) => mappedId === id && parseInt(idx) !== currentIdx);
   };
+
+  const isMarkMode = ['class_marksheet', 'individual_script'].includes(scanType);
 
   return (
     <Card className="h-full flex flex-col overflow-hidden border-none shadow-none">
@@ -66,7 +64,7 @@ export const ScanReviewSection = ({
             </div>
             {imagePreviews.length > 0 && (
                 <Dialog>
-                    <DialogTrigger asChild><Button variant="outline" size="sm" className="h-8"><Eye className="mr-2 h-3 w-3" /> Proof</Button></DialogTrigger>
+                    <DialogTrigger asChild><Button variant="outline" size="sm" className="h-8"><Eye className="mr-2 h-3 w-3" /> View Source</Button></DialogTrigger>
                     <DialogContent className="max-w-4xl h-[85vh] overflow-auto flex flex-col items-center gap-4 bg-muted/20 p-4">
                         {imagePreviews.map((src, idx) => <img key={idx} src={src} alt="Proof" className="max-w-full rounded shadow border" />)}
                     </DialogContent>
@@ -78,33 +76,33 @@ export const ScanReviewSection = ({
       <CardContent className="flex-1 flex flex-col overflow-hidden p-0">
         {scannedDetails && scannedLearners.length > 0 ? (
           <>
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-              <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-muted/10">
-                <div className="col-span-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">Extracted Context</Label></div>
-                <Input value={scannedDetails.testNumber} onChange={(e) => onDetailsChange('testNumber', e.target.value)} className="h-8 text-xs font-bold" placeholder="Title/Reference" />
-                <Input value={scannedDetails.subject} onChange={(e) => onDetailsChange('subject', e.target.value)} className="h-8 text-xs" placeholder="Subject" />
-              </div>
-
-              <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Database Destination</Label>
-                    <div className="h-px flex-1 bg-border" />
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Bound Context Verification Header */}
+              <div className="p-4 rounded-xl border-2 border-primary/20 bg-primary/[0.02] space-y-3">
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase text-primary tracking-[0.2em]">
+                      <ShieldCheck className="h-3.5 w-3.5" /> Deterministic Context
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Select onValueChange={setSelectedClassId} value={selectedClassId}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Target Class..." /></SelectTrigger>
-                        <SelectContent>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.className} ({c.subject})</SelectItem>)}</SelectContent>
-                    </Select>
-                    
-                    {(scanType === 'class_marksheet' || scanType === 'individual_script') && (
-                        <Select onValueChange={setSelectedAssessmentId} value={selectedAssessmentId} disabled={!selectedClassId}>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="FAT Column..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="new">+ New Assessment Task</SelectItem>
-                                {availableAssessments.map(a => <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )}
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                          <Label className="text-[9px] font-bold text-muted-foreground uppercase">Target Class</Label>
+                          <p className="text-sm font-black truncate">{targetClass?.className || 'None'}</p>
+                      </div>
+                      <div className="space-y-1">
+                          <Label className="text-[9px] font-bold text-muted-foreground uppercase">Academic Term</Label>
+                          <p className="text-sm font-black text-muted-foreground truncate">{activeTerm?.name || 'None'}</p>
+                      </div>
+                      {isMarkMode && (
+                          <div className="col-span-2 space-y-1 border-t pt-2 mt-1">
+                              <Label className="text-[9px] font-bold text-muted-foreground uppercase">Target Assessment Column</Label>
+                              <div className="flex items-center gap-2">
+                                  <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black py-1 px-2">
+                                      {selectedAssessmentId === 'new' ? 'CREATE NEW FAT' : targetAssessment?.title || 'UNSELECTED'}
+                                  </Badge>
+                                  {targetAssessment && <span className="text-[10px] font-bold text-muted-foreground">Total Marks: {targetAssessment.max_mark}</span>}
+                              </div>
+                          </div>
+                      )}
                   </div>
               </div>
 
@@ -114,11 +112,11 @@ export const ScanReviewSection = ({
                     <TableRow>
                         <TableHead className="w-8 h-9 py-0"></TableHead>
                         <TableHead className="text-[10px] h-9 py-0 font-black uppercase tracking-tighter">Verified Name</TableHead>
-                        <TableHead className="text-[10px] h-9 py-0 font-black uppercase tracking-tighter w-36">Class Link</TableHead>
+                        <TableHead className="text-[10px] h-9 py-0 font-black uppercase tracking-tighter w-36">Link</TableHead>
                         {scanType === 'attendance_register' ? (
                             <TableHead className="text-right text-[10px] h-9 py-0 w-24 font-black uppercase tracking-tighter">Status</TableHead>
                         ) : (
-                            <TableHead className="text-right text-[10px] h-9 py-0 w-20 font-black uppercase tracking-tighter">Extracted</TableHead>
+                            <TableHead className="text-right text-[10px] h-9 py-0 w-20 font-black uppercase tracking-tighter">Mark</TableHead>
                         )}
                     </TableRow>
                     </TableHeader>
@@ -140,7 +138,7 @@ export const ScanReviewSection = ({
                                 <Input
                                     value={learner.name}
                                     onChange={(e) => onLearnerChange(index, 'name', e.target.value)}
-                                    className="h-7 text-xs border-transparent bg-transparent focus:bg-background"
+                                    className="h-7 text-xs border-transparent bg-transparent focus:bg-background font-medium"
                                 />
                             </TableCell>
                             <TableCell className="py-1 px-1">
@@ -153,7 +151,7 @@ export const ScanReviewSection = ({
                                             "h-7 text-[10px] py-0 border-none bg-muted/20",
                                             !isMapped && "text-amber-700 font-bold"
                                         )}>
-                                            <SelectValue placeholder="Manual Link..." />
+                                            <SelectValue placeholder="Link..." />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="unlinked" className="text-muted-foreground italic text-[10px]">Unmatched</SelectItem>
@@ -170,7 +168,7 @@ export const ScanReviewSection = ({
                                         </SelectContent>
                                     </Select>
                                 ) : (
-                                    <span className="text-[9px] text-muted-foreground italic px-2">Select class first</span>
+                                    <span className="text-[9px] text-muted-foreground italic px-2">Missing class</span>
                                 )}
                             </TableCell>
                             <TableCell className="py-1 px-2 text-right">
@@ -188,7 +186,7 @@ export const ScanReviewSection = ({
                                     <Input
                                         value={learner.mark}
                                         onChange={(e) => onLearnerChange(index, 'mark', e.target.value)}
-                                        className="h-7 text-[11px] text-right border-transparent bg-transparent font-bold text-primary"
+                                        className="h-7 text-[11px] text-right border-transparent bg-transparent font-black text-primary"
                                     />
                                 )}
                             </TableCell>
@@ -203,19 +201,23 @@ export const ScanReviewSection = ({
             <div className="p-4 border-t bg-background mt-auto flex flex-col gap-3">
               <div className="flex items-center gap-2 p-2 bg-blue-50 text-blue-800 text-[10px] rounded border border-blue-100">
                   <Info className="h-3.5 w-3.5" />
-                  <span>Verify all links before saving. Unlinked rows will not be committed to the database.</span>
+                  <span>Verified data will be committed strictly to <strong>{targetClass?.className}</strong> in <strong>{activeTerm?.name}</strong>.</span>
               </div>
               
               <Button onClick={onSaveToExisting} disabled={!selectedClassId} className="w-full h-12 font-black shadow-lg">
-                <Save className="mr-2 h-4 w-4" /> Finalize & Commit Scan
+                <Save className="mr-2 h-4 w-4" /> Commit Extraction
               </Button>
             </div>
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-12">
-            <Calculator className="h-12 w-12 opacity-10 mb-4" />
-            <h3 className="font-bold text-foreground opacity-60 uppercase tracking-widest text-xs">Awaiting Extraction</h3>
-            <p className="text-[10px] mt-1 max-w-[200px]">Once AI analysis is complete, you can verify and link learners here.</p>
+            <div className="p-6 rounded-full bg-muted/30 mb-4">
+                <Database className="h-10 w-10 opacity-20" />
+            </div>
+            <h3 className="font-bold text-foreground opacity-60 uppercase tracking-widest text-xs">Ready for Pipeline</h3>
+            <p className="text-[10px] mt-2 max-w-[220px] leading-relaxed">
+                Select your class and assessment task on the left, upload your images, and click "Start AI Extraction" to begin the verification process.
+            </p>
           </div>
         )}
       </CardContent>

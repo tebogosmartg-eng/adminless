@@ -57,7 +57,7 @@ export const useScanLogic = () => {
   
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
   const [availableAssessments, setAvailableAssessments] = useState<Assessment[]>([]);
-  const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("new");
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("");
   
   const [newClassName, setNewClassName] = useState("");
   const [activeTab, setActiveTab] = useState("update");
@@ -125,6 +125,10 @@ export const useScanLogic = () => {
         .equals([selectedClassId, activeTerm.id])
         .toArray();
       setAvailableAssessments(data || []);
+      // Reset assessment selection if it's not in the new class
+      if (selectedAssessmentId !== "new" && !data.some(a => a.id === selectedAssessmentId)) {
+        setSelectedAssessmentId("");
+      }
     };
     fetchClassAssessments();
   }, [selectedClassId, activeTerm]);
@@ -147,7 +151,23 @@ export const useScanLogic = () => {
     }
   };
 
+  const isExtractionReady = useMemo(() => {
+    if (!activeYear || !activeTerm) return false;
+    if (!selectedClassId) return false;
+    
+    // For marking modes, an assessment must be selected
+    if (['class_marksheet', 'individual_script'].includes(scanType)) {
+        return !!selectedAssessmentId;
+    }
+    
+    return true;
+  }, [activeYear, activeTerm, selectedClassId, selectedAssessmentId, scanType]);
+
   const handleProcessImage = async () => {
+    if (!isExtractionReady) {
+      showError("Please select a Class and Assessment Task first.");
+      return;
+    }
     if (imagePreviews.length === 0) {
       showError("Please upload one or more images first.");
       return;
@@ -159,11 +179,21 @@ export const useScanLogic = () => {
     
     setIsProcessing(true);
     try {
-      // Use ScanType as the mode
       const result = await processImagesWithGemini(imagePreviews, scanType as any);
       setScannedDetails(result.details || null);
       setScannedLearners(result.learners || []);
-      if (result.details?.testNumber) setNewClassName(result.details.testNumber);
+      
+      // Log Scan Event
+      const logMsg = `[SCAN] Type: ${scanType} | Assessment: ${selectedAssessmentId || 'N/A'} | Term: ${activeTerm?.name}`;
+      await queueAction('activities', 'create', {
+        id: crypto.randomUUID(),
+        user_id: (await supabase.auth.getUser()).data.user?.id,
+        year_id: activeYear?.id,
+        term_id: activeTerm?.id,
+        message: logMsg,
+        timestamp: new Date().toISOString()
+      });
+
       showSuccess("AI extraction complete.");
     } catch (error: any) {
       showError(error.message || "AI Analysis failed.");
@@ -173,6 +203,10 @@ export const useScanLogic = () => {
   };
 
   const handleSimulateScan = () => {
+    if (!isExtractionReady) {
+      showError("Select context before simulating.");
+      return;
+    }
     setIsProcessing(true);
     setTimeout(() => {
       let mockDetails: ScannedDetails = {
@@ -186,7 +220,6 @@ export const useScanLogic = () => {
       
       setScannedDetails(mockDetails);
       setScannedLearners(mockLearners);
-      setNewClassName(mockDetails.testNumber);
       setIsProcessing(false);
       showSuccess("Simulated context-aware scan complete!");
     }, 1000);
@@ -218,6 +251,13 @@ export const useScanLogic = () => {
 
         if (scanType === 'class_marksheet' || scanType === 'individual_script') {
             let targetAssessmentId = selectedAssessmentId;
+            
+            // Re-verify term mapping to prevent term-leakage
+            const assCheck = await db.assessments.get(targetAssessmentId);
+            if (assCheck && assCheck.term_id !== activeTerm.id) {
+                throw new Error("Integrity Failure: Target assessment does not belong to the active term.");
+            }
+
             if (selectedAssessmentId === 'new') {
                 targetAssessmentId = await createAssessment({
                     class_id: selectedClassId,
@@ -226,6 +266,7 @@ export const useScanLogic = () => {
                     type: 'Test', max_mark: 100, weight: 10, date: new Date().toISOString()
                 });
             }
+            
             const markUpdates = scannedLearners
                 .filter((_, idx) => learnerMappings[idx])
                 .map((sl, idx) => ({
@@ -291,6 +332,7 @@ export const useScanLogic = () => {
     selectedClassId, setSelectedClassId, newClassName, setNewClassName,
     activeTab, setActiveTab, handleFileChange, handleProcessImage, handleSimulateScan,
     updateScannedDetail, updateScannedLearner, handleSaveToExisting, handleCreateNewClass,
-    classes, availableAssessments, selectedAssessmentId, setSelectedAssessmentId
+    classes, availableAssessments, selectedAssessmentId, setSelectedAssessmentId,
+    isExtractionReady
   };
 };

@@ -24,14 +24,15 @@ const Scan = () => {
     classes,
     availableAssessments,
     selectedAssessmentId,
-    setSelectedAssessmentId
+    setSelectedAssessmentId,
+    isExtractionReady
   } = useScanLogic();
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-10">
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-bold tracking-tight">Scan Scripts</h1>
-        <p className="text-sm text-muted-foreground">Automated mark extraction for marksheets and learner scripts.</p>
+        <p className="text-sm text-muted-foreground">Automated mark extraction bound to specific academic context.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:h-[calc(100vh-220px)] items-start">
@@ -44,6 +45,13 @@ const Scan = () => {
               onFileChange={handleFileChange}
               onProcess={handleProcessImage}
               onSimulate={handleSimulateScan}
+              classes={classes}
+              selectedClassId={selectedClassId}
+              onClassChange={setSelectedClassId}
+              availableAssessments={availableAssessments}
+              selectedAssessmentId={selectedAssessmentId}
+              onAssessmentChange={setSelectedAssessmentId}
+              isReady={isExtractionReady}
             />
         </div>
 
