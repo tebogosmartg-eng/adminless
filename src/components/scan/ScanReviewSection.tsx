@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, PlusCircle, Eye, AlertCircle, Info, Calculator, ShieldAlert, UserMinus } from 'lucide-react';
+import { Save, PlusCircle, Eye, AlertCircle, Info, Calculator, ShieldAlert, UserPlus, Link2, Link2Off, CheckCircle2 } from 'lucide-react';
 import { ClassInfo, ScannedDetails, ScannedLearner, Assessment } from '@/lib/types';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -15,6 +15,8 @@ import { useMemo } from 'react';
 interface ScanReviewSectionProps {
   scannedDetails: ScannedDetails | null;
   scannedLearners: ScannedLearner[];
+  learnerMappings: Record<number, string>;
+  updateLearnerMapping: (scannedIdx: number, learnerId: string) => void;
   classes: ClassInfo[];
   selectedClassId: string | undefined;
   setSelectedClassId: (id: string) => void;
@@ -33,7 +35,8 @@ interface ScanReviewSectionProps {
 }
 
 export const ScanReviewSection = ({
-  scannedDetails, scannedLearners, classes, selectedClassId, setSelectedClassId,
+  scannedDetails, scannedLearners, learnerMappings, updateLearnerMapping,
+  classes, selectedClassId, setSelectedClassId,
   newClassName, setNewClassName, activeTab, setActiveTab, onDetailsChange, onLearnerChange,
   onSaveToExisting, onCreateNew, imagePreviews = [], availableAssessments = [],
   selectedAssessmentId, setSelectedAssessmentId
@@ -53,6 +56,11 @@ export const ScanReviewSection = ({
       if (qIdx !== -1) qMarks[qIdx] = { ...qMarks[qIdx], score: val };
       else qMarks.push({ num: qNum, score: val });
       onLearnerChange(lIdx, 'questionMarks', qMarks);
+  };
+
+  // Check if a learner is already mapped to avoid duplicates
+  const isIdMapped = (id: string, currentIdx: number) => {
+      return Object.entries(learnerMappings).some(([idx, mappedId]) => mappedId === id && parseInt(idx) !== currentIdx);
   };
 
   return (
@@ -109,12 +117,14 @@ export const ScanReviewSection = ({
               </Tabs>
 
               <div className="border rounded-xl bg-background overflow-hidden shadow-sm">
-                <Table className="min-w-[400px]">
+                <Table className="min-w-[500px]">
                     <TableHeader className="bg-muted/50">
                     <TableRow>
-                        <TableHead className="text-[10px] h-9 py-0 font-black">LEARNER</TableHead>
+                        <TableHead className="w-8 h-9 py-0"></TableHead>
+                        <TableHead className="text-[10px] h-9 py-0 font-black">SCANNED NAME</TableHead>
+                        <TableHead className="text-[10px] h-9 py-0 font-black w-36">ROSTER LINK</TableHead>
                         {questionHeaders.map(num => <TableHead key={num} className="text-center text-[10px] h-9 py-0 w-12 font-black">Q{num}</TableHead>)}
-                        <TableHead className="text-right text-[10px] h-9 py-0 w-20 font-black">TOTAL</TableHead>
+                        <TableHead className="text-right text-[10px] h-9 py-0 w-16 font-black">MARK</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -122,24 +132,56 @@ export const ScanReviewSection = ({
                         const qSum = (learner.questionMarks || []).reduce((acc, q) => acc + (parseFloat(q.score) || 0), 0);
                         const total = parseFloat(learner.mark) || 0;
                         const hasDiscrepancy = (learner.questionMarks?.length ?? 0) > 0 && qSum !== total;
-                        const isMatched = targetClass?.learners.some(l => l.name.toLowerCase().includes(learner.name.toLowerCase()));
+                        
+                        const mappedId = learnerMappings[index];
+                        const isMapped = !!mappedId;
 
                         return (
-                            <TableRow key={index} className={cn("hover:bg-muted/20 h-11", hasDiscrepancy && "bg-red-50/50")}>
-                            <TableCell className="py-1">
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        value={learner.name}
-                                        onChange={(e) => onLearnerChange(index, 'name', e.target.value)}
-                                        className={cn("h-7 text-xs border-transparent bg-transparent", !isMatched && activeTab === 'update' && "text-amber-600 font-bold")}
-                                    />
-                                    {!isMatched && activeTab === 'update' && (
-                                        <TooltipProvider><Tooltip>
-                                            <TooltipTrigger><UserMinus className="h-3.5 w-3.5 text-amber-500" /></TooltipTrigger>
-                                            <TooltipContent className="text-[10px]">Name not found in class roster. Will be added as a new learner.</TooltipContent>
-                                        </Tooltip></TooltipProvider>
-                                    )}
-                                </div>
+                            <TableRow key={index} className={cn("hover:bg-muted/20 h-11", !isMapped && activeTab === 'update' && "bg-amber-50/30", hasDiscrepancy && "bg-red-50/50")}>
+                            <TableCell className="p-0 text-center">
+                                {isMapped ? (
+                                    <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto" />
+                                ) : (
+                                    <AlertCircle className="h-4 w-4 text-amber-500 mx-auto" />
+                                )}
+                            </TableCell>
+                            <TableCell className="py-1 px-2">
+                                <Input
+                                    value={learner.name}
+                                    onChange={(e) => onLearnerChange(index, 'name', e.target.value)}
+                                    className="h-7 text-xs border-transparent bg-transparent focus:bg-background"
+                                />
+                            </TableCell>
+                            <TableCell className="py-1 px-1">
+                                {activeTab === 'update' && targetClass ? (
+                                    <Select 
+                                        value={mappedId || "unlinked"} 
+                                        onValueChange={(val) => updateLearnerMapping(index, val)}
+                                    >
+                                        <SelectTrigger className={cn(
+                                            "h-7 text-[10px] py-0 border-none bg-muted/20",
+                                            !isMapped && "text-amber-700 font-bold"
+                                        )}>
+                                            <SelectValue placeholder="Link..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="unlinked" className="text-muted-foreground italic text-[10px]">Unmatched Learner</SelectItem>
+                                            <DropdownMenuSeparator />
+                                            {targetClass.learners.map(l => (
+                                                <SelectItem 
+                                                    key={l.id} 
+                                                    value={l.id!}
+                                                    className={cn(isIdMapped(l.id!, index) && "opacity-50 line-through")}
+                                                    disabled={isIdMapped(l.id!, index)}
+                                                >
+                                                    {l.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <span className="text-[10px] text-muted-foreground italic">Auto-linked</span>
+                                )}
                             </TableCell>
                             {questionHeaders.map(num => {
                                 const qMark = (learner.questionMarks || []).find(q => q.num === num);
@@ -148,20 +190,20 @@ export const ScanReviewSection = ({
                                         <Input
                                             value={qMark?.score || ""}
                                             onChange={(e) => handleQMarkChange(index, num, e.target.value)}
-                                            className="h-7 text-center text-xs border-transparent bg-transparent"
+                                            className="h-7 text-center text-[11px] border-transparent bg-transparent"
                                         />
                                     </TableCell>
                                 );
                             })}
-                            <TableCell className="py-1 relative">
+                            <TableCell className="py-1 relative px-2">
                                 <Input
                                     value={learner.mark}
                                     onChange={(e) => onLearnerChange(index, 'mark', e.target.value)}
-                                    className={cn("h-7 text-xs text-right border-transparent bg-transparent pr-7", hasDiscrepancy && "text-red-700 font-black")}
+                                    className={cn("h-7 text-[11px] text-right border-transparent bg-transparent pr-5", hasDiscrepancy && "text-red-700 font-black")}
                                 />
                                 {hasDiscrepancy && (
                                     <TooltipProvider><Tooltip>
-                                        <TooltipTrigger className="absolute right-1 top-1/2 -translate-y-1/2"><ShieldAlert className="h-3.5 w-3.5 text-red-500" /></TooltipTrigger>
+                                        <TooltipTrigger className="absolute right-0.5 top-1/2 -translate-y-1/2"><ShieldAlert className="h-3 w-3 text-red-500" /></TooltipTrigger>
                                         <TooltipContent className="text-[10px]">Sum of questions ({qSum}) ≠ Total ({total})</TooltipContent>
                                     </Tooltip></TooltipProvider>
                                 )}
@@ -174,7 +216,14 @@ export const ScanReviewSection = ({
               </div>
             </div>
 
-            <div className="p-4 border-t bg-background mt-auto">
+            <div className="p-4 border-t bg-background mt-auto flex flex-col gap-3">
+              {activeTab === 'update' && (
+                  <div className="flex items-center gap-2 p-2 bg-blue-50 text-blue-800 text-[10px] rounded border border-blue-100">
+                      <Info className="h-3.5 w-3.5" />
+                      <span>Learners with <AlertCircle className="inline h-3 w-3" /> will be skipped unless linked to a roster name.</span>
+                  </div>
+              )}
+              
               {activeTab === 'update' ? (
                 <Button onClick={onSaveToExisting} disabled={!selectedClassId} className="w-full h-12 font-black shadow-lg">
                   <Save className="mr-2 h-4 w-4" /> Commit Scanned Marks
@@ -197,3 +246,5 @@ export const ScanReviewSection = ({
     </Card>
   );
 };
+
+import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';

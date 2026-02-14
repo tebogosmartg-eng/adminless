@@ -1,13 +1,44 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useClasses } from '@/context/ClassesContext';
 import { useAcademic } from '@/context/AcademicContext';
 import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ScannedDetails, ScannedLearner, Assessment, AssessmentQuestion, ScanMode } from '@/lib/types';
+import { ScannedDetails, ScannedLearner, Assessment, AssessmentQuestion, ScanMode, Learner } from '@/lib/types';
 import { db } from '@/db';
 import { compressImage } from '@/utils/image';
+
+// Simple fuzzy match helper (Levenshtein distance based similarity)
+const calculateSimilarity = (s1: string, s2: string) => {
+  const longer = s1.length > s2.length ? s1 : s2;
+  const shorter = s1.length > s2.length ? s2 : s1;
+  const longerLength = longer.length;
+  if (longerLength === 0) return 1.0;
+  
+  const editDistance = (a: string, b: string) => {
+    const costs = [];
+    for (let i = 0; i <= a.length; i++) {
+      let lastValue = i;
+      for (let j = 0; j <= b.length; j++) {
+        if (i === 0) costs[j] = j;
+        else {
+          if (j > 0) {
+            let newValue = costs[j - 1];
+            if (a.charAt(i - 1) !== b.charAt(j - 1))
+              newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+            costs[j - 1] = lastValue;
+            lastValue = newValue;
+          }
+        }
+      }
+      if (i > 0) costs[b.length] = lastValue;
+    }
+    return costs[b.length];
+  };
+
+  return (longerLength - editDistance(longer, shorter)) / longerLength;
+};
 
 export const useScanLogic = () => {
   const { classes, addClass } = useClasses();
@@ -22,12 +53,64 @@ export const useScanLogic = () => {
   const [scannedDetails, setScannedDetails] = useState<ScannedDetails | null>(null);
   const [scannedLearners, setScannedLearners] = useState<ScannedLearner[]>([]);
   
+  // State for mapping scanned index to existing learner ID
+  const [learnerMappings, setLearnerMappings] = useState<Record<number, string>>({});
+  
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
   const [availableAssessments, setAvailableAssessments] = useState<Assessment[]>([]);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("new");
   
   const [newClassName, setNewClassName] = useState("");
   const [activeTab, setActiveTab] = useState("update");
+
+  const targetClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
+
+  // Automatic matching logic
+  const performAutoMatching = useCallback((scanned: ScannedLearner[], existing: Learner[]) => {
+    const newMappings: Record<number, string> = {};
+    const usedIds = new Set<string>();
+
+    scanned.forEach((sl, idx) => {
+        const sName = sl.name.toLowerCase().trim();
+        let bestMatch = { id: "", score: 0 };
+
+        existing.forEach(el => {
+            if (!el.id || usedIds.has(el.id)) return;
+            
+            const eName = el.name.toLowerCase().trim();
+            
+            // 1. Direct match
+            if (eName === sName) {
+                bestMatch = { id: el.id, score: 1.0 };
+                return;
+            }
+
+            // 2. Substring match
+            if (eName.includes(sName) || sName.includes(eName)) {
+                bestMatch = { id: el.id, score: 0.9 };
+            }
+
+            // 3. Fuzzy similarity
+            const sim = calculateSimilarity(sName, eName);
+            if (sim > 0.75 && sim > bestMatch.score) {
+                bestMatch = { id: el.id, score: sim };
+            }
+        });
+
+        if (bestMatch.id) {
+            newMappings[idx] = bestMatch.id;
+            usedIds.add(bestMatch.id);
+        }
+    });
+
+    setLearnerMappings(newMappings);
+  }, []);
+
+  useEffect(() => {
+    if (scannedLearners.length > 0 && targetClass?.learners) {
+        performAutoMatching(scannedLearners, targetClass.learners);
+    }
+  }, [scannedLearners, targetClass, performAutoMatching]);
 
   useEffect(() => {
     if (location.state) {
@@ -66,6 +149,7 @@ export const useScanLogic = () => {
         setImagePreviews(compressedImages);
         setScannedLearners([]);
         setScannedDetails(null);
+        setLearnerMappings({});
         showSuccess(`Loaded ${files.length} image(s). Mode: ${scanMode}`);
       } catch (e) {
         showError("Failed to load or compress images.");
@@ -129,9 +213,12 @@ export const useScanLogic = () => {
     setScannedLearners(updated);
   };
 
+  const updateLearnerMapping = (scannedIdx: number, learnerId: string) => {
+      setLearnerMappings(prev => ({ ...prev, [scannedIdx]: learnerId }));
+  };
+
   const handleSaveToExisting = async () => {
     if (!activeTerm || !selectedClassId) return;
-    const targetClass = classes.find(c => c.id === selectedClassId);
     if (!targetClass) return;
 
     let targetAssessmentId = selectedAssessmentId;
@@ -155,15 +242,17 @@ export const useScanLogic = () => {
         targetQuestions = existing?.questions || [];
     }
 
-    const learnersMap = new Map(targetClass.learners.map(l => [l.name.toLowerCase(), l]));
     const markUpdates: any[] = [];
 
-    for (const sl of scannedLearners) {
-        const matchedLearner = Array.from(learnersMap.values()).find(l => l.name.toLowerCase().includes(sl.name.toLowerCase()) || sl.name.toLowerCase().includes(l.name.toLowerCase()));
-        if (matchedLearner?.id) {
+    scannedLearners.forEach((sl, idx) => {
+        const mappedId = learnerMappings[idx];
+        
+        // If not mapped to existing, we can potentially add as a new learner
+        // But for consistency, let's only update if a mapping exists (auto or manual)
+        if (mappedId) {
             markUpdates.push({
                 assessment_id: targetAssessmentId,
-                learner_id: matchedLearner.id,
+                learner_id: mappedId,
                 score: parseFloat(sl.mark),
                 question_marks: (sl.questionMarks || []).map(sq => {
                     const qDef = targetQuestions.find(tq => tq.question_number.includes(sq.num));
@@ -171,14 +260,14 @@ export const useScanLogic = () => {
                 })
             });
         }
-    }
+    });
 
     if (markUpdates.length > 0) {
         await updateMarks(markUpdates);
         showSuccess(`Saved ${markUpdates.length} marks.`);
         navigate(`/classes/${selectedClassId}`);
     } else {
-        showError("No matching learners found to save marks.");
+        showError("No mapped learners found. Please link scanned results to your class roster.");
     }
   };
 
@@ -200,6 +289,7 @@ export const useScanLogic = () => {
   return {
     scanMode, setScanMode,
     imagePreviews, isProcessing, scannedDetails, scannedLearners,
+    learnerMappings, updateLearnerMapping,
     selectedClassId, setSelectedClassId, newClassName, setNewClassName,
     activeTab, setActiveTab, handleFileChange, handleProcessImage, handleSimulateScan,
     updateScannedDetail, updateScannedLearner, handleSaveToExisting, handleCreateNewClass,

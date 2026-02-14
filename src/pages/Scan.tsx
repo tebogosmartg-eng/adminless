@@ -9,6 +9,8 @@ const Scan = () => {
     isProcessing,
     scannedDetails,
     scannedLearners,
+    learnerMappings,
+    updateLearnerMapping,
     selectedClassId, setSelectedClassId,
     newClassName, setNewClassName,
     activeTab, setActiveTab,
@@ -49,6 +51,8 @@ const Scan = () => {
             <ScanReviewSection 
               scannedDetails={scannedDetails}
               scannedLearners={scannedLearners}
+              learnerMappings={learnerMappings}
+              updateLearnerMapping={updateLearnerMapping}
               classes={classes}
               selectedClassId={selectedClassId}
               setSelectedClassId={setSelectedClassId}
