@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { db, AssessmentDiagnostic } from '@/db';
-import { Assessment, Learner, AssessmentMark, DiagnosticRow } from '@/lib/types';
+import { Assessment, Learner, AssessmentMark, DiagnosticRow, FullDiagnostic } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
@@ -78,8 +78,8 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
         id: s.id,
         question: `Q${s.number} - ${s.skill || 'Assessment Item'}`,
         performance_summary: `Class average: ${s.avg}%. Pass rate: ${s.passRate}%.`,
-        possible_root_causes: ["Insufficient time provided for this section.", "Instructional sequencing issue.", "Misinterpretation of command verbs."],
-        targeted_interventions: ["Modeling of structured responses.", "Peer-marking of similar tasks.", "Targeted vocabulary drill.", "Re-assessment of core concept."]
+        possible_root_causes: ["Skill gap identified in this specific topic area.", "Conceptual misunderstanding of the problem requirements.", "Difficulty with cognitive demand of the question."],
+        targeted_interventions: ["Topic-specific revision.", "Modeling solutions.", "Focused practice exercises."]
     }));
 
     return { 
@@ -91,18 +91,21 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
     };
   }, [assessment, marks, savedDiagnostic]);
 
-  const generateAIAnalysis = useCallback(async (subject: string, grade: string) => {
+  const generateAIAnalysis = useCallback(async (subject: string, grade: string): Promise<FullDiagnostic | null> => {
     if (!stats) return null;
     try {
-        const aiRows = await generateAIDiagnostic(assessment, stats.qStats, subject, grade);
-        return aiRows.map((r, i) => ({ ...r, id: r.id || `ai-${i}-${Date.now()}` }));
+        const response = await generateAIDiagnostic(assessment, stats.qStats, subject, grade);
+        return {
+            ...response,
+            rows: response.rows.map((r: any, i: number) => ({ ...r, id: r.id || `ai-${i}-${Date.now()}` }))
+        };
     } catch (e) {
         showError("AI Analysis failed. Reverting to manual entry.");
         return null;
     }
   }, [assessment, stats]);
 
-  const saveDiagnostic = useCallback(async (rows: DiagnosticRow[]) => {
+  const saveDiagnostic = useCallback(async (fullDiag: FullDiagnostic) => {
       try {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
@@ -111,8 +114,11 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
               id: savedDiagnostic?.id || crypto.randomUUID(),
               assessment_id: assessment.id,
               user_id: user.id,
-              findings: JSON.stringify(rows), 
-              interventions: "", 
+              findings: JSON.stringify(fullDiag.rows), 
+              interventions: JSON.stringify({
+                  themes: fullDiag.overall_class_themes,
+                  interventions: fullDiag.overall_interventions
+              }), 
               updated_at: new Date().toISOString()
           };
 

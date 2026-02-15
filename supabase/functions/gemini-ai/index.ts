@@ -56,9 +56,41 @@ serve(async (req) => {
 
     if (action === 'generate-diagnostic') {
         const { assessment, stats, subject, grade } = payload;
-        const prompt = `Perform a deep root-cause diagnostic analysis for ${grade} ${subject}...`;
+        
+        const prompt = `
+            Perform a deep, differentiated pedagogical diagnostic for a ${grade} ${subject} assessment titled "${assessment.title}".
+            
+            INPUT DATA (Question-level performance):
+            ${JSON.stringify(stats)}
+            
+            CRITICAL REQUIREMENTS:
+            1. UNIQUE ANALYSIS PER QUESTION: Each question in the output must have DIFFERENT and SPECIFIC root causes.
+            2. SKILL-AWARE: Interpret the skill (e.g., Algebra, Comprehension, Logic) from the question title and description.
+            3. COGNITIVE DEMAND: Infer if the question is Knowledge (recall), Application, or Analysis/Evaluation.
+            4. AVOID GENERIC BOILERPLATE: Do not use "Insufficient time" or "Sequencing issue" unless the performance data explicitly suggests a cluster of failures at the end of the paper.
+            5. THEMATIC ANALYSIS: After the questions, provide "overall_class_themes" identifying patterns like "Language barriers in word problems" or "Difficulty with multi-step calculations".
+
+            OUTPUT FORMAT (JSON ONLY):
+            {
+                "rows": [
+                    {
+                        "id": "original_id",
+                        "question": "Q# - Skill",
+                        "performance_summary": "Concise summary of result",
+                        "cognitive_level": "knowledge|comprehension|application|analysis|evaluation|creation",
+                        "possible_root_causes": ["At least 3 UNIQUE, skill-specific causes"],
+                        "targeted_interventions": ["Specific pedagogical actions"]
+                    }
+                ],
+                "overall_class_themes": ["Specific patterns found across results"],
+                "overall_interventions": ["High-level classroom strategies"]
+            }
+        `;
+
         const result = await model.generateContent(prompt);
-        return new Response(cleanJson((await result.response).text()), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(cleanJson((await result.response).text()), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
     }
 
     if (action === 'generate-worksheet') {

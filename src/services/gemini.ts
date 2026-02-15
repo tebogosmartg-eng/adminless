@@ -1,4 +1,4 @@
-import { ClassInfo, Learner, ClassInsight, LearnerComment, ScanMode, DiagnosticRow } from "@/lib/types";
+import { ClassInfo, Learner, ClassInsight, LearnerComment, ScanMode, DiagnosticRow, FullDiagnostic } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 
 // Unified helper for calling the monolith edge function
@@ -40,7 +40,7 @@ export const generateAIDiagnostic = async (
   stats: any,
   subject: string,
   grade: string
-): Promise<DiagnosticRow[]> => {
+): Promise<FullDiagnostic> => {
   try {
     const data = await invokeGemini('generate-diagnostic', { assessment, stats, subject, grade });
     return data;

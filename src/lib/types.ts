@@ -270,6 +270,12 @@ export interface DiagnosticRow {
   targeted_interventions: string[];
 }
 
+export interface FullDiagnostic {
+  rows: DiagnosticRow[];
+  overall_class_themes: string[];
+  overall_interventions: string[];
+}
+
 export interface RemediationTask {
   id: string;
   user_id: string;
