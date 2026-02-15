@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { generateAIDiagnostic } from '@/services/gemini';
 
 export interface QuestionStat {
   id: string;
@@ -70,44 +71,36 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
       };
     });
 
-    const weakQuestions = qStats.filter(s => s.isWeak);
     const overallAvg = (qStats.reduce((a, b) => a + b.avg, 0) / qStats.length).toFixed(1);
 
-    // --- GENERATE STRUCTURED ROWS ---
-    const diagnosticRows: DiagnosticRow[] = [];
-
-    // General Summary Row
-    diagnosticRows.push({
-        id: 'summary',
-        finding: `The class achieved an overall question-average of ${overallAvg}%. ${weakQuestions.length > 0 ? `${weakQuestions.length} questions fell below the 50% threshold.` : "Consistent performance shown across all items."}`,
-        intervention: weakQuestions.length > 0 ? "Implement targeted remediation sessions for identified weak concepts." : "Continue with current instructional sequence; provide extension tasks for high performers."
-    });
-
-    // Per-Weak Question Rows
-    weakQuestions.forEach(q => {
-        diagnosticRows.push({
-            id: `q-${q.id}`,
-            finding: `Question ${q.number} (${q.skill || 'Unspecified Skill'}): Critical failure with only ${q.passRate}% pass rate and ${q.avg}% average score.`,
-            intervention: `Re-teach core concepts of ${q.skill || 'this section'}. Provide scaffolded practice examples before the next cycle.`
-        });
-    });
-
-    // Handle Backward Compatibility: Convert old narrative to rows if they exist
-    let convertedRows: DiagnosticRow[] = diagnosticRows;
-    if (savedDiagnostic?.findings && !Array.isArray(savedDiagnostic.findings)) {
-        // This is an old format record (string)
-        // We'll keep the AI generated rows but could optionally try to parse the old string.
-        // For simplicity and data safety, we'll suggest the user resets to draft.
-    }
+    // Initial draft fallback structure
+    const initialRows: DiagnosticRow[] = qStats.map(s => ({
+        id: s.id,
+        question: `Q${s.number} - ${s.skill || 'Assessment Item'}`,
+        performance_summary: `Class average: ${s.avg}%. Pass rate: ${s.passRate}%.`,
+        possible_root_causes: ["Insufficient time provided for this section.", "Instructional sequencing issue.", "Misinterpretation of command verbs."],
+        targeted_interventions: ["Modeling of structured responses.", "Peer-marking of similar tasks.", "Targeted vocabulary drill.", "Re-assessment of core concept."]
+    }));
 
     return { 
         qStats, 
-        diagnosticRows,
+        initialRows,
         rawMarks: marks,
         savedDiagnostic: savedDiagnostic || null,
         overallAvg
     };
   }, [assessment, marks, savedDiagnostic]);
+
+  const generateAIAnalysis = useCallback(async (subject: string, grade: string) => {
+    if (!stats) return null;
+    try {
+        const aiRows = await generateAIDiagnostic(assessment, stats.qStats, subject, grade);
+        return aiRows.map((r, i) => ({ ...r, id: r.id || `ai-${i}-${Date.now()}` }));
+    } catch (e) {
+        showError("AI Analysis failed. Reverting to manual entry.");
+        return null;
+    }
+  }, [assessment, stats]);
 
   const saveDiagnostic = useCallback(async (rows: DiagnosticRow[]) => {
       try {
@@ -118,8 +111,8 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
               id: savedDiagnostic?.id || crypto.randomUUID(),
               assessment_id: assessment.id,
               user_id: user.id,
-              findings: JSON.stringify(rows), // Store as JSON string for flexibility
-              interventions: "", // Legacy field, kept for schema safety
+              findings: JSON.stringify(rows), 
+              interventions: "", 
               updated_at: new Date().toISOString()
           };
 
@@ -131,5 +124,5 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
       }
   }, [assessment.id, savedDiagnostic]);
 
-  return { stats, loading: marks === undefined, saveDiagnostic };
+  return { stats, loading: marks === undefined, saveDiagnostic, generateAIAnalysis };
 };

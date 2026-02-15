@@ -1,4 +1,4 @@
-import { ClassInfo, Learner, ClassInsight, LearnerComment, ScanMode } from "@/lib/types";
+import { ClassInfo, Learner, ClassInsight, LearnerComment, ScanMode, DiagnosticRow } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 
 // Unified helper for calling the monolith edge function
@@ -32,6 +32,21 @@ export const generateClassInsights = async (
         areasForImprovement: [],
         recommendations: []
     };
+  }
+};
+
+export const generateAIDiagnostic = async (
+  assessment: any,
+  stats: any,
+  subject: string,
+  grade: string
+): Promise<DiagnosticRow[]> => {
+  try {
+    const data = await invokeGemini('generate-diagnostic', { assessment, stats, subject, grade });
+    return data;
+  } catch (error) {
+    console.error("Diagnostic AI Generation Failed:", error);
+    throw error;
   }
 };
 

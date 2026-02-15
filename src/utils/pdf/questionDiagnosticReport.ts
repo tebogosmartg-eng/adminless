@@ -60,29 +60,44 @@ export const generateQuestionDiagnosticPDF = (
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
 
-  // 3. Tabular Analysis (New Structured Format)
+  // 3. Tabular Analysis (New Deep Format)
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("Analysis of Findings & Intervention Strategies", margin, currentY);
+  doc.text("Deep Root-Cause Analysis & Interventions", margin, currentY);
 
   autoTable(doc, {
       startY: currentY + 3,
-      head: [['Diagnostic Findings / Interpretation', 'Proposed Intervention Strategy']],
-      body: diagRows.map(r => [r.finding, r.intervention]),
+      head: [['Question', 'Summary', 'Possible Root Causes', 'Targeted Interventions']],
+      body: diagRows.map(r => [
+          r.question, 
+          r.performance_summary,
+          r.possible_root_causes.filter(c => c.trim()).map(c => `• ${c.trim()}`).join('\n'),
+          r.targeted_interventions.filter(i => i.trim()).map(i => `• ${i.trim()}`).join('\n')
+      ]),
       theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 4 },
+      styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
       headStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold' },
       columnStyles: {
-          0: { cellWidth: (pageWidth - margin * 2) / 2 },
-          1: { cellWidth: (pageWidth - margin * 2) / 2 }
+          0: { cellWidth: 25, fontStyle: 'bold' },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 55 },
+          3: { cellWidth: 55 }
       }
   });
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
 
   // 4. Class Breakdown (Detailed Grid)
-  doc.addPage();
-  addHeader(doc, profile, "Learner Performance Breakdown");
+  if (currentY > doc.internal.pageSize.height - 100) {
+      doc.addPage();
+      addHeader(doc, profile, "Learner Performance Breakdown");
+      currentY = 45;
+  } else {
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Individual Learner Records", margin, currentY);
+      currentY += 3;
+  }
   
   const headers = ['#', 'Learner Name'];
   assessment.questions?.forEach(q => headers.push(`Q${q.question_number}`));
@@ -100,7 +115,7 @@ export const generateQuestionDiagnosticPDF = (
   });
 
   autoTable(doc, {
-    startY: 45,
+    startY: currentY,
     head: [headers],
     body: body,
     theme: 'striped',
@@ -112,5 +127,5 @@ export const generateQuestionDiagnosticPDF = (
   addSignatures(doc, (doc as any).lastAutoTable.finalY);
   addFooter(doc);
 
-  doc.save(`${assessment.title.replace(/\s+/g, '_')}_Diagnostic.pdf`);
+  doc.save(`${assessment.title.replace(/\s+/g, '_')}_RootCause_Analysis.pdf`);
 };

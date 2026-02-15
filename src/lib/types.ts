@@ -261,6 +261,8 @@ export interface ScanHistory {
 
 export interface DiagnosticRow {
   id: string;
-  finding: string;
-  intervention: string;
+  question: string;
+  performance_summary: string;
+  possible_root_causes: string[];
+  targeted_interventions: string[];
 }
