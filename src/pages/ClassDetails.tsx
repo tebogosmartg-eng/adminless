@@ -13,12 +13,23 @@ import { EvidenceManager } from "@/components/evidence/EvidenceManager";
 import { ClassAnalysisTab } from "@/components/analysis/ClassAnalysisTab";
 import { ClassLessonJournal } from "@/components/ClassLessonJournal";
 import { ClassCurriculumTab } from "@/components/ClassCurriculumTab";
+import { RemediationActionPlan } from "@/components/analysis/RemediationActionPlan";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldCheck, BarChart3, ArrowLeft, Sparkles, Dices, BookText, ListChecks } from "lucide-react";
+import { 
+  Loader2, 
+  ShieldCheck, 
+  BarChart3, 
+  ArrowLeft, 
+  Sparkles, 
+  Dices, 
+  BookText, 
+  ListChecks, 
+  Rocket 
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { generateSASAMSExport } from "@/utils/sasams";
@@ -192,6 +203,9 @@ const ClassDetails = () => {
           <TabsTrigger value="analysis" className="flex-none h-10 px-6 gap-2">
             <BarChart3 className="h-3.5 w-3.5" /> Analysis
           </TabsTrigger>
+          <TabsTrigger value="remediation" className="flex-none h-10 px-6 gap-2">
+            <Rocket className="h-3.5 w-3.5" /> Remediation
+          </TabsTrigger>
           <TabsTrigger value="attendance" className="flex-none h-10 px-6">Attendance</TabsTrigger>
           <TabsTrigger value="journal" className="flex-none h-10 px-6 gap-2">
             <BookText className="h-3.5 w-3.5" /> Journal
@@ -219,6 +233,13 @@ const ClassDetails = () => {
                classId={classId} 
                termId={activeTerm?.id} 
                learners={learners} 
+             />
+        </TabsContent>
+
+        <TabsContent value="remediation">
+             <RemediationActionPlan 
+               classId={classId} 
+               termId={activeTerm?.id || ''} 
              />
         </TabsContent>
 

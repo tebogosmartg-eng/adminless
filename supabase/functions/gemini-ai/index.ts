@@ -118,16 +118,17 @@ serve(async (req) => {
             
             Instructions:
             1. For each question (especially those with low pass rates or averages below 50%), identify pedagogical root causes.
-            2. Analyze question titles to infer cognitive demand (Bloom's Taxonomy: knowledge, application, analysis, etc.).
-            3. Consider potential challenges: language comprehension, structured response/paragraph writing, topic sequencing, insufficient scaffolding, or misinterpretation of keywords.
+            2. Analyze question titles to infer cognitive demand based on South African CAPS standards (knowledge, comprehension, application, analysis, evaluation, creation).
+            3. Consider potential challenges: language comprehension (BICS vs CALP), structured response/paragraph writing, topic sequencing, insufficient scaffolding, or misinterpretation of command verbs.
             4. Provide at least 3 distinct "possible_root_causes" per question.
-            5. Provide at least 4 specific, practical "targeted_interventions" per question. Avoid generic phrases like "re-teach concept". Use actions like "scaffolded modeling", "vocabulary drill", "peer-marking exercise", etc.
-            6. Present causes as possible explanations, not absolute facts.
+            5. Provide at least 4 specific, practical "targeted_interventions" per question. Use specific pedagogical strategies (e.g., "Step-by-step scaffolding of the P.E.E.L method", "Keyword vocabulary drills", "Peer-marking with exemplars").
+            6. Present causes as possible pedagogical explanations, not absolute facts.
             7. Strictly output a JSON array of objects in this format:
             [
               {
                 "question": "Q# - [Skill/Description]",
-                "performance_summary": "Short data-driven summary of class performance on this item.",
+                "performance_summary": "Short data-driven summary of class performance.",
+                "cognitive_level": "knowledge" | "comprehension" | "application" | "analysis" | "evaluation" | "creation",
                 "possible_root_causes": ["Cause 1", "Cause 2", "Cause 3"],
                 "targeted_interventions": ["Intervention 1", "Intervention 2", "Intervention 3", "Intervention 4"]
               }

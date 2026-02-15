@@ -259,10 +259,25 @@ export interface ScanHistory {
   after_snapshot: any;  
 }
 
+export type CognitiveLevel = 'knowledge' | 'comprehension' | 'application' | 'analysis' | 'evaluation' | 'creation' | 'unknown';
+
 export interface DiagnosticRow {
   id: string;
   question: string;
   performance_summary: string;
+  cognitive_level?: CognitiveLevel;
   possible_root_causes: string[];
   targeted_interventions: string[];
+}
+
+export interface RemediationTask {
+  id: string;
+  user_id: string;
+  class_id: string;
+  term_id: string;
+  assessment_id: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'active' | 'completed';
+  created_at: string;
 }

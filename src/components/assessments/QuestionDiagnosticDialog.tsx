@@ -19,11 +19,14 @@ import {
     Trash2,
     Table as TableIcon,
     BrainCircuit,
-    Info
+    Info,
+    Rocket,
+    Check
 } from 'lucide-react';
 import { Assessment, Learner, DiagnosticRow } from '@/lib/types';
 import { useQuestionAnalysis } from '@/hooks/useQuestionAnalysis';
 import { useSettings } from '@/context/SettingsContext';
+import { useRemediation } from '@/hooks/useRemediation';
 import { generateQuestionDiagnosticPDF } from '@/utils/pdf/questionDiagnosticReport';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -38,11 +41,13 @@ interface QuestionDiagnosticDialogProps {
 export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learners }: QuestionDiagnosticDialogProps) => {
   const { stats, loading, saveDiagnostic, generateAIAnalysis } = useQuestionAnalysis(assessment, learners);
   const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
+  const { activateInterventions } = useRemediation(assessment.class_id, assessment.term_id);
   
   const [rows, setRows] = useState<DiagnosticRow[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
   
   const initializedRef = useRef(false);
 
@@ -85,6 +90,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
           id: crypto.randomUUID(),
           question: "Manual Item",
           performance_summary: "",
+          cognitive_level: 'unknown',
           possible_root_causes: [],
           targeted_interventions: []
       }]);
@@ -118,6 +124,26 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
       }
   };
 
+  const handleActivatePlan = async () => {
+      setIsActivating(true);
+      try {
+          const interventions = rows.flatMap(r => 
+              r.targeted_interventions
+                .filter(i => i.trim())
+                .map(i => ({ title: r.question, description: i.trim() }))
+          );
+          
+          if (interventions.length === 0) {
+              showError("No interventions found to activate.");
+              return;
+          }
+
+          await activateInterventions(assessment.id, interventions);
+      } finally {
+          setIsActivating(false);
+      }
+  };
+
   const handleExport = () => {
     if (!stats) return;
     setIsExporting(true);
@@ -134,6 +160,18 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
     } finally {
         setIsExporting(false);
     }
+  };
+
+  const getCognitiveColor = (level?: string) => {
+      switch(level) {
+          case 'knowledge': return "bg-slate-100 text-slate-700";
+          case 'comprehension': return "bg-blue-50 text-blue-700";
+          case 'application': return "bg-green-50 text-green-700";
+          case 'analysis': return "bg-purple-50 text-purple-700";
+          case 'evaluation': return "bg-amber-50 text-amber-700";
+          case 'creation': return "bg-red-50 text-red-700";
+          default: return "bg-muted text-muted-foreground";
+      }
   };
 
   return (
@@ -164,6 +202,10 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     <Button variant="outline" onClick={handleSave} disabled={isSaving || loading} className="gap-2 font-bold h-9">
                         {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                         Save Changes
+                    </Button>
+                    <Button onClick={handleActivatePlan} disabled={isActivating || rows.length === 0} className="gap-2 font-bold h-9 bg-green-600 hover:bg-green-700">
+                        {isActivating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                        Activate Action Plan
                     </Button>
                     <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-2 h-9">
                         {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -216,7 +258,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         <Table>
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
-                                    <TableHead className="w-[15%] font-black text-[9px] uppercase tracking-widest py-3">Question</TableHead>
+                                    <TableHead className="w-[15%] font-black text-[9px] uppercase tracking-widest py-3">Question / Cognitive</TableHead>
                                     <TableHead className="w-[20%] font-black text-[9px] uppercase tracking-widest py-3">Performance Summary</TableHead>
                                     <TableHead className="w-[30%] font-black text-[9px] uppercase tracking-widest py-3">Root Causes (Possible)</TableHead>
                                     <TableHead className="w-[30%] font-black text-[9px] uppercase tracking-widest py-3">Targeted Interventions</TableHead>
@@ -226,12 +268,15 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                             <TableBody>
                                 {rows.map((row) => (
                                     <TableRow key={row.id} className="group hover:bg-muted/5 transition-colors align-top">
-                                        <TableCell className="p-3">
+                                        <TableCell className="p-3 space-y-2">
                                             <Input 
                                                 value={row.question}
                                                 onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
                                                 className="border-none shadow-none font-bold text-sm bg-transparent p-0 focus-visible:ring-0"
                                             />
+                                            <Badge className={cn("text-[8px] uppercase font-black px-1.5 h-4 border-none", getCognitiveColor(row.cognitive_level))}>
+                                                {row.cognitive_level || 'unknown'}
+                                            </Badge>
                                         </TableCell>
                                         <TableCell className="p-3">
                                             <Textarea 
@@ -273,13 +318,25 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     </div>
                 </div>
 
-                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
-                    <Info className="h-5 w-5 text-blue-600 mt-0.5" />
-                    <div className="space-y-1">
-                        <p className="text-xs font-bold text-blue-900 uppercase tracking-tight">Pro-Tip: Multi-line Input</p>
-                        <p className="text-[11px] text-blue-800 leading-tight">
-                            Type each root cause or intervention on a <strong>new line</strong> in the text boxes above. The system will automatically format them as bullet points in your professional PDF export.
-                        </p>
+                <div className="grid md:grid-cols-2 gap-6">
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 h-fit">
+                        <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                        <div className="space-y-1">
+                            <p className="text-xs font-bold text-blue-900 uppercase tracking-tight">Pro-Tip: Multi-line Input</p>
+                            <p className="text-[11px] text-blue-800 leading-tight">
+                                Type each root cause or intervention on a <strong>new line</strong>. The system will automatically format them as bullet points in your professional PDF export.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div className="p-4 bg-green-50 border border-green-100 rounded-xl flex items-start gap-3 h-fit">
+                        <Rocket className="h-5 w-5 text-green-600 mt-0.5" />
+                        <div className="space-y-1">
+                            <p className="text-xs font-bold text-green-900 uppercase tracking-tight">Pedagogical Bridge</p>
+                            <p className="text-[11px] text-green-800 leading-tight">
+                                Use <strong>"Activate Action Plan"</strong> to convert these suggestions into trackable classroom tasks in the Remediation tab. This provides proof of intervention for moderation.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
