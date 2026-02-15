@@ -50,6 +50,21 @@ export const generateAIDiagnostic = async (
   }
 };
 
+export const generateRemediationWorksheet = async (
+    subject: string,
+    grade: string,
+    assessmentTitle: string,
+    findings: DiagnosticRow[]
+): Promise<string> => {
+    try {
+        const data = await invokeGemini('generate-worksheet', { subject, grade, assessmentTitle, findings });
+        return data?.worksheet || "Could not generate worksheet.";
+    } catch (e) {
+        console.error("Worksheet Generation Failed:", e);
+        throw e;
+    }
+};
+
 export const generateLearnerReport = async (
   learner: Learner,
   classInfo: ClassInfo,

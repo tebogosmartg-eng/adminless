@@ -1,9 +1,9 @@
 import RecentActivity from './RecentActivity';
-import { ClassInfo, Learner } from '@/lib/types';
+import { ClassInfo, Learner, RemediationTask } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { Users, LayoutDashboard } from 'lucide-react';
+import { Users, LayoutDashboard, Rocket, ShieldCheck, ChevronRight, Clock, CheckCircle2 } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import { QuickActions } from './QuickActions';
 import { TermProgressWidget } from './TermProgressWidget';
@@ -15,6 +15,9 @@ import { TimetableWidget } from './TimetableWidget';
 import { TodoList } from './TodoList';
 import { AdminDebtWidget } from './AdminDebtWidget';
 import { GetStartedChecklist } from './GetStartedChecklist';
+import { useRemediation } from '@/hooks/useRemediation';
+import { useAcademic } from '@/context/AcademicContext';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -22,6 +25,62 @@ interface DashboardOverviewTabProps {
   totalClassesCount: number;
   onAddNote: () => void;
 }
+
+const RemediationWidget = () => {
+    const { activeTerm } = useAcademic();
+    const { tasks, updateTaskStatus } = useRemediation('all', activeTerm?.id); // 'all' is a placeholder handled by hook filter
+    
+    // Filter pending tasks for the dashboard
+    const pendingTasks = tasks.filter(t => t.status !== 'completed').slice(0, 5);
+
+    if (tasks.length === 0) return null;
+
+    return (
+        <Card className="border-primary/20 bg-primary/[0.01]">
+            <CardHeader className="pb-1.5 pt-3 px-4">
+                <div className="flex justify-between items-start">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Rocket className="h-4 w-4 text-primary" />
+                        Pedagogical Actions
+                    </CardTitle>
+                    <Badge variant="outline" className="text-[8px] h-4 uppercase font-black border-primary/20">{tasks.length} total</Badge>
+                </div>
+                <CardDescription className="text-xs">Pending interventions from diagnostics.</CardDescription>
+            </CardHeader>
+            <CardContent className="px-3 pb-3">
+                <div className="space-y-1.5 mt-1">
+                    {pendingTasks.map(task => (
+                        <div key={task.id} className="flex items-start gap-3 p-2 rounded-lg border bg-card hover:bg-muted/30 transition-all group">
+                            <button 
+                                onClick={() => updateTaskStatus(task.id, 'completed')}
+                                className="mt-0.5 h-4 w-4 rounded border border-primary/40 flex items-center justify-center hover:bg-primary/10 transition-colors"
+                            >
+                                <CheckCircle2 className="h-3 w-3 text-primary opacity-0 group-hover:opacity-40" />
+                            </button>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-bold leading-tight line-clamp-2">{task.description}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[8px] font-black uppercase text-primary/60">{task.title}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {pendingTasks.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-6 text-center">
+                            <CheckCircle2 className="h-6 w-6 text-green-500 opacity-20 mb-1" />
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">All interventions applied</p>
+                        </div>
+                    )}
+                </div>
+                {tasks.length > 5 && (
+                    <Button variant="link" size="sm" asChild className="w-full text-[9px] uppercase font-black text-muted-foreground h-6 mt-1">
+                        <Link to="/classes">Manage all in Class View <ChevronRight className="h-2.5 w-2.5 ml-1" /></Link>
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
 
 export const DashboardOverviewTab = ({ 
   activeClasses, 
@@ -88,6 +147,7 @@ export const DashboardOverviewTab = ({
         </div>
 
         <div className="space-y-3">
+          <RemediationWidget />
           <TimetableWidget />
           <CurriculumProgressWidget />
           <div className="grid gap-3">
@@ -100,3 +160,5 @@ export const DashboardOverviewTab = ({
     </div>
   );
 };
+
+import { Badge } from '@/components/ui/badge';

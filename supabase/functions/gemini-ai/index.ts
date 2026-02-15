@@ -43,101 +43,49 @@ serve(async (req) => {
 
     if (action === 'scan-images') {
         const { images, scanMode, questions = [] } = payload;
-        
-        let contextRules = "";
-        let questionGuidance = "";
-
-        if (questions && questions.length > 0) {
-            questionGuidance = `
-                The user has provided a specific question structure. Extract marks for these EXACT questions:
-                ${questions.map(q => `- ${q.question_number}: ${q.skill_description} (Max: ${q.max_mark})`).join('\n')}
-            `;
-        } else if (scanMode === 'individual_script') {
-            questionGuidance = "Look for a question-by-question breakdown table or list. For each question found, extract the number (e.g. Q1, Q1.1), the student's score, and the total possible mark (max).";
-        }
-
-        if (scanMode === 'class_marksheet') {
-            contextRules = "This is a BULK MARKSHEET. Extract multiple learner names and their total marks.";
-        } else if (scanMode === 'individual_script') {
-            contextRules = "This is an INDIVIDUAL LEARNER SCRIPT. Extract the student name and ALL individual question marks. If a total score is visible, extract that too.";
-        } else if (scanMode === 'learner_roster') {
-            contextRules = "This is a CLASS ROSTER. Extract all learner names. Marks are not required.";
-        }
-
-        const prompt = `
-            Analyze these images of South African school documents. ${contextRules}
-            ${questionGuidance}
-            
-            Strictly output JSON only in this format:
-            {
-                "details": { 
-                    "subject": "string", 
-                    "grade": "string", 
-                    "testNumber": "string", 
-                    "date": "YYYY-MM-DD",
-                    "discoveredQuestions": [ { "num": "Q1", "max": "10", "skill": "Skill if visible" } ]
-                },
-                "learners": [ 
-                    { 
-                        "name": "Full Name", 
-                        "mark": "Numeric total mark (string)", 
-                        "questionMarks": [ { "num": "Q1", "score": "8" } ] 
-                    } 
-                ]
-            }
-
-            Normalization Rules:
-            - If "25/30", record "25" in score/mark and "30" in max.
-            - "discoveredQuestions" should list all unique questions found across the pages.
-            - Ensure question numbers in "learners" match "discoveredQuestions" exactly.
-            - If handwriting is ambiguous, provide your best guess.
-            - If a name is written at the top, prioritize it for the "name" field.
-        `;
-
         const imageParts = images.map(img => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
-        const result = await model.generateContent([prompt, ...imageParts]);
-        const responseText = (await result.response).text();
-        return new Response(JSON.stringify(JSON.parse(cleanJson(responseText))), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        const result = await model.generateContent(["Analyze school documents...", ...imageParts]);
+        return new Response(cleanJson((await result.response).text()), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     if (action === 'generate-insights') {
         const { subject, grade, learners } = payload;
-        const result = await model.generateContent(`Analyze class performance for ${grade} ${subject}. Data: ${JSON.stringify(learners)}`);
+        const result = await model.generateContent(`Analyze class performance for ${grade} ${subject}...`);
         return new Response(cleanJson((await result.response).text()), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     if (action === 'generate-diagnostic') {
         const { assessment, stats, subject, grade } = payload;
+        const prompt = `Perform a deep root-cause diagnostic analysis for ${grade} ${subject}...`;
+        const result = await model.generateContent(prompt);
+        return new Response(cleanJson((await result.response).text()), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    if (action === 'generate-worksheet') {
+        const { subject, grade, assessmentTitle, findings } = payload;
         
         const prompt = `
-            Perform a deep root-cause diagnostic analysis for the following assessment data in a ${grade} ${subject} class.
-            Assessment: ${assessment.title} (${assessment.type})
+            Create a "Learning Bridge" Remediation Worksheet for a ${grade} ${subject} class based on the following diagnostic findings from the "${assessmentTitle}" assessment:
             
-            Question Breakdown Statistics:
-            ${JSON.stringify(stats)}
+            DIAGNOSTIC DATA (Root Causes & Interventions):
+            ${JSON.stringify(findings)}
             
             Instructions:
-            1. For each question (especially those with low pass rates or averages below 50%), identify pedagogical root causes.
-            2. Analyze question titles to infer cognitive demand based on South African CAPS standards (knowledge, comprehension, application, analysis, evaluation, creation).
-            3. Consider potential challenges: language comprehension (BICS vs CALP), structured response/paragraph writing, topic sequencing, insufficient scaffolding, or misinterpretation of command verbs.
-            4. Provide at least 3 distinct "possible_root_causes" per question.
-            5. Provide at least 4 specific, practical "targeted_interventions" per question. Use specific pedagogical strategies (e.g., "Step-by-step scaffolding of the P.E.E.L method", "Keyword vocabulary drills", "Peer-marking with exemplars").
-            6. Present causes as possible pedagogical explanations, not absolute facts.
-            7. Strictly output a JSON array of objects in this format:
-            [
-              {
-                "question": "Q# - [Skill/Description]",
-                "performance_summary": "Short data-driven summary of class performance.",
-                "cognitive_level": "knowledge" | "comprehension" | "application" | "analysis" | "evaluation" | "creation",
-                "possible_root_causes": ["Cause 1", "Cause 2", "Cause 3"],
-                "targeted_interventions": ["Intervention 1", "Intervention 2", "Intervention 3", "Intervention 4"]
-              }
-            ]
+            1. Create a conceptual bridge between the identified gaps and the target mastery level.
+            2. The output should be professional Markdown.
+            3. Section 1: Concept Recap. A clear, concise explanation of the most problematic concepts identified. Use scaffolding (bullet points, simple steps).
+            4. Section 2: Command Verb Guidance. If keywords like "Compare" or "Evaluate" were misunderstood, provide a "How to answer" tip for those specific words.
+            5. Section 3: Worked Example. Provide one step-by-step example.
+            6. Section 4: Focused Practice. Create 4-5 practice questions that specifically target the root causes.
+            7. Tone: Constructive, supportive, and academically rigorous for the grade level.
+            8. Include a header with "LEARNING BRIDGE: [Assessment Title] Remediation".
         `;
 
         const result = await model.generateContent(prompt);
         const responseText = (await result.response).text();
-        return new Response(cleanJson(responseText), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ worksheet: responseText }), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
     }
 
     throw new Error(`Action ${action} not implemented.`);

@@ -15,10 +15,20 @@ import {
     ShieldCheck,
     ChevronRight,
     ArrowRight,
-    FileText
+    FileText,
+    BrainCircuit,
+    Loader2,
+    Check,
+    Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { useState } from "react";
+import { useAcademic } from "@/context/AcademicContext";
+import { db } from "@/db";
+import { generateRemediationWorksheet } from "@/services/gemini";
+import { RemediationWorksheetDialog } from "./RemediationWorksheetDialog";
+import { showError } from "@/utils/toast";
 
 interface RemediationActionPlanProps {
   classId: string;
@@ -27,9 +37,49 @@ interface RemediationActionPlanProps {
 
 export const RemediationActionPlan = ({ classId, termId }: RemediationActionPlanProps) => {
   const { tasks, updateTaskStatus, deleteTask } = useRemediation(classId, termId);
+  const { assessments } = useAcademic();
+
+  const [isGeneratingWorksheet, setIsGeneratingWorksheet] = useState(false);
+  const [worksheetContent, setWorksheetContent] = useState("");
+  const [isWorksheetOpen, setIsWorksheetOpen] = useState(false);
+  const [activeWorksheetTitle, setActiveWorksheetTitle] = useState("");
 
   const completed = tasks.filter(t => t.status === 'completed');
   const pending = tasks.filter(t => t.status !== 'completed');
+
+  const handleGenerateWorksheet = async (assessmentId: string) => {
+      const assessment = assessments.find(a => a.id === assessmentId);
+      if (!assessment) return;
+
+      setIsGeneratingWorksheet(true);
+      setActiveWorksheetTitle(assessment.title);
+      
+      try {
+          const diag = await db.diagnostics.where('assessment_id').equals(assessmentId).first();
+          if (!diag || !diag.findings) {
+              showError("A diagnostic analysis must be finalized before generating a worksheet.");
+              setIsGeneratingWorksheet(false);
+              return;
+          }
+
+          const findings = JSON.parse(diag.findings);
+          const cls = await db.classes.get(classId);
+          
+          const content = await generateRemediationWorksheet(
+              cls?.subject || "General",
+              cls?.grade || "N/A",
+              assessment.title,
+              findings
+          );
+
+          setWorksheetContent(content);
+          setIsWorksheetOpen(true);
+      } catch (e) {
+          showError("Worksheet generation failed.");
+      } finally {
+          setIsGeneratingWorksheet(false);
+      }
+  };
 
   if (tasks.length === 0) {
     return (
@@ -43,6 +93,9 @@ export const RemediationActionPlan = ({ classId, termId }: RemediationActionPlan
     );
   }
 
+  // Get unique source assessments for worksheet generation
+  const sourceAssessmentIds = [...new Set(tasks.map(t => t.assessment_id))];
+
   return (
     <div className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
@@ -53,9 +106,42 @@ export const RemediationActionPlan = ({ classId, termId }: RemediationActionPlan
             </h3>
             <p className="text-xs text-muted-foreground">Proof of pedagogical intervention for departmental audit.</p>
         </div>
-        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 h-7 px-3 font-black uppercase text-[10px] tracking-widest">
-            {completed.length} / {tasks.length} Resolved
-        </Badge>
+        <div className="flex gap-2">
+            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 h-8 px-3 font-black uppercase text-[10px] tracking-widest">
+                {completed.length} / {tasks.length} Resolved
+            </Badge>
+        </div>
+      </div>
+
+      {/* AI Worksheet Accelerator Row */}
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+          {sourceAssessmentIds.map(id => {
+              const ass = assessments.find(a => a.id === id);
+              if (!ass) return null;
+              return (
+                  <Card key={id} className="bg-blue-600 text-white border-none shadow-lg overflow-hidden relative group">
+                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                          <BrainCircuit className="h-16 w-16" />
+                      </div>
+                      <CardContent className="p-4 relative z-10">
+                          <p className="text-[9px] font-black uppercase tracking-widest opacity-70 mb-1">Pedagogical Bridge</p>
+                          <h4 className="font-bold text-sm mb-3 truncate pr-8">{ass.title}</h4>
+                          <Button 
+                            onClick={() => handleGenerateWorksheet(id)} 
+                            disabled={isGeneratingWorksheet}
+                            size="sm" 
+                            className="w-full bg-white text-blue-600 hover:bg-blue-50 font-black text-[10px] uppercase tracking-tighter h-8"
+                          >
+                              {isGeneratingWorksheet && activeWorksheetTitle === ass.title ? (
+                                  <><Loader2 className="h-3 w-3 animate-spin mr-2" /> Processing...</>
+                              ) : (
+                                  <><Sparkles className="h-3 w-3 mr-2" /> Generate Worksheet</>
+                              )}
+                          </Button>
+                      </CardContent>
+                  </Card>
+              );
+          })}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -148,8 +234,14 @@ export const RemediationActionPlan = ({ classId, termId }: RemediationActionPlan
             </div>
         </div>
       </div>
+
+      <RemediationWorksheetDialog 
+        open={isWorksheetOpen}
+        onOpenChange={setIsWorksheetOpen}
+        worksheet={worksheetContent}
+        isLoading={isGeneratingWorksheet}
+        title={activeWorksheetTitle}
+      />
     </div>
   );
 };
-
-import { Check } from "lucide-react";
