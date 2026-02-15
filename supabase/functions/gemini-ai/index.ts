@@ -65,10 +65,12 @@ serve(async (req) => {
             
             CRITICAL REQUIREMENTS:
             1. UNIQUE ANALYSIS PER QUESTION: Each question in the output must have DIFFERENT and SPECIFIC root causes.
-            2. SKILL-AWARE: Interpret the skill (e.g., Algebra, Comprehension, Logic) from the question title and description.
-            3. COGNITIVE DEMAND: Infer if the question is Knowledge (recall), Application, or Analysis/Evaluation.
-            4. AVOID GENERIC BOILERPLATE: Do not use "Insufficient time" or "Sequencing issue" unless the performance data explicitly suggests a cluster of failures at the end of the paper.
-            5. THEMATIC ANALYSIS: After the questions, provide "overall_class_themes" identifying patterns like "Language barriers in word problems" or "Difficulty with multi-step calculations".
+            2. CROSS-QUESTION COMPARISON: Compare your generated causes across all questions. DO NOT repeat the same root cause phrasing for different questions unless the data shows an identical systemic failure (e.g., if Q1 and Q5 both fail, differentiate between "Basic arithmetic errors" and "Procedural breakdown in multi-step equations").
+            3. SKILL-AWARE: Interpret the skill (e.g., Algebra, Comprehension, Logic) from the question title and description.
+            4. COGNITIVE DEMAND: Infer if the question is Knowledge (recall), Application, or Analysis/Evaluation.
+            5. AVOID GENERIC BOILERPLATE: Do not use "Insufficient time" or "Sequencing issue" unless the performance data explicitly suggests a cluster of failures at the end of the paper.
+            6. THEMATIC ANALYSIS: After the questions, provide "overall_class_themes" identifying patterns like "Language barriers in word problems" or "Difficulty with multi-step calculations".
+            7. JUSTIFIED REPETITION: Only repeat a cause if it is a prerequisite skill failure that affects multiple distinct questions. Mention this explicitly in the theme.
 
             OUTPUT FORMAT (JSON ONLY):
             {
