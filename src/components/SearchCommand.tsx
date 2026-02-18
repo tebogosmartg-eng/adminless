@@ -10,7 +10,7 @@ import {
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useClasses } from "@/context/ClassesContext";
-import { LayoutDashboard, Users, Camera, Settings, User, BookOpen, FileBarChart, BadgeCheck } from "lucide-react";
+import { LayoutDashboard, Users, Camera, Settings, User, BookOpen, FileBarChart, BadgeCheck, Book } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export function SearchCommand() {
@@ -108,6 +108,9 @@ export function SearchCommand() {
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate("/classes"))}>
             <Users className="mr-2 h-4 w-4" /> All Classes
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => navigate("/teacher-file"))}>
+            <Book className="mr-2 h-4 w-4" /> Teacher File
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate("/scan"))}>
             <Camera className="mr-2 h-4 w-4" /> Scan Scripts

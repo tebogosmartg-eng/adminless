@@ -1,11 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, Camera, Settings, FileBarChart, ShieldCheck, History } from "lucide-react";
+import { LayoutDashboard, Users, Camera, Settings, FileBarChart, ShieldCheck, History, Book } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const NavLinks = () => {
   const links = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true },
     { to: "/classes", icon: Users, label: "Classes" },
+    { to: "/teacher-file", icon: Book, label: "Teacher File" },
     { to: "/scan", icon: Camera, label: "Scan Scripts" },
     { to: "/scan-audit", icon: History, label: "Scan Audit" },
     { to: "/reports", icon: FileBarChart, label: "Reports" },
