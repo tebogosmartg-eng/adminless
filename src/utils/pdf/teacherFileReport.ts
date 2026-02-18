@@ -20,11 +20,12 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
             const classes = await db.classes.where('[year_id+term_id]').equals([yearId, term.id]).toArray();
             const classIds = classes.map(c => c.id);
 
-            const [learners, assessments, marks, evidence] = await Promise.all([
+            const [learners, assessments, marks, evidence, remediationTasks] = await Promise.all([
                 db.learners.where('class_id').anyOf(classIds).toArray(),
                 db.assessments.where('term_id').equals(term.id).filter(a => classIds.includes(a.class_id)).toArray(),
                 db.assessment_marks.toArray(), 
-                db.evidence.where('term_id').equals(term.id).filter(e => classIds.includes(e.class_id)).toArray()
+                db.evidence.where('term_id').equals(term.id).filter(e => classIds.includes(e.class_id)).toArray(),
+                db.remediation_tasks.where('term_id').equals(term.id).toArray()
             ]);
 
             const assessmentIds = new Set(assessments.map(a => a.id));
@@ -50,14 +51,16 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 };
             });
 
-            const termCommentary = annotations.find(a => a.term_id === term.id && a.section_key.includes('commentary'))?.content || "";
+            // Gather all annotations for this term
+            const termAnnotations = annotations.filter(a => a.term_id === term.id);
 
             return {
                 term,
                 classes: classAnalytics,
                 assessments: assessments.sort((a, b) => (a.date || '').localeCompare(b.date || '')),
                 evidence: evidence.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')),
-                commentary: termCommentary
+                annotations: termAnnotations,
+                totalRemediation: remediationTasks.length
             };
         }));
 
@@ -82,6 +85,7 @@ export const generateTeacherFilePDF = async (
         const margin = 20;
 
         if (!specificTermId) {
+            // COVER PAGE
             addHeader(doc, profile, "Professional Teacher Portfolio");
             doc.setFontSize(40);
             doc.setFont("helvetica", "bold");
@@ -104,17 +108,44 @@ export const generateTeacherFilePDF = async (
             addFooter(doc);
             doc.addPage();
 
+            // INDEX PAGE
             addHeader(doc, profile, "Table of Contents");
             let indexY = 60;
+            const standardSections = [
+                "1. Personal details",
+                "2. Timetable",
+                "3. Subject Policy and Support Documents",
+                "4. Planning",
+                "5. Assessment",
+                "6. Educator Reports",
+                "7. Textbook / LTSMs control records",
+                "8. Subject Meeting Minutes",
+                "9. IQMS",
+                "10. Correspondence"
+            ];
+
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
-            doc.text("Section B: Term Performance Records", margin, indexY);
+            doc.text("Consolidated Academic Index", margin, indexY);
+            indexY += 10;
+
+            standardSections.forEach((s) => {
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "normal");
+                doc.text(s, margin + 5, indexY);
+                indexY += 8;
+            });
+
+            indexY += 10;
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("Term Chapters", margin, indexY);
             indexY += 10;
 
             termChapters.forEach((ch, idx) => {
                 doc.setFontSize(10);
                 doc.setFont("helvetica", "normal");
-                doc.text(`${idx + 1}. ${ch.term.name}`, margin + 5, indexY);
+                doc.text(ch.term.name, margin + 5, indexY);
                 doc.text(`Chapter ${idx + 1}`, pageWidth - margin - 20, indexY, { align: 'right' });
                 indexY += 8;
             });
@@ -125,12 +156,13 @@ export const generateTeacherFilePDF = async (
 
         termChapters.forEach((ch, chIdx) => {
             if (chIdx > 0) doc.addPage();
-            const startY = addHeader(doc, profile, `${ch.term.name} Consolidated Record`);
+            const startY = addHeader(doc, profile, `${ch.term.name} Record`);
             let currentY = startY + 5;
 
+            // SECTION 5.5 RECORD SHEETS
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
-            doc.text("Academic Classes Summary", margin, currentY);
+            doc.text("5.5 Mark Schedules Summary", margin, currentY);
             
             autoTable(doc, {
                 startY: currentY + 3,
@@ -142,7 +174,9 @@ export const generateTeacherFilePDF = async (
             });
 
             currentY = (doc as any).lastAutoTable.finalY + 10;
-            doc.text("Formal Assessment Schedule", margin, currentY);
+
+            // SECTION 5.1 POA
+            doc.text("5.1 Programme of Assessment", margin, currentY);
             autoTable(doc, {
                 startY: currentY + 3,
                 head: [['Task Title', 'Type', 'Max Mark', 'Weight']],
@@ -152,32 +186,31 @@ export const generateTeacherFilePDF = async (
             });
 
             currentY = (doc as any).lastAutoTable.finalY + 10;
-            doc.text("Evidence & Moderation Registry", margin, currentY);
-            if (ch.evidence.length === 0) {
+
+            // COMMENTARY COMPILATION
+            doc.text("Administrative Commentary & Reflections", margin, currentY);
+            if (ch.annotations.length === 0) {
                 doc.setFontSize(9);
                 doc.setFont("helvetica", "italic");
-                doc.text("No evidence files attached.", margin, currentY + 8);
+                doc.text("No professional commentary recorded for this term period.", margin, currentY + 8);
                 currentY += 15;
             } else {
-                autoTable(doc, {
-                    startY: currentY + 3,
-                    head: [['File Name', 'Category', 'Date']],
-                    body: ch.evidence.map(e => [e.file_name, e.category, e.created_at ? format(new Date(e.created_at), 'dd/MM/yyyy') : 'N/A']),
-                    theme: 'plain',
-                    styles: { fontSize: 8 }
+                ch.annotations.forEach(a => {
+                    const label = a.section_key.split('.')[0].replace('_', ' ').toUpperCase();
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "bold");
+                    doc.text(`${label}:`, margin, currentY + 8);
+                    
+                    doc.setFont("helvetica", "italic");
+                    const splitComm = doc.splitTextToSize(a.content, pageWidth - (margin * 2));
+                    doc.text(splitComm, margin, currentY + 14);
+                    currentY += 16 + (splitComm.length * 5);
                 });
-                currentY = (doc as any).lastAutoTable.finalY + 10;
             }
 
-            if (ch.commentary) {
-                doc.setFontSize(11);
-                doc.setFont("helvetica", "bold");
-                doc.text("Administrative Commentary", margin, currentY);
-                doc.setFontSize(9);
-                doc.setFont("helvetica", "italic");
-                const splitComm = doc.splitTextToSize(ch.commentary, pageWidth - (margin * 2));
-                doc.text(splitComm, margin, currentY + 6);
-                currentY += 10 + (splitComm.length * 5);
+            if (currentY > doc.internal.pageSize.height - 40) {
+                doc.addPage();
+                currentY = 40;
             }
 
             addSignatures(doc, currentY);

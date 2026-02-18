@@ -5,11 +5,11 @@ import { Term } from '@/lib/types';
 import { useTeacherFileTermData } from '@/hooks/useTeacherFileTermData';
 import { TeacherFileSection } from './TeacherFileSection';
 import { TimetableGrid } from '@/components/TimetableGrid';
+import { TaskSlotManager } from './TaskSlotManager';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle, FileText, CheckCircle2, LayoutGrid, Target, Rocket } from 'lucide-react';
-import { format } from 'date-fns';
+import { Loader2, AlertCircle, FileText, CheckCircle2, LayoutGrid, Rocket } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
@@ -22,6 +22,25 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Compiling Term Chapter...</p>
         </div>
     );
+  }
+
+  if (data.empty) {
+      return (
+          <div className="h-[200mm] flex flex-col items-center justify-center text-center p-12 space-y-6">
+              <div className="bg-muted p-8 rounded-full">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground opacity-20" />
+              </div>
+              <div className="space-y-2">
+                  <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">No Term Data Found</h3>
+                  <p className="text-sm text-muted-foreground max-w-xs mx-auto font-medium">
+                      You haven't created any classes or assessments for this term yet.
+                  </p>
+              </div>
+              <Button asChild variant="outline">
+                  <Link to="/classes">Initialize Term Workspace</Link>
+              </Button>
+          </div>
+      );
   }
 
   return (
@@ -47,7 +66,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             hideAttachments
         >
             <div className="space-y-4">
-                <p className="text-sm text-slate-600">Personal information associated with this academic record.</p>
+                <p className="text-sm text-slate-600 font-medium">Personal and professional identification records associated with this academic portfolio.</p>
             </div>
         </TeacherFileSection>
 
@@ -68,7 +87,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="subject_policy"
             title="3. Subject Policy and Support Documents"
-            description="Upload official departmental policies or support material."
+            description="Upload official departmental policies, CAPS documents, or internal support material."
             isLocked={term.is_finalised}
         />
 
@@ -105,52 +124,47 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                 description="List of all scheduled formal assessment tasks for this term."
                 isLocked={term.is_finalised}
             >
-                {data.assessments.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">No formal assessments scheduled.</p>
-                ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="font-black text-[10px] uppercase">Task</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase">Type</TableHead>
-                                <TableHead className="text-right font-black text-[10px] uppercase">Total</TableHead>
-                                <TableHead className="text-right font-black text-[10px] uppercase">Weight</TableHead>
+                <Table>
+                    <TableHeader>
+                        <TableRow className="bg-slate-50/50">
+                            <TableHead className="font-black text-[10px] uppercase">Task</TableHead>
+                            <TableHead className="font-black text-[10px] uppercase">Type</TableHead>
+                            <TableHead className="text-right font-black text-[10px] uppercase">Total</TableHead>
+                            <TableHead className="text-right font-black text-[10px] uppercase">Weight</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {data.assessments.map(ass => (
+                            <TableRow key={ass.id}>
+                                <TableCell className="text-sm font-bold">{ass.title}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground uppercase font-medium">{ass.type}</TableCell>
+                                <TableCell className="text-right font-mono font-bold">{ass.max_mark}</TableCell>
+                                <TableCell className="text-right font-bold text-blue-600">{ass.weight}%</TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {data.assessments.map(ass => (
-                                <TableRow key={ass.id}>
-                                    <TableCell className="text-sm font-bold">{ass.title}</TableCell>
-                                    <TableCell className="text-xs text-muted-foreground uppercase font-medium">{ass.type}</TableCell>
-                                    <TableCell className="text-right font-mono font-bold">{ass.max_mark}</TableCell>
-                                    <TableCell className="text-right font-bold text-blue-600">{ass.weight}%</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                )}
+                        ))}
+                        {data.assessments.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={4} className="text-center py-6 text-xs text-muted-foreground italic">
+                                    No formal assessments recorded for this term chapter.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
             </TeacherFileSection>
 
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="fats"
                 title="5.2 Formal Assessment Tasks"
-                description="Linking assessments to required Teacher File slots."
+                description="Map your assessments to the required portfolio structure."
                 isLocked={term.is_finalised}
             >
-                <div className="space-y-4">
-                    <p className="text-xs text-muted-foreground">The following tasks are active in your term marksheet:</p>
-                    <div className="grid gap-2">
-                        {data.assessments.map(ass => (
-                            <div key={ass.id} className="flex items-center justify-between p-3 rounded-xl border bg-white shadow-sm">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-50 rounded-lg"><FileText className="h-4 w-4 text-blue-600" /></div>
-                                    <span className="text-sm font-black">{ass.title}</span>
-                                </div>
-                                <Badge variant="outline" className="text-[10px] h-5">{ass.type}</Badge>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                <TaskSlotManager 
+                    term={term} 
+                    classes={data.classes} 
+                    assessments={data.assessments}
+                    isLocked={term.is_finalised}
+                />
             </TeacherFileSection>
 
             <TeacherFileSection 
@@ -168,7 +182,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="record_sheets"
                 title="5.5 Record sheets / Mark schedules"
-                description="Auto-populated summaries of your class marksheets."
+                description="Consolidated summaries of your class achievement."
                 isLocked={term.is_finalised}
             >
                  <div className="grid gap-3">
@@ -178,9 +192,9 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                                 <p className="text-sm font-black">{cls.name}</p>
                                 <p className="text-[9px] uppercase font-bold text-muted-foreground">{cls.subject} • {cls.learnerCount} Learners</p>
                             </div>
-                            <Button variant="outline" size="sm" className="h-8 gap-2 text-[10px] font-black uppercase" asChild>
+                            <Button variant="outline" size="sm" className="h-8 gap-2 text-[10px] font-black uppercase no-print" asChild>
                                 <Link to={`/classes/${cls.id}`}>
-                                    <LayoutGrid className="h-3 w-3" /> View Data
+                                    <LayoutGrid className="h-3 w-3" /> View Source
                                 </Link>
                             </Button>
                         </div>
@@ -204,7 +218,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                                 </div>
                                 <div className="flex items-baseline gap-1.5">
                                     <span className="text-2xl font-black text-primary">{cls.average}%</span>
-                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Average Achievement</span>
+                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Term Average</span>
                                 </div>
                             </div>
                         ))}
@@ -213,10 +227,10 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                     <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100 flex items-start gap-4">
                         <Rocket className="h-6 w-6 text-blue-600 mt-1 shrink-0" />
                         <div className="space-y-1">
-                            <h4 className="font-bold text-sm text-blue-900">Term Remediation Action Plan</h4>
-                            <p className="text-xs text-blue-800 leading-relaxed">
-                                {data.totalRemediationTasks} official interventions have been activated for this period. 
-                                Access the **Remediation** tab in individual classes to view the proof of audit record.
+                            <h4 className="font-bold text-sm text-blue-900">Active Remediation Cycle</h4>
+                            <p className="text-xs text-blue-800 leading-relaxed font-medium">
+                                {data.totalRemediationTasks} official interventions have been activated across this term's classes. 
+                                Full proof of intervention can be generated from individual class Remediation records.
                             </p>
                         </div>
                     </div>
@@ -228,30 +242,35 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="educator_reports"
             title="6. Educator Reports"
+            description="Termly performance reports and reflective documents."
             isLocked={term.is_finalised}
         />
 
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="textbook_records"
             title="7. Textbook / LTSMs control records"
+            description="Usage and inventory logs for learning and teaching materials."
             isLocked={term.is_finalised}
         />
 
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="meeting_minutes"
             title="8. Subject Meeting Minutes"
+            description="Departmental, grade, and parent-teacher meeting records."
             isLocked={term.is_finalised}
         />
 
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="iqms"
             title="9. IQMS"
+            description="Integrated Quality Management System documentation."
             isLocked={term.is_finalised}
         />
 
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="correspondence"
             title="10. Correspondence"
+            description="Internal and external academic communications."
             isLocked={term.is_finalised}
         />
       </div>
