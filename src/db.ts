@@ -142,6 +142,11 @@ export class SmaRegDB extends Dexie {
     this.version(29).stores({
       learner_notes: 'id, user_id, learner_id, term_id, date, created_at'
     });
+
+    // Version 30: Fix for timetable class_id indexing
+    this.version(30).stores({
+      timetable: 'id, user_id, year_id, day, period, class_id'
+    });
   }
 }
 
