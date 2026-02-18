@@ -44,6 +44,20 @@ export interface TeacherFileAnnotation {
   updated_at: string;
 }
 
+export interface TeacherFileAttachment {
+  id: string;
+  user_id: string;
+  academic_year_id: string;
+  term_id: string;
+  section_key: string;
+  class_id?: string | null;
+  assessment_id?: string | null;
+  file_path: string;
+  file_name: string;
+  file_type: string;
+  created_at: string;
+}
+
 export interface DBClass extends Omit<ClassInfo, 'learners'> {
   sync_status?: 'synced' | 'pending';
 }
@@ -83,11 +97,11 @@ export class SmaRegDB extends Dexie {
   scan_history!: Table<ScanHistory>;
   remediation_tasks!: Table<RemediationTask>;
   teacher_file_annotations!: Table<TeacherFileAnnotation>;
+  teacher_file_attachments!: Table<TeacherFileAttachment>;
 
   constructor() {
     super('SmaRegDB');
     
-    // Previous versions kept for migration history
     this.version(1).stores({
       classes: 'id, user_id, sync_status',
       learners: 'id, class_id, sync_status', 
@@ -101,13 +115,12 @@ export class SmaRegDB extends Dexie {
       profiles: 'id'
     });
 
-    this.version(21).stores({
-      assessments: 'id, class_id, term_id, [class_id+term_id], user_id',
-      assessment_marks: '[assessment_id+learner_id], id, assessment_id, learner_id, user_id',
-      diagnostics: 'id, assessment_id, user_id'
+    this.version(26).stores({
+      teacher_file_annotations: 'id, user_id, academic_year_id, term_id, section_key'
     });
 
-    this.version(22).stores({
+    // Version 27: Added teacher_file_attachments and task_slot_key index
+    this.version(27).stores({
       academic_years: 'id, user_id, closed',
       terms: 'id, year_id, user_id',
       classes: 'id, user_id, term_id, [year_id+term_id], sync_status',
@@ -121,27 +134,10 @@ export class SmaRegDB extends Dexie {
       rubrics: 'id, user_id',
       lesson_logs: 'id, user_id, timetable_id, date, [timetable_id+date]',
       curriculum_topics: 'id, user_id, term_id, [subject+grade+term_id]',
-      diagnostics: 'id, user_id, assessment_id'
-    });
-
-    this.version(23).stores({
-      learner_notes: 'id, user_id, learner_id, term_id, date, created_at',
-      lesson_logs: 'id, user_id, timetable_id, date, [timetable_id+date], created_at',
-      evidence: 'id, user_id, class_id, learner_id, term_id, created_at',
-      todos: 'id, user_id, term_id, completed, created_at'
-    });
-
-    this.version(24).stores({
-      scan_history: 'id, user_id, class_id, assessment_id, academic_year_id, term_id, timestamp'
-    });
-
-    this.version(25).stores({
-      remediation_tasks: 'id, user_id, class_id, term_id, assessment_id, status, created_at'
-    });
-
-    // Version 26: Added teacher_file_annotations for professional commentary overlay
-    this.version(26).stores({
-      teacher_file_annotations: 'id, user_id, academic_year_id, term_id, section_key'
+      diagnostics: 'id, user_id, assessment_id',
+      teacher_file_annotations: 'id, user_id, academic_year_id, term_id, section_key',
+      teacher_file_attachments: 'id, user_id, [academic_year_id+term_id+section_key], term_id, section_key',
+      assessments: 'id, class_id, term_id, [class_id+term_id], user_id, task_slot_key'
     });
   }
 }

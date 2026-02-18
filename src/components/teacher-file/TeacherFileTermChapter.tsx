@@ -2,186 +2,261 @@
 
 import React from 'react';
 import { Term } from '@/lib/types';
-import { 
-    LayoutDashboard, 
-    FileBarChart, 
-    History, 
-    ShieldCheck, 
-    AlertCircle, 
-    Loader2,
-    Calendar,
-    Target,
-    Users,
-    BrainCircuit
-} from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { useTeacherFileTermData } from '@/hooks/useTeacherFileTermData';
-import { TeacherFileAnnotation } from './TeacherFileAnnotation';
+import { TeacherFileSection } from './TeacherFileSection';
+import { TimetableGrid } from '@/components/TimetableGrid';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Loader2, AlertCircle, FileText, CheckCircle2, LayoutGrid, Target, Rocket } from 'lucide-react';
 import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 
 export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
   const { data, loading } = useTeacherFileTermData(term.id, term.year_id);
 
   if (loading) {
-      return (
-          <div className="h-[200mm] flex flex-col items-center justify-center gap-4">
-              <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
-              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Compiling Term Records...</p>
-          </div>
-      );
-  }
-
-  if (!data || data.empty) {
-      return (
-          <div className="h-[200mm] flex flex-col items-center justify-center text-center space-y-4">
-              <div className="bg-muted p-6 rounded-full">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground opacity-20" />
-              </div>
-              <div className="space-y-1">
-                  <h3 className="text-xl font-bold">No Data for {term.name}</h3>
-                  <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                      Go to Classes or Dashboard to set up rosters and assessments for this term.
-                  </p>
-              </div>
-          </div>
-      );
+    return (
+        <div className="h-[200mm] flex flex-col items-center justify-center gap-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
+            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Compiling Term Chapter...</p>
+        </div>
+    );
   }
 
   return (
-    <div className="space-y-12">
-      <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6">
-        <div className="space-y-1">
-            <h2 className="text-5xl font-black tracking-tighter">{term.name.toUpperCase()}</h2>
-            <p className="text-sm font-bold text-blue-600 uppercase tracking-[0.2em]">Consolidated Academic Record</p>
-        </div>
-        <div className="text-right flex flex-col items-end gap-2">
-            <Badge variant={term.is_finalised ? "default" : "outline"} className={term.is_finalised ? "bg-green-600 border-none px-4 py-1" : "px-4 py-1"}>
-                {term.is_finalised ? "FINALIZED RECORD" : "WORKING DRAFT"}
-            </Badge>
-            <span className="text-[10px] font-black text-slate-400">TOTAL LEARNERS: {data.totalLearners}</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-8">
-        <div className="space-y-8">
-            <section className="space-y-4">
-                <div className="flex items-center gap-2 border-b-2 border-slate-100 pb-2">
-                    <LayoutDashboard className="h-5 w-5 text-blue-600" />
-                    <h3 className="font-black text-xs uppercase tracking-widest">Class Registers & Audit</h3>
-                </div>
-                <div className="grid gap-3">
-                    {data.classes.map(cls => (
-                        <div key={cls.id} className="p-4 rounded-xl border bg-slate-50/50 flex justify-between items-center group">
-                            <div>
-                                <p className="font-bold text-sm text-slate-900">{cls.name}</p>
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">{cls.subject} • {cls.grade}</p>
-                            </div>
-                            <div className="text-right">
-                                <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 text-[9px] h-5">
-                                    {cls.learnerCount} NAMES
-                                </Badge>
-                                <p className="text-[8px] font-black text-green-600 uppercase mt-1">Register Compiled</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            <section className="space-y-4">
-                <div className="flex items-center gap-2 border-b-2 border-slate-100 pb-2">
-                    <ShieldCheck className="h-5 w-5 text-green-600" />
-                    <h3 className="font-black text-xs uppercase tracking-widest">Evidence Registry</h3>
-                </div>
-                <div className="p-6 rounded-2xl border bg-green-50/30 flex flex-col items-center text-center space-y-3">
-                    <div className="text-3xl font-black text-green-700">{data.totalEvidence}</div>
-                    <p className="text-xs font-bold text-slate-600">Secure Audit Attachments</p>
-                    <p className="text-[9px] text-slate-400 uppercase leading-relaxed">
-                        Scripts, moderation notes, and photos linked to official learner records.
-                    </p>
-                </div>
-            </section>
-        </div>
-
-        <div className="space-y-8">
-             <section className="space-y-4">
-                <div className="flex items-center gap-2 border-b-2 border-slate-100 pb-2">
-                    <FileBarChart className="h-5 w-5 text-purple-600" />
-                    <h3 className="font-black text-xs uppercase tracking-widest">Assessment Schedule</h3>
-                </div>
-                <div className="border rounded-xl overflow-hidden">
-                    <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 border-b">
-                            <tr>
-                                <th className="px-3 py-2 font-black text-slate-500">TASK</th>
-                                <th className="px-3 py-2 font-black text-slate-500">TYPE</th>
-                                <th className="px-3 py-2 font-black text-slate-500 text-right">TOTAL</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {data.assessments.length === 0 ? (
-                                <tr>
-                                    <td colSpan={3} className="px-3 py-8 text-center italic text-slate-400">No formal assessments recorded.</td>
-                                </tr>
-                            ) : (
-                                data.assessments.slice(0, 10).map(ass => (
-                                    <tr key={ass.id}>
-                                        <td className="px-3 py-2 font-bold">{ass.title}</td>
-                                        <td className="px-3 py-2 text-slate-500 uppercase text-[10px] font-bold">{ass.type}</td>
-                                        <td className="px-3 py-2 text-right font-mono font-bold text-blue-600">{ass.max_mark}</td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section className="space-y-4">
-                <div className="flex items-center gap-2 border-b-2 border-slate-100 pb-2">
-                    <Target className="h-5 w-5 text-blue-600" />
-                    <h3 className="font-black text-xs uppercase tracking-widest">Performance Analysis</h3>
-                </div>
-                <div className="grid gap-3">
-                    {data.classes.map(cls => (
-                        <div key={cls.id} className="p-4 rounded-xl border bg-white shadow-sm space-y-3">
-                            <div className="flex justify-between items-start">
-                                <span className="font-black text-[10px] uppercase text-slate-400">Class: {cls.name}</span>
-                                <Badge className="bg-blue-50 text-blue-700 border-blue-100 font-black text-[10px]">{cls.passRate}% PASS</Badge>
-                            </div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-2xl font-black text-slate-900">{cls.average}%</span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Term Avg</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </section>
+    <div className="space-y-16">
+      <div className="border-b-8 border-slate-900 pb-10">
+        <h2 className="text-6xl font-black tracking-tighter mb-2">{term.name.toUpperCase()}</h2>
+        <div className="flex items-center justify-between">
+            <p className="text-xl font-bold text-blue-600 uppercase tracking-[0.2em]">Consolidated Portfolio</p>
+            {term.is_finalised && (
+                <Badge className="bg-green-600 text-white font-black px-6 py-2 text-sm rounded-full border-none">
+                    FINALIZED RECORD
+                </Badge>
+            )}
         </div>
       </div>
 
-      <div className="space-y-4 border-t pt-8">
-          <TeacherFileAnnotation 
-            yearId={term.year_id} 
-            termId={term.id} 
-            sectionKey={`${term.name.toLowerCase().replace(' ', '')}.commentary`} 
-            label={`${term.name} Administrative Commentary`}
-            placeholder={`Add your teacher reflections for ${term.name} here...`}
+      <div className="space-y-20">
+        {/* 1. Personal Details */}
+        <TeacherFileSection 
+            yearId={term.year_id} termId={term.id} sectionKey="personal_details"
+            title="1. Personal details"
+            description="Professional educator profile pulled from system settings."
+            hideAttachments
+        >
+            <div className="space-y-4">
+                <p className="text-sm text-slate-600">Personal information associated with this academic record.</p>
+            </div>
+        </TeacherFileSection>
+
+        {/* 2. Timetable */}
+        <TeacherFileSection 
+            yearId={term.year_id} termId={term.id} sectionKey="timetable"
+            title="2. Timetable"
+            description="Active teaching routine for this academic cycle."
+            hideCommentary
+            hideAttachments
+        >
+             <div className="scale-90 origin-top">
+                <TimetableGrid />
+             </div>
+        </TeacherFileSection>
+
+        {/* 3. Subject Policy */}
+        <TeacherFileSection 
+            yearId={term.year_id} termId={term.id} sectionKey="subject_policy"
+            title="3. Subject Policy and Support Documents"
+            description="Upload official departmental policies or support material."
             isLocked={term.is_finalised}
-          />
-      </div>
-      
-      <div className="pt-20">
-          <div className="flex justify-center gap-20">
-              <div className="flex flex-col items-center">
-                  <div className="h-px w-48 bg-slate-300" />
-                  <span className="text-[9px] font-bold text-slate-400 mt-2">Teacher Signature</span>
-              </div>
-              <div className="flex flex-col items-center">
-                  <div className="h-px w-48 bg-slate-300" />
-                  <span className="text-[9px] font-bold text-slate-400 mt-2">HOD Signature / Stamp</span>
-              </div>
-          </div>
+        />
+
+        {/* 4. Planning */}
+        <div className="space-y-8 border-l-4 border-slate-100 pl-8">
+            <h3 className="text-2xl font-black text-slate-900">4. Planning</h3>
+            
+            <TeacherFileSection 
+                yearId={term.year_id} termId={term.id} sectionKey="atp"
+                title="4.1 Annual Teaching Plan (ATP)"
+                isLocked={term.is_finalised}
+            />
+
+            <TeacherFileSection 
+                yearId={term.year_id} termId={term.id} sectionKey="lesson_plans"
+                title="4.2 Lesson Plan"
+                isLocked={term.is_finalised}
+            />
+
+            <TeacherFileSection 
+                yearId={term.year_id} termId={term.id} sectionKey="file_control"
+                title="4.3 File Control sheets A and B"
+                isLocked={term.is_finalised}
+            />
+        </div>
+
+        {/* 5. Assessment */}
+        <div className="space-y-8 border-l-4 border-blue-600 pl-8">
+            <h3 className="text-2xl font-black text-slate-900">5. Assessment</h3>
+
+            <TeacherFileSection 
+                yearId={term.year_id} termId={term.id} sectionKey="poa"
+                title="5.1 Programme of Assessment"
+                description="List of all scheduled formal assessment tasks for this term."
+                isLocked={term.is_finalised}
+            >
+                {data.assessments.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">No formal assessments scheduled.</p>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="font-black text-[10px] uppercase">Task</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase">Type</TableHead>
+                                <TableHead className="text-right font-black text-[10px] uppercase">Total</TableHead>
+                                <TableHead className="text-right font-black text-[10px] uppercase">Weight</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {data.assessments.map(ass => (
+                                <TableRow key={ass.id}>
+                                    <TableCell className="text-sm font-bold">{ass.title}</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground uppercase font-medium">{ass.type}</TableCell>
+                                    <TableCell className="text-right font-mono font-bold">{ass.max_mark}</TableCell>
+                                    <TableCell className="text-right font-bold text-blue-600">{ass.weight}%</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </TeacherFileSection>
+
+            <TeacherFileSection 
+                yearId={term.year_id} termId={term.id} sectionKey="fats"
+                title="5.2 Formal Assessment Tasks"
+                description="Linking assessments to required Teacher File slots."
+                isLocked={term.is_finalised}
+            >
+                <div className="space-y-4">
+                    <p className="text-xs text-muted-foreground">The following tasks are active in your term marksheet:</p>
+                    <div className="grid gap-2">
+                        {data.assessments.map(ass => (
+                            <div key={ass.id} className="flex items-center justify-between p-3 rounded-xl border bg-white shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-50 rounded-lg"><FileText className="h-4 w-4 text-blue-600" /></div>
+                                    <span className="text-sm font-black">{ass.title}</span>
+                                </div>
+                                <Badge variant="outline" className="text-[10px] h-5">{ass.type}</Badge>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </TeacherFileSection>
+
+            <TeacherFileSection 
+                yearId={term.year_id} termId={term.id} sectionKey="memoranda"
+                title="5.3 Memoranda"
+                isLocked={term.is_finalised}
+            />
+
+            <TeacherFileSection 
+                yearId={term.year_id} termId={term.id} sectionKey="moderation"
+                title="5.4 Moderation"
+                isLocked={term.is_finalised}
+            />
+
+            <TeacherFileSection 
+                yearId={term.year_id} termId={term.id} sectionKey="record_sheets"
+                title="5.5 Record sheets / Mark schedules"
+                description="Auto-populated summaries of your class marksheets."
+                isLocked={term.is_finalised}
+            >
+                 <div className="grid gap-3">
+                    {data.classes.map(cls => (
+                        <div key={cls.id} className="p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between">
+                            <div className="space-y-1">
+                                <p className="text-sm font-black">{cls.name}</p>
+                                <p className="text-[9px] uppercase font-bold text-muted-foreground">{cls.subject} • {cls.learnerCount} Learners</p>
+                            </div>
+                            <Button variant="outline" size="sm" className="h-8 gap-2 text-[10px] font-black uppercase" asChild>
+                                <Link to={`/classes/${cls.id}`}>
+                                    <LayoutGrid className="h-3 w-3" /> View Data
+                                </Link>
+                            </Button>
+                        </div>
+                    ))}
+                 </div>
+            </TeacherFileSection>
+
+            <TeacherFileSection 
+                yearId={term.year_id} termId={term.id} sectionKey="improvement_plan"
+                title="5.6 Subject Improvement Plan"
+                description="Pedagogical interventions and diagnostics summarized for audit."
+                isLocked={term.is_finalised}
+            >
+                 <div className="space-y-6">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        {data.classes.map(cls => (
+                            <div key={cls.id} className="p-4 rounded-xl border bg-primary/[0.02] border-primary/10">
+                                <div className="flex justify-between items-start mb-3">
+                                    <span className="text-[10px] font-black uppercase text-primary/60">{cls.name}</span>
+                                    <Badge className="bg-primary/10 text-primary border-none text-[9px]">{cls.passRate}% Pass</Badge>
+                                </div>
+                                <div className="flex items-baseline gap-1.5">
+                                    <span className="text-2xl font-black text-primary">{cls.average}%</span>
+                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Average Achievement</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100 flex items-start gap-4">
+                        <Rocket className="h-6 w-6 text-blue-600 mt-1 shrink-0" />
+                        <div className="space-y-1">
+                            <h4 className="font-bold text-sm text-blue-900">Term Remediation Action Plan</h4>
+                            <p className="text-xs text-blue-800 leading-relaxed">
+                                {data.totalRemediationTasks} official interventions have been activated for this period. 
+                                Access the **Remediation** tab in individual classes to view the proof of audit record.
+                            </p>
+                        </div>
+                    </div>
+                 </div>
+            </TeacherFileSection>
+        </div>
+
+        {/* 6-10 Upload Sections */}
+        <TeacherFileSection 
+            yearId={term.year_id} termId={term.id} sectionKey="educator_reports"
+            title="6. Educator Reports"
+            isLocked={term.is_finalised}
+        />
+
+        <TeacherFileSection 
+            yearId={term.year_id} termId={term.id} sectionKey="textbook_records"
+            title="7. Textbook / LTSMs control records"
+            isLocked={term.is_finalised}
+        />
+
+        <TeacherFileSection 
+            yearId={term.year_id} termId={term.id} sectionKey="meeting_minutes"
+            title="8. Subject Meeting Minutes"
+            isLocked={term.is_finalised}
+        />
+
+        <TeacherFileSection 
+            yearId={term.year_id} termId={term.id} sectionKey="iqms"
+            title="9. IQMS"
+            isLocked={term.is_finalised}
+        />
+
+        <TeacherFileSection 
+            yearId={term.year_id} termId={term.id} sectionKey="correspondence"
+            title="10. Correspondence"
+            isLocked={term.is_finalised}
+        />
       </div>
     </div>
   );
 };
+
+import { TimetableGrid } from '@/components/TimetableGrid';

@@ -4,30 +4,24 @@ import React from 'react';
 import { useSettings } from '@/context/SettingsContext';
 import { AcademicYear } from '@/lib/types';
 import icon from "@/source bucket/ICON.png";
-import { ShieldCheck, User, School } from 'lucide-react';
+import { ShieldCheck, User, Mail, Phone } from 'lucide-react';
 import { TeacherFileAnnotation } from './TeacherFileAnnotation';
 
 export const TeacherFileCover = ({ year }: { year: AcademicYear | null }) => {
-  const { schoolName, teacherName, schoolLogo } = useSettings();
+  const { teacherName, contactEmail, contactPhone } = useSettings();
 
   return (
     <div className="h-full flex flex-col items-center justify-center text-center space-y-12 py-20">
       <div className="space-y-4">
-        {schoolLogo ? (
-            <img src={schoolLogo} alt="School Logo" className="h-32 w-32 mx-auto object-contain mb-8" />
-        ) : (
-            <div className="w-24 h-24 bg-blue-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
-                <School className="h-12 w-12 text-blue-600" />
-            </div>
-        )}
-        <h1 className="text-4xl font-black tracking-tight text-slate-900">{schoolName}</h1>
+        <div className="w-32 h-32 bg-blue-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-blue-200">
+            <img src={icon} alt="AdminLess" className="h-16 w-auto invert brightness-0" />
+        </div>
+        <h1 className="text-[10px] font-black tracking-[0.4em] uppercase text-blue-600">Administrative Portfolio</h1>
       </div>
 
-      <div className="w-24 h-1 bg-blue-600 rounded-full" />
-
       <div className="space-y-2">
-        <h2 className="text-6xl font-black tracking-tighter text-slate-900">TEACHER FILE</h2>
-        <p className="text-xl font-bold text-blue-600 uppercase tracking-[0.3em]">{year?.name || '2024'}</p>
+        <h2 className="text-7xl font-black tracking-tighter text-slate-900">TEACHER FILE</h2>
+        <p className="text-2xl font-bold text-slate-400 uppercase tracking-[0.2em]">{year?.name || 'Academic Cycle'}</p>
       </div>
 
       <div className="w-full max-w-lg mt-8">
@@ -35,36 +29,42 @@ export const TeacherFileCover = ({ year }: { year: AcademicYear | null }) => {
             yearId={year?.id} 
             sectionKey="cover.reflection" 
             label="Introductory Notes"
-            placeholder="Add an overall reflection for the year or a message to moderators..."
+            placeholder="Academic reflection or message to moderators..."
             isLocked={year?.closed}
           />
       </div>
 
-      <div className="grid grid-cols-2 gap-12 pt-12 border-t border-slate-100 w-full max-w-md mx-auto">
-        <div className="text-left space-y-1">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Educator</span>
-            <p className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <User className="h-4 w-4 text-blue-600" />
+      <div className="w-full max-w-md mx-auto pt-12 border-t-2 border-slate-900 space-y-6">
+        <div className="space-y-1">
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Teacher / Professional Profile</span>
+            <p className="text-2xl font-black text-slate-900 truncate">
                 {teacherName || "Professional Educator"}
             </p>
         </div>
-        <div className="text-right space-y-1">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Status</span>
-            <p className="text-lg font-bold text-green-600 flex items-center justify-end gap-2">
-                <ShieldCheck className="h-4 w-4" />
-                Validated
-            </p>
+
+        <div className="grid grid-cols-2 gap-4">
+            <div className="text-left space-y-1">
+                <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1">
+                    <Mail className="h-2.5 w-2.5" /> Email
+                </span>
+                <p className="text-xs font-bold text-slate-700 truncate">{contactEmail || "Not available in Profile"}</p>
+            </div>
+            <div className="text-right space-y-1">
+                <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest flex items-center justify-end gap-1">
+                    <Phone className="h-2.5 w-2.5" /> Contact
+                </span>
+                <p className="text-xs font-bold text-slate-700 truncate">{contactPhone || "Not available in Profile"}</p>
+            </div>
         </div>
       </div>
 
-      <div className="mt-auto">
-        <div className="flex items-center justify-center gap-3 opacity-30 grayscale">
-            <img src={icon} alt="AdminLess" className="h-12 w-auto" />
-            <span className="text-xl font-black tracking-tighter">AdminLess</span>
+      <div className="mt-auto pt-10">
+        <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full border bg-slate-50">
+            <ShieldCheck className="h-4 w-4 text-green-600" />
+            <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
+                Authenticated Digital Record • CAPS COMPLIANT
+            </span>
         </div>
-        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">
-            Generated Digital Portfolio • Academic Compliance Module
-        </p>
       </div>
     </div>
   );
