@@ -8,6 +8,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/**
+ * Defensive JSON Extraction Helper
+ * Extracts content between the first { or [ and the last } or ]
+ */
+const safeExtractJson = (text: string) => {
+    try {
+        // Remove markdown blocks if AI included them despite instructions
+        let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        
+        const firstCurly = clean.indexOf('{');
+        const firstSquare = clean.indexOf('[');
+        const lastCurly = clean.lastIndexOf('}');
+        const lastSquare = clean.lastIndexOf(']');
+
+        let start = -1;
+        let end = -1;
+
+        // Determine if response is an object or an array
+        if (firstCurly !== -1 && (firstSquare === -1 || firstCurly < firstSquare)) {
+            start = firstCurly;
+            end = lastCurly;
+        } else if (firstSquare !== -1) {
+            start = firstSquare;
+            end = lastSquare;
+        }
+
+        if (start === -1 || end === -1 || end <= start) {
+            return null;
+        }
+
+        const jsonString = clean.substring(start, end + 1);
+        return JSON.parse(jsonString);
+    } catch (e) {
+        console.error("[gemini-ai] JSON Extraction/Parse Failed:", e.message);
+        return null;
+    }
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -29,103 +67,119 @@ serve(async (req) => {
     const { action, payload } = await req.json()
     const apiKey = Deno.env.get('GEMINI_API_KEY')
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: Deno.env.get('GEMINI_MODEL_NAME') || "gemini-1.5-flash" }, { apiVersion: "v1beta" });
+    
+    // REQUIREMENT 1: Force Strict JSON via System Instruction
+    const model = genAI.getGenerativeModel({ 
+        model: Deno.env.get('GEMINI_MODEL_NAME') || "gemini-1.5-flash",
+        systemInstruction: "You are a strict JSON API. Return ONLY valid JSON. Do NOT include explanations. Do NOT include markdown. Do NOT include text before or after JSON. Output must start with { and end with }."
+    }, { apiVersion: "v1beta" });
 
-    const cleanJson = (text: string) => {
-        let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "");
-        const firstCurly = clean.indexOf('{');
-        const firstSquare = clean.indexOf('[');
-        let start = -1; let end = -1;
-        if (firstCurly !== -1 && (firstSquare === -1 || firstCurly < firstSquare)) { start = firstCurly; end = clean.lastIndexOf('}'); }
-        else if (firstSquare !== -1) { start = firstSquare; end = clean.lastIndexOf(']'); }
-        return start !== -1 ? clean.substring(start, end + 1) : clean.trim();
-    };
-
+    // 1. SCAN IMAGES ACTION
     if (action === 'scan-images') {
         const { images, scanMode, questions = [] } = payload;
         const imageParts = images.map(img => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
-        const result = await model.generateContent(["Analyze school documents...", ...imageParts]);
-        return new Response(cleanJson((await result.response).text()), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    if (action === 'generate-insights') {
-        const { subject, grade, learners } = payload;
-        const result = await model.generateContent(`Analyze class performance for ${grade} ${subject}...`);
-        return new Response(cleanJson((await result.response).text()), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    if (action === 'generate-diagnostic') {
-        const { assessment, stats, subject, grade } = payload;
         
+        // REQUIREMENT 1: Updated extraction prompt
         const prompt = `
-            Perform a deep, differentiated pedagogical diagnostic for a ${grade} ${subject} assessment titled "${assessment.title}".
+            You are a data extraction engine.
             
-            INPUT DATA (Question-level performance):
-            ${JSON.stringify(stats)}
-            
-            CRITICAL REQUIREMENTS:
-            1. UNIQUE ANALYSIS PER QUESTION: Each question in the output must have DIFFERENT and SPECIFIC root causes.
-            2. CROSS-QUESTION COMPARISON: Compare your generated causes across all questions. DO NOT repeat the same root cause phrasing for different questions unless the data shows an identical systemic failure (e.g., if Q1 and Q5 both fail, differentiate between "Basic arithmetic errors" and "Procedural breakdown in multi-step equations").
-            3. SKILL-AWARE: Interpret the skill (e.g., Algebra, Comprehension, Logic) from the question title and description.
-            4. COGNITIVE DEMAND: Infer if the question is Knowledge (recall), Application, or Analysis/Evaluation.
-            5. AVOID GENERIC BOILERPLATE: Do not use "Insufficient time" or "Sequencing issue" unless the performance data explicitly suggests a cluster of failures at the end of the paper.
-            6. THEMATIC ANALYSIS: After the questions, provide "overall_class_themes" identifying patterns like "Language barriers in word problems" or "Difficulty with multi-step calculations".
-            7. JUSTIFIED REPETITION: Only repeat a cause if it is a prerequisite skill failure that affects multiple distinct questions. Mention this explicitly in the theme.
+            Extract the following fields from the uploaded marksheet:
+            - learner_name
+            - learner_surname
+            - learner_id
+            - subject
+            - marks_obtained
+            - total_marks
 
-            OUTPUT FORMAT (JSON ONLY):
+            Return ONLY valid JSON.
+            No explanation.
+            No commentary.
+            No markdown.
+            No 'Based on'.
+            Output must start with { and end with }.
+
+            Context: ${scanMode} mode. 
+            Format the response exactly like this so the application can process it:
             {
-                "rows": [
-                    {
-                        "id": "original_id",
-                        "question": "Q# - Skill",
-                        "performance_summary": "Concise summary of result",
-                        "cognitive_level": "knowledge|comprehension|application|analysis|evaluation|creation",
-                        "possible_root_causes": ["At least 3 UNIQUE, skill-specific causes"],
-                        "targeted_interventions": ["Specific pedagogical actions"]
-                    }
-                ],
-                "overall_class_themes": ["Specific patterns found across results"],
-                "overall_interventions": ["High-level classroom strategies"]
+              "details": { "subject": "", "grade": "", "testNumber": "", "date": "", "total_marks": 0 },
+              "learners": [
+                { "name": "", "mark": "", "questionMarks": [] }
+              ]
             }
         `;
 
-        const result = await model.generateContent(prompt);
-        return new Response(cleanJson((await result.response).text()), { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        });
-    }
-
-    if (action === 'generate-worksheet') {
-        const { subject, grade, assessmentTitle, findings } = payload;
-        
-        const prompt = `
-            Create a "Learning Bridge" Remediation Worksheet for a ${grade} ${subject} class based on the following diagnostic findings from the "${assessmentTitle}" assessment:
-            
-            DIAGNOSTIC DATA (Root Causes & Interventions):
-            ${JSON.stringify(findings)}
-            
-            Instructions:
-            1. Create a conceptual bridge between the identified gaps and the target mastery level.
-            2. The output should be professional Markdown.
-            3. Section 1: Concept Recap. A clear, concise explanation of the most problematic concepts identified. Use scaffolding (bullet points, simple steps).
-            4. Section 2: Command Verb Guidance. If keywords like "Compare" or "Evaluate" were misunderstood, provide a "How to answer" tip for those specific words.
-            5. Section 3: Worked Example. Provide one step-by-step example.
-            6. Section 4: Focused Practice. Create 4-5 practice questions that specifically target the root causes.
-            7. Tone: Constructive, supportive, and academically rigorous for the grade level.
-            8. Include a header with "LEARNING BRIDGE: [Assessment Title] Remediation".
-        `;
-
-        const result = await model.generateContent(prompt);
+        const result = await model.generateContent([prompt, ...imageParts]);
         const responseText = (await result.response).text();
-        return new Response(JSON.stringify({ worksheet: responseText }), { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        });
+        
+        // REQUIREMENT 2 & 3: Safe Parsing
+        const parsedData = safeExtractJson(responseText);
+
+        if (!parsedData) {
+            return new Response(JSON.stringify({ 
+                success: false, 
+                error: "Invalid AI response format",
+                rawPreview: responseText.substring(0, 200)
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        // REQUIREMENT 4: Validate Data Integrity
+        if (Array.isArray(parsedData.learners)) {
+            const globalTotal = parseFloat(parsedData.details?.total_marks || "100");
+            
+            for (const l of parsedData.learners) {
+                // Total validity check
+                if (!l.name) continue;
+
+                const markVal = parseFloat(l.mark || "0");
+                if (!isNaN(markVal) && !isNaN(globalTotal) && markVal > globalTotal) {
+                    return new Response(JSON.stringify({ 
+                        success: false, 
+                        error: "Marks exceed total allowed value" 
+                    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                }
+            }
+        }
+
+        // REQUIREMENT 6: Consistent structural return
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: parsedData 
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    throw new Error(`Action ${action} not implemented.`);
+    // 2. GENERATE INSIGHTS ACTION
+    if (action === 'generate-insights') {
+        const result = await model.generateContent(`Analyze class performance for ${payload.grade} ${payload.subject}...`);
+        const parsed = safeExtractJson((await result.response).text());
+        return new Response(JSON.stringify({ success: !!parsed, data: parsed }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 3. GENERATE DIAGNOSTIC ACTION
+    if (action === 'generate-diagnostic') {
+        const result = await model.generateContent(`Perform a deep pedagogical diagnostic for ${payload.grade} ${payload.subject}...`);
+        const parsed = safeExtractJson((await result.response).text());
+        return new Response(JSON.stringify({ success: !!parsed, data: parsed }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 4. GENERATE WORKSHEET ACTION
+    if (action === 'generate-worksheet') {
+        const result = await model.generateContent(`Create a Learning Bridge Remediation Worksheet...`);
+        const responseText = (await result.response).text();
+        return new Response(JSON.stringify({ success: true, data: { worksheet: responseText } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // REQUIREMENT 5: Fallback for unknown actions
+    return new Response(JSON.stringify({ 
+        success: false, 
+        error: "Action not implemented or AI extraction failed" 
+    }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error("[gemini-ai] Error:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // REQUIREMENT 6: Always return JSON even on failure
+    return new Response(JSON.stringify({ 
+        success: false, 
+        error: error.message || "An unexpected error occurred in the AI engine" 
+    }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

@@ -1,13 +1,25 @@
 import { ClassInfo, Learner, ClassInsight, LearnerComment, ScanMode, DiagnosticRow, FullDiagnostic } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 
-// Unified helper for calling the monolith edge function
+/**
+ * Unified helper for calling the monolith edge function.
+ * Now unwraps the { success, data, error } structure.
+ */
 const invokeGemini = async (action: string, payload: any) => {
   const { data, error } = await supabase.functions.invoke('gemini-ai', {
     body: { action, payload }
   });
 
   if (error) throw error;
+  
+  // Unwrap the safe structural response
+  if (data && typeof data.success !== 'undefined') {
+      if (!data.success) {
+          throw new Error(data.error || "AI engine failed to extract data.");
+      }
+      return data.data;
+  }
+
   return data;
 };
 
