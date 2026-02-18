@@ -80,12 +80,28 @@ serve(async (req) => {
         const imageParts = images.map(img => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
         
         const prompt = `
-            Extract fields from marksheet: learner_name, learner_surname, learner_id, subject, marks_obtained, total_marks.
-            Return ONLY valid JSON. Output must start with { and end with }.
-            Format:
+            You are a data extraction assistant for school marksheets.
+            Extract information from the provided images.
+            
+            Required fields: learner_name, learner_surname, learner_id, subject, marks_obtained, total_marks.
+            
+            Return ONLY valid JSON in this exact structure:
             {
-              "details": { "subject": "", "grade": "", "testNumber": "", "date": "", "total_marks": 0 },
-              "learners": [ { "name": "", "mark": "", "questionMarks": [] } ]
+              "details": {
+                "subject": "string",
+                "grade": "string",
+                "testNumber": "string",
+                "date": "YYYY-MM-DD",
+                "total_marks": number
+              },
+              "learners": [
+                {
+                  "name": "string (learner_name + learner_surname)",
+                  "learner_id": "string",
+                  "mark": "string (marks_obtained)",
+                  "questionMarks": []
+                }
+              ]
             }
         `;
 
@@ -98,26 +114,19 @@ serve(async (req) => {
         }
 
         const responseText = (await result.response).text();
-        const parsedData = safeExtractJson(responseText);
+        const extractedData = safeExtractJson(responseText);
 
-        if (!parsedData) {
+        if (!extractedData) {
             console.error("[gemini-ai] JSON Parsing Failed for Scan results");
             return new Response(JSON.stringify({ success: false, error: "Invalid AI response format" }), { headers: corsHeaders, status: 200 });
         }
 
-        // Validate marks against total
-        if (Array.isArray(parsedData.learners)) {
-            const globalTotal = parseFloat(parsedData.details?.total_marks || "100");
-            for (const l of parsedData.learners) {
-                if (!l.name) continue;
-                const markVal = parseFloat(l.mark || "0");
-                if (!isNaN(markVal) && !isNaN(globalTotal) && markVal > globalTotal) {
-                    return new Response(JSON.stringify({ success: false, error: "Marks exceed total allowed value" }), { headers: corsHeaders, status: 200 });
-                }
-            }
-        }
+        console.log("FINAL RESPONSE:", extractedData);
 
-        return new Response(JSON.stringify({ success: true, data: parsedData }), { headers: corsHeaders, status: 200 });
+        return new Response(JSON.stringify({ 
+          success: true, 
+          data: extractedData 
+        }), { headers: corsHeaders, status: 200 });
     }
 
     // 2. GENERATE INSIGHTS ACTION
@@ -125,9 +134,11 @@ serve(async (req) => {
         try {
             const result = await model.generateContent(`Analyze class performance for ${payload.grade} ${payload.subject}...`);
             const responseText = (await result.response).text();
-            const parsed = safeExtractJson(responseText);
-            if (!parsed) return new Response(JSON.stringify({ success: false, error: "Invalid AI response format" }), { headers: corsHeaders, status: 200 });
-            return new Response(JSON.stringify({ success: true, data: parsed }), { headers: corsHeaders, status: 200 });
+            const extractedData = safeExtractJson(responseText);
+            if (!extractedData) return new Response(JSON.stringify({ success: false, error: "Invalid AI response format" }), { headers: corsHeaders, status: 200 });
+            
+            console.log("FINAL RESPONSE:", extractedData);
+            return new Response(JSON.stringify({ success: true, data: extractedData }), { headers: corsHeaders, status: 200 });
         } catch (e) {
             console.error("[gemini-ai] AI Error (Insights):", e.message);
             return new Response(JSON.stringify({ success: false, error: "AI extraction failed" }), { headers: corsHeaders, status: 200 });
@@ -139,9 +150,11 @@ serve(async (req) => {
         try {
             const result = await model.generateContent(`Perform a deep pedagogical diagnostic for ${payload.grade} ${payload.subject}...`);
             const responseText = (await result.response).text();
-            const parsed = safeExtractJson(responseText);
-            if (!parsed) return new Response(JSON.stringify({ success: false, error: "Invalid AI response format" }), { headers: corsHeaders, status: 200 });
-            return new Response(JSON.stringify({ success: true, data: parsed }), { headers: corsHeaders, status: 200 });
+            const extractedData = safeExtractJson(responseText);
+            if (!extractedData) return new Response(JSON.stringify({ success: false, error: "Invalid AI response format" }), { headers: corsHeaders, status: 200 });
+            
+            console.log("FINAL RESPONSE:", extractedData);
+            return new Response(JSON.stringify({ success: true, data: extractedData }), { headers: corsHeaders, status: 200 });
         } catch (e) {
             console.error("[gemini-ai] AI Error (Diagnostic):", e.message);
             return new Response(JSON.stringify({ success: false, error: "AI extraction failed" }), { headers: corsHeaders, status: 200 });
@@ -153,7 +166,10 @@ serve(async (req) => {
         try {
             const result = await model.generateContent(`Create a Learning Bridge Remediation Worksheet...`);
             const responseText = (await result.response).text();
-            return new Response(JSON.stringify({ success: true, data: { worksheet: responseText } }), { headers: corsHeaders, status: 200 });
+            
+            const extractedData = { worksheet: responseText };
+            console.log("FINAL RESPONSE:", extractedData);
+            return new Response(JSON.stringify({ success: true, data: extractedData }), { headers: corsHeaders, status: 200 });
         } catch (e) {
             console.error("[gemini-ai] AI Error (Worksheet):", e.message);
             return new Response(JSON.stringify({ success: false, error: "AI extraction failed" }), { headers: corsHeaders, status: 200 });
