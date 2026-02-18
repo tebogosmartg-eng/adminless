@@ -86,7 +86,17 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
             .map(ass => {
                 const diag = diagnostics.find(d => d.assessment_id === ass.id);
                 if (!diag) return null;
-                return { title: ass.title, findings: diag.findings };
+                
+                // Try to extract the executive summary or first finding
+                let findings = "Analysis finalized.";
+                try {
+                    const parsed = JSON.parse(diag.findings);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        findings = parsed[0].performance_summary || findings;
+                    }
+                } catch(e) {}
+                
+                return { title: ass.title, findings };
             })
             .filter(Boolean);
 
