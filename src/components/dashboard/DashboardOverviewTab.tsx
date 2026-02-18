@@ -3,7 +3,7 @@ import { ClassInfo, Learner } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { Users, LayoutDashboard, Rocket, ShieldCheck, ChevronRight, Book, CheckCircle2 } from 'lucide-react';
+import { Users, LayoutDashboard, Rocket, ShieldCheck, ChevronRight, Book, CheckCircle2, AlertCircle, Circle, Star } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import { QuickActions } from './QuickActions';
 import { TermProgressWidget } from './TermProgressWidget';
@@ -19,6 +19,8 @@ import { useRemediation } from '@/hooks/useRemediation';
 import { useAcademic } from '@/context/AcademicContext';
 import { Progress } from '@/components/ui/progress';
 import { useTeacherFileCompletion } from '@/hooks/useTeacherFileCompletion';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -33,6 +35,8 @@ const PortfolioWidget = () => {
 
     if (!activeTerm || !activeYear || loading) return null;
 
+    const missingRequired = stats.steps.filter((s: any) => !s.isComplete && s.type === 'required');
+
     return (
         <Card className="border-blue-200 bg-blue-50/20">
             <CardHeader className="pb-2 pt-4 px-4">
@@ -43,14 +47,32 @@ const PortfolioWidget = () => {
                     </CardTitle>
                     <span className="text-[10px] font-black text-blue-700">{stats.percent}%</span>
                 </div>
-                <CardDescription className="text-[10px] uppercase font-bold text-blue-600/70">Term Portfolio Readiness</CardDescription>
+                <CardDescription className="text-[10px] uppercase font-bold text-blue-600/70">Audit Readiness Audit</CardDescription>
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-3">
                 <Progress value={stats.percent} className="h-1.5 bg-blue-100" />
-                <div className="flex items-center justify-between">
-                    <p className="text-[10px] text-muted-foreground font-medium">Audit-ready documentation status.</p>
+                
+                <div className="space-y-1.5">
+                    {missingRequired.slice(0, 2).map((step: any) => (
+                        <div key={step.id} className="flex items-center gap-2 text-[10px] font-medium text-amber-700 bg-white/50 p-1.5 rounded border border-amber-100/50">
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{step.label} pending</span>
+                        </div>
+                    ))}
+                    {missingRequired.length === 0 && stats.percent > 0 && (
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-green-700 bg-green-50 p-1.5 rounded border border-green-100">
+                            <CheckCircle2 className="h-3 w-3 shrink-0" />
+                            Portfolio validated for moderation.
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                    <p className="text-[9px] text-muted-foreground font-medium uppercase">
+                        {stats.percent === 100 ? "Ready for finalisation" : "Awaiting documentation"}
+                    </p>
                     <Button variant="link" size="sm" asChild className="h-auto p-0 text-[10px] font-black uppercase text-blue-700">
-                        <Link to="/teacher-file">Review <ChevronRight className="h-2.5 w-2.5 ml-1" /></Link>
+                        <Link to="/teacher-file">Complete Portfolio <ChevronRight className="h-2.5 w-2.5 ml-1" /></Link>
                     </Button>
                 </div>
             </CardContent>
@@ -181,5 +203,3 @@ export const DashboardOverviewTab = ({
     </div>
   );
 };
-
-import { Badge } from '@/components/ui/badge';

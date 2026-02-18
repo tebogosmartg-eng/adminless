@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { School, User, AlertCircle, Save, Trash2, ImagePlus, Mail, Phone, Loader2, Hash } from "lucide-react";
+import { School, User, AlertCircle, Save, Trash2, ImagePlus, Mail, Phone, Loader2, Hash, ShieldCheck } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -11,6 +11,7 @@ export const SchoolProfileSettings = () => {
   const { 
     schoolName,
     schoolCode,
+    saceNumber,
     teacherName,
     contactEmail,
     contactPhone,
@@ -21,6 +22,7 @@ export const SchoolProfileSettings = () => {
 
   const [tempSchoolName, setTempSchoolName] = useState(schoolName);
   const [tempSchoolCode, setTempSchoolCode] = useState(schoolCode);
+  const [tempSaceNumber, setTempSaceNumber] = useState(saceNumber);
   const [tempTeacherName, setTempTeacherName] = useState(teacherName);
   const [tempContactEmail, setTempContactEmail] = useState(contactEmail);
   const [tempContactPhone, setTempContactPhone] = useState(contactPhone);
@@ -32,11 +34,12 @@ export const SchoolProfileSettings = () => {
   useEffect(() => {
     setTempSchoolName(schoolName);
     setTempSchoolCode(schoolCode);
+    setTempSaceNumber(saceNumber);
     setTempTeacherName(teacherName);
     setTempContactEmail(contactEmail);
     setTempContactPhone(contactPhone || "");
     setTempThreshold(atRiskThreshold.toString());
-  }, [schoolName, schoolCode, teacherName, contactEmail, contactPhone, atRiskThreshold]);
+  }, [schoolName, schoolCode, saceNumber, teacherName, contactEmail, contactPhone, atRiskThreshold]);
 
   const handleSaveProfile = async () => {
     const thresh = parseInt(tempThreshold);
@@ -50,6 +53,7 @@ export const SchoolProfileSettings = () => {
         await updateProfileSettings({
             schoolName: tempSchoolName,
             schoolCode: tempSchoolCode,
+            saceNumber: tempSaceNumber,
             teacherName: tempTeacherName,
             contactEmail: tempContactEmail,
             contactPhone: tempContactPhone,
@@ -177,6 +181,20 @@ export const SchoolProfileSettings = () => {
               </div>
 
               <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="sace-number">SACE Registration Number</Label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="sace-number"
+                    placeholder="e.g. 1234567"
+                    value={tempSaceNumber}
+                    onChange={(e) => setTempSaceNumber(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="contact-email">Contact Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -226,10 +244,12 @@ export const SchoolProfileSettings = () => {
                 </div>
               </div>
             </div>
-            <Button onClick={handleSaveProfile} className="w-full sm:w-auto" disabled={isSaving}>
-              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Profile & Settings
-            </Button>
+            <div className="flex justify-end gap-2">
+                 <Button onClick={handleSaveProfile} className="w-full sm:w-auto font-bold" disabled={isSaving}>
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Professional Profile
+                </Button>
+            </div>
           </div>
         </div>
       </CardContent>

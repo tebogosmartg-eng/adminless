@@ -16,6 +16,8 @@ interface SettingsContextType {
   setSchoolName: (name: string) => void;
   schoolCode: string;
   setSchoolCode: (code: string) => void;
+  saceNumber: string;
+  setSaceNumber: (num: string) => void;
   teacherName: string;
   setTeacherName: (name: string) => void;
   contactEmail: string;
@@ -38,6 +40,7 @@ interface SettingsContextType {
   updateProfileSettings: (updates: {
     schoolName?: string;
     schoolCode?: string;
+    saceNumber?: string;
     teacherName?: string;
     contactEmail?: string;
     contactPhone?: string;
@@ -68,6 +71,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [gradingScheme, setGradingSchemeState] = useState<GradeSymbol[]>(defaultGradingScheme);
   const [schoolName, setSchoolNameState] = useState<string>("My School");
   const [schoolCode, setSchoolCodeState] = useState<string>("");
+  const [saceNumber, setSaceNumberState] = useState<string>("");
   const [teacherName, setTeacherNameState] = useState<string>("");
   const [contactEmail, setContactEmailState] = useState<string>("");
   const [contactPhone, setContactPhoneState] = useState<string>("");
@@ -77,23 +81,12 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [savedSubjects, setSavedSubjectsState] = useState<string[]>(DEFAULT_DBE_SUBJECTS);
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
 
-  // STABILISATION MODE: Log authenticated user and profile linkage
-  useEffect(() => {
-    if (session?.user) {
-      console.log(`[Stabilisation] Authenticated User UUID: ${session.user.id}`);
-      if (profile) {
-        console.log(`[Stabilisation] Fetched Profile UUID: ${profile.id}`);
-      } else {
-        console.warn(`[Stabilisation] No profile found in local database for user ${session.user.id}`);
-      }
-    }
-  }, [session, profile]);
-
   useEffect(() => {
     if (profile) {
         if (Array.isArray(profile.grading_scheme)) setGradingSchemeState(profile.grading_scheme);
         if (profile.school_name !== undefined) setSchoolNameState(profile.school_name || "My School");
         if (profile.school_code !== undefined) setSchoolCodeState(profile.school_code || "");
+        if (profile.sace_number !== undefined) setSaceNumberState(profile.sace_number || "");
         if (profile.teacher_name !== undefined) setTeacherNameState(profile.teacher_name || "");
         if (profile.contact_email !== undefined) setContactEmailState(profile.contact_email || "");
         if (profile.contact_phone !== undefined) setContactPhoneState(profile.contact_phone || "");
@@ -107,10 +100,6 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   const updateProfile = async (updates: any) => {
     if (!session?.user.id) return;
-    
-    // STABILISATION LOG
-    console.log(`[Stabilisation] Updating profile record for ${session.user.id}`, updates);
-
     const current = await db.profiles.get(session.user.id) || { id: session.user.id };
     const updated = { ...current, ...updates, updated_at: new Date().toISOString() };
     await db.profiles.put(updated);
@@ -120,6 +109,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const updateProfileSettings = async (updates: {
     schoolName?: string;
     schoolCode?: string;
+    saceNumber?: string;
     teacherName?: string;
     contactEmail?: string;
     contactPhone?: string;
@@ -129,6 +119,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     const dbUpdates: any = {};
     if (updates.schoolName !== undefined) dbUpdates.school_name = updates.schoolName;
     if (updates.schoolCode !== undefined) dbUpdates.school_code = updates.schoolCode;
+    if (updates.saceNumber !== undefined) dbUpdates.sace_number = updates.saceNumber;
     if (updates.teacherName !== undefined) dbUpdates.teacher_name = updates.teacherName;
     if (updates.contactEmail !== undefined) dbUpdates.contact_email = updates.contactEmail;
     if (updates.contactPhone !== undefined) dbUpdates.contact_phone = updates.contactPhone;
@@ -136,6 +127,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
     if (updates.schoolName !== undefined) setSchoolNameState(updates.schoolName);
     if (updates.schoolCode !== undefined) setSchoolCodeState(updates.schoolCode || "");
+    if (updates.saceNumber !== undefined) setSaceNumberState(updates.saceNumber || "");
     if (updates.teacherName !== undefined) setTeacherNameState(updates.teacherName);
     if (updates.contactEmail !== undefined) setContactEmailState(updates.contactEmail);
     if (updates.contactPhone !== undefined) setContactPhoneState(updates.contactPhone);
@@ -164,6 +156,11 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const setSchoolCode = (code: string) => {
     setSchoolCodeState(code);
     updateProfile({ school_code: code });
+  };
+
+  const setSaceNumber = (num: string) => {
+    setSaceNumberState(num);
+    updateProfile({ sace_number: num });
   };
 
   const setTeacherName = (name: string) => {
@@ -238,7 +235,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   return (
     <SettingsContext.Provider value={{ 
       gradingScheme, updateGradingScheme, resetGradingScheme,
-      schoolName, setSchoolName, schoolCode, setSchoolCode,
+      schoolName, setSchoolName, schoolCode, setSchoolCode, saceNumber, setSaceNumber,
       teacherName, setTeacherName, contactEmail, setContactEmail,
       contactPhone, setContactPhone, schoolLogo, setSchoolLogo,
       atRiskThreshold, setAtRiskThreshold, commentBank,

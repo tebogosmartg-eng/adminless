@@ -33,7 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
   const { data, loading } = useTeacherFileTermData(term.id, term.year_id);
-  const { teacherName, contactEmail, contactPhone, schoolCode } = useSettings();
+  const { teacherName, contactEmail, contactPhone, schoolCode, saceNumber } = useSettings();
   const [selectedAssId, setSelectedAssId] = useState<string>("all");
 
   if (loading) {
@@ -101,14 +101,24 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Full Name</p>
                         <p className="text-lg font-black text-slate-900 truncate">{teacherName || "Not available in Profile"}</p>
                     </div>
-                    {schoolCode && (
-                        <div className="text-right px-4 border-l">
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center justify-end gap-1">
-                                <Hash className="h-2.5 w-2.5" /> EMIS Code
-                            </p>
-                            <p className="font-bold text-slate-700">{schoolCode}</p>
-                        </div>
-                    )}
+                    <div className="flex gap-4">
+                        {schoolCode && (
+                            <div className="text-right px-4 border-l">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center justify-end gap-1">
+                                    <Hash className="h-2.5 w-2.5" /> EMIS Code
+                                </p>
+                                <p className="font-bold text-slate-700">{schoolCode}</p>
+                            </div>
+                        )}
+                        {saceNumber && (
+                            <div className="text-right px-4 border-l">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center justify-end gap-1">
+                                    <ShieldCheck className="h-2.5 w-2.5" /> SACE No.
+                                </p>
+                                <p className="font-bold text-slate-700">{saceNumber}</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-4">
