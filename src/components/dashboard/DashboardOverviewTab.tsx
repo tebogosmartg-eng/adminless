@@ -1,9 +1,9 @@
 import RecentActivity from './RecentActivity';
-import { ClassInfo, Learner, RemediationTask } from '@/lib/types';
+import { ClassInfo, Learner } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { Users, LayoutDashboard, Rocket, ShieldCheck, ChevronRight, Clock, CheckCircle2 } from 'lucide-react';
+import { Users, LayoutDashboard, Rocket, ShieldCheck, ChevronRight, Book, CheckCircle2 } from 'lucide-react';
 import ClassSummaryCard from '@/components/ClassSummaryCard';
 import { QuickActions } from './QuickActions';
 import { TermProgressWidget } from './TermProgressWidget';
@@ -17,7 +17,8 @@ import { AdminDebtWidget } from './AdminDebtWidget';
 import { GetStartedChecklist } from './GetStartedChecklist';
 import { useRemediation } from '@/hooks/useRemediation';
 import { useAcademic } from '@/context/AcademicContext';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
+import { useTeacherFileCompletion } from '@/hooks/useTeacherFileCompletion';
 
 interface DashboardOverviewTabProps {
   activeClasses: ClassInfo[];
@@ -26,11 +27,41 @@ interface DashboardOverviewTabProps {
   onAddNote: () => void;
 }
 
+const PortfolioWidget = () => {
+    const { activeTerm, activeYear } = useAcademic();
+    const { stats, loading } = useTeacherFileCompletion(activeTerm?.id || '', activeYear?.id || '');
+
+    if (!activeTerm || !activeYear || loading) return null;
+
+    return (
+        <Card className="border-blue-200 bg-blue-50/20">
+            <CardHeader className="pb-2 pt-4 px-4">
+                <div className="flex justify-between items-start">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Book className="h-4 w-4 text-blue-600" />
+                        Teacher File Status
+                    </CardTitle>
+                    <span className="text-[10px] font-black text-blue-700">{stats.percent}%</span>
+                </div>
+                <CardDescription className="text-[10px] uppercase font-bold text-blue-600/70">Term Portfolio Readiness</CardDescription>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-3">
+                <Progress value={stats.percent} className="h-1.5 bg-blue-100" />
+                <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-muted-foreground font-medium">Audit-ready documentation status.</p>
+                    <Button variant="link" size="sm" asChild className="h-auto p-0 text-[10px] font-black uppercase text-blue-700">
+                        <Link to="/teacher-file">Review <ChevronRight className="h-2.5 w-2.5 ml-1" /></Link>
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
 const RemediationWidget = () => {
     const { activeTerm } = useAcademic();
-    const { tasks, updateTaskStatus } = useRemediation('all', activeTerm?.id); // 'all' is a placeholder handled by hook filter
+    const { tasks, updateTaskStatus } = useRemediation('all', activeTerm?.id); 
     
-    // Filter pending tasks for the dashboard
     const pendingTasks = tasks.filter(t => t.status !== 'completed').slice(0, 5);
 
     if (tasks.length === 0) return null;
@@ -65,12 +96,6 @@ const RemediationWidget = () => {
                             </div>
                         </div>
                     ))}
-                    {pendingTasks.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-6 text-center">
-                            <CheckCircle2 className="h-6 w-6 text-green-500 opacity-20 mb-1" />
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">All interventions applied</p>
-                        </div>
-                    )}
                 </div>
                 {tasks.length > 5 && (
                     <Button variant="link" size="sm" asChild className="w-full text-[9px] uppercase font-black text-muted-foreground h-6 mt-1">
@@ -123,11 +148,6 @@ export const DashboardOverviewTab = ({
                                 </Link>
                             </Button>
                         ))}
-                        {activeClasses.length > 4 && (
-                            <Button variant="link" size="sm" asChild className="text-[10px] uppercase font-bold text-muted-foreground h-5">
-                                <Link to="/classes">View all classes</Link>
-                            </Button>
-                        )}
                     </div>
                 </CardContent>
               </Card>
@@ -147,6 +167,7 @@ export const DashboardOverviewTab = ({
         </div>
 
         <div className="space-y-3">
+          <PortfolioWidget />
           <RemediationWidget />
           <TimetableWidget />
           <CurriculumProgressWidget />

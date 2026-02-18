@@ -16,6 +16,8 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
             .where('academic_year_id').equals(yearId)
             .toArray();
 
+        const timetable = await db.timetable.where('year_id').equals(yearId).toArray();
+
         const termChapters = await Promise.all(sortedTerms.map(async (term) => {
             const classes = await db.classes.where('[year_id+term_id]').equals([yearId, term.id]).toArray();
             const classIds = classes.map(c => c.id);
@@ -59,13 +61,13 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 evidence: evidence.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')),
                 annotations: annotations.filter(a => a.term_id === term.id),
                 attachments: attachments || [],
-                totalRemediation: remediationTasks.length
+                remediationTasks: remediationTasks || []
             };
         }));
 
         const introNotes = annotations.find(a => !a.term_id && a.section_key === 'cover.reflection')?.content || "";
 
-        return { termChapters, introNotes };
+        return { termChapters, introNotes, timetable };
     } catch (err) {
         console.error("[TeacherFile:DataFetch] Failed to gather records:", err);
         throw new Error("Critical failure during record compilation.");
@@ -79,7 +81,7 @@ export const generateTeacherFilePDF = async (
 ) => {
     try {
         const doc = new jsPDF('p', 'mm', 'a4');
-        const { termChapters, introNotes } = await fetchTeacherFileData(year.id, specificTermId);
+        const { termChapters, introNotes, timetable } = await fetchTeacherFileData(year.id, specificTermId);
         const pageWidth = doc.internal.pageSize.width;
         const margin = 20;
 
@@ -138,7 +140,37 @@ export const generateTeacherFilePDF = async (
             const startY = addHeader(doc, profile, `${ch.term.name} Record`);
             let currentY = startY + 5;
 
-            // Mark Schedules Summary
+            // SECTION 2: TIMETABLE
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("2. Timetable / Daily Routine", margin, currentY);
+            
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+            const maxPeriod = timetable.length > 0 ? Math.max(...timetable.map(t => t.period)) : 6;
+            const periods = Array.from({ length: maxPeriod }, (_, i) => i + 1);
+
+            const tableData = periods.map(p => {
+                const row = [p.toString()];
+                days.forEach(d => {
+                    const entry = timetable.find(t => t.day === d && t.period === p);
+                    row.push(entry ? `${entry.class_name}\n(${entry.subject})` : "-");
+                });
+                return row;
+            });
+
+            autoTable(doc, {
+                startY: currentY + 3,
+                head: [['Per', ...days]],
+                body: tableData,
+                theme: 'grid',
+                styles: { fontSize: 7, cellPadding: 1, halign: 'center' },
+                headStyles: { fillColor: [100, 116, 139] },
+                columnStyles: { 0: { cellWidth: 10 } }
+            });
+
+            currentY = (doc as any).lastAutoTable.finalY + 15;
+
+            // SECTION 5.5: MARK SCHEDULES
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
             doc.text("5.5 Mark Schedules Summary", margin, currentY);
@@ -152,19 +184,47 @@ export const generateTeacherFilePDF = async (
                 headStyles: { fillColor: [41, 37, 36] }
             });
 
-            currentY = (doc as any).lastAutoTable.finalY + 10;
+            currentY = (doc as any).lastAutoTable.finalY + 15;
 
-            // SECTION-BY-SECTION ATTACHMENT REGISTRY
-            doc.text("Section Attachment Registry", margin, currentY);
+            // SECTION 5.6: REMEDIATION PLAN
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("5.6 Subject Improvement & Remediation Plan", margin, currentY);
+            
+            if (ch.remediationTasks.length > 0) {
+                autoTable(doc, {
+                    startY: currentY + 3,
+                    head: [['Intervention Strategy', 'Source Task', 'Status']],
+                    body: ch.remediationTasks.map((t: any) => [
+                        t.description, 
+                        t.title, 
+                        t.status.toUpperCase()
+                    ]),
+                    theme: 'grid',
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: [37, 99, 235] }
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 15;
+            } else {
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "italic");
+                doc.text("No formal interventions logged for this term.", margin, currentY + 8);
+                currentY += 15;
+            }
+
+            // ATTACHMENT REGISTRY
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("Portfolio Attachment Registry", margin, currentY);
             currentY += 8;
 
-            const standardSectionKeys = [
+            const sectionKeys = [
                 'subject_policy', 'atp', 'lesson_plans', 'file_control', 'poa', 'fats', 
                 'memoranda', 'moderation', 'record_sheets', 'improvement_plan',
                 'educator_reports', 'textbook_records', 'meeting_minutes', 'iqms', 'correspondence'
             ];
 
-            standardSectionKeys.forEach(key => {
+            sectionKeys.forEach(key => {
                 const sectionAttachments = ch.attachments.filter(a => a.section_key === key);
                 if (sectionAttachments.length > 0) {
                     doc.setFontSize(9);
