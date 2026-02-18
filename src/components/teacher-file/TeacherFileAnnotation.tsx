@@ -1,11 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useTeacherFileAnnotations } from '@/hooks/useTeacherFileAnnotations';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Edit3, Save, Check, MessageSquare, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Loader2, Check, CloudUpload, MessageSquare } from 'lucide-react';
 
 interface TeacherFileAnnotationProps {
   yearId: string | undefined;
@@ -21,81 +19,67 @@ export const TeacherFileAnnotation = ({
   termId = null, 
   sectionKey, 
   label = "Professional Commentary",
-  placeholder = "Add your reflections or administrative notes for this section...",
+  placeholder = "Click here to add your reflections or administrative notes for this section...",
   className
 }: TeacherFileAnnotationProps) => {
-  const { content, setContent, saveAnnotation, isDraft } = useTeacherFileAnnotations(yearId, termId, sectionKey);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const { content, updateContent, status } = useTeacherFileAnnotations(yearId, termId, sectionKey);
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    await saveAnnotation(content);
-    setIsSaving(false);
-    setIsEditing(false);
+  const getStatusIcon = () => {
+    switch (status) {
+      case 'saving': return <Loader2 className="h-3 w-3 animate-spin text-primary" />;
+      case 'saved': return <Check className="h-3 w-3 text-green-600" />;
+      case 'queued': return <CloudUpload className="h-3 w-3 text-amber-600" />;
+      default: return null;
+    }
   };
 
-  if (!isEditing && !content) {
-    return (
-      <div className={cn("no-print group", className)}>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => setIsEditing(true)}
-          className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary gap-2"
-        >
-          <MessageSquare className="h-3 w-3" />
-          Add Annotation Overlay
-        </Button>
-      </div>
-    );
-  }
+  const getStatusText = () => {
+    switch (status) {
+      case 'saving': return "Saving changes...";
+      case 'saved': return "Saved to cloud";
+      case 'queued': return "Offline (queued)";
+      default: return "";
+    }
+  };
 
   return (
-    <div className={cn("space-y-3 relative group", className)}>
+    <div className={cn("space-y-2 relative group", className)}>
       <div className="flex items-center justify-between no-print">
-        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2">
-            <Edit3 className="h-3 w-3" /> {label}
+        <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2">
+            <MessageSquare className="h-3 w-3" /> {label}
         </h4>
-        <div className="flex gap-2">
-          {isEditing ? (
-            <Button 
-              size="sm" 
-              onClick={handleSave} 
-              disabled={isSaving}
-              className="h-7 text-[10px] font-bold bg-blue-600 hover:bg-blue-700"
-            >
-              {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
-              Save
-            </Button>
-          ) : (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setIsEditing(true)}
-              className="h-7 text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <Edit3 className="h-3 w-3 mr-1" /> Edit
-            </Button>
-          )}
+        
+        <div className="flex items-center gap-2 animate-in fade-in duration-300">
+            <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">
+                {getStatusText()}
+            </span>
+            {getStatusIcon()}
         </div>
       </div>
 
-      {isEditing ? (
-        <Textarea 
+      <div className="relative">
+        <textarea 
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => updateContent(e.target.value)}
           placeholder={placeholder}
-          className="min-h-[100px] text-sm leading-relaxed border-blue-100 bg-blue-50/20 focus:bg-white transition-all no-print"
-          autoFocus
+          className={cn(
+              "w-full min-h-[100px] text-sm leading-relaxed p-4 rounded-xl transition-all resize-none",
+              "bg-blue-50/10 border-2 border-transparent hover:border-blue-100 focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/5 outline-none",
+              "print:bg-transparent print:border-none print:p-0 print:min-h-0 italic text-slate-700"
+          )}
+          style={{ height: content ? 'auto' : '100px' }}
+          onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = `${target.scrollHeight}px`;
+          }}
         />
-      ) : (
-        <div className="p-4 rounded-xl border border-blue-50 bg-blue-50/10 italic text-sm text-slate-700 leading-relaxed relative">
-            <span className="absolute -left-1.5 top-4 w-1 h-8 bg-blue-600 rounded-full no-print" />
-            {content}
-            {isDraft && <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-amber-500 no-print" title="Unsaved draft" />}
-        </div>
-      )}
+        <div className="absolute -left-1.5 top-4 w-1 h-8 bg-blue-600 rounded-full no-print opacity-40 group-hover:opacity-100 transition-opacity" />
+      </div>
+
+      <div className="no-print opacity-0 group-hover:opacity-100 transition-opacity text-[8px] font-bold text-slate-300 uppercase text-right tracking-widest">
+          Autosave Enabled
+      </div>
     </div>
   );
 };
