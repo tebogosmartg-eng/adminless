@@ -32,14 +32,15 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
 
         const classIds = classes.map(c => c.id);
 
-        const [learners, assessments, marks, evidence, remediationTasks, attachments, curriculum] = await Promise.all([
+        const [learners, assessments, marks, evidence, remediationTasks, attachments, curriculum, diagnostics] = await Promise.all([
             db.learners.where('class_id').anyOf(classIds).toArray(),
             db.assessments.where('term_id').equals(termId).filter(a => classIds.includes(a.class_id)).toArray(),
             db.assessment_marks.toArray(),
             db.evidence.where('term_id').equals(termId).filter(e => classIds.includes(e.class_id)).toArray(),
             db.remediation_tasks.where('term_id').equals(termId).toArray(),
             db.teacher_file_attachments.where('term_id').equals(termId).toArray(),
-            db.curriculum_topics.where('term_id').equals(termId).toArray()
+            db.curriculum_topics.where('term_id').equals(termId).toArray(),
+            db.diagnostics.toArray() // Will filter locally for speed
         ]);
 
         if (!isMounted.current) return;
@@ -51,6 +52,7 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
             const clsAss = assessments.filter(a => a.class_id === cls.id);
             const clsLearners = learners.filter(l => l.class_id === cls.id);
             const clsMarks = relevantMarks.filter(m => clsAss.some(a => a.id === m.assessment_id));
+            const clsEvidence = evidence.filter(e => e.class_id === cls.id);
 
             const learnerAvgs = clsLearners.map(l => {
                 if (!l.id) return 0;
@@ -73,9 +75,20 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
                 average: avg.toFixed(1),
                 passRate: Math.round(passRate),
                 learnerCount: clsLearners.length,
-                assessmentCount: clsAss.length
+                assessmentCount: clsAss.length,
+                evidenceCount: clsEvidence.length,
+                scriptCount: clsEvidence.filter(e => e.category === 'script').length
             };
         });
+
+        // Extract diagnostic summaries for Section 5.6
+        const diagnosticSummaries = assessments
+            .map(ass => {
+                const diag = diagnostics.find(d => d.assessment_id === ass.id);
+                if (!diag) return null;
+                return { title: ass.title, findings: diag.findings };
+            })
+            .filter(Boolean);
 
         setData({
             empty: false,
@@ -85,7 +98,8 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
             totalEvidence: evidence.length,
             totalLearners: learners.length,
             totalRemediationTasks: remediationTasks.length,
-            attachments: attachments || []
+            attachments: attachments || [],
+            diagnosticSummaries
         });
       } catch (err: any) {
         if (isMounted.current) setError(err.message || "Failed to compile term data.");

@@ -22,7 +22,9 @@ import {
     Phone,
     Hash,
     BookOpen,
-    ShieldCheck
+    ShieldCheck,
+    ShieldAlert,
+    BarChart3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -89,7 +91,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             hideAttachments
         >
             <div className="grid gap-6">
-                <div className="flex items-center gap-4 p-4 rounded-xl border bg-white">
+                <div className="flex items-center gap-4 p-4 rounded-xl border bg-white shadow-sm">
                     <div className="p-3 bg-blue-50 rounded-lg text-blue-600">
                         <User className="h-6 w-6" />
                     </div>
@@ -108,7 +110,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-4 p-4 rounded-xl border bg-white">
+                    <div className="flex items-center gap-4 p-4 rounded-xl border bg-white shadow-sm">
                         <div className="p-2.5 bg-slate-50 rounded-lg text-slate-600">
                             <Mail className="h-5 w-5" />
                         </div>
@@ -117,7 +119,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                             <p className="text-sm font-bold text-slate-700 truncate">{contactEmail || "Not available"}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4 p-4 rounded-xl border bg-white">
+                    <div className="flex items-center gap-4 p-4 rounded-xl border bg-white shadow-sm">
                         <div className="p-2.5 bg-slate-50 rounded-lg text-slate-600">
                             <Phone className="h-5 w-5" />
                         </div>
@@ -147,7 +149,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="subject_policy"
             title="3. Subject Policy and Support Documents"
-            description="Upload official departmental policies or support material."
+            description="Upload official departmental policies, CAPS documents, or internal support material."
             isLocked={term.is_finalised}
         />
 
@@ -165,12 +167,12 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                     {data.curriculum.length > 0 ? (
                         <div className="grid gap-2">
                             {data.curriculum.map((topic: any) => (
-                                <div key={topic.id} className="flex items-center justify-between p-3 rounded-lg border bg-white">
+                                <div key={topic.id} className="flex items-center justify-between p-3 rounded-lg border bg-white shadow-sm transition-hover hover:border-primary/30">
                                     <div className="flex items-center gap-3">
                                         <div className="p-1.5 bg-blue-50 rounded text-blue-600"><BookOpen className="h-3.5 w-3.5" /></div>
                                         <div>
-                                            <p className="text-xs font-bold">{topic.title}</p>
-                                            <p className="text-[9px] uppercase font-black text-muted-foreground">{topic.grade} {topic.subject}</p>
+                                            <p className="text-xs font-bold text-slate-900">{topic.title}</p>
+                                            <p className="text-[9px] uppercase font-black text-slate-400">{topic.grade} {topic.subject}</p>
                                         </div>
                                     </div>
                                     <Badge variant="outline" className="text-[8px] h-4 uppercase border-blue-200 text-blue-700 bg-blue-50/50">Planned</Badge>
@@ -178,8 +180,8 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                             ))}
                         </div>
                     ) : (
-                        <div className="py-4 text-center text-[10px] text-muted-foreground uppercase font-black tracking-widest border-2 border-dashed rounded-xl">
-                            No Digital Curriculum topics defined for this term.
+                        <div className="py-8 text-center border-2 border-dashed rounded-2xl bg-muted/5">
+                            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest opacity-40">No Digital Curriculum Topics Recorded</p>
                         </div>
                     )}
                 </div>
@@ -210,7 +212,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-slate-50/50">
-                            <TableHead className="font-black text-[10px] uppercase">Task</TableHead>
+                            <TableHead className="font-black text-[10px] uppercase">Task Title</TableHead>
                             <TableHead className="font-black text-[10px] uppercase">Type</TableHead>
                             <TableHead className="text-right font-black text-[10px] uppercase">Total</TableHead>
                             <TableHead className="text-right font-black text-[10px] uppercase">Weight</TableHead>
@@ -219,9 +221,9 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                     <TableBody>
                         {data.assessments.map((ass: Assessment) => (
                             <TableRow key={ass.id}>
-                                <TableCell className="text-sm font-bold">{ass.title}</TableCell>
+                                <TableCell className="text-sm font-bold text-slate-900">{ass.title}</TableCell>
                                 <TableCell className="text-xs text-muted-foreground uppercase font-medium">{ass.type}</TableCell>
-                                <TableCell className="text-right font-mono font-bold">{ass.max_mark}</TableCell>
+                                <TableCell className="text-right font-mono font-bold text-slate-700">{ass.max_mark}</TableCell>
                                 <TableCell className="text-right font-bold text-blue-600">{ass.weight}%</TableCell>
                             </TableRow>
                         ))}
@@ -252,7 +254,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                 <div className="mb-4 flex items-center justify-between no-print">
                     <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Filter by Assessment</p>
                     <Select value={selectedAssId} onValueChange={setSelectedAssId}>
-                        <SelectTrigger className="h-8 w-48 text-[10px] font-bold"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 w-48 text-[10px] font-bold bg-background"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">-- Show All --</SelectItem>
                             {data.assessments.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>)}
@@ -264,9 +266,37 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="moderation"
                 title="5.4 Moderation"
+                description="Automated audit trail proof for departmental moderation."
                 isLocked={term.is_finalised}
                 assessmentId={selectedAssId === 'all' ? null : selectedAssId}
-            />
+            >
+                <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {data.classes.map((cls: any) => (
+                            <div key={cls.id} className="p-4 rounded-xl border bg-white shadow-sm space-y-2">
+                                <div className="flex justify-between items-start">
+                                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-tighter truncate max-w-[100px]">{cls.name}</span>
+                                    <Badge variant="outline" className="text-[8px] h-4 uppercase font-black border-green-200 text-green-700 bg-green-50/50">Audit Ready</Badge>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="p-1.5 bg-blue-50 rounded-md"><ShieldCheck className="h-3.5 w-3.5 text-blue-600" /></div>
+                                        <span className="text-xl font-black">{cls.scriptCount}</span>
+                                    </div>
+                                    <span className="text-[9px] font-bold text-muted-foreground uppercase text-right leading-tight">Sample Scripts<br/>Attached</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-200 flex items-start gap-3 no-print">
+                        <ShieldAlert className="h-4 w-4 text-amber-600 mt-0.5" />
+                        <p className="text-[10px] text-amber-800 leading-tight">
+                            <strong>Note to Moderator:</strong> Digital evidence (scripts) for the required 10% sample is available in individual class evidence folders.
+                        </p>
+                    </div>
+                </div>
+            </TeacherFileSection>
 
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="record_sheets"
@@ -275,14 +305,19 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             >
                  <div className="grid gap-3">
                     {data.classes.map((cls: any) => (
-                        <div key={cls.id} className="p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between">
-                            <div className="space-y-1">
-                                <p className="text-sm font-black">{cls.name}</p>
-                                <p className="text-[9px] uppercase font-bold text-muted-foreground">{cls.subject} • {cls.learnerCount} Learners</p>
+                        <div key={cls.id} className="p-4 rounded-xl border bg-white shadow-sm flex items-center justify-between group hover:border-primary/30 transition-all">
+                            <div className="flex items-center gap-4">
+                                <div className="p-2.5 bg-muted rounded-lg group-hover:bg-primary/5 transition-colors">
+                                    <LayoutGrid className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                                </div>
+                                <div className="space-y-0.5">
+                                    <p className="text-sm font-black text-slate-900">{cls.name}</p>
+                                    <p className="text-[9px] uppercase font-bold text-slate-400">{cls.subject} • {cls.learnerCount} Learners</p>
+                                </div>
                             </div>
                             <Button variant="outline" size="sm" className="h-8 gap-2 text-[10px] font-black uppercase no-print" asChild>
                                 <Link to={`/classes/${cls.id}`}>
-                                    <LayoutGrid className="h-3 w-3" /> Marksheet
+                                    Marksheet Summary
                                 </Link>
                             </Button>
                         </div>
@@ -298,26 +333,44 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                  <div className="space-y-6">
                     <div className="grid gap-3 sm:grid-cols-2">
                         {data.classes.map((cls: any) => (
-                            <div key={cls.id} className="p-4 rounded-xl border bg-primary/[0.02] border-primary/10">
+                            <div key={cls.id} className="p-4 rounded-xl border bg-primary/[0.02] border-primary/10 transition-hover hover:border-primary/30">
                                 <div className="flex justify-between items-start mb-3">
                                     <span className="text-[10px] font-black uppercase text-primary/60">{cls.name}</span>
                                     <Badge className="bg-primary/10 text-primary border-none text-[9px]">{cls.passRate}% Pass</Badge>
                                 </div>
                                 <div className="flex items-baseline gap-1.5">
                                     <span className="text-2xl font-black text-primary">{cls.average}%</span>
-                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Average</span>
+                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Average Achievement</span>
                                 </div>
                             </div>
                         ))}
                     </div>
 
-                    <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100 flex items-start gap-4">
+                    {data.diagnosticSummaries?.length > 0 && (
+                        <div className="space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                                <BarChart3 className="h-3.5 w-3.5" /> Recent Diagnostic Findings
+                            </h4>
+                            <div className="grid gap-2">
+                                {data.diagnosticSummaries.map((ds: any, i: number) => (
+                                    <div key={i} className="p-3 bg-white border rounded-xl flex items-start gap-3">
+                                        <div className="mt-1 h-2 w-2 rounded-full bg-blue-600" />
+                                        <p className="text-xs text-slate-600 leading-relaxed italic line-clamp-2">
+                                            "{ds.findings}"
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100 flex items-start gap-4 shadow-sm">
                         <Rocket className="h-6 w-6 text-blue-600 mt-1 shrink-0" />
                         <div className="space-y-1">
-                            <h4 className="font-bold text-sm text-blue-900">Formal Remediation Active</h4>
+                            <h4 className="font-black text-sm text-blue-900">Term Remediation Action Plan</h4>
                             <p className="text-xs text-blue-800 leading-relaxed font-medium">
-                                {data.totalRemediationTasks} interventions have been activated across classes. 
-                                Full audit proof is available in class Remediation registers.
+                                {data.totalRemediationTasks} professional interventions have been activated across this term's classes. 
+                                Full audit proof is maintained in the class Remediation registers.
                             </p>
                         </div>
                     </div>
