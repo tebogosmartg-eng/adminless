@@ -258,5 +258,3 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
     </div>
   );
 };
-
-import { TimetableGrid } from '@/components/TimetableGrid';

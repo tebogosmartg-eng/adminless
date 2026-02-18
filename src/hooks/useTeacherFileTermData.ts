@@ -18,9 +18,6 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
       setError(null);
       
       try {
-        console.log(`[TeacherFile] Loading records for Term: ${termId}`);
-        
-        // 1. Resolve Classes
         const classes = await db.classes
             .where('[year_id+term_id]')
             .equals([yearId, termId])
@@ -35,22 +32,19 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
 
         const classIds = classes.map(c => c.id);
 
-        // 2. Parallel Data Resolution
-        const [learners, assessments, marks, evidence, diagnostics] = await Promise.all([
+        const [learners, assessments, marks, evidence, remediationTasks] = await Promise.all([
             db.learners.where('class_id').anyOf(classIds).toArray(),
             db.assessments.where('term_id').equals(termId).filter(a => classIds.includes(a.class_id)).toArray(),
-            db.assessment_marks.toArray(), // Scoped below
+            db.assessment_marks.toArray(),
             db.evidence.where('term_id').equals(termId).filter(e => classIds.includes(e.class_id)).toArray(),
-            db.diagnostics.toArray() // Scoped below
+            db.remediation_tasks.where('term_id').equals(termId).toArray()
         ]);
 
         if (!isMounted.current) return;
 
         const assessmentIds = new Set(assessments.map(a => a.id));
         const relevantMarks = marks.filter(m => assessmentIds.has(m.assessment_id));
-        const relevantDiagnostics = diagnostics.filter(d => assessmentIds.has(d.assessment_id));
 
-        // 3. Analytics Compilation
         const classAnalytics = classes.map(cls => {
             const clsAss = assessments.filter(a => a.class_id === cls.id);
             const clsLearners = learners.filter(l => l.class_id === cls.id);
@@ -77,8 +71,7 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
                 average: avg.toFixed(1),
                 passRate: Math.round(passRate),
                 learnerCount: clsLearners.length,
-                assessmentCount: clsAss.length,
-                evidenceCount: evidence.filter(e => e.class_id === cls.id).length
+                assessmentCount: clsAss.length
             };
         });
 
@@ -86,12 +79,11 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
             empty: false,
             classes: classAnalytics,
             assessments: assessments.sort((a, b) => (a.date || '').localeCompare(b.date || '')),
-            diagnostics: relevantDiagnostics,
             totalEvidence: evidence.length,
-            totalLearners: learners.length
+            totalLearners: learners.length,
+            totalRemediationTasks: remediationTasks.length
         });
       } catch (err: any) {
-        console.error("[TeacherFile:Error] Data compilation failed:", err);
         if (isMounted.current) setError(err.message || "Failed to compile term data.");
       } finally {
         if (isMounted.current) setLoading(false);
