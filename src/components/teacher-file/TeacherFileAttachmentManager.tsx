@@ -8,24 +8,81 @@ import { FileUp, Trash2, ExternalLink, FileText, Loader2, Paperclip, Download } 
 import { getSignedFileUrl } from '@/services/storage';
 import { showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
+import { db, TeacherFileAttachment } from '@/db';
+import { supabase } from '@/integrations/supabase/client';
+import { queueAction } from '@/services/sync';
+import { uploadEvidenceFile, deleteEvidenceFile } from '@/services/storage';
+import { showSuccess } from '@/utils/toast';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 interface TeacherFileAttachmentManagerProps {
   yearId: string | undefined;
   termId: string | undefined;
   sectionKey: string;
   isLocked?: boolean;
+  assessmentId?: string | null;
 }
 
-export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLocked }: TeacherFileAttachmentManagerProps) => {
-  const { attachments, uploadAttachment, deleteAttachment, isUploading } = useTeacherFileAttachments(yearId, termId, sectionKey);
+export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLocked, assessmentId = null }: TeacherFileAttachmentManagerProps) => {
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      uploadAttachment(e.target.files[0]);
+  const attachments = useLiveQuery(
+    () => (yearId && termId && sectionKey) 
+      ? db.teacher_file_attachments
+          .where('[academic_year_id+term_id+section_key]')
+          .equals([yearId, termId, sectionKey])
+          .filter(a => assessmentId ? a.assessment_id === assessmentId : true)
+          .toArray()
+      : [],
+    [yearId, termId, sectionKey, assessmentId]
+  ) || [];
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !yearId || !termId) return;
+
+    setIsUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Auth required");
+
+      const { path } = await uploadEvidenceFile(file, user.id);
+
+      const newAttachment: TeacherFileAttachment = {
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        academic_year_id: yearId,
+        term_id: termId,
+        section_key: sectionKey,
+        assessment_id: assessmentId,
+        file_path: path,
+        file_name: file.name,
+        file_type: file.type,
+        created_at: new Date().toISOString()
+      };
+
+      await db.teacher_file_attachments.add(newAttachment);
+      await queueAction('teacher_file_attachments', 'create', newAttachment);
+      showSuccess(`Attached "${file.name}" to section.`);
+    } catch (e: any) {
+      showError("Upload failed.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDelete = async (item: TeacherFileAttachment) => {
+    try {
+      await deleteEvidenceFile(item.file_path);
+      await db.teacher_file_attachments.delete(item.id);
+      await queueAction('teacher_file_attachments', 'delete', { id: item.id });
+      showSuccess("Attachment removed.");
+    } catch (e) {
+      showError("Failed to delete.");
+    }
   };
 
   const handleView = async (path: string, id: string) => {
@@ -44,7 +101,7 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-            <Paperclip className="h-3 w-3" /> Section Attachments ({attachments.length})
+            <Paperclip className="h-3 w-3" /> Section Documents ({attachments.length})
         </h4>
         {!isLocked && (
             <Button 
@@ -55,7 +112,7 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
                 disabled={isUploading}
             >
                 {isUploading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileUp className="h-3 w-3 mr-1" />}
-                Upload Document
+                Upload to Section
             </Button>
         )}
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
@@ -80,7 +137,7 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
                           {loadingFileId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                       </Button>
                       {!isLocked && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteAttachment(item)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDelete(item)}>
                               <Trash2 className="h-4 w-4" />
                           </Button>
                       )}
@@ -89,7 +146,7 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
           ))}
           {attachments.length === 0 && (
               <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">No documents attached</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-30">No supplementary documents</p>
               </div>
           )}
       </div>

@@ -15,6 +15,7 @@ interface TeacherFileSectionProps {
   children?: React.ReactNode;
   hideCommentary?: boolean;
   hideAttachments?: boolean;
+  assessmentId?: string | null;
 }
 
 export const TeacherFileSection = ({
@@ -26,7 +27,8 @@ export const TeacherFileSection = ({
   isLocked,
   children,
   hideCommentary = false,
-  hideAttachments = false
+  hideAttachments = false,
+  assessmentId = null
 }: TeacherFileSectionProps) => {
   return (
     <div className="space-y-6 pb-10 border-b border-slate-100 last:border-0">
@@ -58,6 +60,7 @@ export const TeacherFileSection = ({
           termId={termId || ''}
           sectionKey={sectionKey}
           isLocked={isLocked}
+          assessmentId={assessmentId}
         />
       )}
     </div>
