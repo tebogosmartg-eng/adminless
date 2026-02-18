@@ -9,11 +9,23 @@ import { TaskSlotManager } from './TaskSlotManager';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle, FileText, CheckCircle2, LayoutGrid, Rocket } from 'lucide-react';
+import { useSettings } from '@/context/SettingsContext';
+import { 
+    Loader2, 
+    AlertCircle, 
+    FileText, 
+    CheckCircle2, 
+    LayoutGrid, 
+    Rocket,
+    User,
+    Mail,
+    Phone
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
   const { data, loading } = useTeacherFileTermData(term.id, term.year_id);
+  const { teacherName, contactEmail, contactPhone } = useSettings();
 
   if (loading) {
     return (
@@ -58,15 +70,44 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
       </div>
 
       <div className="space-y-20">
-        {/* 1. Personal Details */}
+        {/* 1. Personal Details (From Profile Only) */}
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="personal_details"
             title="1. Personal details"
-            description="Professional educator profile pulled from system settings."
+            description="Professional educator details synchronized from system profile."
             hideAttachments
         >
-            <div className="space-y-4">
-                <p className="text-sm text-slate-600 font-medium">Personal and professional identification records associated with this academic portfolio.</p>
+            <div className="grid gap-6">
+                <div className="flex items-center gap-4 p-4 rounded-xl border bg-white">
+                    <div className="p-3 bg-blue-50 rounded-lg text-blue-600">
+                        <User className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Full Name</p>
+                        <p className="text-lg font-black text-slate-900">{teacherName || "Not available in Profile"}</p>
+                    </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-4 p-4 rounded-xl border bg-white">
+                        <div className="p-2.5 bg-slate-50 rounded-lg text-slate-600">
+                            <Mail className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Email Address</p>
+                            <p className="text-sm font-bold text-slate-700 truncate">{contactEmail || "Not available in Profile"}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-4 p-4 rounded-xl border bg-white">
+                        <div className="p-2.5 bg-slate-50 rounded-lg text-slate-600">
+                            <Phone className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Contact Number</p>
+                            <p className="text-sm font-bold text-slate-700">{contactPhone || "Not available in Profile"}</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </TeacherFileSection>
 

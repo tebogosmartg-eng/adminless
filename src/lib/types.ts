@@ -148,6 +148,7 @@ export interface Assessment {
   user_id?: string;
   rubric_id?: string | null; 
   questions?: AssessmentQuestion[]; 
+  task_slot_key?: string | null; // Added for Teacher File linking
 }
 
 export interface QuestionMark {
