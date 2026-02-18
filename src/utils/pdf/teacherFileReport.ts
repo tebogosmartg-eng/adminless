@@ -22,13 +22,15 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
             const classes = await db.classes.where('[year_id+term_id]').equals([yearId, term.id]).toArray();
             const classIds = classes.map(c => c.id);
 
-            const [learners, assessments, marks, evidence, remediationTasks, attachments] = await Promise.all([
+            const [learners, assessments, marks, evidence, remediationTasks, attachments, lessonLogs, topics] = await Promise.all([
                 db.learners.where('class_id').anyOf(classIds).toArray(),
                 db.assessments.where('term_id').equals(term.id).filter(a => classIds.includes(a.class_id)).toArray(),
                 db.assessment_marks.toArray(), 
                 db.evidence.where('term_id').equals(term.id).filter(e => classIds.includes(e.class_id)).toArray(),
                 db.remediation_tasks.where('term_id').equals(term.id).toArray(),
-                db.teacher_file_attachments.where('term_id').equals(term.id).toArray()
+                db.teacher_file_attachments.where('term_id').equals(term.id).toArray(),
+                db.lesson_logs.toArray(),
+                db.curriculum_topics.where('term_id').equals(term.id).toArray()
             ]);
 
             const assessmentIds = new Set(assessments.map(a => a.id));
@@ -44,6 +46,7 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 const passRate = avgs.length > 0 ? Math.round((avgs.filter(a => a >= 50).length / avgs.length) * 100) : 0;
 
                 return {
+                    id: cls.id,
                     name: cls.className,
                     subject: cls.subject,
                     grade: cls.grade,
@@ -54,6 +57,21 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 };
             });
 
+            // Format lesson logs for Section 4.3
+            const tSlots = await db.timetable.where('class_id').anyOf(classIds).toArray();
+            const slotMap = new Map(tSlots.map(s => [s.id, s.class_id]));
+            const classMap = new Map(classes.map(c => [c.id, c.className]));
+
+            const formattedLogs = lessonLogs
+                .filter(l => slotMap.has(l.timetable_id))
+                .map(l => ({
+                    date: format(new Date(l.date), 'dd/MM/yy'),
+                    className: classMap.get(slotMap.get(l.timetable_id) || "") || "General",
+                    content: l.content,
+                    homework: l.homework || "-"
+                }))
+                .sort((a, b) => b.date.localeCompare(a.date));
+
             return {
                 term,
                 classes: classAnalytics,
@@ -61,7 +79,9 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 evidence: evidence.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')),
                 annotations: annotations.filter(a => a.term_id === term.id),
                 attachments: attachments || [],
-                remediationTasks: remediationTasks || []
+                remediationTasks: remediationTasks || [],
+                logs: formattedLogs,
+                topics: topics || []
             };
         }));
 
@@ -108,31 +128,6 @@ export const generateTeacherFilePDF = async (
             doc.text(`Institution: ${profile.name}`, margin, doc.internal.pageSize.height - 34);
             addFooter(doc);
             doc.addPage();
-
-            // INDEX PAGE
-            addHeader(doc, profile, "Table of Contents");
-            let indexY = 60;
-            const standardSections = [
-                "1. Personal details", "2. Timetable", "3. Subject Policy and Support Documents",
-                "4. Planning", "5. Assessment", "6. Educator Reports",
-                "7. Textbook / LTSMs control records", "8. Subject Meeting Minutes",
-                "9. IQMS", "10. Correspondence"
-            ];
-
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "bold");
-            doc.text("Consolidated Academic Index", margin, indexY);
-            indexY += 10;
-
-            standardSections.forEach((s) => {
-                doc.setFontSize(10);
-                doc.setFont("helvetica", "normal");
-                doc.text(s, margin + 5, indexY);
-                indexY += 8;
-            });
-
-            addFooter(doc);
-            doc.addPage();
         }
 
         termChapters.forEach((ch, chIdx) => {
@@ -170,10 +165,39 @@ export const generateTeacherFilePDF = async (
 
             currentY = (doc as any).lastAutoTable.finalY + 15;
 
-            // SECTION 5.5: MARK SCHEDULES
+            // SECTION 4.3: RECORD OF WORK
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
-            doc.text("5.5 Mark Schedules Summary", margin, currentY);
+            doc.text("4.3 Record of Work (Automated Audit)", margin, currentY);
+            
+            if (ch.logs.length > 0) {
+                autoTable(doc, {
+                    startY: currentY + 3,
+                    head: [['Date', 'Class', 'Work Covered / Topic', 'Homework']],
+                    body: ch.logs.slice(0, 30).map((l: any) => [l.date, l.className, l.content, l.homework]),
+                    theme: 'striped',
+                    styles: { fontSize: 7, cellPadding: 2 },
+                    headStyles: { fillColor: [71, 85, 105] },
+                    columnStyles: { 0: { cellWidth: 15 }, 1: { cellWidth: 15 }, 3: { cellWidth: 30 } }
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 15;
+            } else {
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "italic");
+                doc.text("No lesson logs found for this term.", margin, currentY + 8);
+                currentY += 15;
+            }
+
+            if (currentY > doc.internal.pageSize.height - 60) {
+                addFooter(doc);
+                doc.addPage();
+                currentY = 20;
+            }
+
+            // SECTION 5.5: PERFORMANCE MATRIX
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("5.5 Mark Schedules & Performance Matrix", margin, currentY);
             
             autoTable(doc, {
                 startY: currentY + 3,

@@ -6,6 +6,8 @@ import { useTeacherFileTermData } from '@/hooks/useTeacherFileTermData';
 import { TeacherFileSection } from './TeacherFileSection';
 import { TimetableGrid } from '@/components/TimetableGrid';
 import { TaskSlotManager } from './TaskSlotManager';
+import { TeacherFileRecordOfWork } from './TeacherFileRecordOfWork';
+import { TeacherFilePerformanceMatrix } from './TeacherFilePerformanceMatrix';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,7 +15,6 @@ import { useSettings } from '@/context/SettingsContext';
 import { 
     Loader2, 
     AlertCircle, 
-    FileText, 
     CheckCircle2, 
     LayoutGrid, 
     Rocket,
@@ -24,7 +25,8 @@ import {
     BookOpen,
     ShieldCheck,
     ShieldAlert,
-    BarChart3
+    BarChart3,
+    FileText
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -195,9 +197,12 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
 
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="file_control"
-                title="4.3 File Control sheets A and B"
+                title="4.3 File Control sheets A and B (Record of Work)"
+                description="Automated audit of lesson logs and coverage for this term."
                 isLocked={term.is_finalised}
-            />
+            >
+                <TeacherFileRecordOfWork termId={term.id} />
+            </TeacherFileSection>
         </div>
 
         {/* 5. Assessment */}
@@ -328,28 +333,16 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="improvement_plan"
                 title="5.6 Subject Improvement Plan"
+                description="Consolidated performance analysis and intervention proof."
                 isLocked={term.is_finalised}
             >
-                 <div className="space-y-6">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        {data.classes.map((cls: any) => (
-                            <div key={cls.id} className="p-4 rounded-xl border bg-primary/[0.02] border-primary/10 transition-hover hover:border-primary/30">
-                                <div className="flex justify-between items-start mb-3">
-                                    <span className="text-[10px] font-black uppercase text-primary/60">{cls.name}</span>
-                                    <Badge className="bg-primary/10 text-primary border-none text-[9px]">{cls.passRate}% Pass</Badge>
-                                </div>
-                                <div className="flex items-baseline gap-1.5">
-                                    <span className="text-2xl font-black text-primary">{cls.average}%</span>
-                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Average Achievement</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                 <div className="space-y-8">
+                    <TeacherFilePerformanceMatrix classes={data.classes} />
 
                     {data.diagnosticSummaries?.length > 0 && (
                         <div className="space-y-3">
                             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                                <BarChart3 className="h-3.5 w-3.5" /> Recent Diagnostic Findings
+                                <BarChart3 className="h-3.5 w-3.5" /> Consolidated Diagnostic Findings
                             </h4>
                             <div className="grid gap-2">
                                 {data.diagnosticSummaries.map((ds: any, i: number) => (
