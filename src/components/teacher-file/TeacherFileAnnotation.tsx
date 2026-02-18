@@ -3,7 +3,7 @@
 import React from 'react';
 import { useTeacherFileAnnotations } from '@/hooks/useTeacherFileAnnotations';
 import { cn } from '@/lib/utils';
-import { Loader2, Check, CloudUpload, MessageSquare } from 'lucide-react';
+import { Loader2, Check, CloudUpload, MessageSquare, Lock } from 'lucide-react';
 
 interface TeacherFileAnnotationProps {
   yearId: string | undefined;
@@ -12,6 +12,7 @@ interface TeacherFileAnnotationProps {
   label?: string;
   placeholder?: string;
   className?: string;
+  isLocked?: boolean;
 }
 
 export const TeacherFileAnnotation = ({ 
@@ -20,11 +21,13 @@ export const TeacherFileAnnotation = ({
   sectionKey, 
   label = "Professional Commentary",
   placeholder = "Click here to add your reflections or administrative notes for this section...",
-  className
+  className,
+  isLocked = false
 }: TeacherFileAnnotationProps) => {
   const { content, updateContent, status } = useTeacherFileAnnotations(yearId, termId, sectionKey);
 
   const getStatusIcon = () => {
+    if (isLocked) return <Lock className="h-3 w-3 text-muted-foreground" />;
     switch (status) {
       case 'saving': return <Loader2 className="h-3 w-3 animate-spin text-primary" />;
       case 'saved': return <Check className="h-3 w-3 text-green-600" />;
@@ -34,6 +37,7 @@ export const TeacherFileAnnotation = ({
   };
 
   const getStatusText = () => {
+    if (isLocked) return "Locked (Finalised)";
     switch (status) {
       case 'saving': return "Saving changes...";
       case 'saved': return "Saved to cloud";
@@ -45,7 +49,10 @@ export const TeacherFileAnnotation = ({
   return (
     <div className={cn("space-y-2 relative group", className)}>
       <div className="flex items-center justify-between no-print">
-        <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2">
+        <h4 className={cn(
+            "text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2",
+            isLocked ? "text-muted-foreground" : "text-blue-600"
+        )}>
             <MessageSquare className="h-3 w-3" /> {label}
         </h4>
         
@@ -60,11 +67,15 @@ export const TeacherFileAnnotation = ({
       <div className="relative">
         <textarea 
           value={content}
-          onChange={(e) => updateContent(e.target.value)}
-          placeholder={placeholder}
+          onChange={(e) => !isLocked && updateContent(e.target.value)}
+          placeholder={isLocked ? "No commentary recorded for this finalised section." : placeholder}
+          disabled={isLocked}
           className={cn(
               "w-full min-h-[100px] text-sm leading-relaxed p-4 rounded-xl transition-all resize-none",
-              "bg-blue-50/10 border-2 border-transparent hover:border-blue-100 focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/5 outline-none",
+              "border-2 border-transparent outline-none",
+              isLocked 
+                ? "bg-muted/30 border-dashed border-muted-foreground/10 cursor-not-allowed text-slate-500" 
+                : "bg-blue-50/10 hover:border-blue-100 focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/5",
               "print:bg-transparent print:border-none print:p-0 print:min-h-0 italic text-slate-700"
           )}
           style={{ height: content ? 'auto' : '100px' }}
@@ -74,12 +85,17 @@ export const TeacherFileAnnotation = ({
               target.style.height = `${target.scrollHeight}px`;
           }}
         />
-        <div className="absolute -left-1.5 top-4 w-1 h-8 bg-blue-600 rounded-full no-print opacity-40 group-hover:opacity-100 transition-opacity" />
+        <div className={cn(
+            "absolute -left-1.5 top-4 w-1 h-8 rounded-full no-print opacity-40 transition-opacity",
+            isLocked ? "bg-muted-foreground" : "bg-blue-600 group-hover:opacity-100"
+        )} />
       </div>
 
-      <div className="no-print opacity-0 group-hover:opacity-100 transition-opacity text-[8px] font-bold text-slate-300 uppercase text-right tracking-widest">
-          Autosave Enabled
-      </div>
+      {!isLocked && (
+        <div className="no-print opacity-0 group-hover:opacity-100 transition-opacity text-[8px] font-bold text-slate-300 uppercase text-right tracking-widest">
+            Autosave Enabled
+        </div>
+      )}
     </div>
   );
 };

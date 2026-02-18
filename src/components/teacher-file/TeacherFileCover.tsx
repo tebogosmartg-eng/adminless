@@ -36,6 +36,7 @@ export const TeacherFileCover = ({ year }: { year: AcademicYear | null }) => {
             sectionKey="cover.reflection" 
             label="Introductory Notes"
             placeholder="Add an overall reflection for the year or a message to moderators..."
+            isLocked={year?.closed}
           />
       </div>
 

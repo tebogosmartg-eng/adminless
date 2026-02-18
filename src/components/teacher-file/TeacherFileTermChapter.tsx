@@ -166,6 +166,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             sectionKey={`${term.name.toLowerCase().replace(' ', '')}.commentary`} 
             label={`${term.name} Administrative Commentary`}
             placeholder={`Add your teacher reflections for ${term.name} here...`}
+            isLocked={term.is_finalised}
           />
       </div>
       
