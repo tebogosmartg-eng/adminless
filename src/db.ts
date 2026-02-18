@@ -137,6 +137,11 @@ export class SmaRegDB extends Dexie {
       remediation_tasks: 'id, user_id, class_id, term_id, assessment_id',
       scan_history: 'id, user_id, class_id, assessment_id, timestamp'
     });
+
+    // Version 29: Fix for learner_notes created_at indexing
+    this.version(29).stores({
+      learner_notes: 'id, user_id, learner_id, term_id, date, created_at'
+    });
   }
 }
 
