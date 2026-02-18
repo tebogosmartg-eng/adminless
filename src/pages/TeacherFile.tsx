@@ -84,7 +84,7 @@ const TeacherFile = () => {
 
             <TabsContent value="index" className="mt-0">
                 <TeacherFileLayout pageNumber={1}>
-                    <TeacherFileIndex terms={terms} />
+                    <TeacherFileIndex terms={terms} year={activeYear} />
                 </TeacherFileLayout>
             </TabsContent>
 
