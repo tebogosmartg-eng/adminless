@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { db, TeacherFileAnnotation } from '@/db';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
@@ -14,35 +13,48 @@ export const useTeacherFileAnnotations = (yearId: string | undefined, termId: st
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [localContent, setLocalContent] = useState("");
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMounted = useRef(true);
 
-  const annotation = useLiveQuery(
-    () => (yearId && sectionKey) 
-      ? db.teacher_file_annotations
-          .where({ academic_year_id: yearId, term_id: termId, section_key: sectionKey })
-          .first()
-      : undefined,
-    [yearId, termId, sectionKey]
-  );
-
-  // Sync local state with database when it loads
   useEffect(() => {
-    if (annotation) {
-      setLocalContent(annotation.content);
-    } else {
-      setLocalContent("");
-    }
-  }, [annotation?.id]);
+    isMounted.current = true;
+    
+    const loadInitial = async () => {
+        if (!yearId || !sectionKey) return;
+        try {
+            const annotation = await db.teacher_file_annotations
+                .where({ academic_year_id: yearId, term_id: termId, section_key: sectionKey })
+                .first();
+            
+            if (isMounted.current) {
+                setLocalContent(annotation?.content || "");
+            }
+        } catch (e) {
+            console.error("[Annotations] Initial load failed", e);
+        }
+    };
+
+    loadInitial();
+
+    return () => {
+        isMounted.current = false;
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [yearId, termId, sectionKey]);
 
   const performSave = useCallback(async (content: string) => {
     if (!yearId || !sectionKey) return;
 
-    setStatus('saving');
+    if (isMounted.current) setStatus('saving');
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const existing = await db.teacher_file_annotations
+          .where({ academic_year_id: yearId, term_id: termId, section_key: sectionKey })
+          .first();
+
       const payload: TeacherFileAnnotation = {
-        id: annotation?.id || crypto.randomUUID(),
+        id: existing?.id || crypto.randomUUID(),
         user_id: user.id,
         academic_year_id: yearId,
         term_id: termId,
@@ -54,20 +66,18 @@ export const useTeacherFileAnnotations = (yearId: string | undefined, termId: st
       await db.teacher_file_annotations.put(payload);
       await queueAction('teacher_file_annotations', 'upsert', payload);
       
-      setStatus(isOnline ? 'saved' : 'queued');
-      
-      // Reset to idle after a few seconds of showing "Saved"
-      setTimeout(() => setStatus('idle'), 3000);
+      if (isMounted.current) {
+          setStatus(isOnline ? 'saved' : 'queued');
+          setTimeout(() => { if(isMounted.current) setStatus('idle'); }, 3000);
+      }
     } catch (e) {
       console.error("[Annotations] Save failed:", e);
-      setStatus('idle');
+      if (isMounted.current) setStatus('idle');
     }
-  }, [yearId, termId, sectionKey, annotation?.id, isOnline]);
+  }, [yearId, termId, sectionKey, isOnline]);
 
   const updateContent = (content: string) => {
     setLocalContent(content);
-    
-    // Debounce logic: 800ms
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     
     timeoutRef.current = setTimeout(() => {
@@ -78,7 +88,6 @@ export const useTeacherFileAnnotations = (yearId: string | undefined, termId: st
   return { 
     content: localContent, 
     updateContent,
-    status,
-    isDraft: localContent !== (annotation?.content || "")
+    status
   };
 };
