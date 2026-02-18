@@ -9,20 +9,53 @@ import { TeacherFileTermChapter } from '@/components/teacher-file/TeacherFileTer
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Printer, Download, Book, FileText, CheckCircle2, Info } from 'lucide-react';
+import { Printer, Download, Book, FileText, CheckCircle2, Info, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
+import { generateTeacherFilePDF } from '@/utils/pdfGenerator';
+import { useSettings } from '@/context/SettingsContext';
 
 const TeacherFile = () => {
   const { years, terms, activeYear, setActiveYear } = useAcademic();
+  const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   const [activeBookSection, setActiveBookSection] = useState("cover");
+  const [isExporting, setIsExporting] = useState(false);
 
   const handlePrint = () => {
       window.print();
   };
 
-  const handleExport = () => {
-      showSuccess("Compiling digital book structure... PDF generation started.");
+  const handleExportAll = async () => {
+      if (!activeYear) return;
+      setIsExporting(true);
+      try {
+          await generateTeacherFilePDF(
+            activeYear, 
+            { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone }
+          );
+          showSuccess("Full Teacher File generated successfully.");
+      } catch (e) {
+          showError("PDF Compilation failed.");
+      } finally {
+          setIsExporting(false);
+      }
+  };
+
+  const handleExportChapter = async (termId: string) => {
+      if (!activeYear) return;
+      setIsExporting(true);
+      try {
+          await generateTeacherFilePDF(
+            activeYear, 
+            { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone },
+            termId
+          );
+          showSuccess("Term Chapter compiled.");
+      } catch (e) {
+          showError("Chapter export failed.");
+      } finally {
+          setIsExporting(false);
+      }
   };
 
   return (
@@ -57,22 +90,35 @@ const TeacherFile = () => {
                 <Button variant="outline" size="sm" onClick={handlePrint} className="h-9 gap-2">
                     <Printer className="h-4 w-4" /> Print
                 </Button>
-                <Button size="sm" onClick={handleExport} className="h-9 gap-2">
-                    <Download className="h-4 w-4" /> Export All
+                <Button size="sm" onClick={handleExportAll} disabled={isExporting || !activeYear} className="h-9 gap-2 font-bold bg-blue-600 hover:bg-blue-700">
+                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    Export Full Book
                 </Button>
             </div>
         </div>
       </div>
 
       <Tabs value={activeBookSection} onValueChange={setActiveBookSection} className="w-full">
-        <div className="flex items-center justify-center mb-8 no-print">
-            <TabsList className="bg-muted/50 p-1 border">
-                <TabsTrigger value="cover" className="gap-2 px-6">Cover</TabsTrigger>
-                <TabsTrigger value="index" className="gap-2 px-6">Index</TabsTrigger>
+        <div className="flex flex-col items-center justify-center mb-8 no-print gap-4">
+            <TabsList className="bg-muted/50 p-1 border h-10">
+                <TabsTrigger value="cover" className="gap-2 px-6 h-8">Cover</TabsTrigger>
+                <TabsTrigger value="index" className="gap-2 px-6 h-8">Index</TabsTrigger>
                 {terms.map((t, i) => (
-                    <TabsTrigger key={t.id} value={t.id} className="gap-2 px-6">T{i+1}</TabsTrigger>
+                    <TabsTrigger key={t.id} value={t.id} className="gap-2 px-6 h-8">T{i+1}</TabsTrigger>
                 ))}
             </TabsList>
+            
+            {activeBookSection !== 'cover' && activeBookSection !== 'index' && (
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleExportChapter(activeBookSection)} 
+                    disabled={isExporting}
+                    className="text-[10px] uppercase font-black text-primary hover:bg-primary/5 h-6 gap-1.5"
+                >
+                    <FileText className="h-3 w-3" /> Export Just This Chapter
+                </Button>
+            )}
         </div>
 
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
