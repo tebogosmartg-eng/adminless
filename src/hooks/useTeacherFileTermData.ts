@@ -32,12 +32,13 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
 
         const classIds = classes.map(c => c.id);
 
-        const [learners, assessments, marks, evidence, remediationTasks] = await Promise.all([
+        const [learners, assessments, marks, evidence, remediationTasks, attachments] = await Promise.all([
             db.learners.where('class_id').anyOf(classIds).toArray(),
             db.assessments.where('term_id').equals(termId).filter(a => classIds.includes(a.class_id)).toArray(),
             db.assessment_marks.toArray(),
             db.evidence.where('term_id').equals(termId).filter(e => classIds.includes(e.class_id)).toArray(),
-            db.remediation_tasks.where('term_id').equals(termId).toArray()
+            db.remediation_tasks.where('term_id').equals(termId).toArray(),
+            db.teacher_file_attachments.where('term_id').equals(termId).toArray()
         ]);
 
         if (!isMounted.current) return;
@@ -81,7 +82,8 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
             assessments: assessments.sort((a, b) => (a.date || '').localeCompare(b.date || '')),
             totalEvidence: evidence.length,
             totalLearners: learners.length,
-            totalRemediationTasks: remediationTasks.length
+            totalRemediationTasks: remediationTasks.length,
+            attachments: attachments || []
         });
       } catch (err: any) {
         if (isMounted.current) setError(err.message || "Failed to compile term data.");

@@ -20,12 +20,13 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
             const classes = await db.classes.where('[year_id+term_id]').equals([yearId, term.id]).toArray();
             const classIds = classes.map(c => c.id);
 
-            const [learners, assessments, marks, evidence, remediationTasks] = await Promise.all([
+            const [learners, assessments, marks, evidence, remediationTasks, attachments] = await Promise.all([
                 db.learners.where('class_id').anyOf(classIds).toArray(),
                 db.assessments.where('term_id').equals(term.id).filter(a => classIds.includes(a.class_id)).toArray(),
                 db.assessment_marks.toArray(), 
                 db.evidence.where('term_id').equals(term.id).filter(e => classIds.includes(e.class_id)).toArray(),
-                db.remediation_tasks.where('term_id').equals(term.id).toArray()
+                db.remediation_tasks.where('term_id').equals(term.id).toArray(),
+                db.teacher_file_attachments.where('term_id').equals(term.id).toArray()
             ]);
 
             const assessmentIds = new Set(assessments.map(a => a.id));
@@ -51,15 +52,13 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 };
             });
 
-            // Gather all annotations for this term
-            const termAnnotations = annotations.filter(a => a.term_id === term.id);
-
             return {
                 term,
                 classes: classAnalytics,
                 assessments: assessments.sort((a, b) => (a.date || '').localeCompare(b.date || '')),
                 evidence: evidence.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')),
-                annotations: termAnnotations,
+                annotations: annotations.filter(a => a.term_id === term.id),
+                attachments: attachments || [],
                 totalRemediation: remediationTasks.length
             };
         }));
@@ -112,16 +111,10 @@ export const generateTeacherFilePDF = async (
             addHeader(doc, profile, "Table of Contents");
             let indexY = 60;
             const standardSections = [
-                "1. Personal details",
-                "2. Timetable",
-                "3. Subject Policy and Support Documents",
-                "4. Planning",
-                "5. Assessment",
-                "6. Educator Reports",
-                "7. Textbook / LTSMs control records",
-                "8. Subject Meeting Minutes",
-                "9. IQMS",
-                "10. Correspondence"
+                "1. Personal details", "2. Timetable", "3. Subject Policy and Support Documents",
+                "4. Planning", "5. Assessment", "6. Educator Reports",
+                "7. Textbook / LTSMs control records", "8. Subject Meeting Minutes",
+                "9. IQMS", "10. Correspondence"
             ];
 
             doc.setFontSize(12);
@@ -136,20 +129,6 @@ export const generateTeacherFilePDF = async (
                 indexY += 8;
             });
 
-            indexY += 10;
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "bold");
-            doc.text("Term Chapters", margin, indexY);
-            indexY += 10;
-
-            termChapters.forEach((ch, idx) => {
-                doc.setFontSize(10);
-                doc.setFont("helvetica", "normal");
-                doc.text(ch.term.name, margin + 5, indexY);
-                doc.text(`Chapter ${idx + 1}`, pageWidth - margin - 20, indexY, { align: 'right' });
-                indexY += 8;
-            });
-
             addFooter(doc);
             doc.addPage();
         }
@@ -159,7 +138,7 @@ export const generateTeacherFilePDF = async (
             const startY = addHeader(doc, profile, `${ch.term.name} Record`);
             let currentY = startY + 5;
 
-            // SECTION 5.5 RECORD SHEETS
+            // Mark Schedules Summary
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
             doc.text("5.5 Mark Schedules Summary", margin, currentY);
@@ -175,42 +154,69 @@ export const generateTeacherFilePDF = async (
 
             currentY = (doc as any).lastAutoTable.finalY + 10;
 
-            // SECTION 5.1 POA
-            doc.text("5.1 Programme of Assessment", margin, currentY);
-            autoTable(doc, {
-                startY: currentY + 3,
-                head: [['Task Title', 'Type', 'Max Mark', 'Weight']],
-                body: ch.assessments.map(a => [a.title, a.type, a.max_mark, `${a.weight}%`]),
-                theme: 'striped',
-                styles: { fontSize: 8 }
+            // SECTION-BY-SECTION ATTACHMENT REGISTRY
+            doc.text("Section Attachment Registry", margin, currentY);
+            currentY += 8;
+
+            const standardSectionKeys = [
+                'subject_policy', 'atp', 'lesson_plans', 'file_control', 'poa', 'fats', 
+                'memoranda', 'moderation', 'record_sheets', 'improvement_plan',
+                'educator_reports', 'textbook_records', 'meeting_minutes', 'iqms', 'correspondence'
+            ];
+
+            standardSectionKeys.forEach(key => {
+                const sectionAttachments = ch.attachments.filter(a => a.section_key === key);
+                if (sectionAttachments.length > 0) {
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "bold");
+                    doc.text(`${key.replace('_', ' ').toUpperCase()}:`, margin, currentY);
+                    currentY += 5;
+                    
+                    sectionAttachments.forEach(att => {
+                        doc.setFontSize(8);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(`- ${att.file_name} (Uploaded: ${format(new Date(att.created_at), 'dd/MM/yy')})`, margin + 5, currentY);
+                        currentY += 5;
+                        
+                        if (currentY > doc.internal.pageSize.height - 40) {
+                            addFooter(doc);
+                            doc.addPage();
+                            currentY = 20;
+                        }
+                    });
+                    currentY += 5;
+                }
             });
 
-            currentY = (doc as any).lastAutoTable.finalY + 10;
-
             // COMMENTARY COMPILATION
-            doc.text("Administrative Commentary & Reflections", margin, currentY);
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("Professional Commentary & Reflections", margin, currentY);
+            currentY += 8;
+
             if (ch.annotations.length === 0) {
                 doc.setFontSize(9);
                 doc.setFont("helvetica", "italic");
-                doc.text("No professional commentary recorded for this term period.", margin, currentY + 8);
-                currentY += 15;
+                doc.text("No professional commentary recorded for this term period.", margin, currentY);
+                currentY += 10;
             } else {
                 ch.annotations.forEach(a => {
                     const label = a.section_key.split('.')[0].replace('_', ' ').toUpperCase();
                     doc.setFontSize(9);
                     doc.setFont("helvetica", "bold");
-                    doc.text(`${label}:`, margin, currentY + 8);
+                    doc.text(`${label}:`, margin, currentY);
                     
                     doc.setFont("helvetica", "italic");
                     const splitComm = doc.splitTextToSize(a.content, pageWidth - (margin * 2));
-                    doc.text(splitComm, margin, currentY + 14);
-                    currentY += 16 + (splitComm.length * 5);
-                });
-            }
+                    doc.text(splitComm, margin, currentY + 6);
+                    currentY += 12 + (splitComm.length * 5);
 
-            if (currentY > doc.internal.pageSize.height - 40) {
-                doc.addPage();
-                currentY = 40;
+                    if (currentY > doc.internal.pageSize.height - 40) {
+                        addFooter(doc);
+                        doc.addPage();
+                        currentY = 20;
+                    }
+                });
             }
 
             addSignatures(doc, currentY);
