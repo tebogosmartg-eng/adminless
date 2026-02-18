@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useTeacherFileTermData } from '@/hooks/useTeacherFileTermData';
+import { TeacherFileAnnotation } from './TeacherFileAnnotation';
 import { format } from 'date-fns';
 
 export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
@@ -132,11 +133,6 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                             )}
                         </tbody>
                     </table>
-                    {data.assessments.length > 10 && (
-                        <div className="bg-slate-50 p-2 text-center text-[9px] font-bold text-slate-400 border-t uppercase tracking-tighter">
-                            + {data.assessments.length - 10} additional assessments documented in full marksheet
-                        </div>
-                    )}
                 </div>
             </section>
 
@@ -160,22 +156,17 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                     ))}
                 </div>
             </section>
-
-            {data.diagnostics && data.diagnostics.length > 0 && (
-                <section className="space-y-4 animate-in fade-in slide-in-from-right-4">
-                    <div className="flex items-center gap-2 border-b-2 border-slate-100 pb-2">
-                        <BrainCircuit className="h-5 w-5 text-purple-600" />
-                        <h3 className="font-black text-xs uppercase tracking-widest">AI Pedagogical Discovery</h3>
-                    </div>
-                    <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-100">
-                        <p className="text-[10px] font-bold text-purple-700 uppercase mb-2">Findings Linked</p>
-                        <p className="text-xs text-slate-600 leading-relaxed italic">
-                            Differentiated diagnostics have been generated and archived for {data.diagnostics.length} assessment tasks.
-                        </p>
-                    </div>
-                </section>
-            )}
         </div>
+      </div>
+
+      <div className="space-y-4 border-t pt-8">
+          <TeacherFileAnnotation 
+            yearId={term.year_id} 
+            termId={term.id} 
+            sectionKey={`${term.name.toLowerCase().replace(' ', '')}.commentary`} 
+            label={`${term.name} Administrative Commentary`}
+            placeholder={`Add your teacher reflections for ${term.name} here...`}
+          />
       </div>
       
       <div className="pt-20">

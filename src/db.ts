@@ -34,6 +34,16 @@ export interface AssessmentDiagnostic {
   updated_at: string;
 }
 
+export interface TeacherFileAnnotation {
+  id: string;
+  user_id: string;
+  academic_year_id: string;
+  term_id: string | null;
+  section_key: string;
+  content: string;
+  updated_at: string;
+}
+
 export interface DBClass extends Omit<ClassInfo, 'learners'> {
   sync_status?: 'synced' | 'pending';
 }
@@ -72,11 +82,12 @@ export class SmaRegDB extends Dexie {
   diagnostics!: Table<AssessmentDiagnostic>;
   scan_history!: Table<ScanHistory>;
   remediation_tasks!: Table<RemediationTask>;
+  teacher_file_annotations!: Table<TeacherFileAnnotation>;
 
   constructor() {
     super('SmaRegDB');
     
-    // Initial schema
+    // Previous versions kept for migration history
     this.version(1).stores({
       classes: 'id, user_id, sync_status',
       learners: 'id, class_id, sync_status', 
@@ -90,14 +101,12 @@ export class SmaRegDB extends Dexie {
       profiles: 'id'
     });
 
-    // Version 21: Added composite keys and user_id for specific tables
     this.version(21).stores({
       assessments: 'id, class_id, term_id, [class_id+term_id], user_id',
       assessment_marks: '[assessment_id+learner_id], id, assessment_id, learner_id, user_id',
       diagnostics: 'id, assessment_id, user_id'
     });
 
-    // Version 22: Universal user_id indexing for all tables to fix KeyPath errors
     this.version(22).stores({
       academic_years: 'id, user_id, closed',
       terms: 'id, year_id, user_id',
@@ -115,7 +124,6 @@ export class SmaRegDB extends Dexie {
       diagnostics: 'id, user_id, assessment_id'
     });
 
-    // Version 23: Fix missing indexes for sorting (created_at)
     this.version(23).stores({
       learner_notes: 'id, user_id, learner_id, term_id, date, created_at',
       lesson_logs: 'id, user_id, timetable_id, date, [timetable_id+date], created_at',
@@ -123,14 +131,17 @@ export class SmaRegDB extends Dexie {
       todos: 'id, user_id, term_id, completed, created_at'
     });
 
-    // Version 24: Added scan_history for audit trail
     this.version(24).stores({
       scan_history: 'id, user_id, class_id, assessment_id, academic_year_id, term_id, timestamp'
     });
 
-    // Version 25: Added remediation_tasks for trackable pedagogical interventions
     this.version(25).stores({
       remediation_tasks: 'id, user_id, class_id, term_id, assessment_id, status, created_at'
+    });
+
+    // Version 26: Added teacher_file_annotations for professional commentary overlay
+    this.version(26).stores({
+      teacher_file_annotations: 'id, user_id, academic_year_id, term_id, section_key'
     });
   }
 }

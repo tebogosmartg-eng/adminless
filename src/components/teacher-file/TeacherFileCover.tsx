@@ -5,6 +5,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { AcademicYear } from '@/lib/types';
 import icon from "@/source bucket/ICON.png";
 import { ShieldCheck, User, School } from 'lucide-react';
+import { TeacherFileAnnotation } from './TeacherFileAnnotation';
 
 export const TeacherFileCover = ({ year }: { year: AcademicYear | null }) => {
   const { schoolName, teacherName, schoolLogo } = useSettings();
@@ -27,6 +28,15 @@ export const TeacherFileCover = ({ year }: { year: AcademicYear | null }) => {
       <div className="space-y-2">
         <h2 className="text-6xl font-black tracking-tighter text-slate-900">TEACHER FILE</h2>
         <p className="text-xl font-bold text-blue-600 uppercase tracking-[0.3em]">{year?.name || '2024'}</p>
+      </div>
+
+      <div className="w-full max-w-lg mt-8">
+          <TeacherFileAnnotation 
+            yearId={year?.id} 
+            sectionKey="cover.reflection" 
+            label="Introductory Notes"
+            placeholder="Add an overall reflection for the year or a message to moderators..."
+          />
       </div>
 
       <div className="grid grid-cols-2 gap-12 pt-12 border-t border-slate-100 w-full max-w-md mx-auto">
