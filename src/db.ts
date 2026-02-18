@@ -115,12 +115,8 @@ export class SmaRegDB extends Dexie {
       profiles: 'id'
     });
 
-    this.version(26).stores({
-      teacher_file_annotations: 'id, user_id, academic_year_id, term_id, section_key'
-    });
-
-    // Version 27: Added teacher_file_attachments and task_slot_key index
-    this.version(27).stores({
+    // Version 28: Full schema alignment with remediation and scan auditing
+    this.version(28).stores({
       academic_years: 'id, user_id, closed',
       terms: 'id, year_id, user_id',
       classes: 'id, user_id, term_id, [year_id+term_id], sync_status',
@@ -137,7 +133,9 @@ export class SmaRegDB extends Dexie {
       diagnostics: 'id, user_id, assessment_id',
       teacher_file_annotations: 'id, user_id, academic_year_id, term_id, section_key',
       teacher_file_attachments: 'id, user_id, [academic_year_id+term_id+section_key], term_id, section_key',
-      assessments: 'id, class_id, term_id, [class_id+term_id], user_id, task_slot_key'
+      assessments: 'id, class_id, term_id, [class_id+term_id], user_id, task_slot_key',
+      remediation_tasks: 'id, user_id, class_id, term_id, assessment_id',
+      scan_history: 'id, user_id, class_id, assessment_id, timestamp'
     });
   }
 }
