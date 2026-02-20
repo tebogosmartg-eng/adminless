@@ -213,6 +213,7 @@ export interface Evidence {
   year_id: string;
   term_id?: string | null;
   learner_id?: string | null;
+  assessment_id?: string | null; // Added for assessment-specific evidence
   file_path: string;
   file_name: string;
   file_type: string;
@@ -287,4 +288,23 @@ export interface RemediationTask {
   description: string;
   status: 'pending' | 'active' | 'completed';
   created_at: string;
+}
+
+export interface ModerationSample {
+  id: string;
+  user_id: string;
+  academic_year_id: string;
+  term_id: string;
+  class_id: string;
+  assessment_id?: string | null;
+  rules_json: {
+    top: number;
+    mid: number;
+    bottom: number;
+    random: number;
+    basis: 'term_overall' | 'assessment';
+  };
+  learner_ids: string[];
+  created_at: string;
+  updated_at: string;
 }

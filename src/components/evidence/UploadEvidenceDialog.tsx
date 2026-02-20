@@ -11,12 +11,13 @@ import { Evidence } from '@/lib/types';
 interface UploadEvidenceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpload: (file: File, category: Evidence['category'], notes: string) => Promise<void>;
+  onUpload: (file: File, category: Evidence['category'], notes: string, learnerId?: string) => Promise<void>;
   isUploading: boolean;
   learnerName?: string;
+  learnerId?: string;
 }
 
-export const UploadEvidenceDialog = ({ open, onOpenChange, onUpload, isUploading, learnerName }: UploadEvidenceDialogProps) => {
+export const UploadEvidenceDialog = ({ open, onOpenChange, onUpload, isUploading, learnerName, learnerId }: UploadEvidenceDialogProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState<Evidence['category']>('general');
   const [notes, setNotes] = useState('');
@@ -27,7 +28,7 @@ export const UploadEvidenceDialog = ({ open, onOpenChange, onUpload, isUploading
 
   const handleSubmit = async () => {
     if (!file) return;
-    await onUpload(file, category, notes);
+    await onUpload(file, category, notes, learnerId);
     setFile(null);
     setNotes('');
     onOpenChange(false);

@@ -8,10 +8,11 @@ import { FileText, Image as ImageIcon, Trash2, ExternalLink, ShieldCheck, Histor
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { UploadEvidenceDialog } from './UploadEvidenceDialog';
-import { ModerationAssistant } from './ModerationAssistant';
+import { ModerationSampleBuilder } from './ModerationSampleBuilder';
 import { getSignedFileUrl } from '@/services/storage';
 import { cn } from '@/lib/utils';
 import { useClasses } from '@/context/ClassesContext';
+import { useAcademic } from '@/context/AcademicContext';
 import { showError } from '@/utils/toast';
 
 interface EvidenceManagerProps {
@@ -25,10 +26,11 @@ interface EvidenceManagerProps {
 export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerName: initialLearnerName }: EvidenceManagerProps) => {
   const { evidenceList, addEvidence, deleteEvidence, isUploading } = useEvidence({ classId, learnerId, termId });
   const { classes } = useClasses();
+  const { assessments, marks } = useAcademic();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
   
-  // Selection state for moderation assistant
+  // Selection state for builder upload
   const [targetLearnerId, setTargetLearnerId] = useState<string | undefined>(learnerId);
   const [targetLearnerName, setTargetLearnerName] = useState<string | undefined>(initialLearnerName);
 
@@ -67,16 +69,15 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
       setIsUploadOpen(true);
   };
 
-  const handleAssistantUpload = (file: File, category: Evidence['category'], notes: string) => {
-      return addEvidence(file, category, notes);
-  };
-
   return (
-    <div className="flex flex-col h-full gap-4">
-      {!learnerId && currentClass && !isLocked && (
-          <ModerationAssistant 
-            learners={currentClass.learners} 
-            onSelectLearner={handleOpenUpload}
+    <div className="flex flex-col h-full gap-6">
+      {!learnerId && currentClass && (
+          <ModerationSampleBuilder 
+            classInfo={currentClass} 
+            assessments={assessments}
+            marks={marks}
+            evidenceList={evidenceList}
+            onUploadForLearner={handleOpenUpload}
           />
       )}
 
@@ -156,9 +157,10 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
       <UploadEvidenceDialog 
         open={isUploadOpen}
         onOpenChange={setIsUploadOpen}
-        onUpload={handleAssistantUpload}
+        onUpload={addEvidence}
         isUploading={isUploading}
         learnerName={targetLearnerName}
+        learnerId={targetLearnerId}
       />
     </div>
   );

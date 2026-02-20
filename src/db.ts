@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { 
-  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote, Evidence, Rubric, ScanHistory, RemediationTask
+  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote, Evidence, Rubric, ScanHistory, RemediationTask, ModerationSample
 } from '@/lib/types';
 
 export interface LessonLog {
@@ -98,6 +98,7 @@ export class SmaRegDB extends Dexie {
   remediation_tasks!: Table<RemediationTask>;
   teacher_file_annotations!: Table<TeacherFileAnnotation>;
   teacher_file_attachments!: Table<TeacherFileAttachment>;
+  moderation_samples!: Table<ModerationSample>;
 
   constructor() {
     super('SmaRegDB');
@@ -146,6 +147,11 @@ export class SmaRegDB extends Dexie {
     // Version 30: Fix for timetable class_id indexing
     this.version(30).stores({
       timetable: 'id, user_id, year_id, day, period, class_id'
+    });
+
+    // Version 31: Adding moderation_samples
+    this.version(31).stores({
+      moderation_samples: 'id, user_id, [academic_year_id+term_id+class_id], assessment_id'
     });
   }
 }
