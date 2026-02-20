@@ -20,7 +20,10 @@ import {
     X,
     Loader2,
     FileUp,
-    FileCheck
+    FileCheck,
+    TrendingUp,
+    TrendingDown,
+    Minus
 } from 'lucide-react';
 import { useModerationSample } from '@/hooks/useModerationSample';
 import { ClassInfo, Assessment, AssessmentMark, Learner, Evidence } from '@/lib/types';
@@ -112,8 +115,9 @@ export const ModerationSampleBuilder = ({
     );
   };
 
-  const sampleLearners = useMemo(() => {
-      return classInfo.learners
+  // Grouping Logic for results
+  const groupedLearners = useMemo(() => {
+      const selected = classInfo.learners
         .filter(l => l.id && selectedLearnerIds.includes(l.id))
         .map(l => {
             const hasEvidence = evidenceList.some(e => e.learner_id === l.id);
@@ -128,9 +132,80 @@ export const ModerationSampleBuilder = ({
             return { ...l, hasEvidence, score };
         })
         .sort((a, b) => b.score - a.score);
-  }, [classInfo.learners, selectedLearnerIds, evidenceList, basis, assessmentId, assessments, marks]);
 
-  const completionCount = sampleLearners.filter(l => l.hasEvidence).length;
+      // Divide the sorted selection into groups based on the rules that picked them
+      // If manually edited, we just divide by count
+      const high = selected.slice(0, rules.top);
+      const low = selected.slice(-rules.bottom);
+      
+      const middleIds = new Set(selected.map(l => l.id));
+      high.forEach(l => middleIds.delete(l.id!));
+      low.forEach(l => middleIds.delete(l.id!));
+      
+      const moderate = selected.filter(l => middleIds.has(l.id!));
+
+      return { high, moderate, low, total: selected.length };
+  }, [classInfo.learners, selectedLearnerIds, evidenceList, basis, assessmentId, assessments, marks, rules]);
+
+  const completionCount = [...groupedLearners.high, ...groupedLearners.moderate, ...groupedLearners.low].filter(l => l.hasEvidence).length;
+
+  const AchievementGroup = ({ title, learners, icon: Icon, colorClass, borderClass }: any) => {
+    if (learners.length === 0) return null;
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+                <Icon className={cn("h-3 w-3", colorClass)} />
+                <span className={cn("text-[10px] font-black uppercase tracking-widest", colorClass)}>
+                    {title} Achievement
+                </span>
+                <span className="text-[10px] font-bold text-muted-foreground opacity-40">({learners.length})</span>
+            </div>
+            <div className="grid gap-2">
+                {learners.map((l: any) => (
+                    <div key={l.id} className={cn(
+                        "flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all",
+                        l.hasEvidence ? "border-green-100" : "border-slate-100"
+                    )}>
+                        <div className="flex items-center gap-3">
+                            <div className={cn(
+                                "p-1.5 rounded-lg",
+                                l.hasEvidence ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
+                            )}>
+                                {l.hasEvidence ? <FileCheck className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{l.name}</span>
+                                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter">
+                                    {l.score.toFixed(1)}% {basis === 'assessment' ? 'Task' : 'Term'}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {!l.hasEvidence ? (
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => onUploadForLearner(l)} 
+                                    className="h-7 text-[10px] font-black uppercase text-blue-600 hover:bg-blue-50 gap-1.5"
+                                >
+                                    <FileUp className="h-3 w-3" /> Attach Script
+                                </Button>
+                            ) : (
+                                <Badge variant="outline" className="h-5 text-[8px] uppercase font-black border-green-200 text-green-700 bg-green-50/50">Stored</Badge>
+                            )}
+                            <button 
+                                onClick={() => l.id && toggleLearner(l.id)}
+                                className="p-1 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+  };
 
   return (
     <Card className="border-primary/20 bg-primary/[0.01] shadow-none">
@@ -148,11 +223,11 @@ export const ModerationSampleBuilder = ({
             {selectedLearnerIds.length > 0 && (
                 <div className="text-right">
                     <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Evidence Status</p>
-                    <Badge variant={completionCount === sampleLearners.length ? "default" : "outline"} className={cn(
+                    <Badge variant={completionCount === selectedLearnerIds.length ? "default" : "outline"} className={cn(
                         "h-5 px-2",
-                        completionCount === sampleLearners.length && "bg-green-600 border-none"
+                        completionCount === selectedLearnerIds.length && "bg-green-600 border-none"
                     )}>
-                        {completionCount} / {sampleLearners.length} Linked
+                        {completionCount} / {selectedLearnerIds.length} Linked
                     </Badge>
                 </div>
             )}
@@ -187,14 +262,21 @@ export const ModerationSampleBuilder = ({
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {['top', 'mid', 'bottom', 'random'].map(key => (
-                    <div key={key} className="space-y-1.5">
-                        <Label className="text-[9px] uppercase font-bold text-muted-foreground">{key} N</Label>
+                {[
+                    { key: 'top', label: 'High', icon: TrendingUp, color: 'text-green-600' },
+                    { key: 'mid', label: 'Moderate', icon: Minus, color: 'text-blue-600' },
+                    { key: 'bottom', label: 'Low', icon: TrendingDown, color: 'text-red-600' },
+                    { key: 'random', label: 'Random', icon: Sparkles, color: 'text-purple-600' }
+                ].map(opt => (
+                    <div key={opt.key} className="space-y-1.5">
+                        <Label className="text-[9px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                            <opt.icon className={cn("h-2.5 w-2.5", opt.color)} /> {opt.label}
+                        </Label>
                         <Input 
                             type="number" 
                             className="h-8 text-center font-bold"
-                            value={rules[key as keyof typeof rules]}
-                            onChange={(e) => setRules({ ...rules, [key]: parseInt(e.target.value) || 0 })}
+                            value={rules[opt.key as keyof typeof rules]}
+                            onChange={(e) => setRules({ ...rules, [opt.key]: parseInt(e.target.value) || 0 })}
                         />
                     </div>
                 ))}
@@ -213,10 +295,10 @@ export const ModerationSampleBuilder = ({
 
         {/* Results / List */}
         {selectedLearnerIds.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-6">
                 <div className="flex items-center justify-between border-b pb-2">
                     <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                        <Users className="h-3 w-3" /> Selected Group ({selectedLearnerIds.length})
+                        <Users className="h-3 w-3" /> Audit Selection ({selectedLearnerIds.length})
                     </h4>
                     <div className="flex gap-2">
                         <Button variant="ghost" size="sm" className="h-6 text-[9px] uppercase font-black" onClick={() => setIsEditing(!isEditing)}>
@@ -224,14 +306,14 @@ export const ModerationSampleBuilder = ({
                             {isEditing ? "Finish Editing" : "Edit Selection"}
                         </Button>
                         <Button variant="outline" size="sm" onClick={handleSave} className="h-6 gap-1 px-2 border-primary text-primary text-[9px] font-black uppercase">
-                            <Save className="h-3 w-3" /> Save Selection
+                            <Save className="h-3 w-3" /> Save Sample
                         </Button>
                     </div>
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid gap-6">
                     {isEditing ? (
-                        <div className="p-3 border rounded-xl bg-background max-h-[300px] overflow-y-auto">
+                        <div className="p-3 border rounded-xl bg-background max-h-[350px] overflow-y-auto shadow-inner">
                             <div className="grid grid-cols-2 gap-2">
                                 {classInfo.learners.map(l => (
                                     <button 
@@ -249,39 +331,25 @@ export const ModerationSampleBuilder = ({
                             </div>
                         </div>
                     ) : (
-                        <div className="grid gap-2">
-                            {sampleLearners.map((l) => (
-                                <div key={l.id} className="flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all">
-                                    <div className="flex items-center gap-3">
-                                        {l.hasEvidence ? (
-                                            <div className="p-1.5 rounded-full bg-green-100 text-green-700"><FileCheck className="h-3.5 w-3.5" /></div>
-                                        ) : (
-                                            <div className="p-1.5 rounded-full bg-amber-50 text-amber-600"><AlertCircle className="h-3.5 w-3.5" /></div>
-                                        )}
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-slate-900">{l.name}</span>
-                                            <span className="text-[9px] font-bold text-muted-foreground uppercase">{l.score.toFixed(1)}% ({basis === 'assessment' ? 'Task' : 'Term'})</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {l.hasEvidence ? (
-                                            <Badge variant="outline" className="h-5 text-[8px] uppercase border-green-200 text-green-700 bg-green-50/50">Complete</Badge>
-                                        ) : (
-                                            <Button variant="ghost" size="sm" onClick={() => onUploadForLearner(l)} className="h-7 text-[10px] font-black uppercase text-blue-600 hover:bg-blue-50 gap-1.5">
-                                                <FileUp className="h-3 w-3" /> Attach Script
-                                            </Button>
-                                        )}
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-7 w-7 text-muted-foreground opacity-0 group-hover:opacity-100"
-                                            onClick={() => l.id && toggleLearner(l.id)}
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="space-y-6 animate-in fade-in duration-500">
+                            <AchievementGroup 
+                                title="High" 
+                                learners={groupedLearners.high} 
+                                icon={TrendingUp} 
+                                colorClass="text-green-600" 
+                            />
+                            <AchievementGroup 
+                                title="Moderate" 
+                                learners={groupedLearners.moderate} 
+                                icon={Minus} 
+                                colorClass="text-blue-600" 
+                            />
+                            <AchievementGroup 
+                                title="Low" 
+                                learners={groupedLearners.low} 
+                                icon={TrendingDown} 
+                                colorClass="text-red-600" 
+                            />
                         </div>
                     )}
                 </div>
