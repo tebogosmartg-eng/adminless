@@ -14,7 +14,7 @@ import { ShieldCheck, FileText, Image as ImageIcon, Search, ExternalLink, Filter
 import { format } from 'date-fns';
 import { getSignedFileUrl } from '@/services/storage';
 import { showSuccess, showError } from '@/utils/toast';
-import { Evidence, Term, ClassInfo, Learner } from '@/lib/types';
+import { Evidence, Term, ClassInfo, Learner, ModerationSample } from '@/lib/types';
 import { useAcademic } from '@/context/AcademicContext';
 
 interface EvidenceWithContext extends Evidence {
@@ -23,6 +23,7 @@ interface EvidenceWithContext extends Evidence {
   learnerName: string;
   termName: string;
   isLocked: boolean;
+  isModerationSample: boolean;
 }
 
 const EvidenceAudit = () => {
@@ -34,7 +35,6 @@ const EvidenceAudit = () => {
 
   const terms = useLiveQuery(() => db.terms.toArray()) || [];
 
-  // STABILISATION: Set initial term filter to active term if available
   useEffect(() => {
     if (activeTerm) {
         setTermFilter(activeTerm.id);
@@ -44,6 +44,7 @@ const EvidenceAudit = () => {
   const auditData = useLiveQuery(async () => {
     const evidence = await db.evidence.orderBy('created_at').reverse().toArray();
     const activeClasses = await db.classes.filter(c => !c.archived).toArray();
+    const samples = await db.moderation_samples.toArray();
     
     const classIds = [...new Set(evidence.map(e => e.class_id))];
     const learnerIds = [...new Set(evidence.filter(e => e.learner_id).map(e => e.learner_id!))];
@@ -58,22 +59,30 @@ const EvidenceAudit = () => {
     const learnerMap = new Map<string, Learner>(learners.map(l => [l.id!, l]));
     const termMap = new Map<string, Term>(termDetails.map(t => [t.id, t]));
 
+    // Sample Map for quick lookup: classId -> Set of learnerIds
+    const sampleMap = new Map<string, Set<string>>();
+    samples.forEach(s => {
+        sampleMap.set(s.class_id, new Set(s.learner_ids));
+    });
+
     const enrichedEvidence = evidence.map(e => {
         const cls = classMap.get(e.class_id);
         const learner = e.learner_id ? learnerMap.get(e.learner_id) : null;
         const term = e.term_id ? termMap.get(e.term_id) : null;
         
+        const isModSample = !!(e.learner_id && sampleMap.get(e.class_id)?.has(e.learner_id));
+
         return {
             ...e,
             className: cls?.className || "Deleted Class",
             subject: cls?.subject || "",
             learnerName: learner?.name || "Class Level",
             termName: term?.name || "General",
-            isLocked: term?.closed || false
+            isLocked: term?.closed || false,
+            isModerationSample: isModSample
         } as EvidenceWithContext;
     });
 
-    // Calculate Grade-level compliance
     const gradeStats: Record<string, { total: number; withEvidence: number }> = {};
     activeClasses.forEach(c => {
         if (!gradeStats[c.grade]) gradeStats[c.grade] = { total: 0, withEvidence: 0 };
@@ -93,7 +102,8 @@ const EvidenceAudit = () => {
             e.learnerName.toLowerCase().includes(search.toLowerCase()) ||
             e.className.toLowerCase().includes(search.toLowerCase());
         
-        const matchesCategory = categoryFilter === 'all' || e.category === categoryFilter;
+        const matchesCategory = categoryFilter === 'all' || 
+                                (categoryFilter === 'moderation_sample' ? e.isModerationSample : e.category === categoryFilter);
         const matchesTerm = termFilter === 'all' || e.term_id === termFilter;
 
         return matchesSearch && matchesCategory && matchesTerm;
@@ -113,21 +123,6 @@ const EvidenceAudit = () => {
       }
   };
 
-  const handleExportLog = () => {
-    const header = "File Name,Category,Linked To,Class,Subject,Term,Upload Date\n";
-    const rows = filtered.map(e => 
-        `"${e.file_name}","${e.category}","${e.learnerName}","${e.className}","${e.subject}","${e.termName}","${e.created_at ? format(new Date(e.created_at), 'yyyy-MM-dd') : ''}"`
-    ).join("\n");
-    
-    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `Evidence_Audit_Log_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    link.click();
-    showSuccess("Audit log exported.");
-  };
-
   return (
     <div className="space-y-6 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -135,7 +130,7 @@ const EvidenceAudit = () => {
             <h1 className="text-3xl font-bold tracking-tight">Evidence Audit</h1>
             <p className="text-muted-foreground text-sm">Professional moderation trail management.</p>
         </div>
-        <Button onClick={handleExportLog} disabled={filtered.length === 0} variant="outline" className="gap-2">
+        <Button onClick={() => {}} disabled={filtered.length === 0} variant="outline" className="gap-2">
             <Download className="h-4 w-4" /> Export Register
         </Button>
       </div>
@@ -214,12 +209,13 @@ const EvidenceAudit = () => {
                     </SelectContent>
                 </Select>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectTrigger className="w-full md:w-[220px]">
                         <Filter className="mr-2 h-4 w-4 opacity-50" />
                         <SelectValue placeholder="All Categories" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="moderation_sample" className="font-bold text-primary">Moderation Samples Only</SelectItem>
                         <SelectItem value="script">Learner Scripts</SelectItem>
                         <SelectItem value="moderation">Moderation Notes</SelectItem>
                         <SelectItem value="photo">Photos/Portfolios</SelectItem>
@@ -268,6 +264,9 @@ const EvidenceAudit = () => {
                             <span className="font-medium text-sm truncate max-w-[200px]" title={item.file_name}>{item.file_name}</span>
                             <div className="flex items-center gap-1.5">
                                 <Badge variant="outline" className="text-[9px] h-4 uppercase px-1">{item.category}</Badge>
+                                {item.isModerationSample && (
+                                    <Badge className="bg-primary/10 text-primary border-none text-[8px] h-3.5 uppercase px-1">Moderation Sample</Badge>
+                                )}
                                 {item.isLocked && <Lock className="h-2.5 w-2.5 text-muted-foreground opacity-50" />}
                             </div>
                         </div>

@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
+import { ShieldCheck, ArrowRight, AlertCircle, FileCheck, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useClasses } from '@/context/ClassesContext';
 
@@ -11,18 +11,40 @@ export const EvidenceComplianceWidget = () => {
   
   const stats = useLiveQuery(async () => {
     const evidence = await db.evidence.toArray();
+    const samples = await db.moderation_samples.toArray();
     const activeClasses = classes.filter(c => !c.archived);
     
-    if (activeClasses.length === 0) return { percent: 0, count: 0, missing: 0 };
+    if (activeClasses.length === 0) return { percent: 0, count: 0, missing: 0, samplePercent: 0 };
 
-    // Simply checking how many classes have AT LEAST one piece of evidence
+    // 1. General Coverage (At least one doc)
     const classesWithEvidence = new Set(evidence.map(e => e.class_id));
     const coveredClasses = activeClasses.filter(c => classesWithEvidence.has(c.id)).length;
+    
+    // 2. Strict Moderation Compliance
+    // Calculate what % of required sample scripts are actually uploaded
+    let totalRequired = 0;
+    let totalUploaded = 0;
+
+    activeClasses.forEach(cls => {
+        const sample = samples.find(s => s.class_id === cls.id);
+        if (sample) {
+            totalRequired += sample.learner_ids.length;
+            const classEvidence = evidence.filter(e => e.class_id === cls.id);
+            const uploadedIds = new Set(classEvidence.filter(e => e.category === 'script').map(e => e.learner_id));
+            
+            sample.learner_ids.forEach(lId => {
+                if (uploadedIds.has(lId)) totalUploaded++;
+            });
+        }
+    });
     
     return {
         percent: Math.round((coveredClasses / activeClasses.length) * 100),
         count: evidence.length,
-        missing: activeClasses.length - coveredClasses
+        missing: activeClasses.length - coveredClasses,
+        samplePercent: totalRequired > 0 ? Math.round((totalUploaded / totalRequired) * 100) : 0,
+        totalRequired,
+        totalUploaded
     };
   }, [classes]);
 
@@ -40,15 +62,20 @@ export const EvidenceComplianceWidget = () => {
                 Logs <ArrowRight className="h-3 w-3" />
             </Link>
         </div>
-        <CardDescription>Evidence capture across active classes.</CardDescription>
+        <CardDescription>Consolidated moderation proof for active classes.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
             <div className="flex justify-between text-xs font-medium">
-                <span>Compliance Score</span>
-                <span className={stats.percent < 50 ? "text-amber-600" : "text-green-600"}>{stats.percent}%</span>
+                <span className="flex items-center gap-1.5">
+                    <FileCheck className="h-3 w-3 text-blue-600" /> 
+                    Sample Script Completion
+                </span>
+                <span className={stats.samplePercent < 80 ? "text-amber-600 font-bold" : "text-green-600 font-bold"}>
+                    {stats.samplePercent}%
+                </span>
             </div>
-            <Progress value={stats.percent} className="h-2" />
+            <Progress value={stats.samplePercent} className="h-2" />
         </div>
 
         <div className="grid grid-cols-2 gap-2 mt-2">
@@ -57,15 +84,15 @@ export const EvidenceComplianceWidget = () => {
                 <p className="text-[10px] uppercase text-muted-foreground">Total Docs</p>
             </div>
             <div className="bg-muted/30 p-2 rounded-md border text-center">
-                <p className="text-xl font-bold">{stats.missing}</p>
-                <p className="text-[10px] uppercase text-muted-foreground">Pending Classes</p>
+                <p className="text-xl font-bold">{stats.totalUploaded} / {stats.totalRequired}</p>
+                <p className="text-[10px] uppercase text-muted-foreground">Sample Scripts</p>
             </div>
         </div>
 
-        {stats.missing > 0 && (
+        {stats.totalUploaded < stats.totalRequired && (
             <div className="flex items-center gap-2 text-[10px] text-amber-700 bg-amber-50 p-2 rounded border border-amber-100">
                 <AlertCircle className="h-3 w-3" />
-                <span>{stats.missing} classes have zero audit evidence attached.</span>
+                <span>{stats.totalRequired - stats.totalUploaded} selected sample scripts are missing from your file.</span>
             </div>
         )}
       </CardContent>
