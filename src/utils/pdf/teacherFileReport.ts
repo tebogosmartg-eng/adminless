@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { AcademicYear, Term } from '@/lib/types';
+import { AcademicYear, Term, Assessment } from '@/lib/types';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { db } from '@/db';
 import { format } from 'date-fns';
@@ -22,24 +22,34 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
             const classes = await db.classes.where('[year_id+term_id]').equals([yearId, term.id]).toArray();
             const classIds = classes.map(c => c.id);
 
-            const [learners, assessments, marks, evidence, remediationTasks, attachments, lessonLogs, topics] = await Promise.all([
+            // Fetch assessments first to get IDs for mark filtering
+            const assessments = await db.assessments
+                .where('term_id')
+                .equals(term.id)
+                .filter(a => classIds.includes(a.class_id))
+                .toArray();
+            
+            const assessmentIds = assessments.map(a => a.id);
+
+            const [learners, marks, evidence, remediationTasks, attachments, lessonLogs, topics, diagnostics] = await Promise.all([
                 db.learners.where('class_id').anyOf(classIds).toArray(),
-                db.assessments.where('term_id').equals(term.id).filter(a => classIds.includes(a.class_id)).toArray(),
-                db.assessment_marks.toArray(), 
+                assessmentIds.length > 0 ? db.assessment_marks.where('assessment_id').anyOf(assessmentIds).toArray() : Promise.resolve([]),
                 db.evidence.where('term_id').equals(term.id).filter(e => classIds.includes(e.class_id)).toArray(),
                 db.remediation_tasks.where('term_id').equals(term.id).toArray(),
                 db.teacher_file_attachments.where('term_id').equals(term.id).toArray(),
                 db.lesson_logs.toArray(),
-                db.curriculum_topics.where('term_id').equals(term.id).toArray()
+                db.curriculum_topics.where('term_id').equals(term.id).toArray(),
+                db.diagnostics.toArray()
             ]);
 
-            const assessmentIds = new Set(assessments.map(a => a.id));
-            const relevantMarks = marks.filter(m => assessmentIds.has(m.assessment_id));
+            const assessmentIdsSet = new Set(assessments.map(a => a.id));
+            const relevantMarks = marks.filter(m => assessmentIdsSet.has(m.assessment_id));
 
             const classAnalytics = classes.map(cls => {
                 const clsAss = assessments.filter(a => a.class_id === cls.id);
                 const clsLearners = learners.filter(l => l.class_id === cls.id);
                 const clsMarks = relevantMarks.filter(m => clsAss.some(a => a.id === m.assessment_id));
+                const clsEvidence = evidence.filter(e => e.class_id === cls.id);
 
                 const avgs = clsLearners.map(l => l.id ? calculateWeightedAverage(clsAss, clsMarks, l.id) : 0).filter(a => a > 0);
                 const avg = avgs.length > 0 ? (avgs.reduce((s, a) => s + a, 0) / avgs.length).toFixed(1) : "0.0";
@@ -53,7 +63,8 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                     avg,
                     passRate,
                     learnerCount: clsLearners.length,
-                    evidenceCount: evidence.filter(e => e.class_id === cls.id).length
+                    evidenceCount: clsEvidence.length,
+                    scriptCount: clsEvidence.filter(e => e.category === 'script').length
                 };
             });
 
@@ -72,6 +83,21 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 }))
                 .sort((a, b) => b.date.localeCompare(a.date));
 
+            const diagnosticSummaries = assessments
+                .map(ass => {
+                    const diag = diagnostics.find(d => d.assessment_id === ass.id);
+                    if (!diag) return null;
+                    let findings = "Analysis finalized.";
+                    try {
+                        const parsed = JSON.parse(diag.findings);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            findings = parsed[0].performance_summary || findings;
+                        }
+                    } catch(e) {}
+                    return { title: ass.title, findings };
+                })
+                .filter(Boolean);
+
             return {
                 term,
                 classes: classAnalytics,
@@ -81,7 +107,8 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 attachments: attachments || [],
                 remediationTasks: remediationTasks || [],
                 logs: formattedLogs,
-                topics: topics || []
+                topics: topics || [],
+                diagnosticSummaries
             };
         }));
 
@@ -135,6 +162,25 @@ export const generateTeacherFilePDF = async (
             const startY = addHeader(doc, profile, `${ch.term.name} Record`);
             let currentY = startY + 5;
 
+            // SECTION 1: PERSONAL DETAILS
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("1. Personal Details", margin, currentY);
+            currentY += 4;
+            autoTable(doc, {
+                startY: currentY,
+                body: [
+                    ["Educator Name:", profile.teacher || "N/A"],
+                    ["Institution:", profile.name || "N/A"],
+                    ["SACE Number:", profile.saceNumber || "N/A"],
+                    ["EMIS/School Code:", profile.schoolCode || "N/A"]
+                ],
+                theme: 'plain',
+                styles: { fontSize: 9, cellPadding: 1 },
+                columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 } }
+            });
+            currentY = (doc as any).lastAutoTable.finalY + 10;
+
             // SECTION 2: TIMETABLE
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
@@ -163,9 +209,31 @@ export const generateTeacherFilePDF = async (
                 columnStyles: { 0: { cellWidth: 10 } }
             });
 
-            currentY = (doc as any).lastAutoTable.finalY + 15;
+            currentY = (doc as any).lastAutoTable.finalY + 12;
 
-            // SECTION 4.3: RECORD OF WORK
+            // SECTION 4.1: ATP
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("4.1 Annual Teaching Plan (ATP)", margin, currentY);
+            if (ch.topics && ch.topics.length > 0) {
+                autoTable(doc, {
+                    startY: currentY + 3,
+                    head: [['#', 'Topic / Content Area', 'Grade', 'Subject']],
+                    body: ch.topics.map((t: any, i: number) => [i + 1, t.title, t.grade, t.subject]),
+                    theme: 'grid',
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: [71, 85, 105] },
+                    columnStyles: { 0: { cellWidth: 10 } }
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 10;
+            } else {
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "italic");
+                doc.text("No curriculum topics defined for this term.", margin, currentY + 8);
+                currentY += 15;
+            }
+
+            // SECTION 4.3: RECORD OF WORK (Increased limit to 100)
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
             doc.text("4.3 Record of Work (Automated Audit)", margin, currentY);
@@ -174,13 +242,13 @@ export const generateTeacherFilePDF = async (
                 autoTable(doc, {
                     startY: currentY + 3,
                     head: [['Date', 'Class', 'Work Covered / Topic', 'Homework']],
-                    body: ch.logs.slice(0, 30).map((l: any) => [l.date, l.className, l.content, l.homework]),
+                    body: ch.logs.slice(0, 100).map((l: any) => [l.date, l.className, l.content, l.homework]),
                     theme: 'striped',
                     styles: { fontSize: 7, cellPadding: 2 },
                     headStyles: { fillColor: [71, 85, 105] },
                     columnStyles: { 0: { cellWidth: 15 }, 1: { cellWidth: 15 }, 3: { cellWidth: 30 } }
                 });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
+                currentY = (doc as any).lastAutoTable.finalY + 12;
             } else {
                 doc.setFontSize(9);
                 doc.setFont("helvetica", "italic");
@@ -194,11 +262,44 @@ export const generateTeacherFilePDF = async (
                 currentY = 20;
             }
 
+            // SECTION 5.1 & 5.2: POA & Mapping
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("5.1 & 5.2 Programme of Assessment & Task Mapping", margin, currentY);
+            autoTable(doc, {
+                startY: currentY + 3,
+                head: [['Task Title', 'Type', 'Weight', 'Portfolio Mapping']],
+                body: ch.assessments.map((ass: any) => [
+                    ass.title, 
+                    ass.type, 
+                    `${ass.weight}%`, 
+                    ass.task_slot_key ? ass.task_slot_key.replace('_', ' ').toUpperCase() : "UNMAPPED"
+                ]),
+                theme: 'grid',
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [41, 37, 36] }
+            });
+            currentY = (doc as any).lastAutoTable.finalY + 10;
+
+            // SECTION 5.4: MODERATION AUDIT
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("5.4 Moderation Audit Status", margin, currentY);
+            autoTable(doc, {
+                startY: currentY + 3,
+                head: [['Class Name', 'Learner Count', 'Sample Scripts Attached']],
+                body: ch.classes.map((cls: any) => [cls.name, cls.learnerCount, cls.scriptCount]),
+                theme: 'grid',
+                styles: { fontSize: 8, halign: 'center' },
+                columnStyles: { 0: { halign: 'left' } },
+                headStyles: { fillColor: [22, 163, 74] }
+            });
+            currentY = (doc as any).lastAutoTable.finalY + 10;
+
             // SECTION 5.5: PERFORMANCE MATRIX
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
             doc.text("5.5 Mark Schedules & Performance Matrix", margin, currentY);
-            
             autoTable(doc, {
                 startY: currentY + 3,
                 head: [['Class', 'Subject', 'Learners', 'Avg %', 'Pass %']],
@@ -207,8 +308,7 @@ export const generateTeacherFilePDF = async (
                 styles: { fontSize: 8 },
                 headStyles: { fillColor: [41, 37, 36] }
             });
-
-            currentY = (doc as any).lastAutoTable.finalY + 15;
+            currentY = (doc as any).lastAutoTable.finalY + 12;
 
             // SECTION 5.6: REMEDIATION PLAN
             doc.setFontSize(11);
@@ -228,79 +328,12 @@ export const generateTeacherFilePDF = async (
                     styles: { fontSize: 8 },
                     headStyles: { fillColor: [37, 99, 235] }
                 });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
+                currentY = (doc as any).lastAutoTable.finalY + 12;
             } else {
                 doc.setFontSize(9);
                 doc.setFont("helvetica", "italic");
                 doc.text("No formal interventions logged for this term.", margin, currentY + 8);
                 currentY += 15;
-            }
-
-            // ATTACHMENT REGISTRY
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
-            doc.text("Portfolio Attachment Registry", margin, currentY);
-            currentY += 8;
-
-            const sectionKeys = [
-                'subject_policy', 'atp', 'lesson_plans', 'file_control', 'poa', 'fats', 
-                'memoranda', 'moderation', 'record_sheets', 'improvement_plan',
-                'educator_reports', 'textbook_records', 'meeting_minutes', 'iqms', 'correspondence'
-            ];
-
-            sectionKeys.forEach(key => {
-                const sectionAttachments = ch.attachments.filter(a => a.section_key === key);
-                if (sectionAttachments.length > 0) {
-                    doc.setFontSize(9);
-                    doc.setFont("helvetica", "bold");
-                    doc.text(`${key.replace('_', ' ').toUpperCase()}:`, margin, currentY);
-                    currentY += 5;
-                    
-                    sectionAttachments.forEach(att => {
-                        doc.setFontSize(8);
-                        doc.setFont("helvetica", "normal");
-                        doc.text(`- ${att.file_name} (Uploaded: ${format(new Date(att.created_at), 'dd/MM/yy')})`, margin + 5, currentY);
-                        currentY += 5;
-                        
-                        if (currentY > doc.internal.pageSize.height - 40) {
-                            addFooter(doc);
-                            doc.addPage();
-                            currentY = 20;
-                        }
-                    });
-                    currentY += 5;
-                }
-            });
-
-            // COMMENTARY COMPILATION
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
-            doc.text("Professional Commentary & Reflections", margin, currentY);
-            currentY += 8;
-
-            if (ch.annotations.length === 0) {
-                doc.setFontSize(9);
-                doc.setFont("helvetica", "italic");
-                doc.text("No professional commentary recorded for this term period.", margin, currentY);
-                currentY += 10;
-            } else {
-                ch.annotations.forEach(a => {
-                    const label = a.section_key.split('.')[0].replace('_', ' ').toUpperCase();
-                    doc.setFontSize(9);
-                    doc.setFont("helvetica", "bold");
-                    doc.text(`${label}:`, margin, currentY);
-                    
-                    doc.setFont("helvetica", "italic");
-                    const splitComm = doc.splitTextToSize(a.content, pageWidth - (margin * 2));
-                    doc.text(splitComm, margin, currentY + 6);
-                    currentY += 12 + (splitComm.length * 5);
-
-                    if (currentY > doc.internal.pageSize.height - 40) {
-                        addFooter(doc);
-                        doc.addPage();
-                        currentY = 20;
-                    }
-                });
             }
 
             addSignatures(doc, currentY);

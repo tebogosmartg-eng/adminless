@@ -17,7 +17,7 @@ import { useSettings } from '@/context/SettingsContext';
 
 const TeacherFile = () => {
   const { years, terms, activeYear, setActiveYear } = useAcademic();
-  const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
+  const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone, schoolCode, saceNumber } = useSettings();
   const [activeBookSection, setActiveBookSection] = useState("cover");
   const [isExporting, setIsExporting] = useState(false);
 
@@ -31,7 +31,15 @@ const TeacherFile = () => {
       try {
           await generateTeacherFilePDF(
             activeYear, 
-            { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone }
+            { 
+              name: schoolName, 
+              teacher: teacherName, 
+              logo: schoolLogo, 
+              email: contactEmail, 
+              phone: contactPhone,
+              schoolCode,
+              saceNumber
+            }
           );
           showSuccess("Full Teacher File generated successfully.");
       } catch (e) {
@@ -47,7 +55,15 @@ const TeacherFile = () => {
       try {
           await generateTeacherFilePDF(
             activeYear, 
-            { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone },
+            { 
+              name: schoolName, 
+              teacher: teacherName, 
+              logo: schoolLogo, 
+              email: contactEmail, 
+              phone: contactPhone,
+              schoolCode,
+              saceNumber
+            },
             termId
           );
           showSuccess("Term Chapter compiled.");

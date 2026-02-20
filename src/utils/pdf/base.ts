@@ -1,3 +1,5 @@
+"use client";
+
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 
@@ -7,6 +9,8 @@ export interface SchoolProfile {
   logo: string | null;
   email: string;
   phone: string;
+  schoolCode?: string;
+  saceNumber?: string;
 }
 
 export interface AttendanceStats {
