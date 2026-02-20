@@ -32,7 +32,7 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
 
         const classIds = classes.map(c => c.id);
 
-        const [learners, assessments, marks, evidence, remediationTasks, attachments, curriculum, diagnostics] = await Promise.all([
+        const [learners, assessments, marks, evidence, remediationTasks, attachments, curriculum, diagnostics, samples] = await Promise.all([
             db.learners.where('class_id').anyOf(classIds).toArray(),
             db.assessments.where('term_id').equals(termId).filter(a => classIds.includes(a.class_id)).toArray(),
             db.assessment_marks.toArray(),
@@ -40,7 +40,8 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
             db.remediation_tasks.where('term_id').equals(termId).toArray(),
             db.teacher_file_attachments.where('term_id').equals(termId).toArray(),
             db.curriculum_topics.where('term_id').equals(termId).toArray(),
-            db.diagnostics.toArray() // Will filter locally for speed
+            db.diagnostics.toArray(),
+            db.moderation_samples.where('term_id').equals(termId).toArray()
         ]);
 
         if (!isMounted.current) return;
@@ -53,6 +54,7 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
             const clsLearners = learners.filter(l => l.class_id === cls.id);
             const clsMarks = relevantMarks.filter(m => clsAss.some(a => a.id === m.assessment_id));
             const clsEvidence = evidence.filter(e => e.class_id === cls.id);
+            const classSample = samples.find(s => s.class_id === cls.id);
 
             const learnerAvgs = clsLearners.map(l => {
                 if (!l.id) return 0;
@@ -67,6 +69,12 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
                 ? (learnerAvgs.filter(a => a >= 50).length / learnerAvgs.length) * 100
                 : 0;
 
+            const sampleNames = classSample 
+                ? clsLearners
+                    .filter(l => l.id && classSample.learner_ids.includes(l.id))
+                    .map(l => l.name)
+                : [];
+
             return {
                 id: cls.id,
                 name: cls.className,
@@ -77,17 +85,16 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
                 learnerCount: clsLearners.length,
                 assessmentCount: clsAss.length,
                 evidenceCount: clsEvidence.length,
-                scriptCount: clsEvidence.filter(e => e.category === 'script').length
+                scriptCount: clsEvidence.filter(e => e.category === 'script').length,
+                sampleNames
             };
         });
 
-        // Extract diagnostic summaries for Section 5.6
         const diagnosticSummaries = assessments
             .map(ass => {
                 const diag = diagnostics.find(d => d.assessment_id === ass.id);
                 if (!diag) return null;
                 
-                // Try to extract the executive summary or first finding
                 let findings = "Analysis finalized.";
                 try {
                     const parsed = JSON.parse(diag.findings);

@@ -22,7 +22,6 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
             const classes = await db.classes.where('[year_id+term_id]').equals([yearId, term.id]).toArray();
             const classIds = classes.map(c => c.id);
 
-            // Fetch assessments first to get IDs for mark filtering
             const assessments = await db.assessments
                 .where('term_id')
                 .equals(term.id)
@@ -31,7 +30,7 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
             
             const assessmentIds = assessments.map(a => a.id);
 
-            const [learners, marks, evidence, remediationTasks, attachments, lessonLogs, topics, diagnostics] = await Promise.all([
+            const [learners, marks, evidence, remediationTasks, attachments, lessonLogs, topics, diagnostics, samples] = await Promise.all([
                 db.learners.where('class_id').anyOf(classIds).toArray(),
                 assessmentIds.length > 0 ? db.assessment_marks.where('assessment_id').anyOf(assessmentIds).toArray() : Promise.resolve([]),
                 db.evidence.where('term_id').equals(term.id).filter(e => classIds.includes(e.class_id)).toArray(),
@@ -39,7 +38,8 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 db.teacher_file_attachments.where('term_id').equals(term.id).toArray(),
                 db.lesson_logs.toArray(),
                 db.curriculum_topics.where('term_id').equals(term.id).toArray(),
-                db.diagnostics.toArray()
+                db.diagnostics.toArray(),
+                db.moderation_samples.where('term_id').equals(term.id).toArray()
             ]);
 
             const assessmentIdsSet = new Set(assessments.map(a => a.id));
@@ -50,10 +50,17 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 const clsLearners = learners.filter(l => l.class_id === cls.id);
                 const clsMarks = relevantMarks.filter(m => clsAss.some(a => a.id === m.assessment_id));
                 const clsEvidence = evidence.filter(e => e.class_id === cls.id);
+                const classSample = samples.find(s => s.class_id === cls.id);
 
                 const avgs = clsLearners.map(l => l.id ? calculateWeightedAverage(clsAss, clsMarks, l.id) : 0).filter(a => a > 0);
                 const avg = avgs.length > 0 ? (avgs.reduce((s, a) => s + a, 0) / avgs.length).toFixed(1) : "0.0";
                 const passRate = avgs.length > 0 ? Math.round((avgs.filter(a => a >= 50).length / avgs.length) * 100) : 0;
+
+                const sampleNames = classSample 
+                    ? clsLearners
+                        .filter(l => l.id && classSample.learner_ids.includes(l.id))
+                        .map(l => l.name)
+                    : [];
 
                 return {
                     id: cls.id,
@@ -64,11 +71,11 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                     passRate,
                     learnerCount: clsLearners.length,
                     evidenceCount: clsEvidence.length,
-                    scriptCount: clsEvidence.filter(e => e.category === 'script').length
+                    scriptCount: clsEvidence.filter(e => e.category === 'script').length,
+                    sampleNames
                 };
             });
 
-            // Format lesson logs for Section 4.3
             const tSlots = await db.timetable.where('class_id').anyOf(classIds).toArray();
             const slotMap = new Map(tSlots.map(s => [s.id, s.class_id]));
             const classMap = new Map(classes.map(c => [c.id, c.className]));
@@ -233,7 +240,7 @@ export const generateTeacherFilePDF = async (
                 currentY += 15;
             }
 
-            // SECTION 4.3: RECORD OF WORK (Increased limit to 100)
+            // SECTION 4.3: RECORD OF WORK
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
             doc.text("4.3 Record of Work (Automated Audit)", margin, currentY);
@@ -287,11 +294,16 @@ export const generateTeacherFilePDF = async (
             doc.text("5.4 Moderation Audit Status", margin, currentY);
             autoTable(doc, {
                 startY: currentY + 3,
-                head: [['Class Name', 'Learner Count', 'Sample Scripts Attached']],
-                body: ch.classes.map((cls: any) => [cls.name, cls.learnerCount, cls.scriptCount]),
+                head: [['Class Name', 'Learner Count', 'Sample Scripts', 'Formal Selection']],
+                body: ch.classes.map((cls: any) => [
+                    cls.name, 
+                    cls.learnerCount, 
+                    cls.scriptCount,
+                    cls.sampleNames.join(', ') || "Not defined"
+                ]),
                 theme: 'grid',
                 styles: { fontSize: 8, halign: 'center' },
-                columnStyles: { 0: { halign: 'left' } },
+                columnStyles: { 0: { halign: 'left' }, 3: { halign: 'left', cellWidth: 60, fontSize: 7 } },
                 headStyles: { fillColor: [22, 163, 74] }
             });
             currentY = (doc as any).lastAutoTable.finalY + 10;

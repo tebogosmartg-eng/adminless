@@ -85,7 +85,6 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
       </div>
 
       <div className="space-y-20">
-        {/* 1. Personal Details */}
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="personal_details"
             title="1. Personal details"
@@ -144,7 +143,6 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             </div>
         </TeacherFileSection>
 
-        {/* 2. Timetable */}
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="timetable"
             title="2. Timetable"
@@ -157,7 +155,6 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
              </div>
         </TeacherFileSection>
 
-        {/* 3. Subject Policy */}
         <TeacherFileSection 
             yearId={term.year_id} termId={term.id} sectionKey="subject_policy"
             title="3. Subject Policy and Support Documents"
@@ -165,7 +162,6 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             isLocked={term.is_finalised}
         />
 
-        {/* 4. Planning */}
         <div className="space-y-8 border-l-4 border-slate-100 pl-8">
             <h3 className="text-2xl font-black text-slate-900">4. Planning</h3>
             
@@ -215,7 +211,6 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             </TeacherFileSection>
         </div>
 
-        {/* 5. Assessment */}
         <div className="space-y-8 border-l-4 border-blue-600 pl-8">
             <h3 className="text-2xl font-black text-slate-900">5. Assessment</h3>
 
@@ -300,6 +295,17 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                                     </div>
                                     <span className="text-[9px] font-bold text-muted-foreground uppercase text-right leading-tight">Sample Scripts<br/>Attached</span>
                                 </div>
+                                {cls.sampleNames.length > 0 && (
+                                    <div className="pt-2 border-t mt-1">
+                                        <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Formal Sample:</p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {cls.sampleNames.slice(0, 3).map((name: string, i: number) => (
+                                                <span key={i} className="text-[9px] font-bold text-slate-600 truncate max-w-[80px] bg-slate-50 px-1 rounded border">{name}</span>
+                                            ))}
+                                            {cls.sampleNames.length > 3 && <span className="text-[8px] text-slate-400 self-center">+{cls.sampleNames.length - 3} more</span>}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -381,7 +387,6 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             </TeacherFileSection>
         </div>
 
-        {/* 6-10 Upload Sections */}
         <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="educator_reports" title="6. Educator Reports" isLocked={term.is_finalised} />
         <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="textbook_records" title="7. Textbook / LTSMs control records" isLocked={term.is_finalised} />
         <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="meeting_minutes" title="8. Subject Meeting Minutes" isLocked={term.is_finalised} />
