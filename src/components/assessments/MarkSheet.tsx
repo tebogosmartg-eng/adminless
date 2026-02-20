@@ -171,7 +171,8 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           atRiskThreshold={state.atRiskThreshold}
           sortConfig={state.sortConfig}
           setIsAddOpen={actions.setIsAddOpen}
-          openAnalytics={(ass) => ass.questions && ass.questions.length > 0 ? handleOpenDiagnostic(ass) : actions.openAnalytics(ass)}
+          openAnalytics={(ass) => actions.openAnalytics(ass)}
+          onOpenDiagnostic={handleOpenDiagnostic}
           deleteAssessment={actions.deleteAssessment}
           onEditAssessment={(ass) => {
             actions.setEditingAssessment(ass);

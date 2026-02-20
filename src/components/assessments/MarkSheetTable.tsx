@@ -19,7 +19,7 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare, ListChecks
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare, ListChecks, BarChart3
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -41,6 +41,7 @@ interface MarkSheetTableProps {
   sortConfig?: { key: string; direction: 'asc' | 'desc' };
   setIsAddOpen: (open: boolean) => void;
   openAnalytics: (ass: Assessment) => void;
+  onOpenDiagnostic?: (ass: Assessment) => void;
   deleteAssessment: (id: string) => void;
   onEditAssessment?: (ass: Assessment) => void;
   getMarkValue: (assId: string, lId: string) => string;
@@ -62,7 +63,7 @@ interface MarkSheetTableProps {
 export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
   isLocked, isUsingVisibleTotal, atRiskThreshold, sortConfig, setIsAddOpen,
-  openAnalytics, deleteAssessment, onEditAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
+  openAnalytics, onOpenDiagnostic, deleteAssessment, onEditAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
   calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool, onOpenRubric, onOpenQuestions,
   validateAndCommitMark
 }: MarkSheetTableProps) => {
@@ -172,6 +173,7 @@ export const MarkSheetTable = ({
                             <button 
                                 className="opacity-0 group-hover:opacity-100 hover:text-primary transition-opacity"
                                 onClick={() => openAnalytics(ass)}
+                                title="View Statistics"
                             >
                                 <BarChart2 className="h-3 w-3" />
                             </button>
@@ -202,6 +204,14 @@ export const MarkSheetTable = ({
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => onOpenTool('voice', ass.id)}>
                                         <Mic className="mr-2 h-4 w-4 text-blue-500" /> Voice Entry
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                </>
+                            )}
+                            {ass.questions && ass.questions.length > 0 && onOpenDiagnostic && (
+                                <>
+                                    <DropdownMenuItem onClick={() => onOpenDiagnostic(ass)} className="font-bold text-primary">
+                                        <BarChart3 className="mr-2 h-4 w-4" /> Diagnostic Analysis
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                 </>
