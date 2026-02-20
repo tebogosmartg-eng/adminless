@@ -1,24 +1,19 @@
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, Clock, Notebook, ChevronRight, AlertCircle, FileEdit, History } from "lucide-react";
+import { CalendarClock, Clock, Notebook, ChevronRight, AlertCircle } from "lucide-react";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LessonLogDialog } from "./LessonLogDialog";
 import { useClasses } from '@/context/ClassesContext';
 
 export const TimetableWidget = () => {
   const { periods } = useCurrentPeriod();
   const { classes } = useClasses();
   const today = format(new Date(), 'EEEE');
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  const [logSession, setLogSession] = useState<{ id: string, name: string, subject: string, grade: string } | null>(null);
-  
   return (
     <Card className="border-none shadow-sm bg-white dark:bg-card">
       <CardHeader className="pb-1.5 pt-3 px-4">
@@ -48,7 +43,6 @@ export const TimetableWidget = () => {
             ) : (
                 <div className="space-y-1.5">
                     {periods.map((entry) => {
-                        const classData = classes.find(c => c.id === entry.class_id);
                         return (
                         <div 
                             key={entry.id} 
@@ -82,25 +76,6 @@ export const TimetableWidget = () => {
                                 </div>
 
                                 <div className="flex">
-                                    {entry.class_name && (
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className={cn(
-                                                "h-6 w-6 transition-colors",
-                                                entry.isPast ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground hover:text-primary"
-                                            )}
-                                            onClick={() => setLogSession({ 
-                                                id: entry.id, 
-                                                name: entry.class_name,
-                                                subject: classData?.subject || entry.subject || '',
-                                                grade: classData?.grade || ''
-                                            })}
-                                            title={entry.isPast ? "Review lesson record" : "Record work covered"}
-                                        >
-                                            {entry.isPast ? <History className="h-3 w-3" /> : <FileEdit className="h-3 w-3" />}
-                                        </Button>
-                                    )}
                                     {entry.class_id && !entry.isPast && (
                                         <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" asChild>
                                             <Link to={`/classes/${entry.class_id}`}>
@@ -128,18 +103,6 @@ export const TimetableWidget = () => {
             )}
         </ScrollArea>
       </CardContent>
-
-      {logSession && (
-          <LessonLogDialog 
-            open={!!logSession}
-            onOpenChange={(open) => !open && setLogSession(null)}
-            timetableId={logSession.id}
-            className={logSession.name}
-            subject={logSession.subject}
-            grade={logSession.grade}
-            date={todayStr}
-          />
-      )}
     </Card>
   );
 };
