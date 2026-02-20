@@ -192,8 +192,12 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const handleAddAssessment = useCallback(async () => {
       const targetTermId = newAss.termId || activeTerm?.id;
       if (!targetTermId) return showError("Target term missing.");
+      
+      // Explicitly construct payload to avoid leaking 'max' or other UI state
       await createAssessment({ 
-          ...newAss, 
+          title: newAss.title,
+          type: newAss.type,
+          date: newAss.date || new Date().toISOString(),
           class_id: classInfo.id, 
           term_id: targetTermId, 
           max_mark: Number(newAss.max), 
