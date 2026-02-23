@@ -153,6 +153,11 @@ export class SmaRegDB extends Dexie {
     this.version(31).stores({
       moderation_samples: 'id, user_id, [academic_year_id+term_id+class_id], assessment_id'
     });
+
+    // Version 32: Fix for moderation_samples indexing (standalone class_id and term_id)
+    this.version(32).stores({
+      moderation_samples: 'id, user_id, term_id, class_id, [academic_year_id+term_id+class_id], assessment_id'
+    });
   }
 }
 
