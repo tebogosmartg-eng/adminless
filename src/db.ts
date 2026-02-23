@@ -158,6 +158,11 @@ export class SmaRegDB extends Dexie {
     this.version(32).stores({
       moderation_samples: 'id, user_id, term_id, class_id, [academic_year_id+term_id+class_id], assessment_id'
     });
+
+    // Version 33: Adding created_at index to evidence table
+    this.version(33).stores({
+      evidence: 'id, user_id, class_id, learner_id, term_id, created_at'
+    });
   }
 }
 
