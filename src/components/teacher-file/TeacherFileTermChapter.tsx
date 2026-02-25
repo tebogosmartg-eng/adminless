@@ -26,7 +26,9 @@ import {
     ShieldCheck,
     ShieldAlert,
     BarChart3,
-    FileText
+    FileText,
+    Lock,
+    Eye
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -35,6 +37,8 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
   const { data, loading } = useTeacherFileTermData(term.id, term.year_id);
   const { teacherName, contactEmail, contactPhone, schoolCode, saceNumber } = useSettings();
   const [selectedAssId, setSelectedAssId] = useState<string>("all");
+
+  const isLocked = term.is_finalised || term.closed;
 
   if (loading) {
     return (
@@ -67,6 +71,16 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
   return (
     <div className="space-y-16">
       <div className="border-b-8 border-slate-900 pb-10">
+        {isLocked && (
+            <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-800 text-[10px] font-black uppercase tracking-widest rounded-lg border border-amber-200 mb-6 no-print">
+                <Lock className="h-3.5 w-3.5" />
+                <span>Term finalised — Teacher File is read-only.</span>
+                <Badge variant="outline" className="ml-auto border-amber-200 bg-white/50 text-amber-700 gap-1">
+                    <Eye className="h-2.5 w-2.5" /> View Only
+                </Badge>
+            </div>
+        )}
+
         <h2 className="text-6xl font-black tracking-tighter mb-2">{term.name.toUpperCase()}</h2>
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -76,7 +90,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                     {data.classes.length} Classes • {data.assessments.length} Tasks • {data.totalEvidence} Evidence Files
                 </div>
             </div>
-            {term.is_finalised && (
+            {isLocked && (
                 <Badge className="bg-green-600 text-white font-black px-6 py-2 text-sm rounded-full border-none">
                     FINALIZED RECORD
                 </Badge>
@@ -90,6 +104,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             title="1. Personal details"
             description="Professional educator details synchronized from system profile."
             hideAttachments
+            isLocked={isLocked}
         >
             <div className="grid gap-6">
                 <div className="flex items-center gap-4 p-4 rounded-xl border bg-white shadow-sm">
@@ -149,6 +164,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             description="Active teaching routine for this academic cycle."
             hideCommentary
             hideAttachments
+            isLocked={isLocked}
         >
              <div className="scale-90 origin-top">
                 <TimetableGrid />
@@ -159,7 +175,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             yearId={term.year_id} termId={term.id} sectionKey="subject_policy"
             title="3. Subject Policy and Support Documents"
             description="Upload official departmental policies, CAPS documents, or internal support material."
-            isLocked={term.is_finalised}
+            isLocked={isLocked}
         />
 
         <div className="space-y-8 border-l-4 border-slate-100 pl-8">
@@ -169,7 +185,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                 yearId={term.year_id} termId={term.id} sectionKey="atp"
                 title="4.1 Annual Teaching Plan (ATP)"
                 description="Digital curriculum plan status synced from Curriculum Planner."
-                isLocked={term.is_finalised}
+                isLocked={isLocked}
             >
                 <div className="space-y-4">
                     {data.curriculum.length > 0 ? (
@@ -198,14 +214,14 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="lesson_plans"
                 title="4.2 Lesson Plan"
-                isLocked={term.is_finalised}
+                isLocked={isLocked}
             />
 
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="file_control"
                 title="4.3 File Control sheets A and B (Record of Work)"
                 description="Automated audit of lesson logs and coverage for this term."
-                isLocked={term.is_finalised}
+                isLocked={isLocked}
             >
                 <TeacherFileRecordOfWork termId={term.id} />
             </TeacherFileSection>
@@ -217,7 +233,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="poa"
                 title="5.1 Programme of Assessment"
-                isLocked={term.is_finalised}
+                isLocked={isLocked}
             >
                 <Table>
                     <TableHeader>
@@ -244,13 +260,13 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="fats"
                 title="5.2 Formal Assessment Tasks"
-                isLocked={term.is_finalised}
+                isLocked={isLocked}
             >
                 <TaskSlotManager 
                     term={term} 
                     classes={data.classes} 
                     assessments={data.assessments}
-                    isLocked={term.is_finalised}
+                    isLocked={isLocked}
                 />
             </TeacherFileSection>
 
@@ -258,7 +274,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                 yearId={term.year_id} termId={term.id} sectionKey="memoranda"
                 title="5.3 Memoranda"
                 description="Upload and link task-specific memoranda."
-                isLocked={term.is_finalised}
+                isLocked={isLocked}
                 assessmentId={selectedAssId === 'all' ? null : selectedAssId}
             >
                 <div className="mb-4 flex items-center justify-between no-print">
@@ -277,7 +293,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                 yearId={term.year_id} termId={term.id} sectionKey="moderation"
                 title="5.4 Moderation"
                 description="Automated audit trail proof for departmental moderation."
-                isLocked={term.is_finalised}
+                isLocked={isLocked}
                 assessmentId={selectedAssId === 'all' ? null : selectedAssId}
             >
                 <div className="space-y-4">
@@ -322,7 +338,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             <TeacherFileSection 
                 yearId={term.year_id} termId={term.id} sectionKey="record_sheets"
                 title="5.5 Record sheets / Mark schedules"
-                isLocked={term.is_finalised}
+                isLocked={isLocked}
             >
                  <div className="grid gap-3">
                     {data.classes.map((cls: any) => (
@@ -350,7 +366,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                 yearId={term.year_id} termId={term.id} sectionKey="improvement_plan"
                 title="5.6 Subject Improvement Plan"
                 description="Consolidated performance analysis and intervention proof."
-                isLocked={term.is_finalised}
+                isLocked={isLocked}
             >
                  <div className="space-y-8">
                     <TeacherFilePerformanceMatrix classes={data.classes} />
@@ -387,11 +403,11 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
             </TeacherFileSection>
         </div>
 
-        <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="educator_reports" title="6. Educator Reports" isLocked={term.is_finalised} />
-        <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="textbook_records" title="7. Textbook / LTSMs control records" isLocked={term.is_finalised} />
-        <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="meeting_minutes" title="8. Subject Meeting Minutes" isLocked={term.is_finalised} />
-        <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="iqms" title="9. IQMS" isLocked={term.is_finalised} />
-        <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="correspondence" title="10. Correspondence" isLocked={term.is_finalised} />
+        <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="educator_reports" title="6. Educator Reports" isLocked={isLocked} />
+        <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="textbook_records" title="7. Textbook / LTSMs control records" isLocked={isLocked} />
+        <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="meeting_minutes" title="8. Subject Meeting Minutes" isLocked={isLocked} />
+        <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="iqms" title="9. IQMS" isLocked={isLocked} />
+        <TeacherFileSection yearId={term.year_id} termId={term.id} sectionKey="correspondence" title="10. Correspondence" isLocked={isLocked} />
       </div>
     </div>
   );

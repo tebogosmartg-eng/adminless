@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 import { TeacherFileLayout } from '@/components/teacher-file/TeacherFileLayout';
 import { TeacherFileCover } from '@/components/teacher-file/TeacherFileCover';
@@ -9,17 +9,28 @@ import { TeacherFileTermChapter } from '@/components/teacher-file/TeacherFileTer
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Printer, Download, Book, FileText, CheckCircle2, Info, Loader2 } from 'lucide-react';
+import { Printer, Download, Book, FileText, CheckCircle2, Info, Loader2, CalendarDays, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { showSuccess, showError } from '@/utils/toast';
 import { generateTeacherFilePDF } from '@/utils/pdfGenerator';
 import { useSettings } from '@/context/SettingsContext';
+import { cn } from '@/lib/utils';
 
 const TeacherFile = () => {
-  const { years, terms, activeYear, setActiveYear } = useAcademic();
+  const { years, terms, activeYear, setActiveYear, activeTerm, setActiveTerm } = useAcademic();
   const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone, schoolCode, saceNumber } = useSettings();
+  
+  // Default to cover, but prioritize term view if a term is active and we're not on the cover
   const [activeBookSection, setActiveBookSection] = useState("cover");
   const [isExporting, setIsExporting] = useState(false);
+
+  // Sync activeBookSection with global activeTerm when it changes, 
+  // but only if we are currently in a term-based tab.
+  useEffect(() => {
+    if (activeTerm && activeBookSection !== 'cover' && activeBookSection !== 'index') {
+        setActiveBookSection(activeTerm.id);
+    }
+  }, [activeTerm?.id]);
 
   const handlePrint = () => {
       window.print();
@@ -74,6 +85,19 @@ const TeacherFile = () => {
       }
   };
 
+  const sortedTerms = useMemo(() => {
+    return [...terms].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  }, [terms]);
+
+  const handleSectionChange = (val: string) => {
+      setActiveBookSection(val);
+      // If user clicks a term tab, update the global academic context
+      const targetTerm = sortedTerms.find(t => t.id === val);
+      if (targetTerm) {
+          setActiveTerm(targetTerm);
+      }
+  };
+
   return (
     <div className="space-y-6 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted/30 p-4 rounded-xl border border-dashed no-print">
@@ -82,7 +106,7 @@ const TeacherFile = () => {
                 <Book className="h-5 w-5" />
             </div>
             <div>
-                <h1 className="text-xl font-bold tracking-tight">Teacher File</h1>
+                <h1 className="text-xl font-bold tracking-tight">Teacher File — {activeTerm?.name || "Term"}</h1>
                 <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Digital Academic Portfolio</p>
             </div>
         </div>
@@ -114,51 +138,76 @@ const TeacherFile = () => {
         </div>
       </div>
 
-      <Tabs value={activeBookSection} onValueChange={setActiveBookSection} className="w-full">
-        <div className="flex flex-col items-center justify-center mb-8 no-print gap-4">
-            <TabsList className="bg-muted/50 p-1 border h-10">
-                <TabsTrigger value="cover" className="gap-2 px-6 h-8">Cover</TabsTrigger>
-                <TabsTrigger value="index" className="gap-2 px-6 h-8">Index</TabsTrigger>
-                {terms.map((t, i) => (
-                    <TabsTrigger key={t.id} value={t.id} className="gap-2 px-6 h-8">T{i+1}</TabsTrigger>
-                ))}
-            </TabsList>
-            
-            {activeBookSection !== 'cover' && activeBookSection !== 'index' && (
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => handleExportChapter(activeBookSection)} 
-                    disabled={isExporting}
-                    className="text-[10px] uppercase font-black text-primary hover:bg-primary/5 h-6 gap-1.5"
-                >
-                    <FileText className="h-3 w-3" /> Export Just This Chapter
-                </Button>
-            )}
-        </div>
+      {!activeTerm && activeBookSection !== 'cover' && activeBookSection !== 'index' ? (
+          <div className="py-20 text-center space-y-4">
+              <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground opacity-20" />
+              <div className="space-y-1">
+                  <h3 className="text-lg font-bold">No Active Term Context</h3>
+                  <p className="text-sm text-muted-foreground">Please select a term to view specific portfolio chapters.</p>
+              </div>
+          </div>
+      ) : (
+        <Tabs value={activeBookSection} onValueChange={handleSectionChange} className="w-full">
+            <div className="flex flex-col items-center justify-center mb-8 no-print gap-4">
+                <TabsList className="bg-muted/50 p-1 border h-10">
+                    <TabsTrigger value="cover" className="gap-2 px-6 h-8">Cover</TabsTrigger>
+                    <TabsTrigger value="index" className="gap-2 px-6 h-8">Index</TabsTrigger>
+                    {sortedTerms.map((t, i) => {
+                        const isUnlocked = i === 0 || sortedTerms[i-1].is_finalised;
+                        return (
+                            <TabsTrigger 
+                                key={t.id} 
+                                value={t.id} 
+                                disabled={!isUnlocked}
+                                className={cn(
+                                    "gap-2 px-6 h-8",
+                                    !isUnlocked && "opacity-50 grayscale"
+                                )}
+                            >
+                                {t.name}
+                            </TabsTrigger>
+                        );
+                    })}
+                </TabsList>
+                
+                {activeBookSection !== 'cover' && activeBookSection !== 'index' && (
+                    <div className="flex items-center gap-3">
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleExportChapter(activeBookSection)} 
+                            disabled={isExporting}
+                            className="text-[10px] uppercase font-black text-primary hover:bg-primary/5 h-6 gap-1.5"
+                        >
+                            <FileText className="h-3 w-3" /> Export Just This Chapter
+                        </Button>
+                    </div>
+                )}
+            </div>
 
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <TabsContent value="cover" className="mt-0">
-                <TeacherFileLayout>
-                    <TeacherFileCover year={activeYear} />
-                </TeacherFileLayout>
-            </TabsContent>
-
-            <TabsContent value="index" className="mt-0">
-                <TeacherFileLayout pageNumber={1}>
-                    <TeacherFileIndex terms={terms} year={activeYear} />
-                </TeacherFileLayout>
-            </TabsContent>
-
-            {terms.map((term, i) => (
-                <TabsContent key={term.id} value={term.id} className="mt-0">
-                    <TeacherFileLayout pageNumber={i + 2}>
-                        <TeacherFileTermChapter term={term} />
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <TabsContent value="cover" className="mt-0">
+                    <TeacherFileLayout>
+                        <TeacherFileCover year={activeYear} />
                     </TeacherFileLayout>
                 </TabsContent>
-            ))}
-        </div>
-      </Tabs>
+
+                <TabsContent value="index" className="mt-0">
+                    <TeacherFileLayout pageNumber={1}>
+                        <TeacherFileIndex terms={terms} year={activeYear} />
+                    </TeacherFileLayout>
+                </TabsContent>
+
+                {sortedTerms.map((term, i) => (
+                    <TabsContent key={term.id} value={term.id} className="mt-0">
+                        <TeacherFileLayout pageNumber={i + 2}>
+                            <TeacherFileTermChapter term={term} />
+                        </TeacherFileLayout>
+                    </TabsContent>
+                ))}
+            </div>
+        </Tabs>
+      )}
 
       <div className="fixed bottom-6 right-6 no-print flex flex-col items-end gap-2">
           <div className="bg-white dark:bg-card p-4 rounded-2xl shadow-2xl border max-w-xs space-y-3 animate-in slide-in-from-right-8">

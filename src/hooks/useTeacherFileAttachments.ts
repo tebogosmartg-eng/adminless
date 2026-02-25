@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { db, TeacherFileAttachment } from '@/db';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
@@ -8,18 +8,39 @@ import { uploadEvidenceFile, deleteEvidenceFile } from '@/services/storage';
 import { showSuccess, showError } from '@/utils/toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 
-export const useTeacherFileAttachments = (yearId: string | undefined, termId: string | undefined, sectionKey: string) => {
+export const useTeacherFileAttachments = (
+  yearId: string | undefined, 
+  termId: string | undefined, 
+  sectionKey: string,
+  assessmentId: string | null = null
+) => {
   const [isUploading, setIsUploading] = useState(false);
 
+  // Scoped Query: Must match year, term (or null for year-level), and section
   const attachments = useLiveQuery(
-    () => (yearId && termId && sectionKey) 
-      ? db.teacher_file_attachments.where('[academic_year_id+term_id+section_key]').equals([yearId, termId, sectionKey]).toArray()
-      : [],
-    [yearId, termId, sectionKey]
+    async () => {
+      if (!yearId || !sectionKey) return [];
+      
+      let query = db.teacher_file_attachments
+          .where({ 
+              academic_year_id: yearId, 
+              term_id: termId || null, 
+              section_key: sectionKey 
+          });
+
+      const results = await query.toArray();
+      
+      // Secondary filter for assessment-specific attachments if needed
+      if (assessmentId) {
+          return results.filter(a => a.assessment_id === assessmentId);
+      }
+      return results;
+    },
+    [yearId, termId, sectionKey, assessmentId]
   ) || [];
 
   const uploadAttachment = async (file: File) => {
-    if (!yearId || !termId || !sectionKey) {
+    if (!yearId || !sectionKey) {
         showError("Academic context missing.");
         return;
     }
@@ -35,8 +56,9 @@ export const useTeacherFileAttachments = (yearId: string | undefined, termId: st
         id: crypto.randomUUID(),
         user_id: user.id,
         academic_year_id: yearId,
-        term_id: termId,
+        term_id: termId || null, 
         section_key: sectionKey,
+        assessment_id: assessmentId,
         file_path: path,
         file_name: file.name,
         file_type: file.type,

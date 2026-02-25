@@ -8,7 +8,7 @@ import { useSync } from '@/context/SyncContext';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'queued';
 
-export const useTeacherFileAnnotations = (yearId: string | undefined, termId: string | null, sectionKey: string) => {
+export const useTeacherFileAnnotations = (yearId: string | undefined, termId: string | undefined, sectionKey: string) => {
   const { isOnline } = useSync();
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [localContent, setLocalContent] = useState("");
@@ -19,10 +19,17 @@ export const useTeacherFileAnnotations = (yearId: string | undefined, termId: st
     isMounted.current = true;
     
     const loadInitial = async () => {
+        // Enforce strict context: if we are in a term-based section, we MUST have a termId
         if (!yearId || !sectionKey) return;
+        
         try {
+            // Check for record matching the specific year/term/section
             const annotation = await db.teacher_file_annotations
-                .where({ academic_year_id: yearId, term_id: termId, section_key: sectionKey })
+                .where({ 
+                    academic_year_id: yearId, 
+                    term_id: termId || null, 
+                    section_key: sectionKey 
+                })
                 .first();
             
             if (isMounted.current) {
@@ -50,14 +57,18 @@ export const useTeacherFileAnnotations = (yearId: string | undefined, termId: st
       if (!user) return;
 
       const existing = await db.teacher_file_annotations
-          .where({ academic_year_id: yearId, term_id: termId, section_key: sectionKey })
+          .where({ 
+              academic_year_id: yearId, 
+              term_id: termId || null, 
+              section_key: sectionKey 
+          })
           .first();
 
       const payload: TeacherFileAnnotation = {
         id: existing?.id || crypto.randomUUID(),
         user_id: user.id,
         academic_year_id: yearId,
-        term_id: termId,
+        term_id: termId || null, // Explicitly scope to current term
         section_key: sectionKey,
         content,
         updated_at: new Date().toISOString()

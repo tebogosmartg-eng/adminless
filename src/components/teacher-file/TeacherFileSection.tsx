@@ -57,7 +57,7 @@ export const TeacherFileSection = ({
       {!hideAttachments && (
         <TeacherFileAttachmentManager 
           yearId={yearId}
-          termId={termId || ''}
+          termId={termId}
           sectionKey={sectionKey}
           isLocked={isLocked}
           assessmentId={assessmentId}
