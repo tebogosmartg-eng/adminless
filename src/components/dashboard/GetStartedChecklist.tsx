@@ -14,7 +14,8 @@ import {
     ChevronDown, 
     ChevronUp,
     Sparkles,
-    Loader2
+    Loader2,
+    ExternalLink
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -24,6 +25,7 @@ import { importDemoData } from "@/services/demoData";
 import { useAcademic } from "@/context/AcademicContext";
 import { showSuccess, showError } from "@/utils/toast";
 import confetti from 'canvas-confetti';
+import { Badge } from "@/components/ui/badge";
 
 export const GetStartedChecklist = () => {
   const { coreSteps, progress, isLoading } = useSetupStatus();
@@ -82,8 +84,9 @@ export const GetStartedChecklist = () => {
     return "Your term is fully set up and ready for audit.";
   };
 
-  const handleStepClick = (id: number, isLocked: boolean, status: StepStatus) => {
-    if (isLocked || status === 'completed') return;
+  const handleStepClick = (id: number, isLocked: boolean) => {
+    // We only block if the step is locked (missing prerequisite), not if it is completed.
+    if (isLocked) return;
 
     const firstClassId = classes.length > 0 ? classes[0].id : null;
 
@@ -217,27 +220,32 @@ export const GetStartedChecklist = () => {
             {coreSteps.map((step) => (
                 <button
                 key={step.id}
-                onClick={() => handleStepClick(step.id, step.isLocked, step.status)}
+                onClick={() => handleStepClick(step.id, step.isLocked)}
                 className={cn(
                     "flex items-start justify-between p-4 rounded-2xl border text-left transition-all duration-300 group relative min-h-[100px]",
                     step.status === 'completed' 
-                    ? "bg-green-50/30 border-green-100 opacity-60 cursor-default" 
+                    ? "bg-green-50/20 border-green-100 hover:border-green-300 hover:bg-green-50/40" 
                     : step.isLocked 
                     ? "bg-muted/10 border-transparent opacity-40 cursor-not-allowed"
                     : "bg-white dark:bg-card border-border hover:border-primary/40 hover:shadow-md active:scale-[0.98]"
                 )}
                 >
-                    <div className="flex flex-col gap-2 min-w-0">
-                        <div className="flex items-center gap-2">
-                            <div className="flex-shrink-0">
-                                {getStepIcon(step.status, step.isLocked)}
+                    <div className="flex flex-col gap-2 min-w-0 h-full w-full">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="flex-shrink-0">
+                                    {getStepIcon(step.status, step.isLocked)}
+                                </div>
+                                <span className={cn(
+                                    "text-[11px] font-bold truncate transition-colors",
+                                    step.status === 'completed' ? "text-green-800 line-through opacity-70" : step.isLocked ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
+                                )}>
+                                    {step.title}
+                                </span>
                             </div>
-                            <span className={cn(
-                                "text-[11px] font-bold truncate transition-colors",
-                                step.status === 'completed' ? "text-green-800 line-through" : step.isLocked ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
-                            )}>
-                                {step.title}
-                            </span>
+                            {step.status === 'completed' && (
+                                <ExternalLink className="h-3 w-3 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            )}
                         </div>
                         <p className={cn(
                             "text-[10px] leading-tight line-clamp-3",
@@ -245,11 +253,19 @@ export const GetStartedChecklist = () => {
                         )}>
                             {step.description}
                         </p>
-                        {step.optional && !step.isLocked && (
-                            <span className="text-[8px] font-black uppercase text-blue-600 flex items-center gap-1 mt-1">
-                                <Star className="h-2 w-2 fill-current" /> Recommended
-                            </span>
-                        )}
+                        
+                        <div className="mt-auto pt-2 flex items-center justify-between">
+                            {step.optional && !step.isLocked && step.status !== 'completed' && (
+                                <span className="text-[8px] font-black uppercase text-blue-600 flex items-center gap-1">
+                                    <Star className="h-2 w-2 fill-current" /> Recommended
+                                </span>
+                            )}
+                            {step.status === 'completed' && (
+                                <span className="text-[8px] font-black uppercase text-green-700 bg-green-100/50 px-1.5 rounded">
+                                    Revisit
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </button>
             ))}
@@ -259,5 +275,3 @@ export const GetStartedChecklist = () => {
     </Card>
   );
 };
-
-import { Badge } from "@/components/ui/badge";
