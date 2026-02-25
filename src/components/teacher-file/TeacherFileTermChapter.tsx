@@ -34,7 +34,7 @@ import { Link } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
-  const { data, loading } = useTeacherFileTermData(term.id, term.year_id);
+  const { data, loading, error } = useTeacherFileTermData(term.id, term.year_id);
   const { teacherName, contactEmail, contactPhone, schoolCode, saceNumber } = useSettings();
   const [selectedAssId, setSelectedAssId] = useState<string>("all");
 
@@ -49,7 +49,22 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
     );
   }
 
-  if (data.empty) {
+  if (error) {
+    return (
+      <div className="h-[200mm] flex flex-col items-center justify-center text-center p-12 space-y-4">
+          <AlertCircle className="h-12 w-12 text-destructive opacity-50" />
+          <div className="space-y-2">
+              <h3 className="text-lg font-bold text-slate-900">Compilation Error</h3>
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                  {error}
+              </p>
+          </div>
+          <Button onClick={() => window.location.reload()} variant="outline">Retry</Button>
+      </div>
+    );
+  }
+
+  if (!data || data.empty) {
       return (
           <div className="h-[200mm] flex flex-col items-center justify-center text-center p-12 space-y-6">
               <div className="bg-muted p-8 rounded-full">
@@ -326,7 +341,7 @@ export const TeacherFileTermChapter = ({ term }: { term: Term }) => {
                         ))}
                     </div>
 
-                    <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-200 flex items-start gap-3 no-print">
+                    <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-100 flex items-start gap-3 no-print">
                         <ShieldAlert className="h-4 w-4 text-amber-600 mt-0.5" />
                         <p className="text-[10px] text-amber-800 leading-tight">
                             <strong>Note to Moderator:</strong> Digital evidence (scripts) for the required 10% sample is available in individual class evidence folders.
