@@ -1,6 +1,7 @@
 import Dexie, { Table } from 'dexie';
 import { 
-  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote, Evidence, Rubric, ScanHistory, RemediationTask, ModerationSample
+  ClassInfo, Learner, AcademicYear, Term, Assessment, AssessmentMark, Activity, Todo, AttendanceRecord, TimetableEntry, LearnerNote, Evidence, Rubric, ScanHistory, RemediationTask, ModerationSample,
+  TeacherFileTemplate, TeacherFileTemplateSection, TeacherFileEntry, TeacherFileEntryAttachment, ReviewSnapshot
 } from '@/lib/types';
 
 export interface LessonLog {
@@ -99,6 +100,13 @@ export class SmaRegDB extends Dexie {
   teacher_file_annotations!: Table<TeacherFileAnnotation>;
   teacher_file_attachments!: Table<TeacherFileAttachment>;
   moderation_samples!: Table<ModerationSample>;
+  
+  // Flexible Teacher File Tables
+  teacherfile_templates!: Table<TeacherFileTemplate>;
+  teacherfile_template_sections!: Table<TeacherFileTemplateSection>;
+  teacherfile_entries!: Table<TeacherFileEntry>;
+  teacherfile_entry_attachments!: Table<TeacherFileEntryAttachment>;
+  review_snapshots!: Table<ReviewSnapshot>;
 
   constructor() {
     super('SmaRegDB');
@@ -116,7 +124,6 @@ export class SmaRegDB extends Dexie {
       profiles: 'id'
     });
 
-    // Version 28: Full schema alignment with remediation and scan auditing
     this.version(28).stores({
       academic_years: 'id, user_id, closed',
       terms: 'id, year_id, user_id',
@@ -139,29 +146,12 @@ export class SmaRegDB extends Dexie {
       scan_history: 'id, user_id, class_id, assessment_id, timestamp'
     });
 
-    // Version 29: Fix for learner_notes created_at indexing
-    this.version(29).stores({
-      learner_notes: 'id, user_id, learner_id, term_id, date, created_at'
-    });
-
-    // Version 30: Fix for timetable class_id indexing
-    this.version(30).stores({
-      timetable: 'id, user_id, year_id, day, period, class_id'
-    });
-
-    // Version 31: Adding moderation_samples
-    this.version(31).stores({
-      moderation_samples: 'id, user_id, [academic_year_id+term_id+class_id], assessment_id'
-    });
-
-    // Version 32: Fix for moderation_samples indexing (standalone class_id and term_id)
-    this.version(32).stores({
-      moderation_samples: 'id, user_id, term_id, class_id, [academic_year_id+term_id+class_id], assessment_id'
-    });
-
-    // Version 33: Adding created_at index to evidence table
-    this.version(33).stores({
-      evidence: 'id, user_id, class_id, learner_id, term_id, created_at'
+    this.version(34).stores({
+      teacherfile_templates: 'id, user_id, [class_id+term_id]',
+      teacherfile_template_sections: 'id, template_id, sort_order',
+      teacherfile_entries: 'id, user_id, [class_id+term_id], section_id',
+      teacherfile_entry_attachments: 'id, entry_id',
+      review_snapshots: 'id, user_id, [class_id+term_id]'
     });
   }
 }

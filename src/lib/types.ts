@@ -308,3 +308,62 @@ export interface ModerationSample {
   created_at: string;
   updated_at: string;
 }
+
+// FLEXIBLE TEACHER FILE UPGRADE TYPES
+
+export type SectionType = 'notes'|'targets'|'observations'|'interventions'|'attachments'|'checklist'|'table';
+export type EntryVisibility = 'private'|'moderation'|'portfolio';
+
+export interface TeacherFileTemplate {
+  id: string;
+  user_id: string;
+  name: string;
+  scope: 'global' | 'class_term';
+  class_id?: string | null;
+  term_id?: string | null;
+  created_at: string;
+}
+
+export interface TeacherFileTemplateSection {
+  id: string;
+  template_id: string;
+  title: string;
+  type: SectionType;
+  config: any;
+  sort_order: number;
+}
+
+export interface TeacherFileEntry {
+  id: string;
+  user_id: string;
+  class_id: string;
+  term_id: string;
+  section_id: string | null;
+  title?: string | null;
+  content?: string | null;
+  data?: any | null;
+  tags?: string[] | null;
+  visibility: EntryVisibility;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeacherFileEntryAttachment {
+  id: string;
+  entry_id: string;
+  file_path: string;
+  file_name: string;
+  mime_type: string;
+  created_at: string;
+}
+
+export interface ReviewSnapshot {
+  id: string;
+  user_id: string;
+  class_id: string;
+  term_id: string;
+  name: string;
+  rules: any;
+  entry_ids: string[];
+  created_at: string;
+}

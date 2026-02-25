@@ -20,8 +20,6 @@ export const pushChanges = async () => {
       const { table, action, data, id } = item;
       const payload = { ...data };
       
-      // -- SANITIZATION START --
-      // Remove local-only fields or legacy fields that cause 400 errors
       delete payload.sync_status;
 
       if (table === 'classes') {
@@ -32,19 +30,15 @@ export const pushChanges = async () => {
       }
 
       if (table === 'assessments') {
-        // Fix for 'max' column error. DB uses 'max_mark'.
         if (payload.max !== undefined) {
-            // Only assign if max_mark is missing, otherwise just clean it up
             if (payload.max_mark === undefined) {
                 payload.max_mark = payload.max;
             }
             delete payload.max;
         }
-        // Remove other potential UI artifacts
-        delete payload.rubricId; // DB uses rubric_id
-        delete payload.termId;   // DB uses term_id
+        delete payload.rubricId;
+        delete payload.termId;
       }
-      // -- SANITIZATION END --
       
       if (!payload.user_id && table !== 'profiles') {
         const { data: { user } } = await supabase.auth.getUser();
@@ -65,12 +59,7 @@ export const pushChanges = async () => {
 
       if (error) {
         console.error(`[Sync:Error] Push failed for table '${table}':`, error.message);
-        
-        // Critical: If the parent assessment failed to sync (e.g. 400 bad request), 
-        // subsequent marks (409 conflict) will fail. We generally leave them in queue
-        // to retry, but if it's a schema error, it won't fix itself without code changes.
-        // However, we break now to avoid flooding logs with dependent errors.
-        if (error.code === 'PGRST301' || error.code === '42501' || error.code === '23503') break; // 23503 is FK violation
+        if (error.code === 'PGRST301' || error.code === '42501' || error.code === '23503') break;
         continue;
       }
       
@@ -100,7 +89,6 @@ export const pullData = async (userId: string) => {
     const pullTable = async (tableName: string, query: any) => {
       const { data, error } = await query;
       if (error) {
-          // Log but continue - non-critical tables shouldn't block critical ones
           console.error(`[Sync:Error] Pull failed for table '${tableName}':`, error.message);
           return;
       }
@@ -123,7 +111,6 @@ export const pullData = async (userId: string) => {
       }
     };
 
-    // Sequential pull scoped to authenticated user
     await pullTable('academic_years', supabase.from('academic_years').select('*').eq('user_id', userId));
     await pullTable('terms', supabase.from('terms').select('*').eq('user_id', userId));
     await pullTable('profiles', supabase.from('profiles').select('*').eq('id', userId));
@@ -133,7 +120,6 @@ export const pullData = async (userId: string) => {
     const classIds = localClasses.map(c => c.id);
 
     if (classIds.length > 0) {
-      // Chunk large IN queries if necessary, here we assume reasonable limits
       await pullTable('learners', supabase.from('learners').select('*').in('class_id', classIds));
       await pullTable('assessments', supabase.from('assessments').select('*').in('class_id', classIds));
       
@@ -150,8 +136,6 @@ export const pullData = async (userId: string) => {
 
     await pullTable('todos', supabase.from('todos').select('*').eq('user_id', userId));
     await pullTable('timetable', supabase.from('timetable').select('*').eq('user_id', userId));
-    
-    // New Feature Tables
     await pullTable('lesson_logs', supabase.from('lesson_logs').select('*').eq('user_id', userId));
     await pullTable('curriculum_topics', supabase.from('curriculum_topics').select('*').eq('user_id', userId));
     await pullTable('rubrics', supabase.from('rubrics').select('*').eq('user_id', userId));
@@ -162,6 +146,13 @@ export const pullData = async (userId: string) => {
     await pullTable('teacher_file_attachments', supabase.from('teacher_file_attachments').select('*').eq('user_id', userId));
     await pullTable('diagnostics', supabase.from('diagnostics').select('*').eq('user_id', userId));
     await pullTable('moderation_samples', supabase.from('moderation_samples').select('*').eq('user_id', userId));
+    
+    // NEW FLEXIBLE TEACHER FILE TABLES
+    await pullTable('teacherfile_templates', supabase.from('teacherfile_templates').select('*').eq('user_id', userId));
+    await pullTable('teacherfile_template_sections', supabase.from('teacherfile_template_sections').select('*').eq('user_id', userId));
+    await pullTable('teacherfile_entries', supabase.from('teacherfile_entries').select('*').eq('user_id', userId));
+    await pullTable('teacherfile_entry_attachments', supabase.from('teacherfile_entry_attachments').select('*').eq('user_id', userId));
+    await pullTable('review_snapshots', supabase.from('review_snapshots').select('*').eq('user_id', userId));
 
     console.log(`[Sync] Data pull complete.`);
   } catch (error) {
