@@ -97,7 +97,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     const targetYearId = yearId || activeYear?.id;
     const targetTermId = termId || activeTerm?.id;
     
-    // VALIDATION: Prevent activity log without scope
     if (!targetYearId || !targetTermId) {
         console.error("[Scoping] Activity log blocked: missing year or term context.");
         return;
@@ -127,21 +126,26 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       const term1 = terms.find(t => t.name.includes("Term 1")) || terms[0];
       if (!term1) return;
 
-      const tables = ['classes', 'assessments', 'activities', 'todos', 'learner_notes', 'evidence', 'attendance'];
+      const tables = [
+        'classes', 'assessments', 'activities', 'todos', 
+        'learner_notes', 'evidence', 'attendance',
+        'teacher_file_annotations', 'teacher_file_attachments'
+      ];
       let totalMigrated = 0;
-      const counts: Record<string, number> = {};
 
       try {
         await db.transaction('rw', [
           db.classes, db.assessments, db.activities, db.todos, 
-          db.learner_notes, db.evidence, db.attendance, db.sync_queue, db.learners
+          db.learner_notes, db.evidence, db.attendance,
+          db.teacher_file_annotations, db.teacher_file_attachments,
+          db.sync_queue, db.learners
         ], async () => {
           for (const table of tables) {
             // @ts-ignore
             const all = await db[table].toArray();
             
             const legacy = all.filter((i: any) => {
-              const needsYear = ['classes', 'activities', 'todos', 'learner_notes', 'evidence'].includes(table);
+              const needsYear = !['attendance'].includes(table);
               const hasYear = needsYear ? !!i.year_id : true;
               const hasTerm = !!i.term_id;
               return (!hasYear || !hasTerm) && (i.user_id === session.user.id || !i.user_id);
@@ -150,8 +154,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             if (legacy.length > 0) {
               const updates = legacy.map((item: any) => {
                 const newItem = { ...item };
-                if (['classes', 'activities', 'todos', 'learner_notes', 'evidence'].includes(table)) {
+                if (!['attendance'].includes(table)) {
                   newItem.year_id = activeYear.id;
+                  // For teacher file annotations/attachments, legacy field might be academic_year_id
+                  if (table.startsWith('teacher_file_')) newItem.academic_year_id = activeYear.id;
                 }
                 newItem.term_id = term1.id;
                 if (!newItem.user_id) newItem.user_id = session.user.id;
@@ -166,8 +172,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
               // @ts-ignore
               await db[table].bulkPut(updates);
               await queueAction(table, 'upsert', updates);
-              
-              counts[table] = legacy.length;
               totalMigrated += legacy.length;
             }
           }
@@ -225,7 +229,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [recalculateAllActiveAverages]);
 
   const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
-    // VALIDATION: Prevent creation without term scope
     if (!assessment.term_id) {
         showError("Assessment creation blocked: Term context required.");
         throw new Error("Missing term scope");
