@@ -153,6 +153,11 @@ export class SmaRegDB extends Dexie {
       teacherfile_entry_attachments: 'id, entry_id',
       review_snapshots: 'id, user_id, [class_id+term_id]'
     });
+
+    // Version 35: Add missing index for learner_notes sorting
+    this.version(35).stores({
+      learner_notes: 'id, user_id, learner_id, term_id, date, created_at'
+    });
   }
 }
 
