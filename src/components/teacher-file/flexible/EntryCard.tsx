@@ -30,6 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
+import { EntryAttachmentManager } from './EntryAttachmentManager';
 
 interface EntryCardProps {
   entry: TeacherFileEntry;
@@ -139,9 +140,13 @@ export const EntryCard = ({ entry, isLocked, onUpdate, onDelete }: EntryCardProp
                 className="min-h-[100px] text-sm leading-relaxed bg-muted/20"
             />
         ) : (
-            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                {entry.content}
-            </p>
+            <div className="space-y-4">
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                    {entry.content}
+                </p>
+                
+                <EntryAttachmentManager entryId={entry.id} isLocked={isLocked || isEditing} />
+            </div>
         )}
 
         <div className="flex flex-wrap gap-1.5 pt-2">
