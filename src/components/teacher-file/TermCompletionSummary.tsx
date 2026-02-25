@@ -74,17 +74,17 @@ export const TermCompletionSummary = ({ termId, yearId, termName, isFinalised }:
                           {step.label}
                       </span>
                   </div>
-                  {!step.isComplete && !isFinalised && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => navigate(step.link)}
-                        className="h-6 px-2 text-[9px] font-black uppercase text-blue-600 hover:bg-blue-50 opacity-0 group-hover/step:opacity-100 transition-opacity"
-                      >
-                          Complete <ArrowRight className="ml-1 h-2.5 w-2.5" />
-                      </Button>
-                  )}
-                  {step.type === 'recommended' && step.isComplete && (
+                  
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => navigate(step.link)}
+                    className="h-6 px-2 text-[9px] font-black uppercase text-blue-600 hover:bg-blue-50 opacity-0 group-hover/step:opacity-100 transition-opacity"
+                  >
+                      {step.isComplete || isFinalised ? "Revisit" : "Complete"} <ArrowRight className="ml-1 h-2.5 w-2.5" />
+                  </Button>
+
+                  {step.type === 'recommended' && step.isComplete && !isFinalised && (
                       <Badge variant="outline" className="text-[8px] h-4 border-blue-100 text-blue-600 bg-blue-50/50">Audit Ready</Badge>
                   )}
               </div>
