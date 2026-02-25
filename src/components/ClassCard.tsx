@@ -25,24 +25,34 @@ export const ClassCard = ({
   onToggleArchive 
 }: ClassCardProps) => {
   
-  // Calculate moderation status for this class
+  // Calculate moderation status for this class with defensive checks
   const moderationStats = useLiveQuery(async () => {
-    const [sample, evidence] = await Promise.all([
-        db.moderation_samples.where('class_id').equals(classItem.id).first(),
-        db.evidence.where('class_id').equals(classItem.id).toArray()
-    ]);
+    // Safety check for DB initialization
+    if (!db || !db.moderation_samples || !db.evidence) {
+        return { status: 'none' };
+    }
 
-    if (!sample) return { status: 'none' };
+    try {
+        const [sample, evidence] = await Promise.all([
+            db.moderation_samples.where('class_id').equals(classItem.id).first(),
+            db.evidence.where('class_id').equals(classItem.id).toArray()
+        ]);
 
-    const scriptLearnerIds = new Set(evidence.filter(e => e.category === 'script').map(e => e.learner_id));
-    const completedCount = sample.learner_ids.filter(id => scriptLearnerIds.has(id)).length;
-    const isComplete = completedCount === sample.learner_ids.length;
+        if (!sample) return { status: 'none' };
 
-    return { 
-        status: isComplete ? 'complete' : 'partial',
-        count: completedCount,
-        total: sample.learner_ids.length
-    };
+        const scriptLearnerIds = new Set(evidence.filter(e => e.category === 'script').map(e => e.learner_id));
+        const completedCount = sample.learner_ids.filter(id => scriptLearnerIds.has(id)).length;
+        const isComplete = completedCount === sample.learner_ids.length;
+
+        return { 
+            status: isComplete ? 'complete' : 'partial',
+            count: completedCount,
+            total: sample.learner_ids.length
+        };
+    } catch (e) {
+        console.warn("[ClassCard] Stats resolution failed", e);
+        return { status: 'none' };
+    }
   }, [classItem.id]);
 
   return (
