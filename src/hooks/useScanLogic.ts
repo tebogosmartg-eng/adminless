@@ -1,17 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useClasses } from '@/context/ClassesContext';
 import { useAcademic } from '@/context/AcademicContext';
 import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
-import { ScanType, AttendanceRecord, AssessmentMark, ScanHistory, AssessmentQuestion } from '@/lib/types';
+import { ScanType, AssessmentMark, ScanHistory, ScannedLearner } from '@/lib/types';
 import { db } from '@/db';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { uploadEvidenceFile } from '@/services/storage';
 
-// Composed Hooks
 import { useScanDataState } from './scan/useScanDataState';
 import { useScanFileHandling } from './scan/useScanFileHandling';
 import { useScanPersistence } from './scan/useScanPersistence';
@@ -19,23 +18,22 @@ import { useScanPersistence } from './scan/useScanPersistence';
 export const useScanLogic = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { classes, addClass, updateLearners } = useClasses();
-  const { activeYear, activeTerm, createAssessment, updateMarks } = useAcademic();
+  const { classes, addClass } = useClasses();
+  const { activeYear, activeTerm, updateMarks } = useAcademic();
   const { isOnline } = useSync();
 
-  // Basic Selection State
   const [scanType, setScanType] = useState<ScanType>('class_marksheet');
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
   const [availableAssessments, setAvailableAssessments] = useState<any[]>([]);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("");
-  const [newClassName, setNewClassName] = useState("");
-  const [activeTab, setActiveTab] = useState("update");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
   const [isConflictOpen, setIsConflictOpen] = useState(false);
   const [existingMarks, setExistingMarks] = useState<AssessmentMark[]>([]);
+  const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
+  
+  const [newClassName, setNewClassName] = useState("");
+  const [activeTab, setActiveTab] = useState("roster");
 
-  // Orchestrated Modules
   const targetClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
   const targetAssessment = useMemo(() => availableAssessments.find(a => a.id === selectedAssessmentId), [availableAssessments, selectedAssessmentId]);
 
@@ -48,256 +46,118 @@ export const useScanLogic = () => {
     updateLearnerMapping
   } = useScanDataState(targetClass?.learners || []);
 
-  const {
-    imagePreviews,
-    originalFile,
-    handleFileChange,
-  } = useScanFileHandling();
+  const { imagePreviews, originalFile, handleFileChange } = useScanFileHandling();
+  const { currentJobId, isSavingDraft, saveScanJob, handleSaveDraft: persistDraft, archiveScanJob } = useScanPersistence();
 
-  const {
-    currentJobId, setCurrentJobId,
-    isSavingDraft,
-    saveScanJob,
-    handleSaveDraft: persistDraft,
-    archiveScanJob
-  } = useScanPersistence();
-
-  // Initial Context Resolution
   useEffect(() => {
-    if (location.state) {
-        if (location.state.classId) {
-            setSelectedClassId(location.state.classId);
-            setActiveTab("update");
-        }
-        if (location.state.createMode) {
-            setActiveTab("create");
-            if (location.state.initialClassName) setNewClassName(location.state.initialClassName);
-        }
-    }
+    if (location.state?.classId) setSelectedClassId(location.state.classId);
   }, [location.state]);
 
   useEffect(() => {
-    const fetchClassAssessments = async () => {
+    const fetchAss = async () => {
       if (!selectedClassId || !activeTerm) return;
-      const data = await db.assessments
-        .where('[class_id+term_id]')
-        .equals([selectedClassId, activeTerm.id])
-        .toArray();
-      setAvailableAssessments(data || []);
-      if (selectedAssessmentId !== "new" && !data.some(a => a.id === selectedAssessmentId)) {
-        setSelectedAssessmentId("");
-      }
+      const data = await db.assessments.where('[class_id+term_id]').equals([selectedClassId, activeTerm.id]).toArray();
+      setAvailableAssessments(data);
     };
-    fetchClassAssessments();
+    fetchAss();
   }, [selectedClassId, activeTerm]);
 
-  useEffect(() => {
-    const loadLastJob = async () => {
-      if (!selectedClassId) return;
-      const lastJob = await db.scan_jobs
-        .where('class_id')
-        .equals(selectedClassId)
-        .reverse()
-        .sortBy('created_at');
-      
-      if (lastJob && lastJob.length > 0) {
-        const job = lastJob[0];
-        if (job.status === 'completed') {
-          const data = job.edited_extraction_json || job.raw_extraction_json;
-          if (data) {
-            setScannedDetails(data.details);
-            setScannedLearners(data.learners);
-            setCurrentJobId(job.id);
-          }
-        }
-      }
-    };
-    loadLastJob();
-  }, [selectedClassId, setScannedDetails, setScannedLearners, setCurrentJobId]);
-
-  const isExtractionReady = useMemo(() => {
-    if (!activeYear || !activeTerm) return false;
-    if (!selectedClassId) return false;
-    if (['class_marksheet', 'individual_script'].includes(scanType)) {
-        return !!selectedAssessmentId;
-    }
-    return true;
-  }, [activeYear, activeTerm, selectedClassId, selectedAssessmentId, scanType]);
-
   const handleProcessImage = async () => {
-    if (!isExtractionReady || imagePreviews.length === 0 || !isOnline) return;
+    if (!selectedClassId || !targetAssessment || imagePreviews.length === 0 || !isOnline) return;
     
     setIsProcessing(true);
     try {
-      const result = await processImagesWithGemini(imagePreviews, scanType as any, targetAssessment?.questions || []);
+      const schema = {
+        title: targetAssessment.title,
+        total_marks: targetAssessment.max_mark,
+        questions: (targetAssessment.questions || []).map(q => ({
+          id: q.id,
+          label: q.question_number,
+          max_mark: q.max_mark
+        }))
+      };
+
+      const result = await processImagesWithGemini(imagePreviews, schema);
       
-      // If we reach here, it means success: true was returned by service
-      const learnersFound = result?.learners?.length > 0;
-      const detailsFound = !!result?.details;
+      const mappedResults = result.results.map((r: any) => ({
+        name: `${r.learner.name} ${r.learner.surname || ''}`.trim(),
+        mark: r.totals.total_awarded.toString(),
+        questionMarks: r.questions.map((q: any) => ({ num: q.label, score: q.awarded?.toString() || "" })),
+        warnings: r.warnings
+      }));
 
-      if (!learnersFound && !detailsFound) {
-          showError("Extraction returned no fields. Please check image quality and ensure the text is legible.");
-          return;
-      }
-
-      setScannedDetails(result.details);
-      setScannedLearners(result.learners || []);
+      setScannedDetails({ subject: targetAssessment.subject, grade: targetAssessment.grade, testNumber: targetAssessment.title, date: new Date().toISOString() });
+      setScannedLearners(mappedResults);
       
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await saveScanJob(user.id, selectedClassId || null, selectedAssessmentId || null, result);
-      }
+      if (user) await saveScanJob(user.id, selectedClassId!, selectedAssessmentId, { details: result.details, learners: mappedResults });
 
-      showSuccess(`AI extracted data for ${result.learners?.length || 0} learners.`);
+      showSuccess(`AI analyzed ${mappedResults.length} scripts.`);
     } catch (error: any) {
-      // Service now throws real error messages based on status codes/JSON error field
-      showError(`AI Analysis Failed: ${error.message}`);
-      console.error("[Scan:Process] Failed:", error);
-    } finally {
-      setIsProcessing(false);
-    }
+      showError(error.message);
+    } finally { setIsProcessing(false); }
   };
 
   const handleSimulateScan = () => {
-    if (!isExtractionReady) return;
-    setIsProcessing(true);
-    setTimeout(() => {
-      const mockDetails: any = {
-        subject: targetClass?.subject || "Mathematics", 
-        grade: targetClass?.grade || "Grade 11", 
-        testNumber: targetAssessment?.title || "Test 1",
-        date: new Date().toISOString().split('T')[0],
-        discoveredQuestions: targetAssessment?.questions ? [] : [
-          { num: "Q1", max: "10", skill: "Logic" },
-          { num: "Q2", max: "10", skill: "Algebra" }
-        ]
-      };
-      
-      const randomLearner = targetClass?.learners[Math.floor(Math.random() * targetClass.learners.length)];
-      setScannedDetails(mockDetails);
-      setScannedLearners([{ name: randomLearner?.name || "Thabo Mbeki", mark: "15", attendanceStatus: 'present' }]);
-      setIsProcessing(false);
-      showSuccess("Simulation complete.");
-    }, 1000);
+    const demoData: ScannedLearner[] = [
+        { name: "John Doe", mark: "15", questionMarks: [{ num: "1", score: "5" }, { num: "2", score: "10" }] },
+        { name: "Jane Smith", mark: "18", questionMarks: [{ num: "1", score: "8" }, { num: "2", score: "10" }] }
+    ];
+    setScannedLearners(demoData);
+    showSuccess("Simulation data loaded.");
   };
 
   const handleSaveToExisting = async () => {
-    if (!activeTerm || !activeYear || !selectedClassId || !targetClass) return;
+    if (!activeTerm || !activeYear || !selectedClassId || !targetClass || !targetAssessment) return;
+    
+    const marksToUpdate = scannedLearners.filter((_, idx) => learnerMappings[idx]).map((sl, idx) => {
+        const lId = learnerMappings[idx];
+        const questionMarks = sl.questionMarks?.map(qm => {
+            const q = targetAssessment.questions?.find(q => q.question_number === qm.num);
+            return { question_id: q?.id || qm.num, score: qm.score === "" ? null : parseFloat(qm.score) };
+        });
 
-    if (['class_marksheet', 'individual_script'].includes(scanType) && selectedAssessmentId !== 'new') {
-        const marks = await db.assessment_marks.where('assessment_id').equals(selectedAssessmentId).toArray();
-        if (marks.length > 0) {
-            setExistingMarks(marks);
-            setIsConflictOpen(true);
-            return;
-        }
-    }
-    await applyScannedData();
-  };
+        return {
+            assessment_id: selectedAssessmentId,
+            learner_id: lId,
+            score: parseFloat(sl.mark),
+            question_marks: questionMarks
+        };
+    });
 
-  const applyScannedData = async (overriddenUpdates?: any[]) => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const before_snapshot = await db.assessment_marks.where('assessment_id').equals(selectedAssessmentId || "").toArray();
-        let targetAssessmentId = selectedAssessmentId;
+        await updateMarks(marksToUpdate);
         
-        if (selectedAssessmentId === 'new' && (scanType === 'class_marksheet' || scanType === 'individual_script')) {
-            const questions: AssessmentQuestion[] = (scannedDetails?.discoveredQuestions || []).map(dq => ({
-                id: crypto.randomUUID(),
-                question_number: dq.num,
-                skill_description: dq.skill || "Discovered Topic",
-                max_mark: parseInt(dq.max) || 10
-            }));
-            targetAssessmentId = await createAssessment({
-                class_id: selectedClassId!,
-                term_id: activeTerm!.id,
-                title: scannedDetails?.testNumber || "Scanned Assessment",
-                type: 'Test', 
-                max_mark: questions.length > 0 ? questions.reduce((s, q) => s + q.max_mark, 0) : 100, 
-                weight: 10, 
-                date: new Date().toISOString(),
-                questions
-            });
-        }
-
-        let markUpdates = overriddenUpdates;
-        if (!markUpdates) {
-            const currentAss = await db.assessments.get(targetAssessmentId!);
-            markUpdates = scannedLearners.filter((_, idx) => learnerMappings[idx]).map((sl, idx) => {
-                const lId = learnerMappings[idx];
-                const questionMarks = sl.questionMarks?.map(qm => ({
-                    question_id: currentAss?.questions?.find(q => q.question_number === qm.num)?.id || qm.num,
-                    score: parseFloat(qm.score)
-                }));
-                return { assessment_id: targetAssessmentId!, learner_id: lId, score: parseFloat(sl.mark), question_marks: questionMarks };
-            });
-        }
-
-        if (markUpdates && markUpdates.length > 0) await updateMarks(markUpdates);
-
-        if (scanType === 'attendance_register') {
-            const dateStr = scannedDetails?.date || new Date().toISOString().split('T')[0];
-            const attRecords: AttendanceRecord[] = scannedLearners.filter((_, idx) => learnerMappings[idx]).map((sl, idx) => ({
-                id: crypto.randomUUID(), user_id: user.id, class_id: selectedClassId, term_id: activeTerm!.id, learner_id: learnerMappings[idx], status: sl.attendanceStatus || 'present', date: dateStr
-            }));
-            if (attRecords.length > 0) { await db.attendance.bulkPut(attRecords); await queueAction('attendance', 'upsert', attRecords); }
-        }
-
-        if (scanType === 'learner_roster') {
-            const newNames = scannedLearners.map(sl => ({ name: sl.name, mark: "" }));
-            await updateLearners(selectedClassId!, [...targetClass!.learners, ...newNames]);
-        }
-
         let archivePath = "";
         if (originalFile) {
-            const { path } = await uploadEvidenceFile(originalFile, user.id);
+            const { data: { user } } = await supabase.auth.getUser();
+            const { path } = await uploadEvidenceFile(originalFile, user!.id);
             archivePath = path;
         }
 
-        const after_snapshot = await db.assessment_marks.where('assessment_id').equals(targetAssessmentId || "").toArray();
-
         await queueAction('scan_history', 'create', {
-            id: crypto.randomUUID(), 
-            user_id: user.id, 
-            class_id: selectedClassId!, 
-            assessment_id: targetAssessmentId, 
-            academic_year_id: activeYear!.id, 
-            term_id: activeTerm!.id, 
-            scan_type: scanType, 
-            replacement_mode: overriddenUpdates ? 'manual' : 'standard', 
-            timestamp: new Date().toISOString(), 
-            status: 'completed', 
-            file_path: archivePath, 
-            before_snapshot, 
-            after_snapshot
-        } as ScanHistory);
+            id: crypto.randomUUID(), user_id: targetClass.user_id, class_id: selectedClassId, assessment_id: selectedAssessmentId,
+            academic_year_id: activeYear.id, term_id: activeTerm.id, scan_type: scanType, replacement_mode: 'question_level',
+            timestamp: new Date().toISOString(), status: 'completed', file_path: archivePath, after_snapshot: marksToUpdate
+        });
 
         await archiveScanJob(currentJobId);
-        showSuccess("Saved data and archived audit record.");
-        setIsConflictOpen(false);
+        showSuccess("Saved granular marks to record.");
         navigate(`/classes/${selectedClassId}`);
-    } catch (e: any) {
-        showError("Save failed: " + e.message);
-    }
+    } catch (e: any) { showError(e.message); }
   };
 
-  const handleCreateNewClass = () => {
-    if (!scannedDetails || !activeTerm || !activeYear) return;
-    addClass({
-      id: crypto.randomUUID(), year_id: activeYear.id, term_id: activeTerm.id, grade: scannedDetails.grade || "Grade Unknown", subject: scannedDetails.subject || "Subject Unknown", className: newClassName || "New Class", learners: scannedLearners.map(sl => ({ name: sl.name, mark: sl.mark })), archived: false
-    });
-    navigate('/classes');
+  const handleCreateNewClass = async () => {
+      setIsCreateClassOpen(true);
   };
 
   return {
     scanType, setScanType, imagePreviews, isProcessing, scannedDetails, scannedLearners, learnerMappings, updateLearnerMapping,
     selectedClassId, setSelectedClassId, handleClassChange: (id: string) => id === "new" ? setIsCreateClassOpen(true) : setSelectedClassId(id),
-    newClassName, setNewClassName, activeTab, setActiveTab, handleFileChange, handleProcessImage, handleSimulateScan,
-    updateScannedDetail, updateScannedLearner, handleSaveToExisting, handleCreateNewClass, classes, availableAssessments, selectedAssessmentId, setSelectedAssessmentId,
-    isExtractionReady, isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass, isCreateClassOpen, setIsCreateClassOpen,
-    handleSaveDraft: () => persistDraft({ details: scannedDetails, learners: scannedLearners }),
-    isSavingDraft
+    newClassName, setNewClassName, activeTab, setActiveTab,
+    handleFileChange, handleProcessImage, handleSimulateScan, handleSaveToExisting, handleCreateNewClass, classes, availableAssessments, selectedAssessmentId, setSelectedAssessmentId,
+    isExtractionReady: !!(selectedClassId && selectedAssessmentId), isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData: handleSaveToExisting, targetClass, isCreateClassOpen, setIsCreateClassOpen,
+    updateScannedDetail, updateScannedLearner,
+    handleSaveDraft: () => persistDraft({ details: scannedDetails, learners: scannedLearners }), isSavingDraft
   };
 };

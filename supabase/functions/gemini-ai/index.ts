@@ -8,9 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-/**
- * Defensive JSON Extraction Helper
- */
 const safeExtractJson = (text: string) => {
     try {
         let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
@@ -46,72 +43,74 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-        return new Response(JSON.stringify({ success: false, error: "Missing Authorization header" }), { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-          status: 401 
-        });
+        return new Response(JSON.stringify({ success: false, error: "Missing Authorization" }), { headers: corsHeaders, status: 401 });
     }
 
     const apiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!apiKey) {
-        return new Response(JSON.stringify({ success: false, error: "GEMINI_API_KEY not configured in Supabase Secrets" }), { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-          status: 500 
-        });
-    }
+    if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
     const body = await req.json();
     const { action, payload } = body;
     const genAI = new GoogleGenerativeAI(apiKey)
     
     const model = genAI.getGenerativeModel({ 
-        model: Deno.env.get('GEMINI_MODEL_NAME') || "gemini-1.5-flash",
-        systemInstruction: "You are a strict JSON API. Return ONLY valid JSON. Do NOT include explanations. Do NOT include markdown. Output must start with { and end with }."
+        model: "gemini-1.5-flash",
+        systemInstruction: "You are a strict academic data API. Return ONLY valid JSON. Validate all numbers: awarded marks cannot exceed possible marks."
     }, { apiVersion: "v1beta" });
 
-    // 1. SCAN IMAGES ACTION
     if (action === 'scan-images') {
-        const { images, scanMode, questions = [] } = payload;
+        const { images, assessmentSchema } = payload;
         const imageParts = images.map(img => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
         
         const prompt = `
-            Extract information from the provided school marksheet images.
-            Required fields: learner_name, marks_obtained.
-            Return ONLY valid JSON in this exact structure:
+            Analyze the provided student script(s).
+            
+            TARGET ASSESSMENT SCHEMA:
+            - Title: ${assessmentSchema.title}
+            - Total Possible: ${assessmentSchema.total_marks}
+            - Questions to identify: ${JSON.stringify(assessmentSchema.questions)}
+
+            TASK:
+            1. Identify the learner.
+            2. Extract awarded marks for EACH question in the schema.
+            3. If a question is not clearly visible, set awarded: null and add a warning.
+            4. VALIDATION: If extracted 'awarded' > 'possible', set awarded: null and add warning: "Exceeds max mark".
+            5. Calculate total_awarded as sum of non-null question marks.
+
+            RETURN JSON IN THIS EXACT FORMAT:
             {
-              "details": { "subject": "string", "grade": "string", "total_marks": number },
-              "learners": [ { "name": "string", "mark": "string" } ]
+              "results": [
+                {
+                  "learner": { "name": "string", "surname": "string", "id": "string|null" },
+                  "questions": [
+                    { 
+                      "id": "string (from schema)", 
+                      "label": "string", 
+                      "awarded": number|null, 
+                      "possible": number, 
+                      "confidence": number(0-1), 
+                      "evidence_text": "string" 
+                    }
+                  ],
+                  "totals": { "total_awarded": number, "total_possible": number },
+                  "warnings": ["string"]
+                }
+              ]
             }
         `;
 
         const result = await model.generateContent([prompt, ...imageParts]);
         const responseText = (await result.response).text();
-        const extractedData = safeExtractJson(responseText);
+        const extracted = safeExtractJson(responseText);
 
-        if (!extractedData) {
-            return new Response(JSON.stringify({ success: false, error: "AI returned invalid JSON format" }), { 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-              status: 502 
-            });
-        }
+        if (!extracted) throw new Error("AI returned invalid data format");
 
-        return new Response(JSON.stringify({ success: true, data: extractedData }), { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-          status: 200 
-        });
+        return new Response(JSON.stringify({ success: true, data: extracted }), { headers: corsHeaders });
     }
 
-    // Default response for other actions (omitted for brevity but following same pattern)
-    return new Response(JSON.stringify({ success: true, data: { message: "Action received" } }), { 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-      status: 200 
-    });
+    return new Response(JSON.stringify({ success: true, message: "Action processed" }), { headers: corsHeaders });
 
   } catch (error) {
-    console.error("[gemini-ai] Critical Failure:", error.message);
-    return new Response(JSON.stringify({ success: false, error: error.message }), { 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-      status: 500 
-    });
+    return new Response(JSON.stringify({ success: false, error: error.message }), { headers: corsHeaders, status: 500 });
   }
 });
