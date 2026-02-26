@@ -2,28 +2,62 @@ import { ClassInfo, Learner, ClassInsight, LearnerComment, ScanMode, DiagnosticR
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Unified helper for calling the monolith edge function.
+ * Enhanced helper for calling the AI edge function with detailed logging.
+ * Uses native fetch to expose status codes and headers for debugging.
  */
 const invokeGemini = async (action: string, payload: any) => {
-  const { data, error } = await supabase.functions.invoke('gemini-ai', {
-    body: { action, payload }
+  const { data: { session } } = await supabase.auth.getSession();
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini-ai`;
+  
+  console.log(`[Gemini:${action}] Calling Edge Function:`, url);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session?.access_token}`,
+      'Content-Type': 'application/json',
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ action, payload })
   });
 
-  if (error) {
-    console.error(`[Gemini:${action}] RPC Error:`, error);
-    throw error;
-  }
+  const responseText = await response.text();
+  let jsonResponse: any = null;
   
-  // Robust response unwrapping
-  if (data && typeof data.success !== 'undefined') {
-      if (!data.success) {
-          console.error(`[Gemini:${action}] Logic Error:`, data.error);
-          throw new Error(data.error || "AI engine failed to process request.");
-      }
-      return data.data; // Return the inner payload
+  try {
+    jsonResponse = JSON.parse(responseText);
+  } catch (e) {
+    console.error(`[Gemini:${action}] Failed to parse response as JSON:`, responseText);
   }
 
-  return data;
+  // Store for global debug panel
+  (window as any).__LAST_AI_DEBUG__ = {
+    action,
+    status: response.status,
+    headers: Object.fromEntries(response.headers.entries()),
+    json: jsonResponse,
+    raw: responseText.substring(0, 500)
+  };
+
+  console.group(`[Gemini Audit: ${action}]`);
+  console.log("Status:", response.status);
+  console.log("Headers:", Object.fromEntries(response.headers.entries()));
+  console.log("JSON Body:", jsonResponse);
+  console.groupEnd();
+
+  if (!response.ok) {
+    const errorMsg = jsonResponse?.error || `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(errorMsg);
+  }
+  
+  if (jsonResponse && typeof jsonResponse.success !== 'undefined') {
+      if (!jsonResponse.success) {
+          throw new Error(jsonResponse.error || "AI engine failed to process request.");
+      }
+      return jsonResponse.data;
+  }
+
+  return jsonResponse;
 };
 
 export const generateClassInsights = async (
@@ -31,23 +65,12 @@ export const generateClassInsights = async (
   learners: Learner[],
   assessmentData: any
 ): Promise<ClassInsight> => {
-  try {
-    const data = await invokeGemini('generate-insights', { 
-      subject: classInfo.subject,
-      grade: classInfo.grade,
-      learners, 
-      assessmentData 
-    });
-    return data;
-  } catch (error) {
-    console.error("AI Insight Generation Failed:", error);
-    return {
-        summary: "Could not generate insights.",
-        strengths: [],
-        areasForImprovement: [],
-        recommendations: []
-    };
-  }
+  return invokeGemini('generate-insights', { 
+    subject: classInfo.subject,
+    grade: classInfo.grade,
+    learners, 
+    assessmentData 
+  });
 };
 
 export const generateAIDiagnostic = async (
@@ -56,13 +79,7 @@ export const generateAIDiagnostic = async (
   subject: string,
   grade: string
 ): Promise<FullDiagnostic> => {
-  try {
-    const data = await invokeGemini('generate-diagnostic', { assessment, stats, subject, grade });
-    return data;
-  } catch (error) {
-    console.error("Diagnostic AI Generation Failed:", error);
-    throw error;
-  }
+  return invokeGemini('generate-diagnostic', { assessment, stats, subject, grade });
 };
 
 export const generateRemediationWorksheet = async (
@@ -71,13 +88,8 @@ export const generateRemediationWorksheet = async (
     assessmentTitle: string,
     findings: DiagnosticRow[]
 ): Promise<string> => {
-    try {
-        const data = await invokeGemini('generate-worksheet', { subject, grade, assessmentTitle, findings });
-        return data?.worksheet || "Could not generate worksheet.";
-    } catch (e) {
-        console.error("Worksheet Generation Failed:", e);
-        throw e;
-    }
+    const data = await invokeGemini('generate-worksheet', { subject, grade, assessmentTitle, findings });
+    return data?.worksheet || "Could not generate worksheet.";
 };
 
 export const generateLearnerReport = async (
@@ -85,7 +97,6 @@ export const generateLearnerReport = async (
   classInfo: ClassInfo,
   assessmentData: any
 ): Promise<string> => {
-  try {
     const data = await invokeGemini('generate-report', { 
       learner, 
       classInfo: {
@@ -96,34 +107,19 @@ export const generateLearnerReport = async (
       assessmentData 
     });
     return data?.report || "Could not generate report.";
-  } catch (error) {
-    console.error("Report Gen Error:", error);
-    return `Report generation unavailable.`;
-  }
 };
 
 export const generateBulkComments = async (
     learners: Learner[],
     tone: string
 ): Promise<LearnerComment[]> => {
-    try {
-        const data = await invokeGemini('generate-bulk-comments', {
-            learners: learners.map(l => ({ name: l.name, mark: l.mark })),
-            tone
-        });
-        return data?.comments || [];
-    } catch (e) {
-        console.error("Bulk Comment Gen Error", e);
-        return [];
-    }
+    const data = await invokeGemini('generate-bulk-comments', {
+        learners: learners.map(l => ({ name: l.name, mark: l.mark })),
+        tone
+    });
+    return data?.comments || [];
 };
 
 export const processImagesWithGemini = async (images: string[], scanMode: ScanMode = 'bulk', questions: any[] = []): Promise<any> => {
-  try {
-    const data = await invokeGemini('scan-images', { images, scanMode, questions });
-    return data;
-  } catch (error) {
-    console.error("Image Processing Failed:", error);
-    throw error;
-  }
+  return invokeGemini('scan-images', { images, scanMode, questions });
 };

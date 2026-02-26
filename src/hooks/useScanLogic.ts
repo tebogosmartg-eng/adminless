@@ -131,21 +131,28 @@ export const useScanLogic = () => {
     try {
       const result = await processImagesWithGemini(imagePreviews, scanType as any, targetAssessment?.questions || []);
       
-      if (!result?.learners && !result?.details) {
-          throw new Error("Extraction returned no fields.");
+      // If we reach here, it means success: true was returned by service
+      const learnersFound = result?.learners?.length > 0;
+      const detailsFound = !!result?.details;
+
+      if (!learnersFound && !detailsFound) {
+          showError("Extraction returned no fields. Please check image quality and ensure the text is legible.");
+          return;
       }
 
       setScannedDetails(result.details);
-      setScannedLearners(result.learners);
+      setScannedLearners(result.learners || []);
       
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await saveScanJob(user.id, selectedClassId || null, selectedAssessmentId || null, result);
       }
 
-      showSuccess("AI extraction complete.");
+      showSuccess(`AI extracted data for ${result.learners?.length || 0} learners.`);
     } catch (error: any) {
-      showError(error.message || "AI Analysis failed.");
+      // Service now throws real error messages based on status codes/JSON error field
+      showError(`AI Analysis Failed: ${error.message}`);
+      console.error("[Scan:Process] Failed:", error);
     } finally {
       setIsProcessing(false);
     }
