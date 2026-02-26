@@ -1,23 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Using provided credentials directly to ensure alignment between local and preview environments
+const SUPABASE_URL = "https://whfnuntkisnksxhtepqn.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZm51bnRraXNua3N4aHRlcHFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNzMxMjksImV4cCI6MjA4NDc0OTEyOX0.exARgqyfblrG1n1fuVzmCt7IECCFKWofeXXDxN8NRws";
 
-// Fail fast if environment is misconfigured
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  const errorMsg = "CRITICAL ERROR: Supabase Environment Variables (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY) are missing. Check your Dyad Secrets or .env.local file.";
-  console.error(errorMsg);
-}
-
-export const supabase = createClient(
-  SUPABASE_URL || "https://placeholder.supabase.co", 
-  SUPABASE_PUBLISHABLE_KEY || "placeholder-key",
-  {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      storageKey: 'adminless-auth-token',
-    },
-  }
-);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    storageKey: 'adminless-auth-token',
+  },
+});

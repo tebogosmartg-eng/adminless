@@ -3,6 +3,7 @@ import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { ContextBar } from "./ContextBar";
 import { SearchCommand } from "./SearchCommand";
+import { DebugPanel } from "./DebugPanel";
 
 const Layout = () => {
   return (
@@ -16,6 +17,7 @@ const Layout = () => {
         </main>
       </div>
       <SearchCommand />
+      <DebugPanel />
     </div>
   );
 };
