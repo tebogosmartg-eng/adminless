@@ -5,7 +5,7 @@ import { useAcademic } from '@/context/AcademicContext';
 import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
-import { ScanType, AssessmentMark, ScanHistory, ScannedLearner } from '@/lib/types';
+import { ScanType, AssessmentMark, ScannedLearner } from '@/lib/types';
 import { db } from '@/db';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
@@ -18,7 +18,7 @@ import { useScanPersistence } from './scan/useScanPersistence';
 export const useScanLogic = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { classes, addClass } = useClasses();
+  const { classes } = useClasses();
   const { activeYear, activeTerm, updateMarks } = useAcademic();
   const { isOnline } = useSync();
 
@@ -82,7 +82,12 @@ export const useScanLogic = () => {
       const mappedResults = result.results.map((r: any) => ({
         name: `${r.learner.name} ${r.learner.surname || ''}`.trim(),
         mark: r.totals.total_awarded.toString(),
-        questionMarks: r.questions.map((q: any) => ({ num: q.label, score: q.awarded?.toString() || "" })),
+        questionMarks: r.questions.map((q: any) => ({ 
+            num: q.label, 
+            score: q.awarded?.toString() || "",
+            confidence: q.confidence,
+            evidenceText: q.evidence_text
+        })),
         warnings: r.warnings
       }));
 
@@ -147,8 +152,19 @@ export const useScanLogic = () => {
     } catch (e: any) { showError(e.message); }
   };
 
-  const handleCreateNewClass = async () => {
+  const handleCreateNewClass = () => {
       setIsCreateClassOpen(true);
+  };
+
+  const applyScannedData = async (updates: any[]) => {
+      try {
+          await updateMarks(updates);
+          showSuccess("Resolved conflicts and saved marks.");
+          setIsConflictOpen(false);
+          navigate(`/classes/${selectedClassId}`);
+      } catch (e) {
+          showError("Save failed.");
+      }
   };
 
   return {
@@ -156,7 +172,7 @@ export const useScanLogic = () => {
     selectedClassId, setSelectedClassId, handleClassChange: (id: string) => id === "new" ? setIsCreateClassOpen(true) : setSelectedClassId(id),
     newClassName, setNewClassName, activeTab, setActiveTab,
     handleFileChange, handleProcessImage, handleSimulateScan, handleSaveToExisting, handleCreateNewClass, classes, availableAssessments, selectedAssessmentId, setSelectedAssessmentId,
-    isExtractionReady: !!(selectedClassId && selectedAssessmentId), isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData: handleSaveToExisting, targetClass, isCreateClassOpen, setIsCreateClassOpen,
+    isExtractionReady: !!(selectedClassId && selectedAssessmentId), isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass, isCreateClassOpen, setIsCreateClassOpen,
     updateScannedDetail, updateScannedLearner,
     handleSaveDraft: () => persistDraft({ details: scannedDetails, learners: scannedLearners }), isSavingDraft
   };
