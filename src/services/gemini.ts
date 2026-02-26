@@ -3,21 +3,24 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Unified helper for calling the monolith edge function.
- * Now unwraps the { success, data, error } structure.
  */
 const invokeGemini = async (action: string, payload: any) => {
   const { data, error } = await supabase.functions.invoke('gemini-ai', {
     body: { action, payload }
   });
 
-  if (error) throw error;
+  if (error) {
+    console.error(`[Gemini:${action}] RPC Error:`, error);
+    throw error;
+  }
   
-  // Unwrap the safe structural response
+  // Robust response unwrapping
   if (data && typeof data.success !== 'undefined') {
       if (!data.success) {
-          throw new Error(data.error || "AI engine failed to extract data.");
+          console.error(`[Gemini:${action}] Logic Error:`, data.error);
+          throw new Error(data.error || "AI engine failed to process request.");
       }
-      return data.data;
+      return data.data; // Return the inner payload
   }
 
   return data;

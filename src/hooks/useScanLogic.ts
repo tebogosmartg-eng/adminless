@@ -6,7 +6,7 @@ import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ScannedDetails, ScannedLearner, Assessment, ScanType, Learner, AttendanceRecord, AssessmentMark, ScanHistory, AssessmentQuestion } from '@/lib/types';
-import { db } from '@/db';
+import { db, ScanJob } from '@/db';
 import { compressImage } from '@/utils/image';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
@@ -64,6 +64,8 @@ export const useScanLogic = () => {
   const [activeTab, setActiveTab] = useState("update");
 
   const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   // New class creation state
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
@@ -143,6 +145,30 @@ export const useScanLogic = () => {
     fetchClassAssessments();
   }, [selectedClassId, activeTerm]);
 
+  useEffect(() => {
+    const loadLastJob = async () => {
+      if (!selectedClassId) return;
+      const lastJob = await db.scan_jobs
+        .where('class_id')
+        .equals(selectedClassId)
+        .reverse()
+        .sortBy('created_at');
+      
+      if (lastJob && lastJob.length > 0) {
+        const job = lastJob[0];
+        if (job.status === 'completed') {
+          const data = job.edited_extraction_json || job.raw_extraction_json;
+          if (data) {
+            setScannedDetails(data.details);
+            setScannedLearners(data.learners);
+            setCurrentJobId(job.id);
+          }
+        }
+      }
+    };
+    loadLastJob();
+  }, [selectedClassId]);
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
@@ -155,6 +181,7 @@ export const useScanLogic = () => {
         setScannedLearners([]);
         setScannedDetails(null);
         setLearnerMappings({});
+        setCurrentJobId(null);
         showSuccess(`Loaded ${files.length} images for scanning.`);
       } catch (e) {
         showError("Failed to load or compress images.");
@@ -187,21 +214,55 @@ export const useScanLogic = () => {
     
     setIsProcessing(true);
     try {
-      // Pass question structure if available for guided extraction
       const payload = { 
           images: imagePreviews, 
           scanMode: scanType,
           questions: targetAssessment?.questions || []
       };
 
+      console.log(`[Scan:Process] Starting extraction for mode: ${scanType}`);
       const result = await processImagesWithGemini(payload.images, payload.scanMode as any, payload.questions);
-      setScannedDetails(result.details || null);
-      setScannedLearners(result.learners || []);
       
+      console.log("[Scan:Process] Raw Response:", result);
+      
+      const extracted = result || {};
+      const learners = extracted.learners || [];
+      const details = extracted.details || null;
+
+      if (learners.length === 0 && !details) {
+          showError("Extraction returned no fields. Please check image quality.");
+          setIsProcessing(false);
+          return;
+      }
+
+      setScannedDetails(details);
+      setScannedLearners(learners);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const jobId = crypto.randomUUID();
+        const job: ScanJob = {
+          id: jobId,
+          user_id: user.id,
+          class_id: selectedClassId || null,
+          assessment_id: selectedAssessmentId || null,
+          file_path: null,
+          status: 'completed',
+          raw_extraction_json: { details, learners },
+          edited_extraction_json: { details, learners },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        await db.scan_jobs.add(job);
+        await queueAction('scan_jobs', 'create', job);
+        setCurrentJobId(jobId);
+      }
+
       const logMsg = `[SCAN] Type: ${scanType} | Assessment: ${selectedAssessmentId || 'N/A'} | Term: ${activeTerm?.name}`;
       await queueAction('activities', 'create', {
         id: crypto.randomUUID(),
-        user_id: (await supabase.auth.getUser()).data.user?.id,
+        user_id: user?.id,
         year_id: activeYear?.id,
         term_id: activeTerm?.id,
         message: logMsg,
@@ -210,6 +271,7 @@ export const useScanLogic = () => {
 
       showSuccess("AI extraction complete.");
     } catch (error: any) {
+      console.error("[Scan:Process] Critical Error:", error);
       showError(error.message || "AI Analysis failed.");
     } finally {
       setIsProcessing(false);
@@ -252,7 +314,6 @@ export const useScanLogic = () => {
         }
       ];
 
-      // Sum the total for simulation
       let total = 0;
       mockLearners[0].questionMarks!.forEach(qm => total += parseFloat(qm.score) || 0);
       mockLearners[0].mark = total.toString();
@@ -262,6 +323,24 @@ export const useScanLogic = () => {
       setIsProcessing(false);
       showSuccess("Simulated context-aware scan complete!");
     }, 1000);
+  };
+
+  const handleSaveDraft = async () => {
+    if (!currentJobId) return;
+    setIsSavingDraft(true);
+    try {
+      const updates = {
+        edited_extraction_json: { details: scannedDetails, learners: scannedLearners },
+        updated_at: new Date().toISOString()
+      };
+      await db.scan_jobs.update(currentJobId, updates);
+      await queueAction('scan_jobs', 'update', { id: currentJobId, ...updates });
+      showSuccess("Draft changes saved.");
+    } catch (e) {
+      showError("Failed to save draft.");
+    } finally {
+      setIsSavingDraft(false);
+    }
   };
 
   const updateScannedDetail = (field: keyof ScannedDetails, value: string) => {
@@ -292,7 +371,6 @@ export const useScanLogic = () => {
         return;
     }
 
-    // 1. Check for existing marks if it's an assessment scan
     if (['class_marksheet', 'individual_script'].includes(scanType) && selectedAssessmentId !== 'new') {
         const marks = await db.assessment_marks
             .where('assessment_id')
@@ -314,7 +392,6 @@ export const useScanLogic = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Capture Before Snapshot
         const beforeSnapshot = await db.assessment_marks
             .where('assessment_id')
             .equals(selectedAssessmentId || "")
@@ -323,7 +400,6 @@ export const useScanLogic = () => {
         let targetAssessmentId = selectedAssessmentId;
         
         if (selectedAssessmentId === 'new' && (scanType === 'class_marksheet' || scanType === 'individual_script')) {
-            // Create questions from discovery if available
             const questions: AssessmentQuestion[] = (scannedDetails?.discoveredQuestions || []).map(dq => ({
                 id: crypto.randomUUID(),
                 question_number: dq.num,
@@ -331,7 +407,6 @@ export const useScanLogic = () => {
                 max_mark: parseInt(dq.max) || 10
             }));
 
-            // Total is sum of questions or extracted total
             const totalMax = questions.length > 0 
                 ? questions.reduce((s, q) => s + q.max_mark, 0)
                 : 100;
@@ -351,7 +426,6 @@ export const useScanLogic = () => {
         let markUpdates = overriddenUpdates;
         
         if (!markUpdates) {
-            // Refetch assessment if just created to get the IDs
             const currentAss = await db.assessments.get(targetAssessmentId!);
 
             markUpdates = scannedLearners
@@ -359,7 +433,6 @@ export const useScanLogic = () => {
                 .map((sl, idx) => {
                     const lId = learnerMappings[idx];
                     
-                    // Format question marks using newly created or existing question IDs
                     const questionMarks = sl.questionMarks?.map(qm => {
                         const qObj = currentAss?.questions?.find(q => q.question_number === qm.num);
                         return {
@@ -406,7 +479,6 @@ export const useScanLogic = () => {
             await updateLearners(selectedClassId!, [...existingLearners, ...newNames]);
         }
 
-        // --- AUDIT LOGGING ---
         let archivePath = "";
         if (originalFile) {
             const { path } = await uploadEvidenceFile(originalFile, user.id);
@@ -436,6 +508,11 @@ export const useScanLogic = () => {
 
         await db.scan_history.add(history);
         await queueAction('scan_history', 'create', history);
+        
+        if (currentJobId) {
+            await db.scan_jobs.update(currentJobId, { status: 'archived' });
+            await queueAction('scan_jobs', 'update', { id: currentJobId, status: 'archived' });
+        }
 
         showSuccess(`Saved data and archived audit record.`);
         setIsConflictOpen(false);
@@ -472,6 +549,7 @@ export const useScanLogic = () => {
     classes, availableAssessments, selectedAssessmentId, setSelectedAssessmentId,
     isExtractionReady,
     isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass,
-    isCreateClassOpen, setIsCreateClassOpen
+    isCreateClassOpen, setIsCreateClassOpen,
+    handleSaveDraft, isSavingDraft
   };
 };

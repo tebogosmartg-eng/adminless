@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Save, Eye, AlertCircle, Info, CheckCircle2, ShieldCheck, Database, ListChecks, ChevronDown, ChevronRight, Sparkles, Wand2 } from 'lucide-react';
+import { Save, Eye, AlertCircle, Info, CheckCircle2, ShieldCheck, Database, ListChecks, ChevronDown, ChevronRight, Sparkles, Wand2, Loader2, Cloud } from 'lucide-react';
 import { ClassInfo, ScannedDetails, ScannedLearner, Assessment, ScanType } from '@/lib/types';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,8 @@ interface ScanReviewSectionProps {
   selectedAssessmentId?: string;
   setSelectedAssessmentId?: (id: string) => void;
   scanType?: ScanType;
+  handleSaveDraft?: () => Promise<void>;
+  isSavingDraft?: boolean;
 }
 
 export const ScanReviewSection = ({
@@ -41,13 +43,14 @@ export const ScanReviewSection = ({
   newClassName, setNewClassName, activeTab, setActiveTab, onDetailsChange, onLearnerChange,
   onSaveToExisting, onCreateNew, imagePreviews = [], availableAssessments = [],
   selectedAssessmentId, setSelectedAssessmentId,
-  scanType = 'class_marksheet'
+  scanType = 'class_marksheet',
+  handleSaveDraft,
+  isSavingDraft
 }: ScanReviewSectionProps) => {
 
   const { activeTerm } = useAcademic();
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
-  // AUTO-EXPAND individual scripts for easier review
   useEffect(() => {
     if (scanType === 'individual_script' && scannedLearners.length > 0) {
         const next = new Set<number>();
@@ -79,7 +82,6 @@ export const ScanReviewSection = ({
       const qMarks = [...(updatedLearners[learnerIdx].questionMarks || [])];
       qMarks[qIdx] = { ...qMarks[qIdx], score: val };
       
-      // Auto-sum total
       let total = 0;
       qMarks.forEach(qm => total += parseFloat(qm.score) || 0);
       
@@ -95,6 +97,24 @@ export const ScanReviewSection = ({
       onLearnerChange(idx, 'mark', total.toFixed(1).replace(/\.0$/, ''));
   };
 
+  const validationErrors = useMemo(() => {
+    const errors: string[] = [];
+    if (scannedLearners.length > 0) {
+        scannedLearners.forEach((l, i) => {
+            if (!learnerMappings[i]) {
+                errors.push(`Learner #${i+1} (${l.name}) is not linked to class roster.`);
+            }
+            if (isMarkMode && targetAssessment) {
+                const m = parseFloat(l.mark);
+                if (m > targetAssessment.max_mark) {
+                    errors.push(`${l.name}: Mark (${m}) exceeds assessment total (${targetAssessment.max_mark}).`);
+                }
+            }
+        });
+    }
+    return errors;
+  }, [scannedLearners, learnerMappings, targetAssessment, isMarkMode]);
+
   return (
     <Card className="h-full flex flex-col overflow-hidden border-none shadow-none">
       <CardHeader className="flex-shrink-0 border-b bg-muted/10">
@@ -103,14 +123,22 @@ export const ScanReviewSection = ({
                 <CardTitle className="text-lg">2. Verification Pipeline</CardTitle>
                 <CardDescription className="text-[10px] uppercase font-black text-primary tracking-widest">{scanType.replace('_', ' ')} mode</CardDescription>
             </div>
-            {imagePreviews.length > 0 && (
-                <Dialog>
-                    <DialogTrigger asChild><Button variant="outline" size="sm" className="h-8"><Eye className="mr-2 h-3 w-3" /> View Source</Button></DialogTrigger>
-                    <DialogContent className="max-w-4xl h-[85vh] overflow-auto flex flex-col items-center gap-4 bg-muted/20 p-4">
-                        {imagePreviews.map((src, idx) => <img key={idx} src={src} alt="Proof" className="max-w-full rounded shadow border" />)}
-                    </DialogContent>
-                </Dialog>
-            )}
+            <div className="flex gap-2">
+                {handleSaveDraft && scannedLearners.length > 0 && (
+                    <Button variant="outline" size="sm" className="h-8 gap-2" onClick={handleSaveDraft} disabled={isSavingDraft}>
+                        {isSavingDraft ? <Loader2 className="h-3 w-3 animate-spin" /> : <Cloud className="h-3 w-3" />}
+                        Save Draft
+                    </Button>
+                )}
+                {imagePreviews.length > 0 && (
+                    <Dialog>
+                        <DialogTrigger asChild><Button variant="outline" size="sm" className="h-8"><Eye className="mr-2 h-3 w-3" /> View Source</Button></DialogTrigger>
+                        <DialogContent className="max-w-4xl h-[85vh] overflow-auto flex flex-col items-center gap-4 bg-muted/20 p-4">
+                            {imagePreviews.map((src, idx) => <img key={idx} src={src} alt="Proof" className="max-w-full rounded shadow border" />)}
+                        </DialogContent>
+                    </Dialog>
+                )}
+            </div>
         </div>
       </CardHeader>
       
@@ -171,7 +199,6 @@ export const ScanReviewSection = ({
                         const hasQuestions = learner.questionMarks && learner.questionMarks.length > 0;
                         const isExpanded = expandedRows.has(index);
 
-                        // Validate sum
                         let qSum = 0;
                         if (hasQuestions) {
                             learner.questionMarks!.forEach(qm => qSum += parseFloat(qm.score) || 0);
@@ -326,13 +353,29 @@ export const ScanReviewSection = ({
             </div>
 
             <div className="p-4 border-t bg-background mt-auto flex flex-col gap-3">
+              {validationErrors.length > 0 && (
+                  <div className="p-3 bg-red-50 border border-red-100 rounded-xl space-y-1">
+                      <p className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2">
+                        <AlertCircle className="h-3 w-3" /> Blocked: Validation Errors
+                      </p>
+                      <ul className="text-[9px] text-red-800 list-disc pl-4">
+                          {validationErrors.slice(0, 3).map((e, i) => <li key={i}>{e}</li>)}
+                          {validationErrors.length > 3 && <li>...and {validationErrors.length - 3} more</li>}
+                      </ul>
+                  </div>
+              )}
+
               <div className="flex items-center gap-2 p-2 bg-blue-50 text-blue-800 text-[10px] rounded border border-blue-100">
                   <Info className="h-3.5 w-3.5" />
                   <span>Verified data will be committed strictly to <strong>{targetClass?.className}</strong> in <strong>{activeTerm?.name}</strong>.</span>
               </div>
               
-              <Button onClick={onSaveToExisting} disabled={!selectedClassId} className="w-full h-12 font-black shadow-lg">
-                <Save className="mr-2 h-4 w-4" /> Commit Extraction
+              <Button 
+                onClick={onSaveToExisting} 
+                disabled={!selectedClassId || validationErrors.length > 0} 
+                className="w-full h-12 font-black shadow-lg"
+              >
+                <Save className="mr-2 h-4 w-4" /> Confirm & Commit Extraction
               </Button>
             </div>
           </>

@@ -76,6 +76,19 @@ export interface DBSyncItem {
   timestamp: number;
 }
 
+export interface ScanJob {
+  id: string;
+  user_id: string;
+  class_id: string | null;
+  assessment_id: string | null;
+  file_path: string | null;
+  status: string;
+  raw_extraction_json: any;
+  edited_extraction_json: any;
+  created_at: string;
+  updated_at: string;
+}
+
 export class SmaRegDB extends Dexie {
   classes!: Table<DBClass>;
   learners!: Table<DBLearner>;
@@ -100,8 +113,8 @@ export class SmaRegDB extends Dexie {
   teacher_file_annotations!: Table<TeacherFileAnnotation>;
   teacher_file_attachments!: Table<TeacherFileAttachment>;
   moderation_samples!: Table<ModerationSample>;
+  scan_jobs!: Table<ScanJob>;
   
-  // Flexible Teacher File Tables
   teacherfile_templates!: Table<TeacherFileTemplate>;
   teacherfile_template_sections!: Table<TeacherFileTemplateSection>;
   teacherfile_entries!: Table<TeacherFileEntry>;
@@ -111,7 +124,6 @@ export class SmaRegDB extends Dexie {
   constructor() {
     super('SmaRegDB');
     
-    // Legacy versions maintained for migration path
     this.version(1).stores({
       classes: 'id, user_id, sync_status',
       learners: 'id, class_id, sync_status', 
@@ -125,8 +137,7 @@ export class SmaRegDB extends Dexie {
       profiles: 'id'
     });
 
-    // Final consolidated schema version
-    this.version(38).stores({
+    this.version(39).stores({
       academic_years: 'id, user_id, closed',
       terms: 'id, year_id, user_id',
       classes: 'id, user_id, term_id, [year_id+term_id], sync_status',
@@ -147,6 +158,7 @@ export class SmaRegDB extends Dexie {
       remediation_tasks: 'id, user_id, class_id, term_id, assessment_id, created_at',
       scan_history: 'id, user_id, class_id, assessment_id, timestamp',
       moderation_samples: 'id, user_id, [academic_year_id+term_id+class_id]',
+      scan_jobs: 'id, user_id, class_id, assessment_id',
       teacherfile_templates: 'id, user_id, [class_id+term_id]',
       teacherfile_template_sections: 'id, template_id, sort_order',
       teacherfile_entries: 'id, user_id, [class_id+term_id], section_id',
