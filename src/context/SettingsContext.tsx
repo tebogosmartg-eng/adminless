@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { defaultGradingScheme } from '@/utils/grading';
 import { GradeSymbol } from '@/lib/types';
 import { useActivity } from './ActivityContext';
@@ -80,6 +80,39 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [commentBank, setCommentBankState] = useState<string[]>([]);
   const [savedSubjects, setSavedSubjectsState] = useState<string[]>(DEFAULT_DBE_SUBJECTS);
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
+
+  /**
+   * BOOTSTRAP GUARD: Ensures the remote profile row exists.
+   */
+  const bootstrapProfile = useCallback(async () => {
+    if (!session?.user) return;
+    
+    const { data: existing, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', session.user.id)
+        .single();
+
+    if (error || !existing) {
+        console.log("[Bootstrap] Profile not found. Creating minimal row...");
+        const newProfile = {
+            id: session.user.id,
+            contact_email: session.user.email,
+            updated_at: new Date().toISOString()
+        };
+        
+        const { error: insertError } = await supabase.from('profiles').insert(newProfile);
+        if (insertError) console.error("[Bootstrap] Profile creation failed:", insertError.message);
+        else {
+            // Add to local DB as well
+            await db.profiles.put(newProfile);
+        }
+    }
+  }, [session?.user]);
+
+  useEffect(() => {
+    if (session?.user) bootstrapProfile();
+  }, [session?.user, bootstrapProfile]);
 
   useEffect(() => {
     if (profile) {
