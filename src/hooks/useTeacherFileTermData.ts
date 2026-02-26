@@ -32,6 +32,17 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
 
         const classIds = classes.map(c => c.id);
 
+        // SAFE QUERY WRAPPER FOR MODERATION SAMPLES
+        const getModerationSamples = async () => {
+            try {
+                return await db.moderation_samples.where('term_id').equals(termId).toArray();
+            } catch (e) {
+                console.warn("[TeacherFile] term_id index missing or failed, falling back to memory filter.");
+                const all = await db.moderation_samples.toArray();
+                return all.filter(s => s.term_id === termId);
+            }
+        };
+
         const [learners, assessments, marks, evidence, remediationTasks, attachments, curriculum, diagnostics, samples] = await Promise.all([
             db.learners.where('class_id').anyOf(classIds).toArray(),
             db.assessments.where('term_id').equals(termId).filter(a => classIds.includes(a.class_id)).toArray(),
@@ -41,7 +52,7 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
             db.teacher_file_attachments.where('term_id').equals(termId).toArray(),
             db.curriculum_topics.where('term_id').equals(termId).toArray(),
             db.diagnostics.toArray(),
-            db.moderation_samples.where('term_id').equals(termId).toArray()
+            getModerationSamples()
         ]);
 
         if (!isMounted.current) return;

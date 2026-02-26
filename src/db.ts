@@ -137,7 +137,7 @@ export class SmaRegDB extends Dexie {
       profiles: 'id'
     });
 
-    this.version(39).stores({
+    this.version(40).stores({
       academic_years: 'id, user_id, closed',
       terms: 'id, year_id, user_id',
       classes: 'id, user_id, term_id, [year_id+term_id], sync_status',
@@ -157,7 +157,7 @@ export class SmaRegDB extends Dexie {
       assessments: 'id, class_id, term_id, [class_id+term_id], user_id, task_slot_key',
       remediation_tasks: 'id, user_id, class_id, term_id, assessment_id, created_at',
       scan_history: 'id, user_id, class_id, assessment_id, timestamp',
-      moderation_samples: 'id, user_id, [academic_year_id+term_id+class_id]',
+      moderation_samples: 'id, user_id, term_id, [academic_year_id+term_id+class_id]',
       scan_jobs: 'id, user_id, class_id, assessment_id',
       teacherfile_templates: 'id, user_id, [class_id+term_id]',
       teacherfile_template_sections: 'id, template_id, sort_order',
