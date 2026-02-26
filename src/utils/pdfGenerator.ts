@@ -12,4 +12,5 @@ export * from './pdf/yearSummaryReport';
 export * from './pdf/blankListReport';
 export * from './pdf/diagnosticReport';
 export * from './pdf/questionDiagnosticReport';
-export * from './pdf/teacherFileReport'; // New modular report
+export * from './pdf/teacherFileReport';
+export * from './pdf/reviewPackReport';

@@ -8,10 +8,11 @@ import { TeacherFileCover } from '@/components/teacher-file/TeacherFileCover';
 import { TeacherFileIndex } from '@/components/teacher-file/TeacherFileIndex';
 import { TeacherFileTermChapter } from '@/components/teacher-file/TeacherFileTermChapter';
 import { TeacherFileFlexibleEditor } from '@/components/teacher-file/flexible/TeacherFileFlexibleEditor';
+import { ModerationChecklist } from '@/components/teacher-file/ModerationChecklist';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Printer, Download, Book, FileText, CheckCircle2, Info, Loader2, CalendarDays, LayoutGrid, Users, Lock } from 'lucide-react';
+import { Printer, Download, Book, FileText, CheckCircle2, Info, Loader2, CalendarDays, LayoutGrid, Users, Lock, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { showSuccess, showError } from '@/utils/toast';
 import { generateTeacherFilePDF } from '@/utils/pdfGenerator';
@@ -131,6 +132,12 @@ const TeacherFile = () => {
                         );
                     })}
                 </TabsList>
+
+                {activeBookSection === 'index' && activeTerm && (
+                    <div className="w-full max-w-4xl animate-in slide-in-from-top-2">
+                        <ModerationChecklist termId={activeTerm.id} yearId={activeTerm.year_id} />
+                    </div>
+                )}
 
                 {activeBookSection === 'flexible' && activeTerm && (
                     <div className="flex items-center gap-4 bg-white p-2 rounded-2xl border shadow-sm animate-in slide-in-from-top-2">

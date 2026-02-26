@@ -44,13 +44,14 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 import { getSignedFileUrl } from '@/services/storage';
 import { showError, showSuccess } from '@/utils/toast';
+import { generateReviewPackPDF } from '@/utils/pdfGenerator';
 
 const TeacherFileReview = () => {
   const { classId, termId } = useParams();
   const navigate = useNavigate();
   const { classes } = useClasses();
   const { activeTerm } = useAcademic();
-  const { teacherName } = useSettings();
+  const { teacherName, schoolName, schoolLogo, contactEmail, contactPhone } = useSettings();
   
   const { sections, entries, loading } = useTeacherFileFlexible(classId!, termId!);
   const { snapshots, createSnapshot, deleteSnapshot } = useReviewSnapshots(classId!, termId!);
@@ -63,6 +64,7 @@ const TeacherFileReview = () => {
   const [isBuildingSnapshot, setIsBuildingSnapshot] = useState(false);
   const [snapshotName, setSnapshotName] = useState("");
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   const currentClass = classes.find(c => c.id === classId);
@@ -117,7 +119,29 @@ const TeacherFileReview = () => {
       };
   }, [filteredEntries, allAttachments]);
 
-  const handlePrint = () => window.print();
+  const handleExportPDF = async () => {
+    if (!currentClass || !activeTerm) return;
+    setIsExporting(true);
+    try {
+        const packName = activeSnapshotId 
+            ? snapshots.find(s => s.id === activeSnapshotId)?.name || "Snapshot"
+            : "Live Review Pack";
+
+        await generateReviewPackPDF(
+            packName,
+            { className: currentClass.className, subject: currentClass.subject, grade: currentClass.grade },
+            activeTerm.name,
+            filteredEntries,
+            allAttachments,
+            { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone }
+        );
+        showSuccess("Portfolio pack exported to PDF.");
+    } catch (e) {
+        showError("PDF Generation failed.");
+    } finally {
+        setIsExporting(false);
+    }
+  };
 
   const handleViewFile = async (path: string, id: string) => {
     setLoadingFileId(id);
@@ -184,8 +208,9 @@ const TeacherFileReview = () => {
                 <ShieldCheck className="h-3 w-3" />
                 Read-Only Audit View
             </div>
-            <Button variant="outline" size="sm" onClick={handlePrint} className="h-9 gap-2 font-bold">
-                <Printer className="h-4 w-4" /> Print / Export PDF
+            <Button onClick={handleExportPDF} disabled={isExporting} className="h-9 gap-2 font-bold bg-blue-600 hover:bg-blue-700">
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export Audit PDF
             </Button>
         </div>
       </div>
