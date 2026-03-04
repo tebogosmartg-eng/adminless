@@ -27,7 +27,7 @@ const Scan = () => {
     selectedAssessmentId,
     setSelectedAssessmentId,
     isExtractionReady,
-    isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass,
+    isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass, targetAssessment,
     isCreateClassOpen, setIsCreateClassOpen
   } = useScanLogic();
 
@@ -94,6 +94,7 @@ const Scan = () => {
             scannedLearners={scannedLearners}
             learnerMappings={learnerMappings}
             targetClass={targetClass}
+            targetAssessment={targetAssessment}
             assessmentId={selectedAssessmentId}
             onConfirm={applyScannedData}
           />

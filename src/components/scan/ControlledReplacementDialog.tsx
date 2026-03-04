@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle2, ShieldAlert, ArrowRight, ArrowLeftRight, Save, Loader2, ListChecks } from 'lucide-react';
-import { AssessmentMark, Learner, ScannedLearner, ClassInfo } from '@/lib/types';
+import { AssessmentMark, Learner, ScannedLearner, ClassInfo, Assessment } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface ControlledReplacementDialogProps {
@@ -17,6 +17,7 @@ interface ControlledReplacementDialogProps {
   scannedLearners: ScannedLearner[];
   learnerMappings: Record<number, string>;
   targetClass: ClassInfo | undefined;
+  targetAssessment: Assessment | undefined;
   assessmentId: string;
   onConfirm: (updates: any[]) => Promise<void>;
 }
@@ -28,6 +29,7 @@ export const ControlledReplacementDialog = ({
   scannedLearners,
   learnerMappings,
   targetClass,
+  targetAssessment,
   assessmentId,
   onConfirm
 }: ControlledReplacementDialogProps) => {
@@ -69,15 +71,23 @@ export const ControlledReplacementDialog = ({
     
     const finalUpdates: any[] = [];
 
-    // Map scanned to standard updates
+    // Map scanned to standard updates with proper question_id mappings
     const scannedUpdates = scannedLearners
         .filter((_, idx) => learnerMappings[idx])
-        .map((sl, idx) => ({
-            assessment_id: assessmentId,
-            learner_id: learnerMappings[idx],
-            score: parseFloat(sl.mark),
-            question_marks: sl.questionMarks // This will be processed by applyScannedData to map IDs
-        }));
+        .map((sl, idx) => {
+            const lId = learnerMappings[idx];
+            const qms = sl.questionMarks?.map(qm => {
+                const q = targetAssessment?.questions?.find(q => q.question_number === qm.num);
+                return { question_id: q?.id || qm.num, score: qm.score === "" ? null : parseFloat(qm.score) };
+            });
+
+            return {
+                assessment_id: assessmentId,
+                learner_id: lId,
+                score: parseFloat(sl.mark),
+                question_marks: qms
+            };
+        });
 
     if (resolutionMode === 'replace') {
         finalUpdates.push(...scannedUpdates);
