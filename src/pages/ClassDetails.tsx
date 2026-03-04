@@ -11,6 +11,9 @@ import { AttendanceView } from "@/components/AttendanceView";
 import { ClassDialogsManager } from "@/components/ClassDialogsManager";
 import { EvidenceManager } from "@/components/evidence/EvidenceManager";
 import { ClassAnalysisTab } from "@/components/analysis/ClassAnalysisTab";
+import { ClassCurriculumTab } from "@/components/ClassCurriculumTab";
+import { ClassLessonJournal } from "@/components/ClassLessonJournal";
+import { RemediationActionPlan } from "@/components/analysis/RemediationActionPlan";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
@@ -26,7 +29,10 @@ import {
   Dices, 
   Rocket,
   Lock,
-  Eye
+  Eye,
+  BookOpen,
+  ListChecks,
+  Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
@@ -97,15 +103,12 @@ const ClassDetails = () => {
       marks
   );
 
-  // PRE-EXPORT VALIDATION
   const handleSASAMSExportAction = () => {
       if (!classInfo || !activeTerm || !activeYear) return;
-
       if (!activeTerm.closed) {
           showError("Export Blocked: Term must be finalised in Settings before SA-SAMS export.");
           return;
       }
-
       if (hasUnsavedChanges) {
           showError("Export Blocked: You have unsaved changes. Please save your work before exporting.");
           return;
@@ -121,14 +124,8 @@ const ClassDetails = () => {
       }
 
       generateSASAMSExport(
-          learners,
-          classInfo.className,
-          classInfo.grade,
-          classInfo.subject,
-          activeTerm.name,
-          activeYear.name,
-          teacherName,
-          schoolCode
+          learners, classInfo.className, classInfo.grade, classInfo.subject, 
+          activeTerm.name, activeYear.name, teacherName, schoolCode
       );
   };
 
@@ -152,7 +149,7 @@ const ClassDetails = () => {
   if (classesLoading) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-30" />
       </div>
     );
   }
@@ -162,10 +159,10 @@ const ClassDetails = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-7xl space-y-6 pb-20 relative">
+    <div className="container mx-auto p-4 max-w-7xl space-y-6 pb-20 relative animate-in fade-in duration-700">
       <div className="flex flex-col gap-4">
         {isLocked && (
-            <div className="flex items-center justify-between gap-4 p-4 bg-amber-50 text-amber-800 text-sm rounded-xl border border-amber-200 animate-in slide-in-from-top-4">
+            <div className="flex items-center justify-between gap-4 p-4 bg-amber-50 text-amber-800 text-sm rounded-xl border border-amber-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-amber-100 rounded-lg">
                         <Lock className="h-5 w-5 text-amber-600" />
@@ -183,14 +180,14 @@ const ClassDetails = () => {
 
         {isGuided && (
             <div className="flex justify-end">
-                <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2 border-primary text-primary">
+                <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2 border-primary text-primary hover:bg-primary/5">
                     <ArrowLeft className="h-4 w-4" /> Back to Checklist
                 </Button>
             </div>
         )}
         <ClassHeader 
             classInfo={classInfo}
-            onBack={() => window.history.back()}
+            onBack={() => navigate('/classes')}
             onEdit={(details) => updateClassDetails(classInfo.id, details)}
             onSave={handleSaveChanges}
             onExport={{
@@ -214,20 +211,25 @@ const ClassDetails = () => {
       </div>
 
       <Tabs defaultValue="assessments" className="w-full">
-        <TabsList className="flex items-center justify-start w-full h-12 bg-muted/50 border p-1 overflow-x-auto no-scrollbar gap-1">
-          <TabsTrigger value="assessments" className="flex-none h-10 px-6">Assessments</TabsTrigger>
-          <TabsTrigger value="analysis" className="flex-none h-10 px-6 gap-2">
+        <TabsList className="flex items-center justify-start w-full h-12 bg-muted/50 border p-1 overflow-x-auto no-scrollbar gap-1 rounded-xl">
+          <TabsTrigger value="assessments" className="flex-none h-10 px-6 rounded-lg font-bold">Assessments</TabsTrigger>
+          <TabsTrigger value="attendance" className="flex-none h-10 px-6 rounded-lg font-bold">Register</TabsTrigger>
+          <TabsTrigger value="curriculum" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
+            <BookOpen className="h-3.5 w-3.5" /> Curriculum
+          </TabsTrigger>
+          <TabsTrigger value="analysis" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
             <BarChart3 className="h-3.5 w-3.5" /> Analysis
           </TabsTrigger>
-          <TabsTrigger value="attendance" className="flex-none h-10 px-6">Attendance</TabsTrigger>
-          <TabsTrigger value="evidence" className="flex-none h-10 px-6 gap-2">
+          <TabsTrigger value="remediation" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
+            <Activity className="h-3.5 w-3.5" /> Remediation
+          </TabsTrigger>
+          <TabsTrigger value="evidence" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
             <ShieldCheck className="h-3.5 w-3.5" /> Evidence
           </TabsTrigger>
-          {!hasAssessments && <TabsTrigger value="legacy" className="flex-none h-10 px-6">Legacy Marks</TabsTrigger>}
         </TabsList>
         
-        <TabsContent value="assessments">
-             <div className={cn(highlightId === 'new-task-btn' || highlightId === 'mark-sheet-grid' || highlightId === 'integrity-guard' ? "guide-highlight rounded-lg p-1" : "")}>
+        <TabsContent value="assessments" className="mt-4">
+             <div className={cn(highlightId === 'new-task-btn' || highlightId === 'mark-sheet-grid' || highlightId === 'integrity-guard' ? "guide-highlight rounded-xl p-1" : "")}>
                 <MarkSheet 
                     classInfo={classInfo} 
                     onViewLearnerProfile={(l) => dialogs.setSelectedProfileLearner(l)}
@@ -235,47 +237,39 @@ const ClassDetails = () => {
              </div>
         </TabsContent>
 
-        <TabsContent value="analysis">
+        <TabsContent value="attendance" className="mt-4">
+           <AttendanceView classId={classInfo.id} learners={learners} />
+        </TabsContent>
+
+        <TabsContent value="curriculum" className="mt-4 space-y-8">
+             <ClassCurriculumTab classId={classId!} subject={classInfo.subject} grade={classInfo.grade} />
+             <div className="border-t pt-8">
+                <ClassLessonJournal classId={classId!} />
+             </div>
+        </TabsContent>
+
+        <TabsContent value="analysis" className="mt-4">
              <ClassAnalysisTab 
-               classId={classId} 
+               classId={classId!} 
                termId={activeTerm?.id} 
                learners={learners} 
              />
         </TabsContent>
 
-        <TabsContent value="evidence">
-             <div className="max-w-2xl mx-auto mt-6">
+        <TabsContent value="remediation" className="mt-4">
+            <div className="max-w-4xl mx-auto">
+                <RemediationActionPlan classId={classId!} termId={activeTerm?.id || ''} />
+            </div>
+        </TabsContent>
+
+        <TabsContent value="evidence" className="mt-4">
+             <div className="max-w-2xl mx-auto">
                 <EvidenceManager 
-                    classId={classId} 
+                    classId={classId!} 
                     termId={activeTerm?.id}
                     isLocked={activeTerm?.closed} 
                 />
              </div>
-        </TabsContent>
-
-        <TabsContent value="legacy">
-           <MarksTab 
-             learners={learners}
-             showComments={showComments}
-             gradingScheme={gradingScheme}
-             isGeneratingComments={isGeneratingComments}
-             classId={classInfo.id}
-             notes={classInfo.notes || ''}
-             onGenerateComments={handleGenerateComments}
-             onMarkChange={handleMarkChange}
-             onCommentChange={handleCommentChange}
-             onRenameLearner={handleRenameLearner}
-             onRemoveLearner={handleRemoveLearner}
-             onProfileClick={(l) => dialogs.setSelectedProfileLearner(l)}
-             onAddLearnerClick={() => dialogs.setIsAddLearnerOpen(true)}
-             onBatchDelete={handleBatchDelete}
-             onBatchComment={handleBatchComment}
-             onBatchClearMarks={handleBatchClearMarks}
-           />
-        </TabsContent>
-        
-        <TabsContent value="attendance">
-           <AttendanceView classId={classInfo.id} learners={learners} />
         </TabsContent>
       </Tabs>
 
