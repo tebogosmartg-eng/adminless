@@ -42,7 +42,6 @@ export const QuestionMarkingDialog = ({
     if (open) {
       console.log(`[Diagnostic: QuestionMarking] Dialog opened for ${learner.name}.`);
       console.log(`[Diagnostic: QuestionMarking] isLocked state: ${isLocked}`);
-      console.log(`[Diagnostic: QuestionMarking] term.is_finalised (implied by isLocked): ${isLocked}`);
     }
   }, [open, isLocked, learner.name]);
 
@@ -87,6 +86,18 @@ export const QuestionMarkingDialog = ({
 
   const percentage = Math.round((currentScore / assessment.max_mark) * 100) || 0;
 
+  const getCognitiveColor = (level?: string) => {
+      switch(level) {
+          case 'knowledge': return "bg-slate-100 text-slate-700";
+          case 'comprehension': return "bg-blue-50 text-blue-700";
+          case 'application': return "bg-green-50 text-green-700";
+          case 'analysis': return "bg-purple-50 text-purple-700";
+          case 'evaluation': return "bg-amber-50 text-amber-700";
+          case 'creation': return "bg-red-50 text-red-700";
+          default: return "bg-muted text-muted-foreground";
+      }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl flex flex-col p-0 overflow-hidden h-[80vh]">
@@ -126,14 +137,30 @@ export const QuestionMarkingDialog = ({
             <div className="space-y-4">
                 {assessment.questions?.map((q, idx) => (
                     <div key={q.id} className="flex items-center gap-4 p-4 bg-background border rounded-xl shadow-sm group hover:border-primary/40 transition-all">
-                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center font-black text-lg text-muted-foreground group-hover:bg-primary/5 group-hover:text-primary transition-colors">
+                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center font-black text-lg text-muted-foreground group-hover:bg-primary/5 group-hover:text-primary transition-colors shrink-0">
                             {q.question_number}
                         </div>
-                        <div className="flex-1 space-y-1">
-                            <h4 className="font-bold text-sm">{q.skill_description || "Standard Question"}</h4>
-                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Maximum Marks: {q.max_mark}</p>
+                        <div className="flex-1 space-y-1.5 min-w-0">
+                            <h4 className="font-bold text-sm truncate" title={q.skill_description}>
+                                {q.skill_description || "Standard Question"}
+                            </h4>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="text-[9px] uppercase font-black text-muted-foreground tracking-widest border-muted-foreground/20">
+                                    Max: {q.max_mark}
+                                </Badge>
+                                {q.topic && (
+                                    <Badge variant="outline" className="text-[9px] uppercase font-black tracking-widest border-blue-200 text-blue-700 bg-blue-50/50">
+                                        {q.topic}
+                                    </Badge>
+                                )}
+                                {q.cognitive_level && q.cognitive_level !== 'unknown' && (
+                                    <Badge className={cn("text-[9px] uppercase font-black tracking-widest border-none px-1.5", getCognitiveColor(q.cognitive_level))}>
+                                        {q.cognitive_level}
+                                    </Badge>
+                                )}
+                            </div>
                         </div>
-                        <div className="w-24">
+                        <div className="w-24 shrink-0">
                             <Input 
                                 type="text"
                                 inputMode="decimal"
@@ -154,7 +181,7 @@ export const QuestionMarkingDialog = ({
             <div className="h-10" />
         </ScrollArea>
 
-        <div className="p-4 border-t bg-muted/10 text-center">
+        <div className="p-4 border-t bg-muted/10 text-center shrink-0">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-2">
                 <ListChecks className="h-3 w-3" />
                 Data is auto-summed. Totals are synced to the main marksheet.
