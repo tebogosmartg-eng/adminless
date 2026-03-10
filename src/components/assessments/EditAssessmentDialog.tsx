@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Assessment, Rubric, AssessmentQuestion, CognitiveLevel } from '@/lib/types';
-import { Layers, Plus, Trash2, ListChecks, FileSpreadsheet } from 'lucide-react';
+import { Layers, Plus, Trash2, ListChecks, FileSpreadsheet, Library } from 'lucide-react';
 import { BulkQuestionImportDialog } from './BulkQuestionImportDialog';
+import { ReuseQuestionsDialog } from './ReuseQuestionsDialog';
 
 interface EditAssessmentDialogProps {
   open: boolean;
@@ -26,6 +27,7 @@ export const EditAssessmentDialog = ({
 }: EditAssessmentDialogProps) => {
   const [formData, setFormData] = useState<Partial<Assessment>>({});
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isReuseOpen, setIsReuseOpen] = useState(false);
 
   useEffect(() => {
     if (assessment) {
@@ -79,6 +81,17 @@ export const EditAssessmentDialog = ({
     );
     const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
     setFormData({ ...formData, questions, max_mark: totalMax });
+  };
+
+  const handleImportQuestions = (importedQuestions: AssessmentQuestion[], mode: 'append' | 'replace') => {
+    let updatedQuestions = [...(formData.questions || [])];
+    if (mode === 'replace') {
+        updatedQuestions = importedQuestions;
+    } else {
+        updatedQuestions = [...updatedQuestions, ...importedQuestions];
+    }
+    const totalMax = updatedQuestions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
+    setFormData({ ...formData, questions: updatedQuestions, max_mark: totalMax || formData.max_mark, rubric_id: null });
   };
 
   return (
@@ -158,11 +171,20 @@ export const EditAssessmentDialog = ({
                               <Button 
                                   variant="outline" 
                                   size="sm" 
+                                  onClick={() => setIsReuseOpen(true)}
+                                  disabled={!!formData.rubric_id}
+                                  className="h-8"
+                              >
+                                  <Library className="h-3 w-3 mr-1" /> Reuse
+                              </Button>
+                              <Button 
+                                  variant="outline" 
+                                  size="sm" 
                                   onClick={() => setIsBulkImportOpen(true)}
                                   disabled={!!formData.rubric_id}
                                   className="h-8"
                               >
-                                  <FileSpreadsheet className="h-3 w-3 mr-1" /> Bulk Import
+                                  <FileSpreadsheet className="h-3 w-3 mr-1" /> Bulk
                               </Button>
                               <Button 
                                   variant="outline" 
@@ -171,7 +193,7 @@ export const EditAssessmentDialog = ({
                                   disabled={!!formData.rubric_id}
                                   className="h-8"
                               >
-                                  <Plus className="h-3 w-3 mr-1" /> Add Question
+                                  <Plus className="h-3 w-3 mr-1" /> Add Q
                               </Button>
                           </div>
                       </div>
@@ -257,17 +279,15 @@ export const EditAssessmentDialog = ({
       <BulkQuestionImportDialog 
         open={isBulkImportOpen}
         onOpenChange={setIsBulkImportOpen}
-        onImport={(importedQuestions, mode) => {
-            let updatedQuestions = [...(formData.questions || [])];
-            if (mode === 'replace') {
-                updatedQuestions = importedQuestions;
-            } else {
-                updatedQuestions = [...updatedQuestions, ...importedQuestions];
-            }
-            const totalMax = updatedQuestions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
-            setFormData({ ...formData, questions: updatedQuestions, max_mark: totalMax || formData.max_mark, rubric_id: null });
-        }}
+        onImport={handleImportQuestions}
         existingQuestions={formData.questions}
+      />
+
+      <ReuseQuestionsDialog
+        open={isReuseOpen}
+        onOpenChange={setIsReuseOpen}
+        onImport={handleImportQuestions}
+        existingQuestionsCount={(formData.questions || []).length}
       />
     </>
   );

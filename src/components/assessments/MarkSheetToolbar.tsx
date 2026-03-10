@@ -7,12 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, BarChart3, ShieldCheck, XCircle, Trash2, ListChecks } from 'lucide-react';
+import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, BarChart3, ShieldCheck, XCircle, Trash2, ListChecks, Library } from 'lucide-react';
 import { Assessment, Term, AcademicYear, Rubric, ClassInfo, AssessmentQuestion, CognitiveLevel } from '@/lib/types';
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { DiagnosticReportDialog } from "./DiagnosticReportDialog";
 import { BulkQuestionImportDialog } from "./BulkQuestionImportDialog";
+import { ReuseQuestionsDialog } from "./ReuseQuestionsDialog";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -61,6 +62,7 @@ export const MarkSheetToolbar = ({
 
   const [diagOpen, setDiagOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isReuseOpen, setIsReuseOpen] = useState(false);
   const { progress, missingRequired } = useSetupStatus();
 
   const handleRubricSelect = (val: string) => {
@@ -102,6 +104,17 @@ export const MarkSheetToolbar = ({
     );
     const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
     setNewAss({ ...newAss, questions, max: totalMax });
+  };
+
+  const handleImportQuestions = (importedQuestions: AssessmentQuestion[], mode: 'append' | 'replace') => {
+    let updatedQuestions = [...(newAss.questions || [])];
+    if (mode === 'replace') {
+        updatedQuestions = importedQuestions;
+    } else {
+        updatedQuestions = [...updatedQuestions, ...importedQuestions];
+    }
+    const totalMax = updatedQuestions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
+    setNewAss({ ...newAss, questions: updatedQuestions, max: totalMax || newAss.max, rubricId: "none" });
   };
 
   const targetTermName = terms.find(t => t.id === (newAss.termId || activeTerm?.id))?.name;
@@ -332,11 +345,20 @@ export const MarkSheetToolbar = ({
                             <Button 
                                 variant="outline" 
                                 size="sm" 
+                                onClick={() => setIsReuseOpen(true)}
+                                disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
+                                className="h-8"
+                            >
+                                <Library className="h-3 w-3 mr-1" /> Reuse
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
                                 onClick={() => setIsBulkImportOpen(true)}
                                 disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
                                 className="h-8"
                             >
-                                <FileSpreadsheet className="h-3 w-3 mr-1" /> Bulk Import
+                                <FileSpreadsheet className="h-3 w-3 mr-1" /> Bulk
                             </Button>
                             <Button 
                                 variant="outline" 
@@ -345,7 +367,7 @@ export const MarkSheetToolbar = ({
                                 disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
                                 className="h-8"
                             >
-                                <Plus className="h-3 w-3 mr-1" /> Add Question
+                                <Plus className="h-3 w-3 mr-1" /> Add Q
                             </Button>
                         </div>
                     </div>
@@ -448,17 +470,15 @@ export const MarkSheetToolbar = ({
       <BulkQuestionImportDialog 
         open={isBulkImportOpen}
         onOpenChange={setIsBulkImportOpen}
-        onImport={(importedQuestions, mode) => {
-            let updatedQuestions = [...(newAss.questions || [])];
-            if (mode === 'replace') {
-                updatedQuestions = importedQuestions;
-            } else {
-                updatedQuestions = [...updatedQuestions, ...importedQuestions];
-            }
-            const totalMax = updatedQuestions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
-            setNewAss({ ...newAss, questions: updatedQuestions, max: totalMax || newAss.max, rubricId: "none" });
-        }}
+        onImport={handleImportQuestions}
         existingQuestions={newAss.questions}
+      />
+
+      <ReuseQuestionsDialog
+        open={isReuseOpen}
+        onOpenChange={setIsReuseOpen}
+        onImport={handleImportQuestions}
+        existingQuestionsCount={(newAss.questions || []).length}
       />
     </div>
   );
