@@ -35,6 +35,21 @@ export const useTeacherFileData = (yearId: string, termId: string, classId: stri
             db.rubrics.toArray()
         ]);
 
+        // Flexible Portfolio Data
+        const template = await db.teacherfile_templates.where('[class_id+term_id]').equals([classId, termId]).first();
+        let flexSections: any[] = [];
+        let flexEntries: any[] = [];
+        let flexAttachments: any[] = [];
+
+        if (template) {
+            flexSections = await db.teacherfile_template_sections.where('template_id').equals(template.id).sortBy('sort_order');
+            flexEntries = await db.teacherfile_entries.where('[class_id+term_id]').equals([classId, termId]).toArray();
+            const entryIds = flexEntries.map(e => e.id);
+            if (entryIds.length > 0) {
+                flexAttachments = await db.teacherfile_entry_attachments.where('entry_id').anyOf(entryIds).toArray();
+            }
+        }
+
         const assessmentIds = new Set(assessments.map(a => a.id));
         const relevantMarks = marks.filter(m => assessmentIds.has(m.assessment_id));
         const relevantDiagnostics = diagnostics.filter(d => assessmentIds.has(d.assessment_id));
@@ -52,7 +67,11 @@ export const useTeacherFileData = (yearId: string, termId: string, classId: stri
                 diagnostics: relevantDiagnostics,
                 moderationSample: sample || null,
                 rubrics,
-                stats: { average: avg, passRate }
+                stats: { average: avg, passRate },
+                flexSections,
+                // Only show entries that are marked for portfolio or moderation visibility
+                flexEntries: flexEntries.filter(e => e.visibility !== 'private'),
+                flexAttachments
             });
         }
       } catch (e: any) {

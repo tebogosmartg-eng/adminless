@@ -14,18 +14,18 @@ import { ClassCurriculumTab } from '@/components/ClassCurriculumTab';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useSettings } from '@/context/SettingsContext';
-import { Loader2, User, Mail, Phone, Hash, ShieldCheck, Printer, AlertTriangle, Users, BookOpen, Info } from 'lucide-react';
+import { Loader2, User, Hash, ShieldCheck, Printer, AlertTriangle, BookOpen, Info } from 'lucide-react';
 import { RemediationActionPlan } from '@/components/analysis/RemediationActionPlan';
 import { Button } from '@/components/ui/button';
 
 export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { year: AcademicYear, term: Term, classId: string, isBulkMode?: boolean }) => {
   const { data, loading, error } = useTeacherFileData(year.id, term.id, classId);
-  const { teacherName, contactEmail, contactPhone, schoolCode, saceNumber, gradingScheme } = useSettings();
+  const { teacherName, schoolCode, saceNumber, gradingScheme } = useSettings();
 
   if (loading) return <div className="py-20 flex flex-col items-center gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" /><p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Assembling File...</p></div>;
   if (error || !data) return <div className="py-20 text-center text-red-500">Failed to load class data.</div>;
 
-  const { classInfo, assessments, marks, stats, moderationSample, rubrics, diagnostics } = data;
+  const { classInfo, assessments, marks, moderationSample, rubrics, diagnostics, flexSections, flexEntries, flexAttachments } = data;
   const prefix = `${classId}_${term.id}_`; // Isolates manual file uploads to this specific class+term
   const isLocked = term.is_finalised || term.closed;
 
@@ -266,10 +266,72 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
             isLocked={isLocked}
         />
 
-        {/* Section 7: File Control & Sign-Off (Print Only / End of File) */}
+        {/* Section 7: Flexible Professional Portfolio (Only renders if entries exist) */}
+        {flexSections && flexSections.length > 0 && flexEntries && flexEntries.length > 0 && (
+            <TeacherFileSection 
+                className="print-page-break print:pt-8"
+                yearId={year.id} termId={term.id} sectionKey={`${prefix}portfolio`}
+                title="7. Professional Portfolio"
+                description="Custom educator entries, observations, and term targets."
+                isLocked={isLocked}
+                hideAttachments
+                hideCommentary
+            >
+                <div className="space-y-8">
+                    {flexSections.map((section: any) => {
+                        const sectionEntries = flexEntries.filter((e: any) => e.section_id === section.id);
+                        if (sectionEntries.length === 0) return null;
+
+                        return (
+                            <div key={section.id} className="space-y-4 print-avoid-break">
+                                <h4 className="text-sm font-bold text-blue-800 border-b pb-2 print:text-black print:border-slate-300">
+                                    7.{section.sort_order} {section.title}
+                                </h4>
+                                <div className="grid gap-6 pl-4">
+                                    {sectionEntries.map((entry: any) => {
+                                        const entryAttachments = flexAttachments.filter((a: any) => a.entry_id === entry.id);
+                                        return (
+                                            <div key={entry.id} className="space-y-2 border-l-2 border-slate-200 pl-4 print:border-slate-300">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <h5 className="text-xs font-bold uppercase text-slate-800 print:text-black">{entry.title || "Observation"}</h5>
+                                                        {(entry.tags || []).map((tag: string) => (
+                                                            <span key={tag} className="text-[8px] font-bold bg-slate-100 text-slate-500 px-1.5 rounded print:border print:border-slate-300 print:bg-transparent print:text-black">
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                    <span className="text-[10px] text-slate-500 font-bold print:text-slate-600">
+                                                        {new Date(entry.created_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap italic print:text-black">
+                                                    "{entry.content}"
+                                                </p>
+                                                {entryAttachments.length > 0 && (
+                                                    <div className="pt-2 flex flex-wrap gap-2">
+                                                        {entryAttachments.map((att: any) => (
+                                                            <span key={att.id} className="text-[9px] font-bold bg-slate-100 px-2 py-1 rounded border text-slate-600 print:bg-transparent print:border-slate-300 print:text-black">
+                                                                📎 {att.file_name}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </TeacherFileSection>
+        )}
+
+        {/* Section 8: File Control & Sign-Off (Print Only / End of File) */}
         <div className="print-page-break print:pt-8 space-y-10 pt-16 border-t border-slate-200 mt-16 print:border-none print:mt-0">
             <div className="space-y-2">
-                <h3 className="text-xl font-black text-slate-900">7. File Control & Moderation Sign-off</h3>
+                <h3 className="text-xl font-black text-slate-900">{flexEntries?.length > 0 ? "8" : "7"}. File Control & Moderation Sign-off</h3>
                 <p className="text-xs text-muted-foreground no-print">Official signature block for departmental audits.</p>
             </div>
             
