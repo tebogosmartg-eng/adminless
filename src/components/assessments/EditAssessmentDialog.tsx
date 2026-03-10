@@ -8,10 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Assessment, Rubric, AssessmentQuestion, CognitiveLevel } from '@/lib/types';
-import { Layers, Plus, Trash2, ListChecks, FileSpreadsheet, Library } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import { BulkQuestionImportDialog } from './BulkQuestionImportDialog';
 import { ReuseQuestionsDialog } from './ReuseQuestionsDialog';
-import { TopicCombobox } from "./TopicCombobox";
+import { QuestionBuilder } from './QuestionBuilder';
 import { useTopicSuggestions } from "@/hooks/useTopicSuggestions";
 
 interface EditAssessmentDialogProps {
@@ -61,34 +61,14 @@ export const EditAssessmentDialog = ({
       });
   };
 
-  const addQuestion = () => {
-    const questions = [...(formData.questions || [])];
-    const nextNum = questions.length + 1;
-    questions.push({
-      id: crypto.randomUUID(),
-      question_number: `Q${nextNum}`,
-      skill_description: "",
-      topic: "",
-      cognitive_level: "knowledge",
-      max_mark: 10
-    });
-    
-    const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
-    setFormData({ ...formData, questions, max_mark: totalMax, rubric_id: null });
-  };
-
-  const removeQuestion = (id: string) => {
-    const questions = (formData.questions || []).filter((q: any) => q.id !== id);
-    const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
-    setFormData({ ...formData, questions, max_mark: totalMax || (formData.max_mark || 50) });
-  };
-
-  const updateQuestion = (id: string, updates: Partial<AssessmentQuestion>) => {
-    const questions = (formData.questions || []).map((q: any) => 
-      q.id === id ? { ...q, ...updates } : q
-    );
-    const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
-    setFormData({ ...formData, questions, max_mark: totalMax });
+  const handleQuestionsChange = (updatedQuestions: AssessmentQuestion[]) => {
+      const totalMax = updatedQuestions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
+      setFormData({ 
+          ...formData, 
+          questions: updatedQuestions, 
+          max_mark: totalMax || formData.max_mark, 
+          rubric_id: updatedQuestions.length > 0 ? null : formData.rubric_id 
+      });
   };
 
   const handleImportQuestions = (importedQuestions: AssessmentQuestion[], mode: 'append' | 'replace') => {
@@ -105,8 +85,8 @@ export const EditAssessmentDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="p-6 pb-2">
+        <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[95vh] flex flex-col p-0 overflow-hidden">
+          <div className="p-6 pb-2 shrink-0">
               <DialogHeader>
                   <DialogTitle>Assessment Settings</DialogTitle>
                   <DialogDescription>
@@ -169,116 +149,20 @@ export const EditAssessmentDialog = ({
                       </div>
                   </div>
 
-                  <div className="border-t pt-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                              <ListChecks className="h-4 w-4 text-primary" />
-                              <h4 className="text-sm font-bold">Question Breakdown</h4>
-                          </div>
-                          <div className="flex items-center gap-2">
-                              <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={() => setIsReuseOpen(true)}
-                                  disabled={!!formData.rubric_id}
-                                  className="h-8"
-                              >
-                                  <Library className="h-3 w-3 mr-1" /> Reuse
-                              </Button>
-                              <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={() => setIsBulkImportOpen(true)}
-                                  disabled={!!formData.rubric_id}
-                                  className="h-8"
-                              >
-                                  <FileSpreadsheet className="h-3 w-3 mr-1" /> Bulk
-                              </Button>
-                              <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={addQuestion}
-                                  disabled={!!formData.rubric_id}
-                                  className="h-8"
-                              >
-                                  <Plus className="h-3 w-3 mr-1" /> Add Q
-                              </Button>
-                          </div>
-                      </div>
-
-                      <div className="space-y-3">
-                          {(formData.questions || []).map((q: AssessmentQuestion) => (
-                              <div key={q.id} className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/20">
-                                  <div className="flex gap-2 items-start">
-                                      <div className="w-16">
-                                          <Label className="text-[10px] font-bold mb-1 block">Num</Label>
-                                          <Input 
-                                              value={q.question_number} 
-                                              onChange={(e) => updateQuestion(q.id, { question_number: e.target.value })}
-                                              className="h-8 text-xs font-bold bg-background"
-                                          />
-                                      </div>
-                                      <div className="flex-1">
-                                          <Label className="text-[10px] font-bold mb-1 block">Skill</Label>
-                                          <Input 
-                                              value={q.skill_description} 
-                                              onChange={(e) => updateQuestion(q.id, { skill_description: e.target.value })}
-                                              className="h-8 text-xs bg-background"
-                                          />
-                                      </div>
-                                      <div className="w-20">
-                                          <Label className="text-[10px] font-bold mb-1 block">Max</Label>
-                                          <Input 
-                                              type="number"
-                                              value={q.max_mark} 
-                                              onChange={(e) => updateQuestion(q.id, { max_mark: parseInt(e.target.value) || 0 })}
-                                              className="h-8 text-xs text-center bg-background"
-                                          />
-                                      </div>
-                                      <Button 
-                                          variant="ghost" 
-                                          size="icon" 
-                                          onClick={() => removeQuestion(q.id)}
-                                          className="mt-5 h-8 w-8 text-muted-foreground hover:text-destructive"
-                                      >
-                                          <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                  </div>
-                                  <div className="flex gap-2">
-                                      <div className="flex-1">
-                                          <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Topic (Optional)</Label>
-                                          <TopicCombobox
-                                              value={q.topic || ""}
-                                              onChange={(val) => updateQuestion(q.id, { topic: val })}
-                                              suggestions={topicSuggestions}
-                                              placeholder="e.g. Algebra"
-                                          />
-                                      </div>
-                                      <div className="w-1/3">
-                                          <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Cog. Level</Label>
-                                          <Select value={q.cognitive_level || "knowledge"} onValueChange={(v: CognitiveLevel) => updateQuestion(q.id, { cognitive_level: v })}>
-                                              <SelectTrigger className="h-8 text-xs bg-background">
-                                                  <SelectValue />
-                                              </SelectTrigger>
-                                              <SelectContent>
-                                                  <SelectItem value="knowledge">Knowledge</SelectItem>
-                                                  <SelectItem value="comprehension">Comprehension</SelectItem>
-                                                  <SelectItem value="application">Application</SelectItem>
-                                                  <SelectItem value="analysis">Analysis</SelectItem>
-                                                  <SelectItem value="evaluation">Evaluation</SelectItem>
-                                                  <SelectItem value="creation">Creation</SelectItem>
-                                              </SelectContent>
-                                          </Select>
-                                      </div>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
+                  <div className="border-t pt-4">
+                      <QuestionBuilder 
+                          questions={formData.questions || []}
+                          onChange={handleQuestionsChange}
+                          topicSuggestions={topicSuggestions}
+                          disabled={!!formData.rubric_id}
+                          onOpenBulk={() => setIsBulkImportOpen(true)}
+                          onOpenReuse={() => setIsReuseOpen(true)}
+                      />
                   </div>
               </div>
           </ScrollArea>
 
-          <DialogFooter className="p-6 border-t bg-muted/5">
+          <DialogFooter className="p-6 border-t bg-muted/5 shrink-0">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button onClick={handleSave}>Save Changes</Button>
           </DialogFooter>

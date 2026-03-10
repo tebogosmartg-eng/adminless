@@ -17,8 +17,8 @@ import { ReuseQuestionsDialog } from "./ReuseQuestionsDialog";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TopicCombobox } from "./TopicCombobox";
 import { useTopicSuggestions } from "@/hooks/useTopicSuggestions";
+import { QuestionBuilder } from "./QuestionBuilder";
 
 interface MarkSheetToolbarProps {
   terms: Term[];
@@ -80,35 +80,14 @@ export const MarkSheetToolbar = ({
       });
   };
 
-  const addQuestion = () => {
-    const questions = [...(newAss.questions || [])];
-    const nextNum = questions.length + 1;
-    questions.push({
-      id: crypto.randomUUID(),
-      question_number: `Q${nextNum}`,
-      skill_description: "",
-      topic: "",
-      cognitive_level: "knowledge",
-      max_mark: 10
-    });
-    
-    // Update total max mark based on questions
-    const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
-    setNewAss({ ...newAss, questions, max: totalMax, rubricId: "none" });
-  };
-
-  const removeQuestion = (id: string) => {
-    const questions = (newAss.questions || []).filter((q: any) => q.id !== id);
-    const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
-    setNewAss({ ...newAss, questions, max: totalMax || newAss.max });
-  };
-
-  const updateQuestion = (id: string, updates: Partial<AssessmentQuestion>) => {
-    const questions = (newAss.questions || []).map((q: any) => 
-      q.id === id ? { ...q, ...updates } : q
-    );
-    const totalMax = questions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
-    setNewAss({ ...newAss, questions, max: totalMax });
+  const handleQuestionsChange = (updatedQuestions: AssessmentQuestion[]) => {
+      const totalMax = updatedQuestions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
+      setNewAss({ 
+          ...newAss, 
+          questions: updatedQuestions, 
+          max: totalMax || newAss.max, 
+          rubricId: updatedQuestions.length > 0 ? "none" : newAss.rubricId 
+      });
   };
 
   const handleImportQuestions = (importedQuestions: AssessmentQuestion[], mode: 'append' | 'replace') => {
@@ -281,8 +260,8 @@ export const MarkSheetToolbar = ({
         </div>
 
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
-            <div className="p-6 pb-2">
+          <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[95vh] flex flex-col p-0 overflow-hidden">
+            <div className="p-6 pb-2 shrink-0">
                 <DialogHeader>
                 <DialogTitle>New Formal Assessment Task (FAT)</DialogTitle>
                 <DialogDescription className="flex items-center gap-2">
@@ -292,170 +271,61 @@ export const MarkSheetToolbar = ({
             </div>
 
             <ScrollArea className="flex-1 p-6 pt-0">
-                <div className="grid gap-4 py-4">
-                <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg mb-2">
-                    <Info className="h-4 w-4 text-blue-600 shrink-0" />
-                    <p className="text-[11px] text-blue-900 leading-tight">
-                        This formal assessment will be locked to <strong>{targetTermName}</strong>. Ensure weighting aligns with DBE policy.
-                    </p>
-                </div>
+                <div className="grid gap-6 py-4">
+                  <div className="grid gap-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                          <Label className="text-right text-xs">Task Title</Label>
+                          <Input value={newAss.title} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Investigation 1" />
+                      </div>
+                      
+                      <div className="grid grid-cols-4 items-center gap-4">
+                          <Label className="text-right text-xs">Rubric (Opt)</Label>
+                          <Select value={newAss.rubricId || "none"} onValueChange={handleRubricSelect}>
+                              <SelectTrigger className="col-span-3 h-9">
+                                  <SelectValue placeholder="None (Standard Mark)" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="none">-- Standard Score --</SelectItem>
+                                  {availableRubrics.map(r => (
+                                      <SelectItem key={r.id} value={r.id}>
+                                          <div className="flex items-center gap-2">
+                                              <Layers className="h-3 w-3 text-muted-foreground" />
+                                              {r.title} ({r.total_points} pts)
+                                          </div>
+                                      </SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                      </div>
 
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right text-xs">Task Title</Label>
-                    <Input value={newAss.title} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Investigation 1" />
-                </div>
-                
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right text-xs">Rubric (Opt)</Label>
-                    <Select value={newAss.rubricId || "none"} onValueChange={handleRubricSelect}>
-                        <SelectTrigger className="col-span-3 h-9">
-                            <SelectValue placeholder="None (Standard Mark)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="none">-- Standard Score --</SelectItem>
-                            {availableRubrics.map(r => (
-                                <SelectItem key={r.id} value={r.id}>
-                                    <div className="flex items-center gap-2">
-                                        <Layers className="h-3 w-3 text-muted-foreground" />
-                                        {r.title} ({r.total_points} pts)
-                                    </div>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                          <Label className="text-right text-xs">Total Marks</Label>
+                          <Input 
+                              type="number" 
+                              value={newAss.max} 
+                              onChange={e => setNewAss({ ...newAss, max: parseInt(e.target.value) })} 
+                              className="col-span-3 h-9"
+                              disabled={!!newAss.rubricId && newAss.rubricId !== 'none' || (newAss.questions && newAss.questions.length > 0)}
+                          />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                          <Label className="text-right text-xs">Weighting %</Label>
+                          <Input type="number" value={newAss.weight} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) })} className="col-span-3 h-9" />
+                      </div>
+                  </div>
 
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right text-xs">Total Marks</Label>
-                    <Input 
-                        type="number" 
-                        value={newAss.max} 
-                        onChange={e => setNewAss({ ...newAss, max: parseInt(e.target.value) })} 
-                        className="col-span-3 h-9"
-                        disabled={!!newAss.rubricId && newAss.rubricId !== 'none' || (newAss.questions && newAss.questions.length > 0)}
-                    />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right text-xs">Weighting %</Label>
-                    <Input type="number" value={newAss.weight} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) })} className="col-span-3 h-9" />
-                </div>
+                  <div className="border-t pt-4 mt-2">
+                      <QuestionBuilder 
+                          questions={newAss.questions || []}
+                          onChange={handleQuestionsChange}
+                          topicSuggestions={topicSuggestions}
+                          disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
+                          onOpenBulk={() => setIsBulkImportOpen(true)}
+                          onOpenReuse={() => setIsReuseOpen(true)}
+                      />
+                  </div>
 
-                <div className="border-t pt-4 mt-2 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <ListChecks className="h-4 w-4 text-primary" />
-                            <h4 className="text-sm font-bold">Question Breakdown (Diagnostics)</h4>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => setIsReuseOpen(true)}
-                                disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
-                                className="h-8"
-                            >
-                                <Library className="h-3 w-3 mr-1" /> Reuse
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => setIsBulkImportOpen(true)}
-                                disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
-                                className="h-8"
-                            >
-                                <FileSpreadsheet className="h-3 w-3 mr-1" /> Bulk
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={addQuestion}
-                                disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
-                                className="h-8"
-                            >
-                                <Plus className="h-3 w-3 mr-1" /> Add Q
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3">
-                        {(newAss.questions || []).map((q: AssessmentQuestion) => (
-                            <div key={q.id} className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/20 animate-in fade-in slide-in-from-top-1">
-                                <div className="flex gap-2 items-start">
-                                    <div className="w-16">
-                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Num</Label>
-                                        <Input 
-                                            value={q.question_number} 
-                                            onChange={(e) => updateQuestion(q.id, { question_number: e.target.value })}
-                                            className="h-8 text-xs font-bold bg-background"
-                                        />
-                                    </div>
-                                    <div className="flex-1">
-                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Skill Description</Label>
-                                        <Input 
-                                            value={q.skill_description} 
-                                            onChange={(e) => updateQuestion(q.id, { skill_description: e.target.value })}
-                                            className="h-8 text-xs bg-background"
-                                            placeholder="e.g. Critical Thinking"
-                                        />
-                                    </div>
-                                    <div className="w-20">
-                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Max</Label>
-                                        <Input 
-                                            type="number"
-                                            value={q.max_mark} 
-                                            onChange={(e) => updateQuestion(q.id, { max_mark: parseInt(e.target.value) || 0 })}
-                                            className="h-8 text-xs text-center bg-background"
-                                        />
-                                    </div>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        onClick={() => removeQuestion(q.id)}
-                                        className="mt-5 h-8 w-8 text-muted-foreground hover:text-destructive"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                                <div className="flex gap-2">
-                                    <div className="flex-1">
-                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Topic (Optional)</Label>
-                                        <TopicCombobox
-                                            value={q.topic || ""}
-                                            onChange={(val) => updateQuestion(q.id, { topic: val })}
-                                            suggestions={topicSuggestions}
-                                            placeholder="e.g. Algebra"
-                                        />
-                                    </div>
-                                    <div className="w-1/3">
-                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Cog. Level</Label>
-                                        <Select value={q.cognitive_level || "knowledge"} onValueChange={(v: CognitiveLevel) => updateQuestion(q.id, { cognitive_level: v })}>
-                                            <SelectTrigger className="h-8 text-xs bg-background">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="knowledge">Knowledge</SelectItem>
-                                                <SelectItem value="comprehension">Comprehension</SelectItem>
-                                                <SelectItem value="application">Application</SelectItem>
-                                                <SelectItem value="analysis">Analysis</SelectItem>
-                                                <SelectItem value="evaluation">Evaluation</SelectItem>
-                                                <SelectItem value="creation">Creation</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                        {(newAss.questions || []).length > 0 && (
-                            <div className="flex justify-end pr-8">
-                                <p className="text-xs font-bold text-primary">
-                                    Sub-total: {newAss.max} marks
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <Button onClick={handleAddAssessment} className="mt-4 w-full font-bold h-12">Record Assessment</Button>
+                  <Button onClick={handleAddAssessment} className="w-full font-bold h-12">Record Assessment</Button>
                 </div>
             </ScrollArea>
           </DialogContent>
