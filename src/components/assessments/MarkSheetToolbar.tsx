@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, BarChart3, ShieldCheck, XCircle, Trash2, ListChecks } from 'lucide-react';
-import { Assessment, Term, AcademicYear, Rubric, ClassInfo, AssessmentQuestion } from '@/lib/types';
+import { Assessment, Term, AcademicYear, Rubric, ClassInfo, AssessmentQuestion, CognitiveLevel } from '@/lib/types';
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { DiagnosticReportDialog } from "./DiagnosticReportDialog";
@@ -78,6 +78,8 @@ export const MarkSheetToolbar = ({
       id: crypto.randomUUID(),
       question_number: `Q${nextNum}`,
       skill_description: "",
+      topic: "",
+      cognitive_level: "knowledge",
       max_mark: 10
     });
     
@@ -337,41 +339,70 @@ export const MarkSheetToolbar = ({
 
                     <div className="space-y-3">
                         {(newAss.questions || []).map((q: AssessmentQuestion) => (
-                            <div key={q.id} className="flex gap-3 p-3 rounded-lg border bg-muted/20 animate-in fade-in slide-in-from-top-1">
-                                <div className="w-16">
-                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Num</Label>
-                                    <Input 
-                                        value={q.question_number} 
-                                        onChange={(e) => updateQuestion(q.id, { question_number: e.target.value })}
-                                        className="h-8 text-xs font-bold"
-                                    />
+                            <div key={q.id} className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/20 animate-in fade-in slide-in-from-top-1">
+                                <div className="flex gap-2 items-start">
+                                    <div className="w-16">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Num</Label>
+                                        <Input 
+                                            value={q.question_number} 
+                                            onChange={(e) => updateQuestion(q.id, { question_number: e.target.value })}
+                                            className="h-8 text-xs font-bold bg-background"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Skill Description</Label>
+                                        <Input 
+                                            value={q.skill_description} 
+                                            onChange={(e) => updateQuestion(q.id, { skill_description: e.target.value })}
+                                            className="h-8 text-xs bg-background"
+                                            placeholder="e.g. Critical Thinking"
+                                        />
+                                    </div>
+                                    <div className="w-20">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Max</Label>
+                                        <Input 
+                                            type="number"
+                                            value={q.max_mark} 
+                                            onChange={(e) => updateQuestion(q.id, { max_mark: parseInt(e.target.value) || 0 })}
+                                            className="h-8 text-xs text-center bg-background"
+                                        />
+                                    </div>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => removeQuestion(q.id)}
+                                        className="mt-5 h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
-                                <div className="flex-1">
-                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Skill Description</Label>
-                                    <Input 
-                                        value={q.skill_description} 
-                                        onChange={(e) => updateQuestion(q.id, { skill_description: e.target.value })}
-                                        className="h-8 text-xs"
-                                        placeholder="e.g. Critical Thinking"
-                                    />
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Topic (Optional)</Label>
+                                        <Input 
+                                            value={q.topic || ""} 
+                                            onChange={(e) => updateQuestion(q.id, { topic: e.target.value })}
+                                            className="h-8 text-xs bg-background"
+                                            placeholder="e.g. Algebra"
+                                        />
+                                    </div>
+                                    <div className="w-1/3">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Cog. Level</Label>
+                                        <Select value={q.cognitive_level || "knowledge"} onValueChange={(v: CognitiveLevel) => updateQuestion(q.id, { cognitive_level: v })}>
+                                            <SelectTrigger className="h-8 text-xs bg-background">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="knowledge">Knowledge</SelectItem>
+                                                <SelectItem value="comprehension">Comprehension</SelectItem>
+                                                <SelectItem value="application">Application</SelectItem>
+                                                <SelectItem value="analysis">Analysis</SelectItem>
+                                                <SelectItem value="evaluation">Evaluation</SelectItem>
+                                                <SelectItem value="creation">Creation</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                                <div className="w-20">
-                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Max</Label>
-                                    <Input 
-                                        type="number"
-                                        value={q.max_mark} 
-                                        onChange={(e) => updateQuestion(q.id, { max_mark: parseInt(e.target.value) || 0 })}
-                                        className="h-8 text-xs text-center"
-                                    />
-                                </div>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => removeQuestion(q.id)}
-                                    className="mt-5 h-8 w-8 text-muted-foreground hover:text-destructive"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
                             </div>
                         ))}
                         {(newAss.questions || []).length > 0 && (

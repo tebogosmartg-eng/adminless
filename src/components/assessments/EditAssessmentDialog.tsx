@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Assessment, Rubric, AssessmentQuestion } from '@/lib/types';
+import { Assessment, Rubric, AssessmentQuestion, CognitiveLevel } from '@/lib/types';
 import { Layers, Plus, Trash2, ListChecks } from 'lucide-react';
 
 interface EditAssessmentDialogProps {
@@ -56,6 +56,8 @@ export const EditAssessmentDialog = ({
       id: crypto.randomUUID(),
       question_number: `Q${nextNum}`,
       skill_description: "",
+      topic: "",
+      cognitive_level: "knowledge",
       max_mark: 10
     });
     
@@ -162,40 +164,68 @@ export const EditAssessmentDialog = ({
 
                     <div className="space-y-3">
                         {(formData.questions || []).map((q: AssessmentQuestion) => (
-                            <div key={q.id} className="flex gap-3 p-3 rounded-lg border bg-muted/20">
-                                <div className="w-16">
-                                    <Label className="text-[10px] font-bold mb-1 block">Num</Label>
-                                    <Input 
-                                        value={q.question_number} 
-                                        onChange={(e) => updateQuestion(q.id, { question_number: e.target.value })}
-                                        className="h-8 text-xs font-bold"
-                                    />
+                            <div key={q.id} className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/20">
+                                <div className="flex gap-2 items-start">
+                                    <div className="w-16">
+                                        <Label className="text-[10px] font-bold mb-1 block">Num</Label>
+                                        <Input 
+                                            value={q.question_number} 
+                                            onChange={(e) => updateQuestion(q.id, { question_number: e.target.value })}
+                                            className="h-8 text-xs font-bold bg-background"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <Label className="text-[10px] font-bold mb-1 block">Skill</Label>
+                                        <Input 
+                                            value={q.skill_description} 
+                                            onChange={(e) => updateQuestion(q.id, { skill_description: e.target.value })}
+                                            className="h-8 text-xs bg-background"
+                                        />
+                                    </div>
+                                    <div className="w-20">
+                                        <Label className="text-[10px] font-bold mb-1 block">Max</Label>
+                                        <Input 
+                                            type="number"
+                                            value={q.max_mark} 
+                                            onChange={(e) => updateQuestion(q.id, { max_mark: parseInt(e.target.value) || 0 })}
+                                            className="h-8 text-xs text-center bg-background"
+                                        />
+                                    </div>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => removeQuestion(q.id)}
+                                        className="mt-5 h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
-                                <div className="flex-1">
-                                    <Label className="text-[10px] font-bold mb-1 block">Skill</Label>
-                                    <Input 
-                                        value={q.skill_description} 
-                                        onChange={(e) => updateQuestion(q.id, { skill_description: e.target.value })}
-                                        className="h-8 text-xs"
-                                    />
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Topic (Optional)</Label>
+                                        <Input 
+                                            value={q.topic || ""} 
+                                            onChange={(e) => updateQuestion(q.id, { topic: e.target.value })}
+                                            className="h-8 text-xs bg-background"
+                                        />
+                                    </div>
+                                    <div className="w-1/3">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Cog. Level</Label>
+                                        <Select value={q.cognitive_level || "knowledge"} onValueChange={(v: CognitiveLevel) => updateQuestion(q.id, { cognitive_level: v })}>
+                                            <SelectTrigger className="h-8 text-xs bg-background">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="knowledge">Knowledge</SelectItem>
+                                                <SelectItem value="comprehension">Comprehension</SelectItem>
+                                                <SelectItem value="application">Application</SelectItem>
+                                                <SelectItem value="analysis">Analysis</SelectItem>
+                                                <SelectItem value="evaluation">Evaluation</SelectItem>
+                                                <SelectItem value="creation">Creation</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                                <div className="w-20">
-                                    <Label className="text-[10px] font-bold mb-1 block">Max</Label>
-                                    <Input 
-                                        type="number"
-                                        value={q.max_mark} 
-                                        onChange={(e) => updateQuestion(q.id, { max_mark: parseInt(e.target.value) || 0 })}
-                                        className="h-8 text-xs text-center"
-                                    />
-                                </div>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => removeQuestion(q.id)}
-                                    className="mt-5 h-8 w-8 text-muted-foreground hover:text-destructive"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
                             </div>
                         ))}
                     </div>

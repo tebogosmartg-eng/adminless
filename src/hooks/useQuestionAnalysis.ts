@@ -8,6 +8,7 @@ import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { generateAIDiagnostic } from '@/services/gemini';
+import { buildQuestionDiagnosis } from '@/utils/diagnosticEngine';
 
 export interface QuestionStat {
   id: string;
@@ -22,7 +23,7 @@ export interface QuestionStat {
   totalAttempts: number;
 }
 
-export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[]) => {
+export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[], classSubject: string = "General") => {
   const marks = useLiveQuery(
     () => db.assessment_marks.where('assessment_id').equals(assessment.id).toArray(),
     [assessment.id]
@@ -73,14 +74,11 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
 
     const overallAvg = (qStats.reduce((a, b) => a + b.avg, 0) / qStats.length).toFixed(1);
 
-    // Initial draft fallback structure
-    const initialRows: DiagnosticRow[] = qStats.map(s => ({
-        id: s.id,
-        question: `Q${s.number} - ${s.skill || 'Assessment Item'}`,
-        performance_summary: `Class average: ${s.avg}%. Pass rate: ${s.passRate}%.`,
-        possible_root_causes: ["Skill gap identified in this specific topic area.", "Conceptual misunderstanding of the problem requirements.", "Difficulty with cognitive demand of the question."],
-        targeted_interventions: ["Topic-specific revision.", "Modeling solutions.", "Focused practice exercises."]
-    }));
+    // Context-aware diagnostic generation
+    const initialRows: DiagnosticRow[] = qStats.map(s => {
+       const qDef = assessment.questions?.find(q => q.id === s.id);
+       return buildQuestionDiagnosis(s, qDef, classSubject);
+    });
 
     return { 
         qStats, 
@@ -89,7 +87,7 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[])
         savedDiagnostic: savedDiagnostic || null,
         overallAvg
     };
-  }, [assessment, marks, savedDiagnostic]);
+  }, [assessment, marks, savedDiagnostic, classSubject]);
 
   const generateAIAnalysis = useCallback(async (subject: string, grade: string): Promise<FullDiagnostic | null> => {
     if (!stats) return null;

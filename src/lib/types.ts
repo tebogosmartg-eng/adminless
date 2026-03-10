@@ -129,11 +129,15 @@ export interface Term {
   user_id?: string;
 }
 
+export type CognitiveLevel = 'knowledge' | 'comprehension' | 'application' | 'analysis' | 'evaluation' | 'creation' | 'unknown';
+
 export interface AssessmentQuestion {
   id: string;
   question_number: string;
   skill_description: string;
   max_mark: number;
+  topic?: string;
+  cognitive_level?: CognitiveLevel;
 }
 
 export interface Assessment {
@@ -260,8 +264,6 @@ export interface ScanHistory {
   before_snapshot: any; 
   after_snapshot: any;  
 }
-
-export type CognitiveLevel = 'knowledge' | 'comprehension' | 'application' | 'analysis' | 'evaluation' | 'creation' | 'unknown';
 
 export interface DiagnosticRow {
   id: string;

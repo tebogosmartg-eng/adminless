@@ -39,10 +39,11 @@ interface QuestionDiagnosticDialogProps {
   onOpenChange: (open: boolean) => void;
   assessment: Assessment;
   learners: Learner[];
+  classSubject?: string;
 }
 
-export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learners }: QuestionDiagnosticDialogProps) => {
-  const { stats, loading, saveDiagnostic, generateAIAnalysis } = useQuestionAnalysis(assessment, learners);
+export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learners, classSubject = "General" }: QuestionDiagnosticDialogProps) => {
+  const { stats, loading, saveDiagnostic, generateAIAnalysis } = useQuestionAnalysis(assessment, learners, classSubject);
   const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   const { activateInterventions } = useRemediation(assessment.class_id, assessment.term_id);
   

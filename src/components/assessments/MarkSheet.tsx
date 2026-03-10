@@ -297,6 +297,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
                 onOpenChange={(open) => setQDiagnostic(prev => ({ ...prev, open }))}
                 assessment={qDiagnostic.assessment}
                 learners={state.filteredLearners}
+                classSubject={classInfo.subject}
            />
        )}
     </div>
