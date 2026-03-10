@@ -6,23 +6,26 @@ import { useTeacherFileData } from '@/hooks/useTeacherFileData';
 import { TeacherFileSection } from './TeacherFileSection';
 import { TimetableGrid } from '@/components/TimetableGrid';
 import { TeacherFileRecordOfWork } from './TeacherFileRecordOfWork';
-import { TeacherFilePerformanceMatrix } from './TeacherFilePerformanceMatrix';
+import { TeacherFileTasks } from './TeacherFileTasks';
+import { TeacherFileMarkSchedule } from './TeacherFileMarkSchedule';
+import { TeacherFileReports } from './TeacherFileReports';
 import { EvidenceManager } from '@/components/evidence/EvidenceManager';
 import { ClassCurriculumTab } from '@/components/ClassCurriculumTab';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { useSettings } from '@/context/SettingsContext';
-import { Loader2, User, Mail, Phone, Hash, ShieldCheck, Printer } from 'lucide-react';
+import { Loader2, User, Mail, Phone, Hash, ShieldCheck, Printer, AlertTriangle, Users, BookOpen } from 'lucide-react';
 import { RemediationActionPlan } from '@/components/analysis/RemediationActionPlan';
 import { Button } from '@/components/ui/button';
 
 export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, term: Term, classId: string }) => {
   const { data, loading, error } = useTeacherFileData(year.id, term.id, classId);
-  const { teacherName, contactEmail, contactPhone, schoolCode, saceNumber } = useSettings();
+  const { teacherName, contactEmail, contactPhone, schoolCode, saceNumber, gradingScheme } = useSettings();
 
   if (loading) return <div className="py-20 flex flex-col items-center gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" /><p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Assembling File...</p></div>;
   if (error || !data) return <div className="py-20 text-center text-red-500">Failed to load class data.</div>;
 
-  const { classInfo, assessments, stats } = data;
+  const { classInfo, assessments, marks, stats, moderationSample, rubrics, diagnostics } = data;
   const prefix = `${classId}_${term.id}_`; // Isolates manual file uploads to this specific class+term
   const isLocked = term.is_finalised || term.closed;
 
@@ -86,28 +89,6 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
                         )}
                     </div>
                 </div>
-
-                <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-4 p-4 rounded-xl border bg-white dark:bg-slate-900 shadow-sm">
-                        <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-slate-600">
-                            <Mail className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Email Address</p>
-                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{contactEmail || "Not available"}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4 p-4 rounded-xl border bg-white dark:bg-slate-900 shadow-sm">
-                        <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-slate-600">
-                            <Phone className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Contact Number</p>
-                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contactPhone || "Not available"}</p>
-                        </div>
-                    </div>
-                </div>
-
                 <div className="mt-4">
                     <TimetableGrid />
                 </div>
@@ -144,16 +125,16 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
         {/* Section 4: Assessment */}
         <TeacherFileSection 
             yearId={year.id} termId={term.id} sectionKey={`${prefix}assessment`}
-            title="4. Assessment"
+            title="4. Assessment & Moderation"
             description="Programme of Assessment, Marksheets, Moderation, and Interventions."
             isLocked={isLocked}
         >
             <div className="space-y-12">
                 <div>
-                    <h4 className="text-sm font-bold mb-4">Programme of Assessment (POA)</h4>
-                    <div className="border rounded-xl overflow-hidden bg-white dark:bg-card shadow-sm">
+                    <h4 className="text-sm font-bold mb-4 text-blue-800">4.1 Programme of Assessment (POA)</h4>
+                    <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
                         <Table>
-                            <TableHeader className="bg-slate-50 dark:bg-slate-800/50">
+                            <TableHeader className="bg-slate-50">
                                 <TableRow>
                                     <TableHead className="font-bold text-[10px] uppercase">Task Title</TableHead>
                                     <TableHead className="font-bold text-[10px] uppercase">Type</TableHead>
@@ -179,17 +160,75 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
                 </div>
 
                 <div className="pt-8 border-t border-slate-100">
-                    <h4 className="text-sm font-bold mb-4">Mark Schedules & Performance Summary</h4>
-                    <TeacherFilePerformanceMatrix classes={[{ id: classInfo.id, name: classInfo.className, subject: classInfo.subject, grade: classInfo.grade, average: stats.average, passRate: stats.passRate }]} />
+                    <h4 className="text-sm font-bold mb-4 text-blue-800">4.2 Formal Assessment Tasks & Memoranda</h4>
+                    <TeacherFileTasks assessments={assessments} rubrics={rubrics} />
                 </div>
 
                 <div className="pt-8 border-t border-slate-100">
-                    <h4 className="text-sm font-bold mb-4">Moderation & Evidence Audit</h4>
+                    <h4 className="text-sm font-bold mb-4 text-blue-800">4.3 Term Mark Schedule</h4>
+                    <TeacherFileMarkSchedule classInfo={classInfo} assessments={assessments} marks={marks} gradingScheme={gradingScheme} />
+                </div>
+
+                <div className="pt-8 border-t border-slate-100">
+                    <h4 className="text-sm font-bold mb-4 text-blue-800">4.4 Moderation Evidence</h4>
+                    {moderationSample ? (
+                        <div className="mb-6 p-4 rounded-xl border border-green-200 bg-green-50 flex items-start gap-4">
+                            <ShieldCheck className="h-6 w-6 text-green-600 mt-1" />
+                            <div>
+                                <h5 className="font-bold text-sm text-green-900 mb-1">Approved Moderation Sample</h5>
+                                <p className="text-xs text-green-800 mb-3">
+                                    Sample logic applied: {moderationSample.rules_json.basis === 'term_overall' ? 'Term Overall Percentage' : 'Specific Task Performance'}.
+                                    Required size: {moderationSample.learner_ids.length} learners.
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {moderationSample.learner_ids.map((id: string) => {
+                                        const l = classInfo.learners.find((c: any) => c.id === id);
+                                        return l ? <Badge key={id} variant="outline" className="bg-white border-green-300 text-green-700">{l.name}</Badge> : null;
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-4">
+                            <AlertTriangle className="h-6 w-6 text-amber-600 mt-1" />
+                            <div>
+                                <h5 className="font-bold text-sm text-amber-900">Moderation Sample Pending</h5>
+                                <p className="text-xs text-amber-800">Please generate a moderation sample in the active workspace to populate this audit section.</p>
+                            </div>
+                        </div>
+                    )}
                     <EvidenceManager classId={classInfo.id} termId={term.id} isLocked={isLocked} />
                 </div>
 
                 <div className="pt-8 border-t border-slate-100">
-                    <h4 className="text-sm font-bold mb-4">Subject Improvement Plan (SIP)</h4>
+                    <h4 className="text-sm font-bold mb-4 text-blue-800">4.5 Diagnostic Analysis & Subject Improvement Plan</h4>
+                    
+                    {diagnostics.length > 0 && (
+                        <div className="mb-6 space-y-4">
+                            {diagnostics.map((d: any) => {
+                                const ass = assessments.find((a: Assessment) => a.id === d.assessment_id);
+                                let parsedThemes = [];
+                                try {
+                                    const inter = JSON.parse(d.interventions);
+                                    parsedThemes = inter.themes || [];
+                                } catch(e) {}
+                                
+                                return (
+                                    <div key={d.id} className="p-4 rounded-xl border bg-slate-50">
+                                        <h5 className="font-bold text-sm mb-2 flex items-center gap-2"><BookOpen className="h-4 w-4 text-slate-500" /> {ass?.title} - Identified Themes</h5>
+                                        {parsedThemes.length > 0 ? (
+                                            <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
+                                                {parsedThemes.map((t: string, i: number) => <li key={i}>{t}</li>)}
+                                            </ul>
+                                        ) : (
+                                            <p className="text-xs italic text-muted-foreground">No overarching themes identified in diagnostics.</p>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+
                     <RemediationActionPlan classId={classInfo.id} termId={term.id} />
                 </div>
             </div>
@@ -198,16 +237,18 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
         {/* Section 5: Reports */}
         <TeacherFileSection 
             yearId={year.id} termId={term.id} sectionKey={`${prefix}reports`}
-            title="5. Reports & Monitoring"
-            description="Educator reports, IQMS documents, Subject Meeting Minutes, and Correspondence."
+            title="5. Educator Reports & Statistics"
+            description="Aggregated performance metrics and reporting data."
             isLocked={isLocked}
-        />
+        >
+             <TeacherFileReports classInfo={classInfo} assessments={assessments} marks={marks} />
+        </TeacherFileSection>
 
         {/* Section 6: Resources */}
         <TeacherFileSection 
             yearId={year.id} termId={term.id} sectionKey={`${prefix}resources`}
-            title="6. Resources"
-            description="Textbook and LTSM control records."
+            title="6. Resources & LTSM"
+            description="Textbook and Learner Teacher Support Material control records."
             isLocked={isLocked}
         />
     </div>
