@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/db';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +11,8 @@ import { Assessment, Rubric, AssessmentQuestion, CognitiveLevel } from '@/lib/ty
 import { Layers, Plus, Trash2, ListChecks, FileSpreadsheet, Library } from 'lucide-react';
 import { BulkQuestionImportDialog } from './BulkQuestionImportDialog';
 import { ReuseQuestionsDialog } from './ReuseQuestionsDialog';
+import { TopicCombobox } from "./TopicCombobox";
+import { useTopicSuggestions } from "@/hooks/useTopicSuggestions";
 
 interface EditAssessmentDialogProps {
   open: boolean;
@@ -28,6 +32,10 @@ export const EditAssessmentDialog = ({
   const [formData, setFormData] = useState<Partial<Assessment>>({});
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isReuseOpen, setIsReuseOpen] = useState(false);
+
+  // Fetch contextual class info so we can refine suggestions by subject and grade
+  const classInfo = useLiveQuery(() => assessment ? db.classes.get(assessment.class_id) : undefined, [assessment?.class_id]);
+  const topicSuggestions = useTopicSuggestions(classInfo?.subject, classInfo?.grade);
 
   useEffect(() => {
     if (assessment) {
@@ -239,10 +247,11 @@ export const EditAssessmentDialog = ({
                                   <div className="flex gap-2">
                                       <div className="flex-1">
                                           <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Topic (Optional)</Label>
-                                          <Input 
-                                              value={q.topic || ""} 
-                                              onChange={(e) => updateQuestion(q.id, { topic: e.target.value })}
-                                              className="h-8 text-xs bg-background"
+                                          <TopicCombobox
+                                              value={q.topic || ""}
+                                              onChange={(val) => updateQuestion(q.id, { topic: val })}
+                                              suggestions={topicSuggestions}
+                                              placeholder="e.g. Algebra"
                                           />
                                       </div>
                                       <div className="w-1/3">

@@ -17,6 +17,8 @@ import { ReuseQuestionsDialog } from "./ReuseQuestionsDialog";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { TopicCombobox } from "./TopicCombobox";
+import { useTopicSuggestions } from "@/hooks/useTopicSuggestions";
 
 interface MarkSheetToolbarProps {
   terms: Term[];
@@ -64,6 +66,9 @@ export const MarkSheetToolbar = ({
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isReuseOpen, setIsReuseOpen] = useState(false);
   const { progress, missingRequired } = useSetupStatus();
+  
+  // Fetch historical topics prioritized by this class's subject and grade
+  const topicSuggestions = useTopicSuggestions(classInfo?.subject, classInfo?.grade);
 
   const handleRubricSelect = (val: string) => {
       const rubric = availableRubrics.find(r => r.id === val);
@@ -414,10 +419,10 @@ export const MarkSheetToolbar = ({
                                 <div className="flex gap-2">
                                     <div className="flex-1">
                                         <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Topic (Optional)</Label>
-                                        <Input 
-                                            value={q.topic || ""} 
-                                            onChange={(e) => updateQuestion(q.id, { topic: e.target.value })}
-                                            className="h-8 text-xs bg-background"
+                                        <TopicCombobox
+                                            value={q.topic || ""}
+                                            onChange={(val) => updateQuestion(q.id, { topic: val })}
+                                            suggestions={topicSuggestions}
                                             placeholder="e.g. Algebra"
                                         />
                                     </div>

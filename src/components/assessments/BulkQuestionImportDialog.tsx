@@ -14,6 +14,9 @@ import Papa from 'papaparse';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TopicCombobox } from "./TopicCombobox";
+import { useTopicSuggestions } from "@/hooks/useTopicSuggestions";
+import { normalizeTopic } from '@/utils/topic';
 
 interface ParsedRow {
   id: string;
@@ -51,7 +54,7 @@ const processRowValues = (q: any, skill: any, topic: any, cog: any, max: any): P
         id: crypto.randomUUID(),
         question_number: qStr,
         skill_description: String(skill || '').trim() || 'Standard Question',
-        topic: String(topic || '').trim(),
+        topic: normalizeTopic(String(topic || '').trim()), // Automatically normalize on import
         cognitive_level: mapCogLevel(cog),
         max_mark: maxStr,
         isValid: errors.length === 0,
@@ -72,6 +75,9 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
   const [previewData, setPreviewData] = useState<ParsedRow[]>([]);
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Since we are in an abstracted dialog, we get the global topic dictionary
+  const topicSuggestions = useTopicSuggestions();
 
   const reset = () => {
       setStep('input');
@@ -301,7 +307,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                             <TableHeader className="bg-slate-50">
                                 <TableRow>
                                     <TableHead className="w-24 text-[10px] font-black uppercase">Q Number</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Topic</TableHead>
+                                    <TableHead className="w-44 text-[10px] font-black uppercase">Topic</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase">Skill</TableHead>
                                     <TableHead className="w-44 text-[10px] font-black uppercase">Cognitive Level</TableHead>
                                     <TableHead className="w-24 text-[10px] font-black uppercase text-center">Max</TableHead>
@@ -319,10 +325,10 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                                             />
                                         </TableCell>
                                         <TableCell className="p-2">
-                                            <Input 
-                                                value={row.topic} 
-                                                onChange={(e) => updateRow(row.id, 'topic', e.target.value)} 
-                                                className="h-8 text-xs"
+                                            <TopicCombobox
+                                                value={row.topic || ""}
+                                                onChange={(val) => updateRow(row.id, 'topic', val)}
+                                                suggestions={topicSuggestions}
                                             />
                                         </TableCell>
                                         <TableCell className="p-2">
