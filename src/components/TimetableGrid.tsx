@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react';
 import { useTimetable } from '@/hooks/useTimetable';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -11,9 +12,19 @@ export const TimetableGrid = () => {
   const { timetable } = useTimetable();
 
   const maxPeriod = useMemo(() => {
-    if (!timetable || timetable.length === 0) return 8;
-    return Math.max(...timetable.map(t => t.period), 8);
+    if (!timetable || timetable.length === 0) return 0;
+    return Math.max(...timetable.map(t => t.period), 0);
   }, [timetable]);
+
+  if (maxPeriod === 0) {
+      return (
+          <div className="py-10 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none print:text-left print:p-2 print:text-black">
+              <CalendarClock className="h-10 w-10 mx-auto text-muted-foreground opacity-20 mb-2 no-print" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground print:text-black">No Timetable Configured</p>
+              <p className="text-[9px] text-muted-foreground mt-1 no-print">Set up your teaching schedule in Settings {'>'} Academic.</p>
+          </div>
+      );
+  }
 
   const periods = Array.from({ length: maxPeriod }, (_, i) => i + 1);
 

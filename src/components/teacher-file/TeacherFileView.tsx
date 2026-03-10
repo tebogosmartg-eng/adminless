@@ -14,7 +14,7 @@ import { ClassCurriculumTab } from '@/components/ClassCurriculumTab';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useSettings } from '@/context/SettingsContext';
-import { Loader2, User, Mail, Phone, Hash, ShieldCheck, Printer, AlertTriangle, Users, BookOpen } from 'lucide-react';
+import { Loader2, User, Mail, Phone, Hash, ShieldCheck, Printer, AlertTriangle, Users, BookOpen, Info } from 'lucide-react';
 import { RemediationActionPlan } from '@/components/analysis/RemediationActionPlan';
 import { Button } from '@/components/ui/button';
 
@@ -47,10 +47,14 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
                 </div>
             </div>
             
-            <div className="pt-8 flex justify-center no-print">
-                <Button variant="outline" className="gap-2 font-bold shadow-sm" onClick={() => window.print()}>
-                    <Printer className="h-4 w-4" /> Print / Save as PDF
+            <div className="pt-8 flex flex-col items-center gap-4 no-print">
+                <Button className="gap-2 font-black shadow-xl shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 h-12 px-8 text-lg" onClick={() => window.print()}>
+                    <Printer className="h-5 w-5" /> Export PDF / Print File
                 </Button>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                    <Info className="h-3 w-3" />
+                    <span>For the best PDF result, ensure <strong>"Background graphics"</strong> is checked in your print dialog.</span>
+                </div>
             </div>
         </div>
 
