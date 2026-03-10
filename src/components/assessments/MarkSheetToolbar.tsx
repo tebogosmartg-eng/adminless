@@ -12,6 +12,7 @@ import { Assessment, Term, AcademicYear, Rubric, ClassInfo, AssessmentQuestion, 
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { DiagnosticReportDialog } from "./DiagnosticReportDialog";
+import { BulkQuestionImportDialog } from "./BulkQuestionImportDialog";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -59,6 +60,7 @@ export const MarkSheetToolbar = ({
 }: MarkSheetToolbarProps) => {
 
   const [diagOpen, setDiagOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const { progress, missingRequired } = useSetupStatus();
 
   const handleRubricSelect = (val: string) => {
@@ -326,15 +328,26 @@ export const MarkSheetToolbar = ({
                             <ListChecks className="h-4 w-4 text-primary" />
                             <h4 className="text-sm font-bold">Question Breakdown (Diagnostics)</h4>
                         </div>
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={addQuestion}
-                            disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
-                            className="h-8"
-                        >
-                            <Plus className="h-3 w-3 mr-1" /> Add Question
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setIsBulkImportOpen(true)}
+                                disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
+                                className="h-8"
+                            >
+                                <FileSpreadsheet className="h-3 w-3 mr-1" /> Bulk Import
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={addQuestion}
+                                disabled={!!newAss.rubricId && newAss.rubricId !== 'none'}
+                                className="h-8"
+                            >
+                                <Plus className="h-3 w-3 mr-1" /> Add Question
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="space-y-3">
@@ -431,6 +444,22 @@ export const MarkSheetToolbar = ({
             year={activeYear}
           />
       )}
+      
+      <BulkQuestionImportDialog 
+        open={isBulkImportOpen}
+        onOpenChange={setIsBulkImportOpen}
+        onImport={(importedQuestions, mode) => {
+            let updatedQuestions = [...(newAss.questions || [])];
+            if (mode === 'replace') {
+                updatedQuestions = importedQuestions;
+            } else {
+                updatedQuestions = [...updatedQuestions, ...importedQuestions];
+            }
+            const totalMax = updatedQuestions.reduce((sum, q) => sum + (q.max_mark || 0), 0);
+            setNewAss({ ...newAss, questions: updatedQuestions, max: totalMax || newAss.max, rubricId: "none" });
+        }}
+        existingQuestions={newAss.questions}
+      />
     </div>
   );
 };
