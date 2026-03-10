@@ -167,6 +167,38 @@ export class SmaRegDB extends Dexie {
       sync_queue: '++id, table, timestamp',
       profiles: 'id'
     });
+
+    // Version 41: Added 'class_id' to timetable index
+    this.version(41).stores({
+      academic_years: 'id, user_id, closed',
+      terms: 'id, year_id, user_id',
+      classes: 'id, user_id, term_id, [year_id+term_id], sync_status',
+      learners: 'id, class_id, user_id',
+      activities: 'id, user_id, term_id, timestamp',
+      todos: 'id, user_id, term_id, completed',
+      attendance: 'id, user_id, class_id, learner_id, term_id, date, [class_id+date]',
+      timetable: 'id, user_id, year_id, day, period, class_id',
+      learner_notes: 'id, user_id, learner_id, term_id, date, created_at',
+      evidence: 'id, user_id, class_id, learner_id, term_id, created_at',
+      rubrics: 'id, user_id',
+      lesson_logs: 'id, user_id, timetable_id, date, [timetable_id+date]',
+      curriculum_topics: 'id, user_id, term_id, [subject+grade+term_id]',
+      diagnostics: 'id, user_id, assessment_id',
+      teacher_file_annotations: 'id, user_id, academic_year_id, term_id, section_key',
+      teacher_file_attachments: 'id, user_id, [academic_year_id+term_id+section_key], term_id, section_key',
+      assessments: 'id, class_id, term_id, [class_id+term_id], user_id, task_slot_key',
+      remediation_tasks: 'id, user_id, class_id, term_id, assessment_id, created_at',
+      scan_history: 'id, user_id, class_id, assessment_id, timestamp',
+      moderation_samples: 'id, user_id, term_id, [academic_year_id+term_id+class_id]',
+      scan_jobs: 'id, user_id, class_id, assessment_id',
+      teacherfile_templates: 'id, user_id, [class_id+term_id]',
+      teacherfile_template_sections: 'id, template_id, sort_order',
+      teacherfile_entries: 'id, user_id, [class_id+term_id], section_id',
+      teacherfile_entry_attachments: 'id, entry_id',
+      review_snapshots: 'id, user_id, [class_id+term_id], created_at',
+      sync_queue: '++id, table, timestamp',
+      profiles: 'id'
+    });
   }
 }
 
