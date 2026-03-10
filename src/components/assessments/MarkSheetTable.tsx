@@ -19,7 +19,7 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare, ListChecks, BarChart3
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare, ListChecks, BarChart3, Grid3X3
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -42,6 +42,7 @@ interface MarkSheetTableProps {
   setIsAddOpen: (open: boolean) => void;
   openAnalytics: (ass: Assessment) => void;
   onOpenDiagnostic?: (ass: Assessment) => void;
+  onOpenQuestionGrid?: (assId: string) => void;
   deleteAssessment: (id: string) => void;
   onEditAssessment?: (ass: Assessment) => void;
   getMarkValue: (assId: string, lId: string) => string;
@@ -63,7 +64,7 @@ interface MarkSheetTableProps {
 export const MarkSheetTable = ({
   assessments, visibleAssessments, filteredLearners, currentViewTermName,
   isLocked, isUsingVisibleTotal, atRiskThreshold, sortConfig, setIsAddOpen,
-  openAnalytics, onOpenDiagnostic, deleteAssessment, onEditAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
+  openAnalytics, onOpenDiagnostic, onOpenQuestionGrid, deleteAssessment, onEditAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
   calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool, onOpenRubric, onOpenQuestions,
   validateAndCommitMark
 }: MarkSheetTableProps) => {
@@ -208,6 +209,14 @@ export const MarkSheetTable = ({
                                     <DropdownMenuSeparator />
                                 </>
                             )}
+                            {ass.questions && ass.questions.length > 0 && onOpenQuestionGrid && (
+                                <>
+                                    <DropdownMenuItem onClick={() => onOpenQuestionGrid(ass.id)} className="font-bold text-blue-600">
+                                        <Grid3X3 className="mr-2 h-4 w-4" /> Rapid Grid Entry
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                </>
+                            )}
                             {ass.questions && ass.questions.length > 0 && onOpenDiagnostic && (
                                 <>
                                     <DropdownMenuItem onClick={() => onOpenDiagnostic(ass)} className="font-bold text-primary">
@@ -345,9 +354,14 @@ export const MarkSheetTable = ({
                                     </ContextMenuItem>
                                 )}
                                 {hasQuestions && (
-                                    <ContextMenuItem onClick={() => onOpenQuestions && onOpenQuestions(ass.id, learner)}>
-                                        <ListChecks className="mr-2 h-4 w-4" /> Open Question Breakdown
-                                    </ContextMenuItem>
+                                    <>
+                                        <ContextMenuItem onClick={() => onOpenQuestionGrid && onOpenQuestionGrid(ass.id)}>
+                                            <Grid3X3 className="mr-2 h-4 w-4" /> Open Rapid Grid
+                                        </ContextMenuItem>
+                                        <ContextMenuItem onClick={() => onOpenQuestions && onOpenQuestions(ass.id, learner)}>
+                                            <ListChecks className="mr-2 h-4 w-4" /> Open Question Breakdown
+                                        </ContextMenuItem>
+                                    </>
                                 )}
                                 <ContextMenuItem onClick={() => learner.id && openNoteDialog(ass.id, learner.id, learner.name)}>
                                 <MessageSquare className="mr-2 h-4 w-4" /> Observation

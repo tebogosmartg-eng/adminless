@@ -14,6 +14,7 @@ import { VoiceEntryDialog } from '@/components/dialogs/VoiceEntryDialog';
 import { RubricMarkingDialog } from './RubricMarkingDialog';
 import { QuestionMarkingDialog } from './QuestionMarkingDialog';
 import { QuestionDiagnosticDialog } from './QuestionDiagnosticDialog';
+import { QuestionGridDialog } from './QuestionGridDialog';
 import { useMemo, useState } from 'react';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
@@ -32,6 +33,11 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
     assessmentId: string | null;
     learner: Learner | null;
   }>({ open: false, assessmentId: null, learner: null });
+
+  const [qGrid, setQGrid] = useState<{
+    open: boolean;
+    assessmentId: string | null;
+  }>({ open: false, assessmentId: null });
 
   const [qDiagnostic, setQDiagnostic] = useState<{
       open: boolean;
@@ -61,6 +67,10 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
     setQMarking({ open: true, assessmentId: assId, learner });
   };
 
+  const handleOpenQuestionGrid = (assId: string) => {
+    setQGrid({ open: true, assessmentId: assId });
+  };
+
   const handleQuestionSave = async (score: number, questionMarks: QuestionMark[]) => {
     if (qMarking.assessmentId && qMarking.learner?.id) {
         await actions.updateMarks([{
@@ -70,6 +80,10 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
             question_marks: questionMarks
         } as any]);
     }
+  };
+
+  const handleGridSave = async (updates: any[]) => {
+      await actions.updateMarks(updates);
   };
 
   const handleOpenDiagnostic = (ass: Assessment) => {
@@ -173,6 +187,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           setIsAddOpen={actions.setIsAddOpen}
           openAnalytics={(ass) => actions.openAnalytics(ass)}
           onOpenDiagnostic={handleOpenDiagnostic}
+          onOpenQuestionGrid={handleOpenQuestionGrid}
           deleteAssessment={actions.deleteAssessment}
           onEditAssessment={(ass) => {
             actions.setEditingAssessment(ass);
@@ -247,6 +262,18 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
                 onSave={actions.handleRubricSave}
                 onNext={currentIndex < state.filteredLearners.length - 1 ? actions.handleNextRubric : undefined}
                 onPrev={currentIndex > 0 ? actions.handlePrevRubric : undefined}
+           />
+       )}
+
+       {qGrid.open && qGrid.assessmentId && (
+           <QuestionGridDialog
+              open={qGrid.open}
+              onOpenChange={(open) => setQGrid(prev => ({ ...prev, open }))}
+              assessment={state.assessments.find(a => a.id === qGrid.assessmentId)!}
+              learners={state.filteredLearners}
+              existingMarks={state.marks}
+              onSave={handleGridSave}
+              isLocked={state.isLocked}
            />
        )}
 
