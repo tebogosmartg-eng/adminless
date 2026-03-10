@@ -51,10 +51,10 @@ const MarkDistributionChart = ({
   const hasData = useMemo(() => learners.some(l => l.mark && !isNaN(parseFloat(l.mark))), [learners]);
 
   return (
-    <Card className="mb-6">
+    <Card className="mb-6 print:shadow-none print:border-slate-300 print-avoid-break">
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardTitle className="print:text-black">{title}</CardTitle>
+        <CardDescription className="print:text-slate-600">{description}</CardDescription>
       </CardHeader>
       <CardContent>
         {hasData ? (
@@ -78,7 +78,7 @@ const MarkDistributionChart = ({
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-80 text-muted-foreground">
+          <div className="flex items-center justify-center h-80 text-muted-foreground print:text-black">
             <p>Enter some marks to see the distribution chart.</p>
           </div>
         )}

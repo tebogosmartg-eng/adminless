@@ -30,20 +30,20 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
   const isLocked = term.is_finalised || term.closed;
 
   return (
-    <div className="space-y-12 max-w-5xl mx-auto pb-20 animate-in fade-in duration-500">
+    <div className="space-y-12 max-w-5xl mx-auto pb-20 animate-in fade-in duration-500 print:max-w-none print:w-full print:m-0 print:p-0 print:space-y-0">
         
-        {/* File Header */}
-        <div className="bg-white dark:bg-card rounded-2xl p-8 md:p-12 border shadow-sm text-center space-y-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+        {/* File Header / Print Cover Page */}
+        <div className="bg-white dark:bg-card rounded-2xl p-8 md:p-12 border shadow-sm text-center space-y-6 relative overflow-hidden print:border-none print:shadow-none print:pt-32 print:pb-32 print:mb-12">
+            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none no-print">
                 <ShieldCheck className="h-40 w-40" />
             </div>
             <div className="space-y-2 relative z-10">
-                <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-slate-900 dark:text-white">Teacher File</h1>
-                <p className="text-xl md:text-2xl font-bold text-blue-600">{classInfo.grade} {classInfo.subject} — {classInfo.className}</p>
-                <div className="inline-flex items-center gap-2 mt-4 px-4 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full border text-xs font-bold uppercase tracking-widest">
+                <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-slate-900 dark:text-white print:text-black">Teacher File</h1>
+                <p className="text-xl md:text-2xl font-bold text-blue-600 print:text-black">{classInfo.grade} {classInfo.subject} — {classInfo.className}</p>
+                <div className="inline-flex items-center gap-2 mt-4 px-4 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full border text-xs font-bold uppercase tracking-widest print:bg-transparent print:border-slate-300 print:text-black">
                     <span>{year.name}</span>
                     <div className="w-1 h-1 rounded-full bg-slate-400" />
-                    <span className="text-blue-600">{term.name}</span>
+                    <span className="text-blue-600 print:text-black">{term.name}</span>
                 </div>
             </div>
             
@@ -56,35 +56,36 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
 
         {/* Section 1: Profile */}
         <TeacherFileSection 
+            className="print-page-break print:pt-8"
             yearId={year.id} termId={term.id} sectionKey={`${prefix}profile`}
             title="1. Profile & Allocation"
             description="Personal details and active teaching timetable."
             hideAttachments isLocked={isLocked}
         >
             <div className="grid gap-6">
-                <div className="flex flex-col md:flex-row items-center gap-4 p-4 rounded-xl border bg-white dark:bg-slate-900 shadow-sm">
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600">
+                <div className="flex flex-col md:flex-row items-center gap-4 p-4 rounded-xl border bg-white dark:bg-slate-900 shadow-sm print:shadow-none print:border-slate-300">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 print:bg-transparent print:border print:border-slate-300">
                         <User className="h-6 w-6" />
                     </div>
                     <div className="flex-1 min-w-0 text-center md:text-left">
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Educator Name</p>
-                        <p className="text-lg font-black text-slate-900 dark:text-white truncate">{teacherName || "Not available in Profile"}</p>
+                        <p className="text-lg font-black text-slate-900 dark:text-white truncate print:text-black">{teacherName || "Not available in Profile"}</p>
                     </div>
-                    <div className="flex gap-4 w-full md:w-auto justify-center md:justify-end border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-4">
+                    <div className="flex gap-4 w-full md:w-auto justify-center md:justify-end border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-4 print:border-slate-300">
                         {schoolCode && (
                             <div className="text-center md:text-right px-2">
                                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center justify-center md:justify-end gap-1">
                                     <Hash className="h-2.5 w-2.5" /> EMIS Code
                                 </p>
-                                <p className="font-bold text-slate-700 dark:text-slate-300">{schoolCode}</p>
+                                <p className="font-bold text-slate-700 dark:text-slate-300 print:text-black">{schoolCode}</p>
                             </div>
                         )}
                         {saceNumber && (
-                            <div className="text-center md:text-right px-2 border-l">
+                            <div className="text-center md:text-right px-2 border-l print:border-slate-300">
                                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center justify-center md:justify-end gap-1">
                                     <ShieldCheck className="h-2.5 w-2.5" /> SACE No.
                                 </p>
-                                <p className="font-bold text-slate-700 dark:text-slate-300">{saceNumber}</p>
+                                <p className="font-bold text-slate-700 dark:text-slate-300 print:text-black">{saceNumber}</p>
                             </div>
                         )}
                     </div>
@@ -97,6 +98,7 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
 
         {/* Section 2: Policy */}
         <TeacherFileSection 
+            className="print-page-break print:pt-8"
             yearId={year.id} termId={term.id} sectionKey={`${prefix}policy`}
             title="2. Policy & Support Documents"
             description="Upload CAPS documents, NPPPR, and subject guidelines here."
@@ -105,17 +107,18 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
 
         {/* Section 3: Planning */}
         <TeacherFileSection 
+            className="print-page-break print:pt-8"
             yearId={year.id} termId={term.id} sectionKey={`${prefix}planning`}
             title="3. Planning"
             description="Annual Teaching Plan and Record of Work."
             isLocked={isLocked}
         >
             <div className="space-y-10">
-                <div>
+                <div className="print-avoid-break">
                     <h4 className="text-sm font-bold mb-4">Annual Teaching Plan (ATP) Tracker</h4>
                     <ClassCurriculumTab classId={classInfo.id} subject={classInfo.subject} grade={classInfo.grade} />
                 </div>
-                <div className="pt-8 border-t border-slate-100">
+                <div className="pt-8 border-t border-slate-100 print:border-slate-300">
                     <h4 className="text-sm font-bold mb-4">File Control / Record of Work</h4>
                     <TeacherFileRecordOfWork termId={term.id} classId={classInfo.id} />
                 </div>
@@ -124,15 +127,16 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
 
         {/* Section 4: Assessment */}
         <TeacherFileSection 
+            className="print-page-break print:pt-8"
             yearId={year.id} termId={term.id} sectionKey={`${prefix}assessment`}
             title="4. Assessment & Moderation"
             description="Programme of Assessment, Marksheets, Moderation, and Interventions."
             isLocked={isLocked}
         >
             <div className="space-y-12">
-                <div>
+                <div className="print-avoid-break">
                     <h4 className="text-sm font-bold mb-4 text-blue-800">4.1 Programme of Assessment (POA)</h4>
-                    <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
+                    <div className="border rounded-xl overflow-hidden bg-white shadow-sm print:shadow-none print:border-slate-300">
                         <Table>
                             <TableHeader className="bg-slate-50">
                                 <TableRow>
@@ -159,48 +163,48 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
                     </div>
                 </div>
 
-                <div className="pt-8 border-t border-slate-100">
+                <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-avoid-break">
                     <h4 className="text-sm font-bold mb-4 text-blue-800">4.2 Formal Assessment Tasks & Memoranda</h4>
                     <TeacherFileTasks assessments={assessments} rubrics={rubrics} />
                 </div>
 
-                <div className="pt-8 border-t border-slate-100">
+                <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-avoid-break">
                     <h4 className="text-sm font-bold mb-4 text-blue-800">4.3 Term Mark Schedule</h4>
                     <TeacherFileMarkSchedule classInfo={classInfo} assessments={assessments} marks={marks} gradingScheme={gradingScheme} />
                 </div>
 
-                <div className="pt-8 border-t border-slate-100">
+                <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-avoid-break">
                     <h4 className="text-sm font-bold mb-4 text-blue-800">4.4 Moderation Evidence</h4>
                     {moderationSample ? (
-                        <div className="mb-6 p-4 rounded-xl border border-green-200 bg-green-50 flex items-start gap-4">
-                            <ShieldCheck className="h-6 w-6 text-green-600 mt-1" />
+                        <div className="mb-6 p-4 rounded-xl border border-green-200 bg-green-50 flex items-start gap-4 print:border-slate-300 print:bg-transparent print:p-0">
+                            <ShieldCheck className="h-6 w-6 text-green-600 mt-1 no-print" />
                             <div>
-                                <h5 className="font-bold text-sm text-green-900 mb-1">Approved Moderation Sample</h5>
-                                <p className="text-xs text-green-800 mb-3">
+                                <h5 className="font-bold text-sm text-green-900 print:text-black">Approved Moderation Sample</h5>
+                                <p className="text-xs text-green-800 mb-3 print:text-black">
                                     Sample logic applied: {moderationSample.rules_json.basis === 'term_overall' ? 'Term Overall Percentage' : 'Specific Task Performance'}.
                                     Required size: {moderationSample.learner_ids.length} learners.
                                 </p>
                                 <div className="flex flex-wrap gap-2">
                                     {moderationSample.learner_ids.map((id: string) => {
                                         const l = classInfo.learners.find((c: any) => c.id === id);
-                                        return l ? <Badge key={id} variant="outline" className="bg-white border-green-300 text-green-700">{l.name}</Badge> : null;
+                                        return l ? <Badge key={id} variant="outline" className="bg-white border-green-300 text-green-700 print:border-slate-400 print:text-black">{l.name}</Badge> : null;
                                     })}
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-4">
-                            <AlertTriangle className="h-6 w-6 text-amber-600 mt-1" />
+                        <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-4 print:border-none print:bg-transparent print:p-0">
+                            <AlertTriangle className="h-6 w-6 text-amber-600 mt-1 no-print" />
                             <div>
-                                <h5 className="font-bold text-sm text-amber-900">Moderation Sample Pending</h5>
-                                <p className="text-xs text-amber-800">Please generate a moderation sample in the active workspace to populate this audit section.</p>
+                                <h5 className="font-bold text-sm text-amber-900 print:text-black print:italic">Moderation Sample Pending</h5>
+                                <p className="text-xs text-amber-800 no-print">Please generate a moderation sample in the active workspace to populate this audit section.</p>
                             </div>
                         </div>
                     )}
                     <EvidenceManager classId={classInfo.id} termId={term.id} isLocked={isLocked} />
                 </div>
 
-                <div className="pt-8 border-t border-slate-100">
+                <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-page-break">
                     <h4 className="text-sm font-bold mb-4 text-blue-800">4.5 Diagnostic Analysis & Subject Improvement Plan</h4>
                     
                     {diagnostics.length > 0 && (
@@ -214,14 +218,14 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
                                 } catch(e) {}
                                 
                                 return (
-                                    <div key={d.id} className="p-4 rounded-xl border bg-slate-50">
-                                        <h5 className="font-bold text-sm mb-2 flex items-center gap-2"><BookOpen className="h-4 w-4 text-slate-500" /> {ass?.title} - Identified Themes</h5>
+                                    <div key={d.id} className="p-4 rounded-xl border bg-slate-50 print:bg-transparent print:border-slate-300 print-avoid-break">
+                                        <h5 className="font-bold text-sm mb-2 flex items-center gap-2"><BookOpen className="h-4 w-4 text-slate-500 no-print" /> {ass?.title} - Identified Themes</h5>
                                         {parsedThemes.length > 0 ? (
-                                            <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
+                                            <ul className="list-disc pl-5 text-sm text-slate-700 print:text-black space-y-1">
                                                 {parsedThemes.map((t: string, i: number) => <li key={i}>{t}</li>)}
                                             </ul>
                                         ) : (
-                                            <p className="text-xs italic text-muted-foreground">No overarching themes identified in diagnostics.</p>
+                                            <p className="text-xs italic text-muted-foreground print:text-black">No overarching themes identified in diagnostics.</p>
                                         )}
                                     </div>
                                 )
@@ -236,6 +240,7 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
 
         {/* Section 5: Reports */}
         <TeacherFileSection 
+            className="print-page-break print:pt-8"
             yearId={year.id} termId={term.id} sectionKey={`${prefix}reports`}
             title="5. Educator Reports & Statistics"
             description="Aggregated performance metrics and reporting data."
@@ -246,6 +251,7 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
 
         {/* Section 6: Resources */}
         <TeacherFileSection 
+            className="print-page-break print:pt-8"
             yearId={year.id} termId={term.id} sectionKey={`${prefix}resources`}
             title="6. Resources & LTSM"
             description="Textbook and Learner Teacher Support Material control records."

@@ -98,16 +98,16 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 print-avoid-break">
       <div className="flex items-center justify-between">
-        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-            <Paperclip className="h-3 w-3" /> Section Documents ({attachments.length})
+        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 print:text-black">
+            <Paperclip className="h-3 w-3 no-print" /> Section Documents ({attachments.length})
         </h4>
         {!isLocked && (
             <Button 
                 variant="outline" 
                 size="sm" 
-                className="h-7 text-[10px] font-black uppercase tracking-tighter"
+                className="h-7 text-[10px] font-black uppercase tracking-tighter no-print"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
             >
@@ -120,19 +120,19 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
 
       <div className="grid gap-2">
           {attachments.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all">
+              <div key={item.id} className="flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all print:border-slate-300">
                   <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="p-2 bg-muted rounded-lg group-hover:bg-primary/5 transition-colors">
-                          <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                      <div className="p-2 bg-muted rounded-lg group-hover:bg-primary/5 transition-colors print:bg-transparent print:border print:border-slate-200">
+                          <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary print:text-slate-600" />
                       </div>
                       <div className="flex flex-col min-w-0">
-                          <span className="text-sm font-bold truncate pr-4">{item.file_name}</span>
-                          <span className="text-[9px] text-muted-foreground uppercase font-medium">
+                          <span className="text-sm font-bold truncate pr-4 print:text-black">{item.file_name}</span>
+                          <span className="text-[9px] text-muted-foreground uppercase font-medium print:text-slate-500">
                               Added {new Date(item.created_at).toLocaleDateString()}
                           </span>
                       </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0 no-print">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(item.file_path, item.id)} disabled={loadingFileId === item.id}>
                           {loadingFileId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                       </Button>
@@ -145,8 +145,8 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
               </div>
           ))}
           {attachments.length === 0 && (
-              <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-30">No supplementary documents</p>
+              <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none print:bg-transparent print:py-2 print:text-left print:p-0">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-30 print:opacity-100 print:normal-case print:italic print:text-slate-800">No supplementary documents attached</p>
               </div>
           )}
       </div>

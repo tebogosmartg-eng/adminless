@@ -47,7 +47,7 @@ export const TeacherFileAnnotation = ({
   };
 
   return (
-    <div className={cn("space-y-2 relative group", className)}>
+    <div className={cn("space-y-2 relative group print-avoid-break", className)}>
       <div className="flex items-center justify-between no-print">
         <h4 className={cn(
             "text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2",
@@ -76,7 +76,7 @@ export const TeacherFileAnnotation = ({
               isLocked 
                 ? "bg-muted/30 border-dashed border-muted-foreground/10 cursor-not-allowed text-slate-500" 
                 : "bg-blue-50/10 hover:border-blue-100 focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/5",
-              "print:bg-transparent print:border-none print:p-0 print:min-h-0 italic text-slate-700"
+              "print:hidden" // <--- We hide the textarea in print mode
           )}
           style={{ height: content ? 'auto' : '100px' }}
           onInput={(e) => {
@@ -85,6 +85,12 @@ export const TeacherFileAnnotation = ({
               target.style.height = `${target.scrollHeight}px`;
           }}
         />
+        
+        {/* Print-only substitute block guarantees all text is visible and wraps properly */}
+        <div className="hidden print:block whitespace-pre-wrap text-sm leading-relaxed text-slate-800 italic border-l-2 border-slate-300 pl-4 py-2 min-h-[40px]">
+            {content || "No professional commentary or notes recorded for this section."}
+        </div>
+
         <div className={cn(
             "absolute -left-1.5 top-4 w-1 h-8 rounded-full no-print opacity-40 transition-opacity",
             isLocked ? "bg-muted-foreground" : "bg-blue-600 group-hover:opacity-100"

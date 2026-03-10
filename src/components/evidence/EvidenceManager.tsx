@@ -81,23 +81,23 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
           />
       )}
 
-      <Card className={cn("border-dashed", isLocked && "bg-muted/10 border-muted-foreground/20")}>
+      <Card className={cn("border-dashed print:border-none print:shadow-none", isLocked && "bg-muted/10 border-muted-foreground/20 print:bg-transparent")}>
         <CardHeader className="pb-3">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <ShieldCheck className={cn("h-5 w-5", isLocked ? "text-muted-foreground" : "text-primary")} />
-                <CardTitle className="text-lg">Evidence Folder</CardTitle>
-                {isLocked && <Badge variant="secondary" className="gap-1 h-5"><Lock className="h-3 w-3" /> Locked</Badge>}
+                <ShieldCheck className={cn("h-5 w-5 no-print", isLocked ? "text-muted-foreground" : "text-primary")} />
+                <CardTitle className="text-lg print:text-black">Evidence Folder</CardTitle>
+                {isLocked && <Badge variant="secondary" className="gap-1 h-5 no-print"><Lock className="h-3 w-3" /> Locked</Badge>}
               </div>
-              <CardDescription>
+              <CardDescription className="print:text-slate-600">
                 {isLocked 
                     ? "Audit trail is finalized and cannot be modified." 
                     : `Attach scripts or moderation proof${targetLearnerName ? ' for ' + targetLearnerName : ''}.`}
               </CardDescription>
             </div>
             {!isLocked && (
-              <Button size="sm" onClick={() => handleOpenUpload()}>
+              <Button size="sm" onClick={() => handleOpenUpload()} className="no-print">
                 <Plus className="mr-2 h-4 w-4" /> Attach
               </Button>
             )}
@@ -105,38 +105,38 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
         </CardHeader>
         <CardContent>
           {isLocked && evidenceList.length === 0 && (
-             <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-700 text-xs rounded border border-amber-100 mb-4">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>No evidence was attached before finalization.</span>
+             <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-700 text-xs rounded border border-amber-100 mb-4 print:border-none print:bg-transparent print:p-0">
+                <AlertCircle className="h-4 w-4 shrink-0 no-print" />
+                <span className="print:text-black print:italic">No evidence was attached before finalization.</span>
              </div>
           )}
 
-          <ScrollArea className="h-[300px]">
+          <ScrollArea className="h-[300px] print:h-auto print:max-h-none print:overflow-visible">
             {evidenceList.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground space-y-2">
-                <History className="h-10 w-10 mx-auto opacity-20" />
-                <p className="text-sm">No evidence attached yet.</p>
+              <div className="text-center py-12 text-muted-foreground space-y-2 print:py-2 print:text-left">
+                <History className="h-10 w-10 mx-auto opacity-20 no-print" />
+                <p className="text-sm print:text-black print:italic">No evidence attached yet.</p>
               </div>
             ) : (
-              <div className="space-y-3 pr-2">
+              <div className="space-y-3 pr-2 print:pr-0">
                 {evidenceList.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-all group">
-                    <div className="bg-muted p-2 rounded-md">
+                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-all group print:border-slate-300 print:bg-transparent print-avoid-break">
+                    <div className="bg-muted p-2 rounded-md print:border print:border-slate-200">
                       {getIcon(item.category)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm truncate">{item.file_name}</p>
-                        <Badge variant="outline" className="text-[9px] uppercase tracking-tighter h-4">
+                        <p className="font-medium text-sm truncate print:text-black">{item.file_name}</p>
+                        <Badge variant="outline" className="text-[9px] uppercase tracking-tighter h-4 print:border-slate-400 print:text-black">
                           {item.category}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1">
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1 print:text-slate-600">
                         <span>{item.created_at ? format(new Date(item.created_at), 'dd MMM yyyy') : ''}</span>
-                        {item.notes && <span className="truncate italic">• {item.notes}</span>}
+                        {item.notes && <span className="truncate italic print:text-black">• {item.notes}</span>}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity no-print">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewFile(item)} disabled={loadingFileId === item.id}>
                          {loadingFileId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                       </Button>

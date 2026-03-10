@@ -101,3 +101,60 @@
   border-width: 2px !important;
   z-index: 50;
 }
+
+/* ==========================================================================
+   PRINT / EXPORT ENGINE
+   Ensures the Teacher File exports cleanly without UI clutter
+   ========================================================================== */
+@media print {
+  @page {
+    margin: 1.5cm;
+  }
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Page break helpers */
+  .print-page-break {
+    page-break-before: always;
+    break-before: page;
+  }
+  .print-avoid-break, table, tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  h1, h2, h3, h4, h5 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Force scroll areas to expand fully for printing */
+  [data-radix-scroll-area-viewport] {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  .overflow-hidden, .overflow-auto, .overflow-y-auto, .overflow-x-auto {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Remove shadows for a cleaner print */
+  .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
+    box-shadow: none !important;
+  }
+
+  /* Hide navigation */
+  header, aside {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}

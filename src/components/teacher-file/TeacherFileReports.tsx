@@ -24,14 +24,14 @@ export const TeacherFileReports = ({ classInfo, assessments, marks }: TeacherFil
         });
     }, [classInfo.learners, assessments, marks]);
 
-    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center">Data required to generate Educator Reports.</div>;
+    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center print:border-none print:text-left print:p-2 print:text-black">Data required to generate Educator Reports.</div>;
 
     return (
         <div className="grid lg:grid-cols-2 gap-6">
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 print-avoid-break">
                 <ClassStats learners={learnersWithAverages} />
             </div>
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 print-avoid-break">
                 <MarkDistributionChart 
                     learners={learnersWithAverages} 
                     title="Term Final Mark Distribution" 

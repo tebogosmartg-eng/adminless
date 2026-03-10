@@ -16,6 +16,7 @@ interface TeacherFileSectionProps {
   hideCommentary?: boolean;
   hideAttachments?: boolean;
   assessmentId?: string | null;
+  className?: string;
 }
 
 export const TeacherFileSection = ({
@@ -28,17 +29,18 @@ export const TeacherFileSection = ({
   children,
   hideCommentary = false,
   hideAttachments = false,
-  assessmentId = null
+  assessmentId = null,
+  className
 }: TeacherFileSectionProps) => {
   return (
-    <div className="space-y-6 pb-10 border-b border-slate-100 last:border-0">
+    <div className={cn("space-y-6 pb-10 border-b border-slate-100 last:border-0 print:border-none print:pb-8", className)}>
       <div className="space-y-1">
         <h3 className="text-xl font-black text-slate-900">{title}</h3>
-        {description && <p className="text-xs text-muted-foreground font-medium">{description}</p>}
+        {description && <p className="text-xs text-muted-foreground font-medium no-print">{description}</p>}
       </div>
 
       {children && (
-          <div className="p-6 rounded-2xl border bg-slate-50/50">
+          <div className="p-6 rounded-2xl border bg-slate-50/50 print:p-0 print:border-none print:bg-transparent">
               {children}
           </div>
       )}
