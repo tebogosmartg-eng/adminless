@@ -18,7 +18,7 @@ import { Loader2, User, Mail, Phone, Hash, ShieldCheck, Printer, AlertTriangle, 
 import { RemediationActionPlan } from '@/components/analysis/RemediationActionPlan';
 import { Button } from '@/components/ui/button';
 
-export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, term: Term, classId: string }) => {
+export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { year: AcademicYear, term: Term, classId: string, isBulkMode?: boolean }) => {
   const { data, loading, error } = useTeacherFileData(year.id, term.id, classId);
   const { teacherName, contactEmail, contactPhone, schoolCode, saceNumber, gradingScheme } = useSettings();
 
@@ -33,29 +33,33 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
     <div className="space-y-12 max-w-5xl mx-auto pb-20 animate-in fade-in duration-500 print:max-w-none print:w-full print:m-0 print:p-0 print:space-y-0">
         
         {/* File Header / Print Cover Page */}
-        <div className="bg-white dark:bg-card rounded-2xl p-8 md:p-12 border shadow-sm text-center space-y-6 relative overflow-hidden print:border-none print:shadow-none print:pt-32 print:pb-32 print:mb-12">
+        <div className="bg-white dark:bg-card rounded-2xl p-8 md:p-12 border shadow-sm text-center space-y-6 relative overflow-hidden print:border-none print:shadow-none print:m-0 print:min-h-[250mm] print:flex print:flex-col print:justify-center print:items-center">
             <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none no-print">
                 <ShieldCheck className="h-40 w-40" />
             </div>
             <div className="space-y-2 relative z-10">
-                <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-slate-900 dark:text-white print:text-black">Teacher File</h1>
-                <p className="text-xl md:text-2xl font-bold text-blue-600 print:text-black">{classInfo.grade} {classInfo.subject} — {classInfo.className}</p>
-                <div className="inline-flex items-center gap-2 mt-4 px-4 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full border text-xs font-bold uppercase tracking-widest print:bg-transparent print:border-slate-300 print:text-black">
+                <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-slate-900 dark:text-white print:text-black">Teacher File</h1>
+                <p className="text-xl md:text-3xl font-bold text-blue-600 print:text-black mt-4">{classInfo.grade} {classInfo.subject}</p>
+                <p className="text-lg md:text-xl font-medium text-slate-500 print:text-slate-700 mt-2">Class: {classInfo.className}</p>
+                
+                <div className="inline-flex items-center gap-3 mt-8 px-6 py-2 bg-slate-100 dark:bg-slate-800 rounded-full border text-sm font-bold uppercase tracking-widest print:bg-transparent print:border-slate-300 print:text-black">
                     <span>{year.name}</span>
-                    <div className="w-1 h-1 rounded-full bg-slate-400" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                     <span className="text-blue-600 print:text-black">{term.name}</span>
                 </div>
             </div>
             
-            <div className="pt-8 flex flex-col items-center gap-4 no-print">
-                <Button className="gap-2 font-black shadow-xl shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 h-12 px-8 text-lg" onClick={() => window.print()}>
-                    <Printer className="h-5 w-5" /> Export PDF / Print File
-                </Button>
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
-                    <Info className="h-3 w-3" />
-                    <span>For the best PDF result, ensure <strong>"Background graphics"</strong> is checked in your print dialog.</span>
+            {!isBulkMode && (
+                <div className="pt-8 flex flex-col items-center gap-4 no-print relative z-10">
+                    <Button className="gap-2 font-black shadow-xl shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 h-12 px-8 text-lg" onClick={() => window.print()}>
+                        <Printer className="h-5 w-5" /> Export PDF / Print File
+                    </Button>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 bg-white/80 p-2 rounded-lg">
+                        <Info className="h-3 w-3" />
+                        <span>For the best PDF result, ensure <strong>"Background graphics"</strong> is checked in your print dialog.</span>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
 
         {/* Section 1: Profile */}
@@ -261,6 +265,37 @@ export const TeacherFileView = ({ year, term, classId }: { year: AcademicYear, t
             description="Textbook and Learner Teacher Support Material control records."
             isLocked={isLocked}
         />
+
+        {/* Section 7: File Control & Sign-Off (Print Only / End of File) */}
+        <div className="print-page-break print:pt-8 space-y-10 pt-16 border-t border-slate-200 mt-16 print:border-none print:mt-0">
+            <div className="space-y-2">
+                <h3 className="text-xl font-black text-slate-900">7. File Control & Moderation Sign-off</h3>
+                <p className="text-xs text-muted-foreground no-print">Official signature block for departmental audits.</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-x-16 gap-y-16 pt-8 print:gap-12">
+                <div className="space-y-4">
+                    <div className="h-px w-full bg-slate-900" />
+                    <p className="text-[10px] font-black uppercase text-slate-400">Educator Signature</p>
+                </div>
+                <div className="space-y-4">
+                    <div className="h-px w-full bg-slate-900" />
+                    <p className="text-[10px] font-black uppercase text-slate-400">Date</p>
+                </div>
+                <div className="space-y-4">
+                    <div className="h-px w-full bg-slate-900" />
+                    <p className="text-[10px] font-black uppercase text-slate-400">Subject Head / Moderator Signature</p>
+                </div>
+                <div className="space-y-4">
+                    <div className="h-px w-full bg-slate-900" />
+                    <p className="text-[10px] font-black uppercase text-slate-400">Date</p>
+                </div>
+            </div>
+            
+            <div className="pt-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t border-slate-100 print:border-slate-300">
+                End of Academic Portfolio — {classInfo.subject} ({year.name} - {term.name})
+            </div>
+        </div>
     </div>
   );
 };

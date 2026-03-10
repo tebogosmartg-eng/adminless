@@ -5,8 +5,9 @@ import { useAcademic } from '@/context/AcademicContext';
 import { useClasses } from '@/context/ClassesContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Book, LayoutDashboard } from 'lucide-react';
+import { Book, LayoutDashboard, Printer, Layers } from 'lucide-react';
 import { TeacherFileView } from '@/components/teacher-file/TeacherFileView';
+import { Button } from '@/components/ui/button';
 
 export default function TeacherFile() {
   const { years, terms, activeYear, setActiveYear, activeTerm, setActiveTerm } = useAcademic();
@@ -18,9 +19,11 @@ export default function TeacherFile() {
 
   useEffect(() => {
       // Auto-select class if available, or reset when changing terms
-      if (termClasses.length > 0 && !termClasses.find(c => c.id === selectedClassId)) {
-          setSelectedClassId(termClasses[0].id);
-      } else if (termClasses.length === 0) {
+      if (termClasses.length > 0) {
+          if (selectedClassId !== 'all' && !termClasses.find(c => c.id === selectedClassId)) {
+              setSelectedClassId(termClasses[0].id);
+          }
+      } else {
           setSelectedClassId("");
       }
   }, [activeTerm?.id, classes]);
@@ -60,6 +63,11 @@ export default function TeacherFile() {
                 <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={!activeTerm || termClasses.length === 0}>
                     <SelectTrigger className="bg-background"><SelectValue placeholder="Select Class" /></SelectTrigger>
                     <SelectContent>
+                        {termClasses.length > 1 && (
+                            <SelectItem value="all" className="font-bold text-primary bg-primary/5">
+                                -- All Active Classes (Bulk Mode) --
+                            </SelectItem>
+                        )}
                         {termClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className} ({c.subject})</SelectItem>)}
                     </SelectContent>
                 </Select>
@@ -67,7 +75,35 @@ export default function TeacherFile() {
         </div>
       </div>
 
-      {activeYear && activeTerm && selectedClassId ? (
+      {activeYear && activeTerm && selectedClassId === 'all' ? (
+          <div className="space-y-16 animate-in fade-in duration-500">
+              <div className="p-6 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 no-print shadow-sm">
+                  <div className="flex items-center gap-3">
+                      <div className="p-3 bg-blue-600 rounded-full text-white">
+                        <Layers className="h-5 w-5" />
+                      </div>
+                      <div>
+                          <h3 className="font-bold text-blue-900 dark:text-blue-300">Bulk Portfolio Mode Active</h3>
+                          <p className="text-xs text-blue-800 dark:text-blue-400">Generating {termClasses.length} distinct class portfolios for printing.</p>
+                      </div>
+                  </div>
+                  <Button className="gap-2 shadow-lg h-12 px-8 font-black w-full sm:w-auto bg-blue-600 hover:bg-blue-700" onClick={() => window.print()}>
+                      <Printer className="h-4 w-4" /> Print All {termClasses.length} Portfolios
+                  </Button>
+              </div>
+
+              <div className="space-y-32">
+                  {termClasses.map((cls, index) => (
+                      <div key={cls.id} className={index > 0 ? "print-page-break border-t-4 border-dashed border-slate-200 pt-16" : ""}>
+                          <div className="mb-8 inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-bold text-slate-500 no-print">
+                              File {index + 1} of {termClasses.length}: {cls.className}
+                          </div>
+                          <TeacherFileView year={activeYear} term={activeTerm} classId={cls.id} isBulkMode />
+                      </div>
+                  ))}
+              </div>
+          </div>
+      ) : activeYear && activeTerm && selectedClassId ? (
           <TeacherFileView year={activeYear} term={activeTerm} classId={selectedClassId} />
       ) : (
           <div className="py-24 flex flex-col items-center justify-center text-center border-2 border-dashed rounded-xl bg-muted/10 text-muted-foreground">
