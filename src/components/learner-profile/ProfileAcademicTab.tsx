@@ -2,9 +2,10 @@ import { useLearnerAssessmentData, AssessmentResult } from '@/hooks/useLearnerAs
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, TrendingUp, Calendar, FileText } from 'lucide-react';
+import { Loader2, TrendingUp, Calendar, FileText, AlertTriangle } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Legend } from 'recharts';
 import { format } from 'date-fns';
+import { useSettings } from '@/context/SettingsContext';
 
 interface ProfileAcademicTabProps {
   learnerId?: string;
@@ -12,6 +13,7 @@ interface ProfileAcademicTabProps {
 
 export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
   const { loading, results } = useLearnerAssessmentData(learnerId);
+  const { atRiskThreshold } = useSettings();
 
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -70,7 +72,7 @@ export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
                 }}
               />
               <Legend verticalAlign="top" height={36} iconType="plainline"/>
-              <ReferenceLine y={50} stroke="red" strokeDasharray="3 3" opacity={0.3} />
+              <ReferenceLine y={atRiskThreshold} stroke="red" strokeDasharray="3 3" opacity={0.3} />
               
               <Line 
                 type="monotone" 
@@ -105,48 +107,59 @@ export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
                <Badge variant="outline" className="text-[10px]">{items.length} assessments</Badge>
             </div>
             <div className="grid gap-2">
-              {items.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border hover:bg-muted/50 transition-colors">
-                   <div className="flex flex-col gap-1 overflow-hidden">
-                      <span className="font-medium text-sm truncate" title={item.assessmentTitle}>{item.assessmentTitle}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                         <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {format(new Date(item.date), 'dd MMM')}</span>
-                         <span>•</span>
-                         <span>{item.assessmentType}</span>
-                         <span>•</span>
-                         <span>W: {item.weight}%</span>
-                      </div>
-                   </div>
-                   <div className="flex flex-col items-end gap-1">
-                      {item.percentage !== null ? (
-                        <>
-                          <div className={`text-lg font-bold ${item.percentage >= 50 ? 'text-green-600' : 'text-red-600'}`}>
-                            {item.percentage}%
-                          </div>
-                          {item.classAverage && (
-                             <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                Class Avg: {item.classAverage}%
-                             </span>
+              {items.map((item, idx) => {
+                const isHighRisk = item.trend === 'Declining' && item.percentage !== null && item.percentage < atRiskThreshold;
+
+                return (
+                  <div key={idx} className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${isHighRisk ? 'bg-red-50/50 border-red-200 hover:bg-red-50' : 'bg-muted/30 hover:bg-muted/50'}`}>
+                    <div className="flex flex-col gap-1 overflow-hidden">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate" title={item.assessmentTitle}>{item.assessmentTitle}</span>
+                          {isHighRisk && (
+                            <Badge variant="destructive" className="h-4 px-1.5 text-[8px] font-black uppercase tracking-widest gap-1">
+                              <AlertTriangle className="h-2.5 w-2.5" /> High Risk
+                            </Badge>
                           )}
-                          <span className="text-[10px] text-muted-foreground font-medium mt-0.5">
-                             {item.previousAverage !== null ? (
-                                 <>
-                                    Prev: {item.previousAverage}%
-                                    <span className={`ml-1 ${item.trend === 'Improving' ? 'text-green-600' : item.trend === 'Declining' ? 'text-red-600' : 'text-blue-600'}`}>
-                                        ({item.trend})
-                                    </span>
-                                 </>
-                             ) : (
-                                 <span className="italic opacity-60">No prior data</span>
-                             )}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-sm text-muted-foreground italic">Pending</span>
-                      )}
-                   </div>
-                </div>
-              ))}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {format(new Date(item.date), 'dd MMM')}</span>
+                          <span>•</span>
+                          <span>{item.assessmentType}</span>
+                          <span>•</span>
+                          <span>W: {item.weight}%</span>
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                        {item.percentage !== null ? (
+                          <>
+                            <div className={`text-lg font-bold ${item.percentage >= atRiskThreshold ? 'text-green-600' : 'text-red-600'}`}>
+                              {item.percentage}%
+                            </div>
+                            {item.classAverage && (
+                              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                  Class Avg: {item.classAverage}%
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                              {item.previousAverage !== null ? (
+                                  <>
+                                      Prev: {item.previousAverage}%
+                                      <span className={`ml-1 ${item.trend === 'Improving' ? 'text-green-600' : item.trend === 'Declining' ? 'text-red-600' : 'text-blue-600'}`}>
+                                          ({item.trend})
+                                      </span>
+                                  </>
+                              ) : (
+                                  <span className="italic opacity-60">No prior data</span>
+                              )}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-sm text-muted-foreground italic">Pending</span>
+                        )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}
