@@ -89,10 +89,45 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
           };
         }).filter(item => item !== null) as AssessmentResult[];
 
-        // Sort by date
+        // Sort chronologically by date
         formatted.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-        setResults(formatted);
+        // 5. Calculate Previous Performance Level (Running Average)
+        let runningSum = 0;
+        let runningCount = 0;
+
+        const finalResults = formatted.map(item => {
+            let previousAverage: number | null = null;
+            let trend: 'Improving' | 'Declining' | 'Stable' | null = null;
+
+            if (runningCount > 0) {
+                previousAverage = runningSum / runningCount;
+                
+                if (item.percentage !== null) {
+                    if (item.percentage >= previousAverage + 5) {
+                        trend = 'Improving';
+                    } else if (item.percentage <= previousAverage - 5) {
+                        trend = 'Declining';
+                    } else {
+                        trend = 'Stable';
+                    }
+                }
+            }
+
+            // Add current item to the running total for the next loop iteration
+            if (item.percentage !== null) {
+                runningSum += item.percentage;
+                runningCount++;
+            }
+
+            return {
+                ...item,
+                previousAverage: previousAverage !== null ? parseFloat(previousAverage.toFixed(1)) : null,
+                trend
+            };
+        });
+
+        setResults(finalResults);
       } catch (err) {
         console.error("Error fetching learner assessments:", err);
       } finally {

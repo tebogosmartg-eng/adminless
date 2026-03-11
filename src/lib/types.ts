@@ -196,6 +196,8 @@ export interface AssessmentResult {
   weight: number;
   percentage: number | null;
   classAverage: number | null;
+  previousAverage?: number | null;
+  trend?: 'Improving' | 'Declining' | 'Stable' | null;
 }
 
 export interface LearnerNote {

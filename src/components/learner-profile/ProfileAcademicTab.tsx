@@ -125,9 +125,21 @@ export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
                           </div>
                           {item.classAverage && (
                              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                Avg: {item.classAverage}%
+                                Class Avg: {item.classAverage}%
                              </span>
                           )}
+                          <span className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                             {item.previousAverage !== null ? (
+                                 <>
+                                    Prev: {item.previousAverage}%
+                                    <span className={`ml-1 ${item.trend === 'Improving' ? 'text-green-600' : item.trend === 'Declining' ? 'text-red-600' : 'text-blue-600'}`}>
+                                        ({item.trend})
+                                    </span>
+                                 </>
+                             ) : (
+                                 <span className="italic opacity-60">No prior data</span>
+                             )}
+                          </span>
                         </>
                       ) : (
                         <span className="text-sm text-muted-foreground italic">Pending</span>
