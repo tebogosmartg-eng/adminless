@@ -19,13 +19,13 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare, ListChecks, BarChart3, Grid3X3
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare, ListChecks, BarChart3, Grid3X3, AlertTriangle
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { parseMarkInput } from "@/utils/marks";
 import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
@@ -74,6 +74,45 @@ export const MarkSheetTable = ({
   });
   
   const [activeRow, setActiveRow] = useState<number | null>(null);
+
+  // Compute live Risk Flags chronologically
+  const highRiskCells = useMemo(() => {
+    const riskSet = new Set<string>();
+    if (!assessments || assessments.length === 0) return riskSet;
+
+    // Ensure strictly chronological ordering to build historical averages
+    const sortedAss = [...assessments].sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+
+    filteredLearners.forEach(learner => {
+      if (!learner.id) return;
+      let runningSum = 0;
+      let runningCount = 0;
+
+      sortedAss.forEach(ass => {
+        const markStr = getMarkValue(ass.id, learner.id!);
+        if (markStr && markStr !== "") {
+          const markNum = parseFloat(markStr);
+          if (!isNaN(markNum) && ass.max_mark > 0) {
+            const percentage = (markNum / ass.max_mark) * 100;
+
+            // If we have history, check for a > 5% drop into the danger zone
+            if (runningCount > 0) {
+              const prevAvg = runningSum / runningCount;
+              if (percentage < atRiskThreshold && percentage <= prevAvg - 5) {
+                riskSet.add(`${ass.id}-${learner.id}`);
+              }
+            }
+
+            // Append to history for the next assessment
+            runningSum += percentage;
+            runningCount++;
+          }
+        }
+      });
+    });
+
+    return riskSet;
+  }, [assessments, filteredLearners, getMarkValue, atRiskThreshold]);
 
   const openNoteDialog = (assId: string, learnerId: string, learnerName: string) => {
     setNoteDialog({ 
@@ -287,6 +326,7 @@ export const MarkSheetTable = ({
                         const comment = learner.id ? getMarkComment(ass.id, learner.id) : "";
                         const markValue = getMarkValue(ass.id, learner.id || '');
                         const hasQuestions = ass.questions && ass.questions.length > 0;
+                        const isHighRiskCell = learner.id ? highRiskCells.has(`${ass.id}-${learner.id}`) : false;
                         
                         return (
                         <TableCell key={ass.id} className="p-0 border-r last:border-r-0 relative">
@@ -301,7 +341,8 @@ export const MarkSheetTable = ({
                                         "focus:bg-white dark:focus:bg-background focus:ring-2 focus:ring-primary focus:z-10",
                                         isLocked && "bg-muted/50 cursor-not-allowed text-muted-foreground",
                                         comment && "font-bold text-primary",
-                                        hasQuestions && "cursor-pointer"
+                                        hasQuestions && "cursor-pointer",
+                                        isHighRiskCell && "text-red-600 font-bold bg-red-50/20 dark:bg-red-950/20"
                                     )}
                                     value={markValue}
                                     onFocus={() => setActiveRow(rowIdx)}
@@ -343,6 +384,15 @@ export const MarkSheetTable = ({
                                 {comment && (
                                     <div className="absolute top-1 left-1">
                                         <MessageSquare className="h-2 w-2 text-primary opacity-50" />
+                                    </div>
+                                )}
+
+                                {isHighRiskCell && (
+                                    <div 
+                                        className="absolute bottom-1 right-1 pointer-events-none opacity-80"
+                                        title="High Risk: Mark is below threshold and declining from previous average."
+                                    >
+                                        <AlertTriangle className="h-2.5 w-2.5 text-red-500" />
                                     </div>
                                 )}
                                 </div>
