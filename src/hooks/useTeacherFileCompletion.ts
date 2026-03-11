@@ -42,20 +42,21 @@ export const useTeacherFileCompletion = (termId: string, yearId: string) => {
             .where('academic_year_id').equals(yearId)
             .toArray();
 
+        // Use .includes instead of exact match/startsWith to detect class-prefixed keys globally for the dashboard
         const checkSection = (key: string) => {
-            const hasComment = annotations.some(a => a.section_key.startsWith(key) && a.content.trim() && (a.term_id === termId || !a.term_id));
-            const hasFiles = attachments.some(a => a.section_key === key && (a.term_id === termId || !a.term_id));
+            const hasComment = annotations.some(a => a.section_key.includes(key) && a.content.trim() && (a.term_id === termId || !a.term_id));
+            const hasFiles = attachments.some(a => a.section_key.includes(key) && (a.term_id === termId || !a.term_id));
             return hasComment || hasFiles;
         };
 
         const steps: CompletionStep[] = [
             { id: '1', label: '1. Personal Details', isComplete: true, type: 'required', link: '/settings' },
             { id: '2', label: '2. Timetable & Routine', isComplete: true, type: 'required', link: '/settings' },
-            { id: '3', label: '3. Subject Policy', isComplete: checkSection('subject_policy'), type: 'required', link: '/teacher-file' },
-            { id: '4', label: '4. Curriculum Planning (ATP)', isComplete: checkSection('atp') || checkSection('planning'), type: 'required', link: '/teacher-file' },
+            { id: '3', label: '3. Subject Policy', isComplete: checkSection('policy'), type: 'required', link: '/teacher-file' },
+            { id: '4', label: '4. Curriculum Planning (ATP)', isComplete: checkSection('planning'), type: 'required', link: '/teacher-file' },
             { id: '5', label: '5. Assessments & POA', isComplete: assessments.length > 0 && marksCount > 0, type: 'required', link: '/classes' },
-            { id: '6', label: '6. Educator Reports', isComplete: checkSection('educator_reports'), type: 'recommended', link: '/teacher-file' },
-            { id: '7', label: '7. LTSM Records', isComplete: checkSection('textbook_records'), type: 'recommended', link: '/teacher-file' },
+            { id: '6', label: '6. Educator Reports', isComplete: checkSection('reports'), type: 'recommended', link: '/teacher-file' },
+            { id: '7', label: '7. LTSM Records', isComplete: checkSection('resources'), type: 'recommended', link: '/teacher-file' },
             { id: '8', label: '8. Meeting Minutes', isComplete: checkSection('meeting_minutes'), type: 'required', link: '/teacher-file' },
             { id: '9', label: '9. IQMS Documents', isComplete: checkSection('iqms'), type: 'required', link: '/teacher-file' },
             { id: '10', label: '10. Correspondence', isComplete: checkSection('correspondence'), type: 'recommended', link: '/teacher-file' }

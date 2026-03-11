@@ -266,12 +266,42 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
             isLocked={isLocked}
         />
 
-        {/* Section 7: Flexible Professional Portfolio (Only renders if entries exist) */}
+        {/* Section 7: Additional Evidence */}
+        <div className="print-page-break print:pt-8 space-y-10 pt-16 border-t border-slate-200 mt-16 print:border-none print:mt-0">
+            <div className="space-y-2">
+                <h3 className="text-xl font-black text-slate-900">7. Additional Evidence</h3>
+                <p className="text-xs text-muted-foreground no-print">Optional supporting documentation for this term.</p>
+            </div>
+
+            <TeacherFileSection 
+                yearId={year.id} termId={term.id} sectionKey={`${prefix}meeting_minutes`}
+                title="7.1 Subject Meeting Minutes"
+                isLocked={isLocked}
+            />
+            <TeacherFileSection 
+                yearId={year.id} termId={term.id} sectionKey={`${prefix}moderation_notes`}
+                title="7.2 Moderation Notes"
+                hideAttachments
+                isLocked={isLocked}
+            />
+            <TeacherFileSection 
+                yearId={year.id} termId={term.id} sectionKey={`${prefix}correspondence`}
+                title="7.3 Correspondence"
+                isLocked={isLocked}
+            />
+            <TeacherFileSection 
+                yearId={year.id} termId={term.id} sectionKey={`${prefix}supporting_docs`}
+                title="7.4 Supporting Documents"
+                isLocked={isLocked}
+            />
+        </div>
+
+        {/* Section 8: Flexible Professional Portfolio (Only renders if entries exist) */}
         {flexSections && flexSections.length > 0 && flexEntries && flexEntries.length > 0 && (
             <TeacherFileSection 
                 className="print-page-break print:pt-8"
                 yearId={year.id} termId={term.id} sectionKey={`${prefix}portfolio`}
-                title="7. Professional Portfolio"
+                title="8. Professional Portfolio"
                 description="Custom educator entries, observations, and term targets."
                 isLocked={isLocked}
                 hideAttachments
@@ -285,7 +315,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                         return (
                             <div key={section.id} className="space-y-4 print-avoid-break">
                                 <h4 className="text-sm font-bold text-blue-800 border-b pb-2 print:text-black print:border-slate-300">
-                                    7.{section.sort_order} {section.title}
+                                    8.{section.sort_order} {section.title}
                                 </h4>
                                 <div className="grid gap-6 pl-4">
                                     {sectionEntries.map((entry: any) => {
@@ -328,10 +358,10 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
             </TeacherFileSection>
         )}
 
-        {/* Section 8: File Control & Sign-Off (Print Only / End of File) */}
+        {/* Section 9: File Control & Sign-Off (Print Only / End of File) */}
         <div className="print-page-break print:pt-8 space-y-10 pt-16 border-t border-slate-200 mt-16 print:border-none print:mt-0">
             <div className="space-y-2">
-                <h3 className="text-xl font-black text-slate-900">{flexEntries?.length > 0 ? "8" : "7"}. File Control & Moderation Sign-off</h3>
+                <h3 className="text-xl font-black text-slate-900">{flexEntries?.length > 0 ? "9" : "8"}. File Control & Moderation Sign-off</h3>
                 <p className="text-xs text-muted-foreground no-print">Official signature block for departmental audits.</p>
             </div>
             

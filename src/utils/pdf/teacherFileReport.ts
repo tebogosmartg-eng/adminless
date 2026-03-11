@@ -168,9 +168,71 @@ export const generateTeacherFilePDF = async (
             // ... Personal Details, Timetable, ATP, Record of Work ...
             // (Keeping existing standard sections)
 
-            // SECTION 11: FLEXIBLE PORTFOLIO ENTRIES
+            // ADDITIONAL EVIDENCE SECTION
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(41, 37, 36);
+            doc.text("Additional Evidence", margin, currentY);
+            currentY += 8;
+
+            ch.classes.forEach(cls => {
+                const classPrefix = `${cls.id}_${ch.term.id}_`;
+
+                const renderAdditionalSection = (title: string, keySuffix: string) => {
+                    const sectionKey = `${classPrefix}${keySuffix}`;
+                    const ann = ch.annotations.find(a => a.section_key === `${sectionKey}.commentary`);
+                    const atts = ch.attachments.filter(a => a.section_key === sectionKey);
+
+                    if ((ann && ann.content.trim()) || atts.length > 0) {
+                        if (currentY > doc.internal.pageSize.height - 40) {
+                            addFooter(doc);
+                            doc.addPage();
+                            currentY = 20;
+                        }
+                        doc.setFontSize(10);
+                        doc.setFont("helvetica", "bold");
+                        doc.setTextColor(0);
+                        doc.text(`${title} (${cls.name})`, margin + 5, currentY);
+                        currentY += 6;
+
+                        if (ann && ann.content.trim()) {
+                            doc.setFontSize(9);
+                            doc.setFont("helvetica", "italic");
+                            doc.setTextColor(60);
+                            const splitContent = doc.splitTextToSize(ann.content, pageWidth - (margin * 2) - 10);
+                            doc.text(splitContent, margin + 5, currentY);
+                            currentY += (splitContent.length * 4) + 4;
+                        }
+
+                        if (atts.length > 0) {
+                            doc.setFontSize(8);
+                            doc.setFont("helvetica", "bold");
+                            doc.setTextColor(100);
+                            doc.text("ATTACHMENTS:", margin + 5, currentY);
+                            currentY += 4;
+                            doc.setFont("helvetica", "normal");
+                            atts.forEach(att => {
+                                doc.text(`• ${att.file_name}`, margin + 8, currentY);
+                                currentY += 4;
+                            });
+                            currentY += 2;
+                        }
+                        currentY += 4;
+                    }
+                };
+
+                renderAdditionalSection("Subject Meeting Minutes", "meeting_minutes");
+                renderAdditionalSection("Moderation Notes", "moderation_notes");
+                renderAdditionalSection("Correspondence", "correspondence");
+                renderAdditionalSection("Supporting Documents", "supporting_docs");
+            });
+
+            currentY += 8;
+
+            // SECTION 8: FLEXIBLE PORTFOLIO ENTRIES
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
+            doc.setTextColor(0);
             doc.text("Term Portfolio Commentary & Evidence", margin, currentY);
             currentY += 8;
 
