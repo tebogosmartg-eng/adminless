@@ -251,6 +251,34 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           }));
           if (updates.length > 0) await updateMarks(updates);
       },
+      handleApplyModeration: async (assessmentId: string, adjustment: number) => {
+          const ass = assessments.find(a => a.id === assessmentId);
+          if (!ass) return;
+
+          const updates = classInfo.learners
+            .filter(l => l.id)
+            .map(l => {
+                const current = marks.find(m => m.assessment_id === assessmentId && m.learner_id === l.id);
+                if (!current || current.score === null) return null;
+                
+                // Add % adjustment to the current score
+                const currentPct = (current.score / ass.max_mark) * 100;
+                const newPct = Math.min(100, Math.max(0, currentPct + adjustment));
+                const newScore = parseFloat(((newPct / 100) * ass.max_mark).toFixed(1));
+                
+                return {
+                    assessment_id: assessmentId,
+                    learner_id: l.id!,
+                    score: newScore
+                };
+            })
+            .filter(Boolean) as any[];
+
+          if (updates.length > 0) {
+              await updateMarks(updates);
+              showSuccess(`Applied ${adjustment > 0 ? '+' : ''}${adjustment}% adjustment to all marks.`);
+          }
+      },
       handleBulkImport: (assessmentId: string, updates: { learnerId: string; score: number }[]) => {
           updateMarks(updates.map(u => ({ assessment_id: assessmentId, learner_id: u.learnerId, score: u.score })));
       },
@@ -272,7 +300,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
           const idx = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
           if (idx > 0) setRubricMarking(p => ({ ...p, learner: sortedAndFilteredLearners[idx - 1] }));
       },
-      updateMarks // Exposing for QuestionMarkingDialog use
+      updateMarks 
   }), [
     handleTermChange, handleMarkChange, handleCommentChange, handleAddAssessment, 
     updateAssessment, calculateLearnerTotal, marks, assessments, deleteAssessment, 

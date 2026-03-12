@@ -19,7 +19,7 @@ import {
   ContextMenuSeparator
 } from "@/components/ui/context-menu";
 import { 
-  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare, ListChecks, BarChart3, Grid3X3, AlertTriangle
+  BarChart2, MoreHorizontal, Trash2, TrendingUp, ArrowUp, ArrowDown, AlertCircle, MessageSquare, PaintBucket, Eraser, ArrowUpDown, Zap, Mic, Layers, Settings2, CheckSquare, ListChecks, BarChart3, Grid3X3, AlertTriangle, SlidersHorizontal
 } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -59,6 +59,7 @@ interface MarkSheetTableProps {
   onOpenRubric?: (assId: string, learner: Learner) => void;
   onOpenQuestions?: (assId: string, learner: Learner) => void;
   validateAndCommitMark?: (assId: string, lId: string, val: string) => Promise<boolean> | boolean;
+  onApplyModeration?: (assId: string, adjustment: number) => void;
 }
 
 export const MarkSheetTable = ({
@@ -66,7 +67,7 @@ export const MarkSheetTable = ({
   isLocked, isUsingVisibleTotal, atRiskThreshold, sortConfig, setIsAddOpen,
   openAnalytics, onOpenDiagnostic, onOpenQuestionGrid, deleteAssessment, onEditAssessment, getMarkValue, getMarkComment, handleMarkChange, handleCommentChange, handleBulkColumnUpdate,
   calculateLearnerTotal, getAssessmentStats, onViewLearnerProfile, onSort, onOpenTool, onOpenRubric, onOpenQuestions,
-  validateAndCommitMark
+  validateAndCommitMark, onApplyModeration
 }: MarkSheetTableProps) => {
 
   const [noteDialog, setNoteDialog] = useState<{ open: boolean; assId: string; learnerId: string; learnerName: string; comment: string }>({ 
@@ -139,6 +140,18 @@ export const MarkSheetTable = ({
       if (confirm(`Set all marks in this column to ${label}? This will overwrite existing marks.`)) {
           if (handleBulkColumnUpdate) handleBulkColumnUpdate(assId, value);
           showSuccess(`Column updated to ${label}.`);
+      }
+  };
+
+  const handleModeration = (assId: string) => {
+      const adj = prompt("Enter moderation adjustment (%) to apply to all marks in this column (e.g., '5' or '-2'):");
+      if (adj !== null) {
+          const num = parseFloat(adj);
+          if (!isNaN(num) && onApplyModeration) {
+              onApplyModeration(assId, num);
+          } else {
+              showError("Invalid adjustment value.");
+          }
       }
   };
 
@@ -266,6 +279,9 @@ export const MarkSheetTable = ({
                             )}
                             <DropdownMenuItem onClick={() => handleBulkUpdate(ass.id, ass.max_mark.toString(), 'Max Marks')}>
                                 <CheckSquare className="mr-2 h-4 w-4 text-green-600" /> Fill Max Marks
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleModeration(ass.id)}>
+                                <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" /> Apply Moderation (%)
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleBulkUpdate(ass.id, "", 'Empty')}>
                                 <Eraser className="mr-2 h-4 w-4 text-orange-500" /> Clear Column

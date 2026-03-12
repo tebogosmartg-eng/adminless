@@ -96,6 +96,7 @@ export const ReviewDocument = (props: ReviewDocumentProps) => {
                                 </div>
                             </div>
                             
+                            {/* Static print header */}
                             <div className="hidden print:block border-b-4 border-slate-100 pb-2">
                                 <h3 className="text-xl font-black text-slate-900">
                                     0{section.sort_order}. {section.title}
@@ -168,6 +169,7 @@ export const ReviewDocument = (props: ReviewDocumentProps) => {
                 })}
             </div>
 
+            {/* Print Signature Section */}
             <div className="pt-20 mt-20 border-t-2 border-slate-100 grid grid-cols-2 gap-20">
                 <div className="space-y-4">
                     <div className="h-px w-full bg-slate-900" />

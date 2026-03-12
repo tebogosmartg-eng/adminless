@@ -205,6 +205,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           onOpenRubric={actions.openRubricForLearner}
           validateAndCommitMark={actions.validateAndCommitMark}
           onOpenQuestions={handleOpenQuestions}
+          onApplyModeration={actions.handleApplyModeration}
        />
 
        <MarkSheetDialogs 
