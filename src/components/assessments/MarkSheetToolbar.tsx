@@ -7,11 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Eye, AlertCircle, Search, Settings2, FileSpreadsheet, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, BarChart3, ShieldCheck, XCircle, Trash2, ListChecks, Library } from 'lucide-react';
+import { Calendar, Eye, AlertCircle, Search, Settings2, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, ShieldCheck, XCircle, Trash2, ListChecks, Library } from 'lucide-react';
 import { Assessment, Term, AcademicYear, Rubric, ClassInfo, AssessmentQuestion, CognitiveLevel } from '@/lib/types';
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { DiagnosticReportDialog } from "./DiagnosticReportDialog";
 import { BulkQuestionImportDialog } from "./BulkQuestionImportDialog";
 import { ReuseQuestionsDialog } from "./ReuseQuestionsDialog";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
@@ -62,7 +61,6 @@ export const MarkSheetToolbar = ({
   classInfo
 }: MarkSheetToolbarProps) => {
 
-  const [diagOpen, setDiagOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isReuseOpen, setIsReuseOpen] = useState(false);
   const { progress, missingRequired } = useSetupStatus();
@@ -216,24 +214,6 @@ export const MarkSheetToolbar = ({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 flex-1 sm:flex-none" title="Export Reports">
-                    <FileSpreadsheet className="mr-2 h-4 w-4" /> 
-                    <span className="hidden sm:inline">Export</span>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuItem onClick={handleExportSheet}>
-                    <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" /> Export Marksheet (CSV)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setDiagOpen(true)} className="font-bold py-2.5">
-                    <BarChart3 className="mr-2 h-4 w-4 text-primary" /> Generate Diagnostic Report
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
           {!isLocked && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -332,16 +312,6 @@ export const MarkSheetToolbar = ({
         </Dialog>
       </div>
 
-      {classInfo && currentViewTerm && activeYear && (
-          <DiagnosticReportDialog 
-            open={diagOpen}
-            onOpenChange={setDiagOpen}
-            classInfo={classInfo}
-            term={currentViewTerm}
-            year={activeYear}
-          />
-      )}
-      
       <BulkQuestionImportDialog 
         open={isBulkImportOpen}
         onOpenChange={setIsBulkImportOpen}

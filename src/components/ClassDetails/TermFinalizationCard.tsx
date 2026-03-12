@@ -64,7 +64,7 @@ export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) =
         <div>
           <CardTitle className="text-lg flex items-center gap-2">
             {isFinalised ? <Lock className="h-5 w-5 text-green-600" /> : <FileArchive className="h-5 w-5 text-primary" />}
-            Term Control
+            Term Administration
           </CardTitle>
           <CardDescription>
             {isFinalised 
@@ -80,15 +80,21 @@ export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) =
       </CardHeader>
       <CardContent>
         {isFinalised ? (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white dark:bg-card border rounded-xl shadow-sm">
-                <div className="space-y-1">
-                    <h4 className="font-bold text-sm">Term Export Pack</h4>
-                    <p className="text-xs text-muted-foreground">Download a ZIP file containing the Marksheet, POA, Analytics, Moderation Sample, and SA-SAMS records.</p>
-                </div>
-                <Button onClick={handleDownloadPack} disabled={isExporting} className="w-full sm:w-auto h-12 px-6 font-bold shadow-md bg-blue-600 hover:bg-blue-700">
-                    {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                    Download ZIP Pack
-                </Button>
+            <div className="space-y-4">
+               <div className="flex items-center gap-2 p-3 bg-green-50 text-green-800 rounded-lg border border-green-200 text-sm font-bold">
+                   <Lock className="h-4 w-4" />
+                   Term Status: Locked
+               </div>
+               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white dark:bg-card border rounded-xl shadow-sm">
+                  <div className="space-y-1">
+                      <h4 className="font-bold text-sm">Term Export Pack</h4>
+                      <p className="text-xs text-muted-foreground">Download a ZIP file containing the Marksheet, POA, Analytics, Moderation Sample, and SA-SAMS records.</p>
+                  </div>
+                  <Button onClick={handleDownloadPack} disabled={isExporting} className="w-full sm:w-auto h-12 px-6 font-bold shadow-md bg-blue-600 hover:bg-blue-700">
+                      {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                      Generate Term Export Pack
+                  </Button>
+              </div>
             </div>
         ) : (
             <div className="space-y-4">
@@ -111,7 +117,7 @@ export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) =
                         className="font-bold h-10"
                     >
                         {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
-                        Finalize & Lock Marks
+                        Finalize Term
                     </Button>
                 </div>
             </div>

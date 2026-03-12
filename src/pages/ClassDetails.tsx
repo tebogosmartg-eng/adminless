@@ -1,11 +1,10 @@
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassHeader } from "@/components/ClassHeader";
-import { MarksTab } from "@/components/MarksTab";
 import { MarkSheet } from "@/components/assessments/MarkSheet"; 
 import { AttendanceView } from "@/components/AttendanceView";
 import { ClassDialogsManager } from "@/components/ClassDialogsManager";
@@ -14,13 +13,13 @@ import { ClassAnalysisTab } from "@/components/analysis/ClassAnalysisTab";
 import { ClassCurriculumTab } from "@/components/ClassCurriculumTab";
 import { ClassLessonJournal } from "@/components/ClassLessonJournal";
 import { RemediationActionPlan } from "@/components/analysis/RemediationActionPlan";
+import { ClassReportsTab } from "@/components/ClassDetails/ClassReportsTab";
+import { DiagnosticReportDialog } from "@/components/assessments/DiagnosticReportDialog";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { TermFinalizationCard } from "@/components/ClassDetails/TermFinalizationCard";
 import { 
   Loader2, 
   ShieldCheck, 
@@ -28,12 +27,9 @@ import {
   ArrowLeft, 
   Sparkles, 
   Dices, 
-  Rocket,
-  Lock,
-  Eye,
   BookOpen,
-  ListChecks,
-  Activity
+  Activity,
+  FileDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
@@ -54,11 +50,11 @@ const ClassDetails = () => {
   const isGuided = location.state?.fromOnboarding;
 
   const classInfo = classes.find((c) => c.id === classId);
-  const hasAssessments = assessments.length > 0;
   
   const isCurrentlyTeaching = currentPeriod?.class_id === classId;
-  // UPDATE: Class is locked if the global term is closed OR if this specific class is finalized
   const isLocked = !!activeTerm?.closed || !!classInfo?.is_finalised;
+
+  const [diagOpen, setDiagOpen] = useState(false);
 
   const {
     learners,
@@ -175,14 +171,6 @@ const ClassDetails = () => {
             onBack={() => navigate('/classes')}
             onEdit={(details) => updateClassDetails(classInfo.id, details)}
             onSave={handleSaveChanges}
-            onExport={{
-                csv: handleExportCsv,
-                pdf: handleExportPdf,
-                bulkPdf: handleExportBulkPdf,
-                blankList: handleExportBlankPdf,
-                share: handleShareSummary,
-                sasams: handleSASAMSExportAction
-            }}
             onDialogs={{
                 import: () => dialogs.setIsImportOpen(true),
                 voice: () => dialogs.setIsVoiceEntryOpen(true),
@@ -193,8 +181,6 @@ const ClassDetails = () => {
                 classroomTools: () => dialogs.setIsClassroomToolsOpen(true)
             }}
         />
-
-        {activeTerm && <TermFinalizationCard classInfo={classInfo} />}
       </div>
 
       <Tabs defaultValue="assessments" className="w-full">
@@ -212,6 +198,9 @@ const ClassDetails = () => {
           </TabsTrigger>
           <TabsTrigger value="evidence" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
             <ShieldCheck className="h-3.5 w-3.5" /> Evidence
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
+            <FileDown className="h-3.5 w-3.5" /> Reports
           </TabsTrigger>
         </TabsList>
         
@@ -258,7 +247,31 @@ const ClassDetails = () => {
                 />
              </div>
         </TabsContent>
+
+        <TabsContent value="reports" className="mt-4">
+             <ClassReportsTab 
+               classInfo={classInfo}
+               isLocked={isLocked}
+               onExportPdf={handleExportPdf}
+               onExportCsv={handleExportCsv}
+               onExportBulkPdf={handleExportBulkPdf}
+               onExportBlankList={handleExportBlankPdf}
+               onShare={handleShareSummary}
+               onSasams={handleSASAMSExportAction}
+               onOpenDiagnostic={() => setDiagOpen(true)}
+             />
+        </TabsContent>
       </Tabs>
+
+      {classInfo && activeTerm && activeYear && (
+          <DiagnosticReportDialog 
+            open={diagOpen}
+            onOpenChange={setDiagOpen}
+            classInfo={classInfo}
+            term={activeTerm}
+            year={activeYear}
+          />
+      )}
 
       {isCurrentlyTeaching && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-500">

@@ -1,4 +1,4 @@
-import { ArrowLeft, Save, MoreVertical, FileDown, Mic, Zap, Users, Brain, Sliders, Upload, Share2, FileText, Download, Edit, Dices, Lock, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Save, MoreVertical, Mic, Zap, Users, Brain, Sliders, Upload, Edit, Dices, Lock, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClassInfo } from '@/lib/types';
 import {
@@ -17,14 +17,6 @@ interface ClassHeaderProps {
   onBack: () => void;
   onEdit: (details: Partial<ClassInfo>) => void;
   onSave: () => void;
-  onExport: {
-    csv: () => void;
-    pdf: () => void;
-    bulkPdf: () => void;
-    blankList: () => void;
-    share: () => void;
-    sasams: () => void;
-  };
   onDialogs: {
     import: () => void;
     voice: () => void;
@@ -41,7 +33,6 @@ export const ClassHeader = ({
   onBack,
   onEdit,
   onSave,
-  onExport,
   onDialogs
 }: ClassHeaderProps) => {
   const { activeTerm } = useAcademic();
@@ -84,39 +75,6 @@ export const ClassHeader = ({
                 <span className="sm:hidden">Save</span>
             </Button>
         )}
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="flex-1 sm:flex-none gap-2">
-              <FileDown className="h-4 w-4 text-muted-foreground" />
-              <span className="hidden sm:inline">Export</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Reports & Data</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onExport.pdf} className="py-2.5">
-                <FileText className="mr-2 h-4 w-4 text-blue-500" /> Class Marksheet (PDF)
-            </DropdownMenuItem>
-             <DropdownMenuItem onClick={onExport.bulkPdf} className="py-2.5">
-                <Download className="mr-2 h-4 w-4 text-green-500" /> Learner Report Cards (PDF)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExport.csv} className="py-2.5">
-                <FileText className="mr-2 h-4 w-4 text-slate-500" /> Export Data (CSV)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExport.sasams} disabled={!isLocked} className="py-2.5">
-                <Download className="mr-2 h-4 w-4 text-primary" /> SA-SAMS Export (CSV)
-                {!isLocked && <Lock className="ml-auto h-3 w-3 opacity-30" />}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExport.blankList} className="py-2.5">
-                <FileText className="mr-2 h-4 w-4 text-orange-500" /> Blank List (PDF)
-            </DropdownMenuItem>
-             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onExport.share} className="py-2.5">
-                <Share2 className="mr-2 h-4 w-4 text-indigo-500" /> Share Summary
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
