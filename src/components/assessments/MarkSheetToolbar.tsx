@@ -32,7 +32,6 @@ interface MarkSheetToolbarProps {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   editedMarksCount: number;
-  handleExportSheet: () => void;
   isAddOpen: boolean;
   setIsAddOpen: (open: boolean) => void;
   setIsImportOpen: (open: boolean) => void;
@@ -53,7 +52,7 @@ interface MarkSheetToolbarProps {
 export const MarkSheetToolbar = ({
   terms, activeTerm, activeYear, viewTermId, setViewTermId, currentViewTerm,
   isWeightValid, currentTotalWeight, isLocked,
-  searchQuery, setSearchQuery, editedMarksCount, handleExportSheet,
+  searchQuery, setSearchQuery, editedMarksCount, 
   isAddOpen, setIsAddOpen, setIsImportOpen, setIsCopyOpen,
   newAss, setNewAss, handleAddAssessment,
   assessments, visibleAssessmentIds, toggleAssessmentVisibility, recalculateTotal, setRecalculateTotal,

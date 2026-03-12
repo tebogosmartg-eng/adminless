@@ -157,7 +157,6 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
           searchQuery={state.searchQuery}
           setSearchQuery={actions.setSearchQuery}
           editedMarksCount={Object.keys(state.editedMarks).length + Object.keys(state.editedComments).length}
-          handleExportSheet={actions.handleExportSheet}
           isAddOpen={state.isAddOpen}
           setIsAddOpen={actions.setIsAddOpen}
           setIsImportOpen={actions.setIsImportOpen}
