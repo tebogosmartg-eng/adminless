@@ -1,0 +1,1 @@
+ALTER TABLE public.classes ADD COLUMN is_finalised BOOLEAN DEFAULT false;

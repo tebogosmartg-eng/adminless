@@ -17,6 +17,7 @@ export interface ClassInfo {
   archived?: boolean;
   notes?: string;
   user_id?: string;
+  is_finalised?: boolean; // NEW: Class-level term lock
 }
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
@@ -152,7 +153,7 @@ export interface Assessment {
   user_id?: string;
   rubric_id?: string | null; 
   questions?: AssessmentQuestion[]; 
-  task_slot_key?: string | null; // Added for Teacher File linking
+  task_slot_key?: string | null; 
 }
 
 export interface QuestionMark {
@@ -219,7 +220,7 @@ export interface Evidence {
   year_id: string;
   term_id?: string | null;
   learner_id?: string | null;
-  assessment_id?: string | null; // Added for assessment-specific evidence
+  assessment_id?: string | null;
   file_path: string;
   file_name: string;
   file_type: string;
@@ -312,8 +313,6 @@ export interface ModerationSample {
   created_at: string;
   updated_at: string;
 }
-
-// FLEXIBLE TEACHER FILE UPGRADE TYPES
 
 export type SectionType = 'notes'|'targets'|'observations'|'interventions'|'attachments'|'checklist'|'table';
 export type EntryVisibility = 'private'|'moderation'|'portfolio';

@@ -18,8 +18,9 @@ export const generateClassPDF = (
   assessments: Assessment[] = [],
   marks: AssessmentMark[] = [],
   activeYear?: AcademicYear | null,
-  atRiskThreshold: number = 50
-) => {
+  atRiskThreshold: number = 50,
+  returnBlob: boolean = false
+): Blob | void => {
   try {
     const doc = new jsPDF('l', 'mm', 'a4');
     const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
@@ -29,7 +30,6 @@ export const generateClassPDF = (
     const title = isDraft ? "Class Marksheet (WORKING DRAFT)" : "Class Marksheet (OFFICIAL RECORD)";
     let currentY = addHeader(doc, profile, title);
 
-    // Metadata Box
     doc.setDrawColor(230);
     doc.setFillColor(250, 250, 252);
     doc.roundedRect(margin, currentY, pageWidth - (margin * 2), 20, 1, 1, 'FD');
@@ -52,7 +52,6 @@ export const generateClassPDF = (
 
     currentY += 30;
 
-    // --- CALCULATIONS ---
     const learnerData = (classInfo.learners || []).map(l => {
         const avg = l.id ? calculateWeightedAverage(assessments, marks, l.id) : 0;
         return { ...l, avg };
@@ -75,7 +74,6 @@ export const generateClassPDF = (
         "80-100%": validAvgs.filter(a => a >= 80).length,
     };
 
-    // --- SUMMARY TABLES ---
     doc.setFontSize(11);
     doc.setTextColor(41, 37, 36);
     doc.text("CLASS PERFORMANCE SUMMARY", margin, currentY);
@@ -103,7 +101,6 @@ export const generateClassPDF = (
 
     currentY = (doc as any).lastAutoTable.finalY + 10;
 
-    // --- AT RISK SECTION ---
     const atRiskList = learnerData.filter(l => l.avg > 0 && l.avg < atRiskThreshold);
     if (atRiskList.length > 0) {
         doc.setTextColor(220, 38, 38);
@@ -129,7 +126,6 @@ export const generateClassPDF = (
         currentY = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // --- ASSESSMENT BREAKDOWN ---
     if (assessments.length > 0) {
         doc.setFontSize(11);
         doc.text("ASSESSMENT BREAKDOWN", margin, currentY);
@@ -154,7 +150,6 @@ export const generateClassPDF = (
         currentY = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // --- MAIN LEARNER TABLE ---
     doc.text("LEARNER PERFORMANCE DATA", margin, currentY);
 
     const tableHeaders = ['#', 'Learner Name'];
@@ -210,17 +205,19 @@ export const generateClassPDF = (
         }
     });
 
-    // --- SIGNATURES & FOOTER ---
     currentY = (doc as any).lastAutoTable.finalY;
     addSignatures(doc, currentY);
     addFooter(doc);
 
-    // FINAL OUTPUT
+    if (returnBlob) {
+        return doc.output('blob');
+    }
+
     const filename = `${classInfo.className.replace(/\s+/g, '_')}_${isDraft ? 'DRAFT' : 'OFFICIAL'}_Marksheet.pdf`;
     doc.save(filename);
 
   } catch (error) {
     console.error("PDF Generation Critical Failure:", error);
-    throw error; // Re-throw to allow global toast or error boundary to catch it
+    throw error;
   }
 };

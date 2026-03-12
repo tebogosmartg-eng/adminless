@@ -20,6 +20,7 @@ import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { TermFinalizationCard } from "@/components/ClassDetails/TermFinalizationCard";
 import { 
   Loader2, 
   ShieldCheck, 
@@ -56,7 +57,8 @@ const ClassDetails = () => {
   const hasAssessments = assessments.length > 0;
   
   const isCurrentlyTeaching = currentPeriod?.class_id === classId;
-  const isLocked = !!activeTerm?.closed;
+  // UPDATE: Class is locked if the global term is closed OR if this specific class is finalized
+  const isLocked = !!activeTerm?.closed || !!classInfo?.is_finalised;
 
   const {
     learners,
@@ -105,8 +107,8 @@ const ClassDetails = () => {
 
   const handleSASAMSExportAction = () => {
       if (!classInfo || !activeTerm || !activeYear) return;
-      if (!activeTerm.closed) {
-          showError("Export Blocked: Term must be finalised in Settings before SA-SAMS export.");
+      if (!classInfo.is_finalised && !activeTerm.closed) {
+          showError("Export Blocked: Class must be finalised before SA-SAMS export.");
           return;
       }
       if (hasUnsavedChanges) {
@@ -161,23 +163,6 @@ const ClassDetails = () => {
   return (
     <div className="container mx-auto p-4 max-w-7xl space-y-6 pb-20 relative animate-in fade-in duration-700">
       <div className="flex flex-col gap-4">
-        {isLocked && (
-            <div className="flex items-center justify-between gap-4 p-4 bg-amber-50 text-amber-800 text-sm rounded-xl border border-amber-200 shadow-sm">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-100 rounded-lg">
-                        <Lock className="h-5 w-5 text-amber-600" />
-                    </div>
-                    <div className="space-y-0.5">
-                        <p className="font-bold uppercase tracking-tight">Finalised Term</p>
-                        <p className="text-xs opacity-80">This context is locked as an official record. Marks and registers are in read-only mode.</p>
-                    </div>
-                </div>
-                <Badge variant="outline" className="border-amber-300 text-amber-700 bg-white/50 gap-1.5 px-3 py-1 uppercase tracking-widest font-black text-[10px]">
-                    <Eye className="h-3 w-3" /> Viewing Mode
-                </Badge>
-            </div>
-        )}
-
         {isGuided && (
             <div className="flex justify-end">
                 <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2 border-primary text-primary hover:bg-primary/5">
@@ -208,6 +193,8 @@ const ClassDetails = () => {
                 classroomTools: () => dialogs.setIsClassroomToolsOpen(true)
             }}
         />
+
+        {activeTerm && <TermFinalizationCard classInfo={classInfo} />}
       </div>
 
       <Tabs defaultValue="assessments" className="w-full">
@@ -267,7 +254,7 @@ const ClassDetails = () => {
                 <EvidenceManager 
                     classId={classId!} 
                     termId={activeTerm?.id}
-                    isLocked={activeTerm?.closed} 
+                    isLocked={isLocked} 
                 />
              </div>
         </TabsContent>

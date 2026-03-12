@@ -2,7 +2,7 @@ import { createContext, useContext, ReactNode, useRef, useEffect } from 'react';
 import { ClassInfo, Learner } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { Session } from '@supabase/supabase-js';
-import { showError } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
 import { db } from '@/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { queueAction } from '@/services/sync';
@@ -19,6 +19,7 @@ interface ClassesContextType {
   toggleClassArchive: (classId: string, archived: boolean) => void;
   updateClassNotes: (classId: string, notes: string) => void;
   renameLearner: (learnerId: string, newName: string) => Promise<void>;
+  finalizeClassTerm: (classId: string) => Promise<void>;
 }
 
 const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
@@ -28,22 +29,16 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const { activeYear, activeTerm, diagnosticMode } = useAcademic();
   const fetchCount = useRef(0);
 
-  // Live Query with strict dependency management
   const rawClasses = useLiveQuery(async () => {
     if (!session?.user.id) return [];
     
-    // Log the fetch trigger
     fetchCount.current++;
-    console.log(`[Diagnostic] Class Data Resolution #${fetchCount.current} | Scope: ${activeYear?.name || 'None'}/${activeTerm?.name || 'None'}`);
-
-    // Fetch classes from local DB
+    
     const userClasses = await db.classes
         .where('user_id')
         .equals(session.user.id)
         .toArray();
     
-    // CRITICAL: If academic scope is missing and not in diagnostic mode, 
-    // return undefined to signal "still loading context" rather than "empty list"
     if (!diagnosticMode && (!activeYear || !activeTerm)) {
         return undefined; 
     }
@@ -67,11 +62,11 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         className: c.className || (c as any).class_name || "Untitled Class",
         archived: !!c.archived,
         notes: c.notes || '',
+        is_finalised: !!c.is_finalised,
         learners: allLearners.filter(l => l.class_id === c.id)
     })) as ClassInfo[];
   }, [session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode]);
 
-  // Loading is true only if the query hasn't returned any array (including empty)
   const loading = rawClasses === undefined;
   const classes = rawClasses || [];
 
@@ -91,6 +86,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         subject: newClass.subject,
         className: newClass.className, 
         archived: false,
+        is_finalised: false,
         notes: newClass.notes || '',
         created_at: new Date().toISOString()
       };
@@ -187,6 +183,17 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     }
   };
 
+  const finalizeClassTerm = async (classId: string) => {
+    try {
+        await db.classes.update(classId, { is_finalised: true });
+        await queueAction('classes', 'update', { id: classId, is_finalised: true });
+        showSuccess("Class finalised successfully.");
+        logActivity(`Finalised class term data.`);
+    } catch (e) {
+        showError("Failed to finalize class.");
+    }
+  };
+
   const deleteClass = async (classId: string) => {
     try {
         await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
@@ -223,7 +230,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       updateClassLearners, 
       toggleClassArchive,
       updateClassNotes,
-      renameLearner
+      renameLearner,
+      finalizeClassTerm
     }}>
       {children}
     </ClassesContext.Provider>

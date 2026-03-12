@@ -10,15 +10,15 @@ export const generateDiagnosticReportPDF = (
   academicContext: { year: string; term: string; isLocked: boolean },
   profile: SchoolProfile,
   diagnosticSummary: string,
-  interventionPlan: string
-) => {
+  interventionPlan: string,
+  returnBlob: boolean = false
+): Blob | void => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
 
   const startY = addHeader(doc, profile, "Diagnostic Analysis Report");
 
-  // 1. Header Information
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.setFont("helvetica", "normal");
@@ -43,7 +43,6 @@ export const generateDiagnosticReportPDF = (
 
   let currentY = (doc as any).lastAutoTable.finalY + 10;
 
-  // 2. Performance Summary
   doc.setFontSize(12);
   doc.setTextColor(0);
   doc.setFont("helvetica", "bold");
@@ -66,7 +65,6 @@ export const generateDiagnosticReportPDF = (
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
 
-  // 3. Level Distribution
   doc.text("Performance Level Distribution", margin, currentY);
   const distRows = [Object.keys(data.distribution), Object.values(data.distribution)];
   
@@ -81,7 +79,6 @@ export const generateDiagnosticReportPDF = (
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
 
-  // 4. Assessment Breakdown
   doc.text("Assessment Breakdown", margin, currentY);
   autoTable(doc, {
     startY: currentY + 3,
@@ -95,7 +92,6 @@ export const generateDiagnosticReportPDF = (
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
 
-  // 5. Narrative Sections
   const addTextBox = (title: string, text: string, y: number) => {
     const splitText = doc.splitTextToSize(text, pageWidth - (margin * 2));
     if (y + 10 + (splitText.length * 5) > doc.internal.pageSize.height - 40) {
@@ -112,12 +108,15 @@ export const generateDiagnosticReportPDF = (
     return y + 10 + (splitText.length * 5);
   };
 
-  currentY = addTextBox("Diagnostic Analysis & Interpretation", diagnosticSummary, currentY);
-  currentY = addTextBox("Intervention Plan", interventionPlan, currentY);
+  currentY = addTextBox("Diagnostic Analysis & Interpretation", diagnosticSummary || "Auto-generated report.", currentY);
+  currentY = addTextBox("Intervention Plan", interventionPlan || "No interventions outlined.", currentY);
 
-  // 6. Signatures
   addSignatures(doc, currentY);
   addFooter(doc);
+
+  if (returnBlob) {
+      return doc.output('blob');
+  }
 
   doc.save(`${classInfo.className}_Diagnostic_Report.pdf`);
 };

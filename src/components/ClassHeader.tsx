@@ -46,6 +46,7 @@ export const ClassHeader = ({
 }: ClassHeaderProps) => {
   const { activeTerm } = useAcademic();
   const isTermClosed = !!activeTerm?.closed;
+  const isLocked = isTermClosed || classInfo.is_finalised;
 
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white dark:bg-card p-6 rounded-lg border shadow-sm transition-all duration-300">
@@ -56,7 +57,7 @@ export const ClassHeader = ({
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight text-foreground/90">{classInfo.className}</h1>
-            {isTermClosed ? (
+            {isLocked ? (
                 <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 gap-1.5 px-3 py-1">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Finalised
@@ -76,7 +77,7 @@ export const ClassHeader = ({
       </div>
 
       <div className="flex items-center flex-wrap gap-2 pt-2 md:pt-0">
-        {!isTermClosed && (
+        {!isLocked && (
             <Button onClick={onSave} className="flex-1 sm:flex-none px-5 shadow-sm active:scale-95 transition-transform">
                 <Save className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">Save Changes</span>
@@ -103,9 +104,9 @@ export const ClassHeader = ({
             <DropdownMenuItem onClick={onExport.csv} className="py-2.5">
                 <FileText className="mr-2 h-4 w-4 text-slate-500" /> Export Data (CSV)
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExport.sasams} disabled={!isTermClosed} className="py-2.5">
+            <DropdownMenuItem onClick={onExport.sasams} disabled={!isLocked} className="py-2.5">
                 <Download className="mr-2 h-4 w-4 text-primary" /> SA-SAMS Export (CSV)
-                {!isTermClosed && <Lock className="ml-auto h-3 w-3 opacity-30" />}
+                {!isLocked && <Lock className="ml-auto h-3 w-3 opacity-30" />}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onExport.blankList} className="py-2.5">
                 <FileText className="mr-2 h-4 w-4 text-orange-500" /> Blank List (PDF)
@@ -129,7 +130,7 @@ export const ClassHeader = ({
             <DropdownMenuItem onClick={onDialogs.classroomTools} className="py-2.5">
                 <Dices className="mr-2 h-4 w-4 text-purple-500" /> Class Management Tools
             </DropdownMenuItem>
-            {!isTermClosed && (
+            {!isLocked && (
                 <>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Roster & Entry</DropdownMenuLabel>
@@ -152,7 +153,7 @@ export const ClassHeader = ({
             <DropdownMenuItem onClick={onDialogs.aiInsights} className="py-2.5">
                 <Brain className="mr-2 h-4 w-4 text-primary" /> Generate AI Insights
             </DropdownMenuItem>
-            {!isTermClosed && (
+            {!isLocked && (
                 <DropdownMenuItem onClick={onDialogs.moderation} className="py-2.5">
                     <Sliders className="mr-2 h-4 w-4" /> Moderation Adjustments
                 </DropdownMenuItem>

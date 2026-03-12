@@ -1,10 +1,6 @@
 import { Learner } from "@/lib/types";
 import { format } from "date-fns";
 
-/**
- * Generates the official SA-SAMS summary export.
- * This format is restricted to one row per learner with finalized totals only.
- */
 export const generateSASAMSExport = (
   learners: Learner[],
   className: string,
@@ -13,9 +9,9 @@ export const generateSASAMSExport = (
   termName: string,
   yearName: string,
   teacherName: string,
-  schoolCode: string = ""
-) => {
-  // 1. Define exact header structure
+  schoolCode: string = "",
+  returnString: boolean = false
+): string | void => {
   const headers = [
     "Academic Year",
     "Term",
@@ -33,9 +29,7 @@ export const generateSASAMSExport = (
     "Date Finalised"
   ].join(",");
 
-  // 2. Process rows
   const rows = learners.map(learner => {
-    // Split name into Name and Surname (Assuming "First Last")
     const nameParts = learner.name.trim().split(/\s+/);
     const surname = nameParts.length > 1 ? nameParts.pop() : "";
     const firstName = nameParts.join(" ");
@@ -67,6 +61,10 @@ export const generateSASAMSExport = (
   });
 
   const csvContent = headers + "\n" + rows.join("\n");
+  
+  if (returnString) {
+      return csvContent;
+  }
   
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
