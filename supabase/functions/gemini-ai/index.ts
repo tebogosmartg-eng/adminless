@@ -54,7 +54,7 @@ serve(async (req) => {
     const genAI = new GoogleGenerativeAI(apiKey)
     
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
+        model: "gemini-1.5-flash-latest",
         systemInstruction: "You are a strict academic data API. Return ONLY valid JSON. Validate all numbers: awarded marks cannot exceed possible marks."
     }, { apiVersion: "v1beta" });
 
