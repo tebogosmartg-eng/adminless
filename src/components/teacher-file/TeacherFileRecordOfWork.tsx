@@ -49,11 +49,8 @@ export const TeacherFileRecordOfWork = ({ termId, classId }: TeacherFileRecordOf
 
   if (logs.length === 0) {
       return (
-          <div className="py-10 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none print:text-left print:py-2 print:p-0">
-              <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground opacity-20 mb-2 no-print" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground print:hidden">No Internal Lesson Logs Recorded</p>
-              <p className="text-[9px] text-muted-foreground mt-1 no-print">Curriculum coverage and daily planning records are maintained in the official educator diary or departmental planning portals for this cycle.</p>
-              <p className="hidden print:block text-sm italic text-slate-600 mt-2">Curriculum coverage and daily planning records are maintained in the official educator diary or departmental planning portals for this cycle.</p>
+          <div className="py-2 text-slate-600 text-sm italic font-medium print:text-black">
+              Curriculum coverage and daily planning records are maintained in the official educator diary or departmental planning portals for this cycle.
           </div>
       );
   }
@@ -61,20 +58,20 @@ export const TeacherFileRecordOfWork = ({ termId, classId }: TeacherFileRecordOf
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between no-print">
-          <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <CheckCircle2 className="h-3 w-3 text-green-600" /> Automated Record of Work
+          <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+              <CheckCircle2 className="h-3 w-3 text-slate-400" /> Automated Record of Work
           </h4>
           <span className="text-[9px] font-bold text-slate-400">{logs.length} entries consolidated</span>
       </div>
 
-      <div className="border rounded-xl bg-white overflow-hidden shadow-sm print:border-slate-300 print:shadow-none">
+      <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-none print:border-slate-300">
           <Table>
               <TableHeader className="bg-slate-50">
                   <TableRow>
-                      <TableHead className="w-24 text-[9px] font-black uppercase py-2 print:text-black">Date</TableHead>
-                      <TableHead className="w-20 text-[9px] font-black uppercase py-2 print:text-black">Class</TableHead>
-                      <TableHead className="text-[9px] font-black uppercase py-2 print:text-black">Work Covered / Topic</TableHead>
-                      <TableHead className="w-32 text-[9px] font-black uppercase py-2 text-right print:text-black">Homework Set</TableHead>
+                      <TableHead className="w-24 text-[9px] font-black uppercase py-2 text-slate-700 print:text-black">Date</TableHead>
+                      <TableHead className="w-20 text-[9px] font-black uppercase py-2 text-slate-700 print:text-black">Class</TableHead>
+                      <TableHead className="text-[9px] font-black uppercase py-2 text-slate-700 print:text-black">Work Covered / Topic</TableHead>
+                      <TableHead className="w-32 text-[9px] font-black uppercase py-2 text-right text-slate-700 print:text-black">Homework Set</TableHead>
                   </TableRow>
               </TableHeader>
               <TableBody>
@@ -82,22 +79,22 @@ export const TeacherFileRecordOfWork = ({ termId, classId }: TeacherFileRecordOf
                   {logs.map((log, idx) => (
                       <TableRow key={log.id} className={cn("group print-avoid-break", idx >= 15 ? "hidden print:table-row" : "")}>
                           <TableCell className="py-2 align-top">
-                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 print:text-slate-800">
+                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 print:text-slate-800">
                                 <Calendar className="h-3 w-3 opacity-30 no-print" />
                                 {format(new Date(log.date), 'dd/MM/yy')}
                              </div>
                           </TableCell>
                           <TableCell className="py-2 align-top">
-                             <Badge variant="outline" className="text-[8px] h-4 font-black border-slate-200 print:border-slate-400 print:text-black">{log.className}</Badge>
+                             <Badge variant="outline" className="text-[8px] h-4 font-black border-slate-200 text-slate-700 print:border-slate-400 print:text-black">{log.className}</Badge>
                           </TableCell>
                           <TableCell className="py-2 align-top">
-                             <p className="text-[11px] leading-relaxed text-slate-700 print:text-black" title={log.content}>
+                             <p className="text-[11px] leading-relaxed text-slate-800 print:text-black" title={log.content}>
                                 {log.content}
                              </p>
                           </TableCell>
                           <TableCell className="py-2 text-right align-top">
                              {log.homework ? (
-                                 <span className="text-[9px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded block italic print:bg-transparent print:border print:border-slate-300 print:text-slate-800">
+                                 <span className="text-[9px] font-medium text-slate-600 border border-slate-200 bg-slate-50 px-1.5 py-0.5 rounded block italic print:bg-transparent print:border print:border-slate-300 print:text-slate-800">
                                      "{log.homework}"
                                  </span>
                              ) : (

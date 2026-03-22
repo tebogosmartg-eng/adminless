@@ -6,13 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FileUp, Trash2, ExternalLink, FileText, Loader2, Paperclip, Download } from 'lucide-react';
 import { getSignedFileUrl } from '@/services/storage';
-import { showError } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import { db, TeacherFileAttachment } from '@/db';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { uploadEvidenceFile, deleteEvidenceFile } from '@/services/storage';
-import { showSuccess } from '@/utils/toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 
 interface TeacherFileAttachmentManagerProps {
@@ -98,56 +97,54 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
   };
 
   return (
-    <div className="space-y-4 print-avoid-break">
+    <div className="space-y-3 pt-2 print-avoid-break">
       <div className="flex items-center justify-between">
-        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 print:text-black">
-            <Paperclip className="h-3 w-3 no-print" /> Section Documents ({attachments.length})
-        </h4>
+        <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5 print:text-slate-800">
+            <Paperclip className="h-3 w-3 no-print" /> Linked Evidence ({attachments.length})
+        </h5>
         {!isLocked && (
             <Button 
-                variant="outline" 
+                variant="ghost" 
                 size="sm" 
-                className="h-7 text-[10px] font-black uppercase tracking-tighter no-print"
+                className="h-6 text-[8px] font-black uppercase hover:bg-primary/5 hover:text-primary no-print"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
             >
-                {isUploading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileUp className="h-3 w-3 mr-1" />}
-                Upload to Section
+                {isUploading ? <Loader2 className="h-2.5 w-2.5 animate-spin mr-1" /> : <FileUp className="h-2.5 w-2.5 mr-1" />}
+                Add File
             </Button>
         )}
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
       </div>
 
-      <div className="grid gap-2">
+      <div className={cn("grid gap-2", isLocked ? "sm:grid-cols-1" : "sm:grid-cols-2")}>
           {attachments.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all print:border-slate-300 print:bg-transparent">
-                  <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="p-2 bg-muted rounded-lg group-hover:bg-primary/5 transition-colors print:bg-transparent print:border print:border-slate-200">
-                          <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary print:text-slate-600" />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                          <span className="text-sm font-bold truncate pr-4 print:text-black">{item.file_name}</span>
-                          <span className="text-[9px] text-muted-foreground uppercase font-medium print:text-slate-500">
-                              Added {new Date(item.created_at).toLocaleDateString()}
-                          </span>
-                      </div>
+              <div key={item.id} className={cn("flex items-center justify-between p-2 rounded-lg transition-all group/file", isLocked ? "bg-transparent py-1 px-0" : "border bg-white/50 hover:border-primary/20", "print:border-none print:bg-transparent print:p-0")}>
+                  <div className="flex items-center gap-2 overflow-hidden">
+                      <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0 no-print" />
+                      <span className="text-[11px] font-medium truncate pr-2 text-slate-800 print:text-black">
+                          {isLocked && <span className="mr-2 text-slate-300">•</span>}
+                          {item.file_name}
+                      </span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0 no-print">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(item.file_path, item.id)} disabled={loadingFileId === item.id}>
-                          {loadingFileId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleView(item.file_path, item.id)} disabled={loadingFileId === item.id}>
+                          {loadingFileId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3 text-slate-400 hover:text-slate-900" />}
                       </Button>
                       {!isLocked && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDelete(item)}>
-                              <Trash2 className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive opacity-0 group-hover/file:opacity-100" onClick={() => handleDelete(item)}>
+                              <Trash2 className="h-3 w-3" />
                           </Button>
                       )}
                   </div>
               </div>
           ))}
           {attachments.length === 0 && (
-              <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none print:bg-transparent print:py-2 print:text-left print:p-0">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-30 no-print">Supplementary documents may be managed externally</p>
-                  <p className="hidden print:block text-sm italic text-slate-600 mt-2">Supporting documentation is maintained in physical files or external departmental archives as per standard compliance procedures.</p>
+              <div className={cn("text-slate-500", isLocked ? "text-xs italic py-1" : "py-8 text-center border-2 border-dashed rounded-xl bg-muted/5", "print:border-none print:bg-transparent print:py-2 print:text-left print:p-0")}>
+                  <p className={cn("font-medium", !isLocked && "text-[10px] uppercase font-bold tracking-widest opacity-50 no-print")}>
+                      {isLocked ? "Supporting documentation is maintained in physical files or external departmental archives." : "Supplementary documents may be managed externally"}
+                  </p>
+                  {!isLocked && <p className="hidden print:block text-sm italic text-slate-600 mt-2">Supporting documentation is maintained in physical files or external departmental archives as per standard compliance procedures.</p>}
               </div>
           )}
       </div>

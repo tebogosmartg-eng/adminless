@@ -27,7 +27,7 @@ export const TeacherFileAnnotation = ({
   const { content, updateContent, status } = useTeacherFileAnnotations(yearId, termId, sectionKey);
 
   const getStatusIcon = () => {
-    if (isLocked) return <Lock className="h-3 w-3 text-muted-foreground" />;
+    if (isLocked) return null; // Hide status icons in document mode
     switch (status) {
       case 'saving': return <Loader2 className="h-3 w-3 animate-spin text-primary" />;
       case 'saved': return <Check className="h-3 w-3 text-green-600" />;
@@ -37,7 +37,7 @@ export const TeacherFileAnnotation = ({
   };
 
   const getStatusText = () => {
-    if (isLocked) return "Locked (Finalised)";
+    if (isLocked) return ""; // Hide status text in document mode
     switch (status) {
       case 'saving': return "Saving changes...";
       case 'saved': return "Saved to cloud";
@@ -51,51 +51,55 @@ export const TeacherFileAnnotation = ({
       <div className="flex items-center justify-between no-print">
         <h4 className={cn(
             "text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2",
-            isLocked ? "text-muted-foreground" : "text-blue-600"
+            isLocked ? "text-slate-500" : "text-blue-600"
         )}>
             <MessageSquare className="h-3 w-3" /> {label}
         </h4>
         
-        <div className="flex items-center gap-2 animate-in fade-in duration-300">
-            <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">
-                {getStatusText()}
-            </span>
-            {getStatusIcon()}
-        </div>
+        {!isLocked && (
+          <div className="flex items-center gap-2 animate-in fade-in duration-300">
+              <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">
+                  {getStatusText()}
+              </span>
+              {getStatusIcon()}
+          </div>
+        )}
       </div>
 
-      <div className="relative">
-        <textarea 
-          value={content}
-          onChange={(e) => !isLocked && updateContent(e.target.value)}
-          placeholder={isLocked ? "No commentary recorded for this finalised section." : placeholder}
-          disabled={isLocked}
-          className={cn(
-              "w-full min-h-[100px] text-sm leading-relaxed p-4 rounded-xl transition-all resize-none",
-              "border-2 border-transparent outline-none",
-              isLocked 
-                ? "bg-muted/30 border-dashed border-muted-foreground/10 cursor-not-allowed text-slate-500" 
-                : "bg-blue-50/10 hover:border-blue-100 focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/5",
-              "print:hidden" // Hide the textarea in print mode
-          )}
-          style={{ height: content ? 'auto' : '100px' }}
-          onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = `${target.scrollHeight}px`;
-          }}
-        />
-        
-        {/* Print-only substitute block guarantees all text is visible and wraps properly */}
-        <div className="hidden print:block whitespace-pre-wrap text-sm leading-relaxed text-slate-800 italic border-l-2 border-slate-300 pl-4 py-2 min-h-[40px]">
+      {isLocked ? (
+        <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800 italic border-l-2 border-slate-300 pl-4 py-2 min-h-[40px]">
             {content || "Section requirements have been reviewed. No additional qualitative commentary was required for this administrative period."}
         </div>
+      ) : (
+        <div className="relative">
+          <textarea 
+            value={content}
+            onChange={(e) => updateContent(e.target.value)}
+            placeholder={placeholder}
+            className={cn(
+                "w-full min-h-[100px] text-sm leading-relaxed p-4 rounded-xl transition-all resize-none",
+                "border-2 border-transparent outline-none",
+                "bg-blue-50/10 hover:border-blue-100 focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/5",
+                "print:hidden" 
+            )}
+            style={{ height: content ? 'auto' : '100px' }}
+            onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = `${target.scrollHeight}px`;
+            }}
+          />
+          
+          <div className="hidden print:block whitespace-pre-wrap text-sm leading-relaxed text-slate-800 italic border-l-2 border-slate-300 pl-4 py-2 min-h-[40px]">
+              {content || "Section requirements have been reviewed. No additional qualitative commentary was required for this administrative period."}
+          </div>
 
-        <div className={cn(
-            "absolute -left-1.5 top-4 w-1 h-8 rounded-full no-print opacity-40 transition-opacity",
-            isLocked ? "bg-muted-foreground" : "bg-blue-600 group-hover:opacity-100"
-        )} />
-      </div>
+          <div className={cn(
+              "absolute -left-1.5 top-4 w-1 h-8 rounded-full no-print opacity-40 transition-opacity",
+              "bg-blue-600 group-hover:opacity-100"
+          )} />
+        </div>
+      )}
 
       {!isLocked && (
         <div className="no-print opacity-0 group-hover:opacity-100 transition-opacity text-[8px] font-bold text-slate-300 uppercase text-right tracking-widest">

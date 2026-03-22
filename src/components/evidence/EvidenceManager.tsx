@@ -38,10 +38,10 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
 
   const getIcon = (cat: string) => {
     switch (cat) {
-      case 'script': return <FileText className="h-5 w-5 text-blue-500" />;
-      case 'moderation': return <ShieldCheck className="h-5 w-5 text-green-600" />;
-      case 'photo': return <ImageIcon className="h-5 w-5 text-purple-500" />;
-      default: return <FileSearch className="h-5 w-5 text-gray-500" />;
+      case 'script': return <FileText className="h-4 w-4 text-blue-500" />;
+      case 'moderation': return <ShieldCheck className="h-4 w-4 text-green-600" />;
+      case 'photo': return <ImageIcon className="h-4 w-4 text-purple-500" />;
+      default: return <FileSearch className="h-4 w-4 text-gray-500" />;
     }
   };
 
@@ -69,6 +69,37 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
       setIsUploadOpen(true);
   };
 
+  if (isLocked) {
+    return (
+      <div className="space-y-4">
+        {evidenceList.length === 0 ? (
+          <div className="text-sm text-slate-600 italic font-medium">
+             Supplementary evidence documentation is optional and may be managed externally. Physical evidence and learner scripts are archived in the educator's classroom files or submitted directly to the moderation committee.
+          </div>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {evidenceList.map((item) => (
+              <div key={item.id} className="flex items-center justify-between p-2 py-1 rounded-lg border-none bg-transparent group/file">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <span className="text-slate-300 mr-1">•</span>
+                  <span className="text-[11px] font-medium truncate pr-2 text-slate-800 print:text-black">
+                    {item.file_name}
+                  </span>
+                  <span className="text-[9px] text-slate-400 uppercase tracking-tight">({item.category})</span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 no-print">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleViewFile(item)} disabled={loadingFileId === item.id}>
+                     {loadingFileId === item.id ? <Loader2 className="h-3 w-3 animate-spin text-slate-400" /> : <ExternalLink className="h-3 w-3 text-slate-400" />}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full gap-6">
       {!learnerId && currentClass && (
@@ -81,75 +112,58 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
           />
       )}
 
-      <Card className={cn("border-dashed print:border-none print:shadow-none", isLocked && "bg-muted/10 border-muted-foreground/20 print:bg-transparent")}>
-        <CardHeader className="pb-3 print:px-0">
+      <Card className="border-dashed">
+        <CardHeader className="pb-3">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <ShieldCheck className={cn("h-5 w-5 no-print", isLocked ? "text-muted-foreground" : "text-primary")} />
-                <CardTitle className="text-lg print:text-black">
-                    <span className="no-print">Evidence Folder</span>
-                    <span className="hidden print:inline">Evidence Overview</span>
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">
+                    Evidence Folder
                 </CardTitle>
-                {isLocked && <Badge variant="secondary" className="gap-1 h-5 no-print"><Lock className="h-3 w-3" /> Locked</Badge>}
               </div>
-              <CardDescription className="print:hidden">
-                {isLocked 
-                    ? "Digital moderation and evidence repository (Finalized)." 
-                    : `Digital moderation and evidence repository${targetLearnerName ? ' for ' + targetLearnerName : ''}.`}
+              <CardDescription>
+                {`Digital moderation and evidence repository${targetLearnerName ? ' for ' + targetLearnerName : ''}.`}
               </CardDescription>
             </div>
-            {!isLocked && (
-              <Button size="sm" onClick={() => handleOpenUpload()} className="no-print">
-                <Plus className="mr-2 h-4 w-4" /> Attach
-              </Button>
-            )}
+            <Button size="sm" onClick={() => handleOpenUpload()}>
+              <Plus className="mr-2 h-4 w-4" /> Attach
+            </Button>
           </div>
         </CardHeader>
-        <CardContent className="print:px-0">
-          {isLocked && evidenceList.length === 0 && (
-             <div className="flex items-center gap-2 p-3 bg-muted/30 text-muted-foreground text-xs rounded border border-muted mb-4 print:border-none print:bg-transparent print:p-0">
-                <AlertCircle className="h-4 w-4 shrink-0 no-print" />
-                <span className="no-print font-medium">Supplementary evidence documentation is optional and may be managed externally.</span>
-                <span className="hidden print:inline text-sm text-slate-800 font-medium">Physical evidence and learner scripts are archived in the educator's classroom files or submitted directly to the moderation committee.</span>
-             </div>
-          )}
-
-          <ScrollArea className="h-[300px] print:h-auto print:max-h-none print:overflow-visible">
+        <CardContent>
+          <ScrollArea className="h-[300px]">
             {evidenceList.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground space-y-2 print:py-2 print:text-left">
-                <History className="h-10 w-10 mx-auto opacity-20 no-print" />
-                <p className="text-sm no-print">Supplementary evidence documentation is optional and may be managed externally.</p>
-                {!isLocked && <p className="hidden print:block text-sm text-slate-800 font-medium">Physical evidence and learner scripts are archived in the educator's classroom files or submitted directly to the moderation committee.</p>}
+              <div className="text-center py-12 text-muted-foreground space-y-2">
+                <History className="h-10 w-10 mx-auto opacity-20" />
+                <p className="text-sm">Supplementary evidence documentation is optional and may be managed externally.</p>
               </div>
             ) : (
-              <div className="space-y-3 pr-2 print:pr-0">
+              <div className="space-y-3 pr-2">
                 {evidenceList.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-all group print:border-slate-300 print:bg-transparent print-avoid-break">
-                    <div className="bg-muted p-2 rounded-md print:border print:border-slate-200">
+                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-all group">
+                    <div className="bg-muted p-2 rounded-md">
                       {getIcon(item.category)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm truncate print:text-black">{item.file_name}</p>
-                        <Badge variant="outline" className="text-[9px] uppercase tracking-tighter h-4 print:border-slate-400 print:text-black">
+                        <p className="font-medium text-sm truncate">{item.file_name}</p>
+                        <Badge variant="outline" className="text-[9px] uppercase tracking-tighter h-4">
                           {item.category}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1 print:text-slate-600">
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1">
                         <span>{item.created_at ? format(new Date(item.created_at), 'dd MMM yyyy') : ''}</span>
-                        {item.notes && <span className="truncate italic print:text-black">• {item.notes}</span>}
+                        {item.notes && <span className="truncate italic">• {item.notes}</span>}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity no-print">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewFile(item)} disabled={loadingFileId === item.id}>
                          {loadingFileId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                       </Button>
-                      {!isLocked && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteEvidence(item)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteEvidence(item)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}

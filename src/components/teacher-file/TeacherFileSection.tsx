@@ -33,14 +33,14 @@ export const TeacherFileSection = ({
   className
 }: TeacherFileSectionProps) => {
   return (
-    <div className={cn("space-y-6 pb-10 border-b border-slate-100 last:border-0 print:border-none print:pb-8", className)}>
+    <div className={cn("space-y-6 pb-10 border-b border-slate-200 last:border-0 print:border-none print:pb-8", className)}>
       <div className="space-y-1">
         <h3 className="text-xl font-black text-slate-900">{title}</h3>
-        {description && <p className="text-xs text-muted-foreground font-medium no-print">{description}</p>}
+        {description && <p className="text-xs text-slate-500 font-medium no-print">{description}</p>}
       </div>
 
       {children && (
-          <div className="p-6 rounded-2xl border bg-slate-50/50 print:p-0 print:border-none print:bg-transparent">
+          <div className={cn("py-2", !isLocked && "p-6 rounded-2xl border bg-slate-50/50 print:p-0 print:border-none print:bg-transparent")}>
               {children}
           </div>
       )}
