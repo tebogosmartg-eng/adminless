@@ -68,20 +68,20 @@ export const ScanUploadSection = ({
         <CardDescription>Bind your scan to a specific class and task.</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-6">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
             {TYPE_OPTIONS.map((opt) => (
                 <button 
                     key={opt.id}
                     onClick={() => onTypeChange(opt.id as ScanType)}
                     className={cn(
-                        "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-1.5 min-h-[90px]",
-                        scanType === opt.id ? "border-primary bg-primary/5 ring-4 ring-primary/10" : "border-muted hover:border-primary/20"
+                        "flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all gap-2 min-h-[110px]",
+                        scanType === opt.id ? "border-primary bg-primary/5 ring-4 ring-primary/10" : "border-muted hover:border-primary/30 hover:bg-muted/10"
                     )}
                 >
-                    <opt.icon className={cn("h-5 w-5", scanType === opt.id ? "text-primary" : "text-muted-foreground")} />
-                    <div className="text-center">
-                        <p className="text-[11px] font-bold leading-tight">{opt.label}</p>
-                        <p className="text-[9px] text-muted-foreground opacity-70">{opt.sub}</p>
+                    <opt.icon className={cn("h-6 w-6", scanType === opt.id ? "text-primary" : "text-muted-foreground")} />
+                    <div className="text-center space-y-0.5">
+                        <p className="text-xs font-bold leading-tight">{opt.label}</p>
+                        <p className="text-[10px] text-muted-foreground opacity-80">{opt.sub}</p>
                     </div>
                 </button>
             ))}
