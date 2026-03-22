@@ -375,9 +375,9 @@ export const ModerationSampleBuilder = ({
             <div className="py-12 text-center border-2 border-dashed rounded-2xl bg-muted/5 flex flex-col items-center gap-3 print:border-none print:bg-transparent print:text-left print:p-2">
                 <Target className="h-8 w-8 text-muted-foreground opacity-20 no-print" />
                 <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground no-print">Sample Not Defined</p>
-                    <p className="text-[9px] text-muted-foreground max-w-[200px] mx-auto no-print">Use the controls above to automatically pick a representative sample for this term.</p>
-                    <p className="hidden print:block text-sm text-slate-800 font-medium">No formal moderation sample generated for this period.</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground no-print">Moderation Sample Overview</p>
+                    <p className="text-[9px] text-muted-foreground max-w-[200px] mx-auto no-print">Moderation sample selection is managed externally or not required for the current assessment cycle.</p>
+                    <p className="hidden print:block text-sm text-slate-800 font-medium">Moderation sample selection is managed externally or not required for the current assessment cycle.</p>
                 </div>
             </div>
         )}

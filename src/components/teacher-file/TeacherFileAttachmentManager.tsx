@@ -146,8 +146,8 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
           ))}
           {attachments.length === 0 && (
               <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none print:bg-transparent print:py-2 print:text-left print:p-0">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-30 no-print">No supplementary documents attached</p>
-                  <p className="hidden print:block text-sm italic text-slate-600 mt-2">Documentation for this section is maintained in physical files or external departmental archives as per standard compliance procedures.</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-30 no-print">Supplementary documents may be managed externally</p>
+                  <p className="hidden print:block text-sm italic text-slate-600 mt-2">Supporting documentation is maintained in physical files or external departmental archives as per standard compliance procedures.</p>
               </div>
           )}
       </div>

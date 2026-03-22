@@ -24,7 +24,7 @@ export const TeacherFileReports = ({ classInfo, assessments, marks }: TeacherFil
         });
     }, [classInfo.learners, assessments, marks]);
 
-    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center print:border-none print:text-left print:p-2 print:text-slate-600">Performance aggregation is pending completion of the term's formal assessment cycle.</div>;
+    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center print:border-none print:text-left print:p-2 print:text-slate-600">Performance aggregation is processed upon completion of the term's formal assessment cycle.</div>;
 
     return (
         <div className="grid lg:grid-cols-2 gap-6">

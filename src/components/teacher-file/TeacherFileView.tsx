@@ -195,11 +195,11 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                             </div>
                         </div>
                     ) : (
-                        <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-4 print:border-none print:bg-transparent print:p-0">
-                            <AlertTriangle className="h-6 w-6 text-amber-600 mt-1 no-print" />
+                        <div className="mb-6 p-4 rounded-xl border border-muted bg-muted/10 flex items-start gap-4 print:border-none print:bg-transparent print:p-0">
+                            <AlertTriangle className="h-6 w-6 text-muted-foreground mt-1 no-print" />
                             <div>
-                                <h5 className="font-bold text-sm text-amber-900 print:text-black no-print">Moderation Sample Pending</h5>
-                                <p className="text-xs text-amber-800 no-print">Please generate a moderation sample in the active workspace to populate this audit section.</p>
+                                <h5 className="font-bold text-sm text-muted-foreground print:text-black no-print">Moderation Sample Overview</h5>
+                                <p className="text-xs text-muted-foreground no-print">Moderation sample selection is managed externally or not required for the current assessment cycle.</p>
                                 <p className="hidden print:block text-sm text-slate-800 font-medium">Moderation sample selection is managed externally or not required for the current assessment cycle.</p>
                             </div>
                         </div>
@@ -236,7 +236,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                         </div>
                     ) : (
                         <div>
-                            <p className="text-sm text-muted-foreground italic mb-6 no-print">Diagnostic analysis will automatically appear once assessments are fully analyzed.</p>
+                            <p className="text-sm text-muted-foreground italic mb-6 no-print">Diagnostic analysis is pending or managed via external departmental processes for this cycle.</p>
                             <p className="hidden print:block text-sm text-slate-800 font-medium mb-6">Diagnostic analysis is pending or managed via external departmental processes for this cycle.</p>
                         </div>
                     )}
@@ -366,19 +366,11 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
             <div className="grid grid-cols-2 gap-x-16 gap-y-16 pt-8 print:gap-12">
                 <div className="space-y-4">
                     <div className="h-px w-full bg-slate-900" />
-                    <p className="text-[10px] font-black uppercase text-slate-400">Educator Signature</p>
+                    <p className="text-[10px] font-black uppercase text-slate-400">Educator Signature & Date</p>
                 </div>
                 <div className="space-y-4">
                     <div className="h-px w-full bg-slate-900" />
-                    <p className="text-[10px] font-black uppercase text-slate-400">Date</p>
-                </div>
-                <div className="space-y-4">
-                    <div className="h-px w-full bg-slate-900" />
-                    <p className="text-[10px] font-black uppercase text-slate-400">Subject Head / Moderator Signature</p>
-                </div>
-                <div className="space-y-4">
-                    <div className="h-px w-full bg-slate-900" />
-                    <p className="text-[10px] font-black uppercase text-slate-400">Date</p>
+                    <p className="text-[10px] font-black uppercase text-slate-400">Moderator / Head of Department</p>
                 </div>
             </div>
             

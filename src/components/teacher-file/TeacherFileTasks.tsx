@@ -13,7 +13,7 @@ interface TeacherFileTasksProps {
 }
 
 export const TeacherFileTasks = ({ assessments, rubrics }: TeacherFileTasksProps) => {
-    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center print:border-none print:text-left print:p-2 print:text-slate-600">No formal SBA (School-Based Assessment) tasks are prescribed or recorded in the system for this specific term cycle.</div>;
+    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center print:border-none print:text-left print:p-2 print:text-slate-600">Formal assessment tasks for this cycle are managed externally or not applicable.</div>;
     
     return (
         <div className="space-y-6">
