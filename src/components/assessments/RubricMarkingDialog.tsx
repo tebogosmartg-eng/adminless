@@ -4,9 +4,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Check, UserCircle, Calculator, ChevronRight, ChevronLeft, Save } from 'lucide-react';
-import { Rubric, Learner, AssessmentMark } from '@/lib/types';
+import { Check, ChevronRight, ChevronLeft, Save } from 'lucide-react';
+import { Rubric, Learner } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface RubricMarkingDialogProps {
@@ -63,7 +62,7 @@ export const RubricMarkingDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
-        <div className="bg-primary p-6 text-primary-foreground shrink-0">
+        <div className="bg-primary p-6 text-primary-foreground shrink-0 z-10">
             <div className="flex justify-between items-start mb-4">
                 <div className="space-y-1">
                     <Badge variant="secondary" className="bg-white/20 text-white border-none uppercase tracking-widest text-[10px]">Marking with Rubric</Badge>
@@ -94,7 +93,7 @@ export const RubricMarkingDialog = ({
             </div>
         </div>
 
-        <ScrollArea className="flex-1 p-6">
+        <div className="flex-1 overflow-y-auto p-6 min-h-0">
             <div className="space-y-8">
                 {rubric.criteria.map((criterion) => (
                     <div key={criterion.id} className="space-y-3">
@@ -127,7 +126,7 @@ export const RubricMarkingDialog = ({
                                                 {level.descriptor || `Standard achievement level for ${level.label.toLowerCase()} performance.`}
                                             </p>
                                         </div>
-                                        <div className="mt-auto pt-2 border-t flex justify-between items-center">
+                                        <div className="mt-auto pt-2 border-t flex justify-between items-center w-full">
                                             <span className="text-xs font-bold text-muted-foreground">Points</span>
                                             <span className={cn("text-xl font-black", isSelected ? "text-primary" : "")}>{level.points}</span>
                                         </div>
@@ -139,7 +138,7 @@ export const RubricMarkingDialog = ({
                 ))}
             </div>
             <div className="h-10" />
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );

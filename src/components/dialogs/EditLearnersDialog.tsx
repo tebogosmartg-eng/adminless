@@ -1,7 +1,6 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -53,7 +52,7 @@ export const EditLearnersDialog = ({ open, onOpenChange, learners, onUpdateLearn
       <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 overflow-hidden">
         
         {/* FIXED HEADER */}
-        <div className="p-6 pb-4 border-b shrink-0 bg-background">
+        <div className="p-6 pb-4 border-b shrink-0 bg-background z-10">
           <DialogHeader>
             <DialogTitle>Update Class Roster</DialogTitle>
             <DialogDescription>
@@ -62,8 +61,8 @@ export const EditLearnersDialog = ({ open, onOpenChange, learners, onUpdateLearn
           </DialogHeader>
         </div>
         
-        {/* SCROLLABLE CONTENT */}
-        <ScrollArea className="flex-1 p-6">
+        {/* SCROLLABLE CONTENT - Using native overflow-y-auto and min-h-0 for reliable flex scrolling */}
+        <div className="flex-1 overflow-y-auto p-6 min-h-0">
             <div className="space-y-2 pb-2">
                 {editedLearners.map((learner, index) => (
                     <div key={index} className="flex items-center gap-2">
@@ -86,7 +85,7 @@ export const EditLearnersDialog = ({ open, onOpenChange, learners, onUpdateLearn
                                 <SelectItem value="Female">Female</SelectItem>
                             </SelectContent>
                         </Select>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemove(index)}>
+                        <Button variant="ghost" size="icon" onClick={() => handleRemove(index)} className="shrink-0">
                             <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                         </Button>
                     </div>
@@ -98,10 +97,10 @@ export const EditLearnersDialog = ({ open, onOpenChange, learners, onUpdateLearn
                     </div>
                 )}
             </div>
-        </ScrollArea>
+        </div>
 
         {/* FIXED FOOTER */}
-        <div className="p-6 pt-4 border-t bg-background shrink-0 flex flex-col gap-3">
+        <div className="p-6 pt-4 border-t bg-background shrink-0 flex flex-col gap-3 z-10">
             <Button variant="outline" onClick={handleAdd} className="w-full border-dashed hover:border-primary/50">
                 <Plus className="mr-2 h-4 w-4" /> Add Row
             </Button>

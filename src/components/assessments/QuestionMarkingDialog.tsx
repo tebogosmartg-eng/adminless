@@ -4,13 +4,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Check, ChevronRight, ChevronLeft, Save, Calculator, ListChecks } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, Save, ListChecks } from 'lucide-react';
 import { Assessment, Learner, QuestionMark } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { showSuccess } from '@/utils/toast';
 
 interface QuestionMarkingDialogProps {
   open: boolean;
@@ -37,14 +34,6 @@ export const QuestionMarkingDialog = ({
 }: QuestionMarkingDialogProps) => {
   const [qMarks, setQMarks] = useState<Record<string, string>>({});
 
-  // Diagnostic Logging
-  useEffect(() => {
-    if (open) {
-      console.log(`[Diagnostic: QuestionMarking] Dialog opened for ${learner.name}.`);
-      console.log(`[Diagnostic: QuestionMarking] isLocked state: ${isLocked}`);
-    }
-  }, [open, isLocked, learner.name]);
-
   useEffect(() => {
     if (open) {
         const map: Record<string, string> = {};
@@ -62,14 +51,11 @@ export const QuestionMarkingDialog = ({
         const n = parseFloat(val);
         if (!isNaN(n)) total += n;
     });
-    // Return rounded result to match system precision
     return parseFloat(total.toFixed(1));
   }, [qMarks]);
 
   const handleUpdate = (qId: string, val: string) => {
-    // Basic validation to allow digits and a single decimal point during typing
     if (val !== "" && !/^\d*\.?\d*$/.test(val)) return;
-    
     setQMarks(prev => ({ ...prev, [qId]: val }));
   };
 
@@ -101,7 +87,7 @@ export const QuestionMarkingDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl flex flex-col p-0 overflow-hidden h-[80vh]">
-        <div className="bg-primary p-6 text-primary-foreground shrink-0">
+        <div className="bg-primary p-6 text-primary-foreground shrink-0 z-10">
             <div className="flex justify-between items-start mb-4">
                 <div className="space-y-1">
                     <Badge variant="secondary" className="bg-white/20 text-white border-none uppercase tracking-widest text-[9px] font-black">Question-Level Entry</Badge>
@@ -133,7 +119,7 @@ export const QuestionMarkingDialog = ({
             </div>
         </div>
 
-        <ScrollArea className="flex-1 p-6 bg-muted/5">
+        <div className="flex-1 overflow-y-auto p-6 bg-muted/5 min-h-0">
             <div className="space-y-4">
                 {assessment.questions?.map((q, idx) => (
                     <div key={q.id} className="flex items-center gap-4 p-4 bg-background border rounded-xl shadow-sm group hover:border-primary/40 transition-all">
@@ -179,9 +165,9 @@ export const QuestionMarkingDialog = ({
                 ))}
             </div>
             <div className="h-10" />
-        </ScrollArea>
+        </div>
 
-        <div className="p-4 border-t bg-muted/10 text-center shrink-0">
+        <div className="p-4 border-t bg-muted/10 text-center shrink-0 z-10">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-2">
                 <ListChecks className="h-3 w-3" />
                 Data is auto-summed. Totals are synced to the main marksheet.
