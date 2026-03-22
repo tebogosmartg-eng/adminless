@@ -111,7 +111,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                       </div>
                   </div>
                   <div className="mt-4">
-                      <TimetableGrid />
+                      <TimetableGrid isDocumentMode />
                   </div>
               </div>
           </TeacherFileSection>

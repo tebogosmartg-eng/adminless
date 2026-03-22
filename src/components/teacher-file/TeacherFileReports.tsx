@@ -24,18 +24,19 @@ export const TeacherFileReports = ({ classInfo, assessments, marks }: TeacherFil
         });
     }, [classInfo.learners, assessments, marks]);
 
-    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center print:border-none print:text-left print:p-2 print:text-slate-600">Performance aggregation is processed upon completion of the term's formal assessment cycle.</div>;
+    if (!assessments.length) return <div className="text-sm text-slate-600 italic font-medium print:text-black">Performance aggregation is processed upon completion of the term's formal assessment cycle.</div>;
 
     return (
         <div className="grid lg:grid-cols-2 gap-6">
             <div className="lg:col-span-2 print-avoid-break">
-                <ClassStats learners={learnersWithAverages} />
+                <ClassStats learners={learnersWithAverages} isDocumentMode />
             </div>
             <div className="lg:col-span-2 print-avoid-break">
                 <MarkDistributionChart 
                     learners={learnersWithAverages} 
                     title="Term Final Mark Distribution" 
                     description="Aggregated performance symbols for the term." 
+                    isDocumentMode
                 />
             </div>
         </div>
