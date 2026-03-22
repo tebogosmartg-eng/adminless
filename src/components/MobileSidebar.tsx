@@ -17,7 +17,7 @@ const MobileSidebar = () => {
         <div className="sr-only">
           <SheetTitle>Mobile Navigation Menu</SheetTitle>
           <SheetDescription>
-            Navigate through Dashboard, Classes, Scan Scripts, Reports, and Settings.
+            Navigate through Dashboard, Classes, Teacher File, and Settings.
           </SheetDescription>
         </div>
         <div className="flex h-24 items-center border-b px-6 gap-3">
