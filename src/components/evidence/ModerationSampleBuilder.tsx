@@ -152,39 +152,42 @@ export const ModerationSampleBuilder = ({
   const AchievementGroup = ({ title, learners, icon: Icon, colorClass }: any) => {
     if (learners.length === 0) return null;
     return (
-        <div className="space-y-2">
-            <div className="flex items-center gap-2 px-1">
+        <div className="space-y-2 print:mb-4">
+            <div className="flex items-center gap-2 px-1 print:border-b print:border-slate-300 print:pb-1">
                 <Icon className={cn("h-3 w-3 no-print", colorClass)} />
                 <span className={cn("text-[10px] font-black uppercase tracking-widest", colorClass, "print:text-slate-800")}>
                     {title} Achievement
                 </span>
-                <span className="text-[10px] font-bold text-muted-foreground opacity-40">({learners.length})</span>
+                <span className="text-[10px] font-bold text-muted-foreground opacity-40 print:hidden">({learners.length})</span>
             </div>
-            <div className="grid gap-2 print:gap-1">
+            <div className="grid gap-2 print:gap-0">
                 {learners.map((l: any) => (
                     <div key={l.id} className={cn(
                         "flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all",
-                        "print:border-none print:p-1 print:border-b print:border-slate-100 print:rounded-none",
+                        "print:border-none print:p-1.5 print:border-b print:border-slate-100 print:rounded-none",
                         l.hasEvidence ? "border-green-100 print:bg-transparent" : "border-slate-100 print:bg-transparent"
                     )}>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 w-full">
                             <div className={cn(
                                 "p-1.5 rounded-lg no-print",
                                 l.hasEvidence ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
                             )}>
                                 {l.hasEvidence ? <FileCheck className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                             </div>
-                            <div className="hidden print:flex items-center justify-center w-4">
-                                <span className="text-slate-400 text-lg leading-none mb-1">•</span>
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-sm font-bold text-slate-900 truncate max-w-[150px] print:text-black">{l.name}</span>
-                                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter print:text-slate-600">
+                            
+                            <div className="flex flex-col min-w-0 flex-1">
+                                <div className="flex justify-between items-center w-full">
+                                    <span className="text-sm font-bold text-slate-900 truncate max-w-[150px] print:text-black print:text-xs">{l.name}</span>
+                                    <span className="hidden print:block text-[9px] font-bold uppercase text-slate-500">
+                                        {l.hasEvidence ? "Evidence Attached" : "Pending Submission"}
+                                    </span>
+                                </div>
+                                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter print:text-slate-400">
                                     {l.score.toFixed(1)}% {basis === 'assessment' ? 'Task' : 'Term'}
                                 </span>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 no-print">
+                        <div className="flex items-center gap-2 no-print shrink-0">
                             {!l.hasEvidence ? (
                                 <Button 
                                     variant="ghost" 
@@ -226,6 +229,11 @@ export const ModerationSampleBuilder = ({
                 <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest no-print">
                     Recommended sample: 10% of class (min 3)
                 </CardDescription>
+                {sample && (
+                    <p className="hidden print:block text-[10px] uppercase text-slate-500 font-bold mt-1">
+                        Basis: {sample.rules_json.basis === 'term_overall' ? 'Term Overall Average' : 'Specific Task Performance'}
+                    </p>
+                )}
             </div>
             {selectedLearnerIds.length > 0 && (
                 <div className="text-right no-print">
@@ -303,11 +311,11 @@ export const ModerationSampleBuilder = ({
         {/* Results / List */}
         {selectedLearnerIds.length > 0 && (
             <div className="space-y-6">
-                <div className="flex items-center justify-between border-b pb-2">
-                    <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2 print:text-slate-800">
-                        <Users className="h-3 w-3 no-print" /> Audit Selection ({selectedLearnerIds.length})
+                <div className="flex items-center justify-between border-b pb-2 no-print">
+                    <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                        <Users className="h-3 w-3" /> Audit Selection ({selectedLearnerIds.length})
                     </h4>
-                    <div className="flex gap-2 no-print">
+                    <div className="flex gap-2">
                         <Button variant="ghost" size="sm" className="h-6 text-[9px] uppercase font-black" onClick={() => setIsEditing(!isEditing)}>
                             {isEditing ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Edit3 className="h-3 w-3 mr-1" />}
                             {isEditing ? "Finish Editing" : "Edit Selection"}
@@ -318,7 +326,7 @@ export const ModerationSampleBuilder = ({
                     </div>
                 </div>
 
-                <div className="grid gap-6">
+                <div className="grid gap-6 print:gap-4">
                     {isEditing ? (
                         <div className="p-3 border rounded-xl bg-background max-h-[350px] overflow-y-auto shadow-inner no-print">
                             <div className="grid grid-cols-2 gap-2">
@@ -338,7 +346,7 @@ export const ModerationSampleBuilder = ({
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="space-y-6 animate-in fade-in duration-500 print:space-y-4">
                             <AchievementGroup 
                                 title="High" 
                                 learners={groupedLearners.high} 

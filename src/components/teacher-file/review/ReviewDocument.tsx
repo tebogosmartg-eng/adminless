@@ -40,7 +40,7 @@ export const ReviewDocument = (props: ReviewDocumentProps) => {
                 <div className="text-center space-y-6">
                     <div className="space-y-1">
                         <h2 className="text-4xl font-black tracking-tight text-slate-900 uppercase">Academic Portfolio</h2>
-                        <div className="h-1.5 w-24 bg-blue-600 rounded-full mx-auto" />
+                        <div className="h-1.5 w-24 bg-blue-600 rounded-full mx-auto no-print" />
                     </div>
                     <div className="grid grid-cols-3 gap-8 py-8 border-y-2 border-slate-900 max-w-2xl mx-auto">
                         <div className="text-center">
@@ -58,7 +58,7 @@ export const ReviewDocument = (props: ReviewDocumentProps) => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
                     {[
                         { label: 'Active Entries', val: props.auditStats.total, icon: FileText, color: 'text-slate-900' },
                         { label: 'Attachments', val: props.auditStats.attachments, icon: Download, color: 'text-blue-600' },
@@ -97,66 +97,74 @@ export const ReviewDocument = (props: ReviewDocumentProps) => {
                             </div>
                             
                             {/* Static print header */}
-                            <div className="hidden print:block border-b-4 border-slate-100 pb-2">
-                                <h3 className="text-xl font-black text-slate-900">
+                            <div className="hidden print:block border-b-2 border-slate-300 pb-2 mb-6">
+                                <h3 className="text-lg font-black text-slate-900 uppercase">
                                     0{section.sort_order}. {section.title}
                                 </h3>
                             </div>
 
                             {!isCollapsed && (
-                                <div className="grid gap-12 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="grid gap-12 animate-in fade-in slide-in-from-top-2 duration-300 print:gap-8">
                                     {groupEntries.map(entry => {
                                         const attachments = props.allAttachments.filter(a => a.entry_id === entry.id);
                                         return (
-                                            <div key={entry.id} className="space-y-6 relative pl-8 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-slate-100">
+                                            <div key={entry.id} className="space-y-4 relative pl-8 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-slate-100 print:before:bg-slate-300 print-avoid-break">
                                                 <div className="space-y-4">
-                                                    <div className="flex items-center justify-between">
+                                                    <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-2 print:border-slate-300">
                                                         <div className="flex items-center gap-4">
-                                                            <span className="text-xs font-black text-slate-900 uppercase">
+                                                            <span className="text-sm font-black text-slate-900 uppercase">
                                                                 {entry.title || "Observation Record"}
                                                             </span>
                                                             <div className="flex gap-1">
                                                                 {(entry.tags || []).map(tag => (
-                                                                    <span key={tag} className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">
+                                                                    <span key={tag} className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded print:border print:border-slate-300 print:bg-transparent print:text-black">
                                                                         {tag}
                                                                     </span>
                                                                 ))}
                                                             </div>
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase print:text-slate-600">
                                                             {format(new Date(entry.created_at), 'dd MMMM yyyy')}
                                                         </span>
                                                     </div>
 
-                                                    <div className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap italic pl-4 border-l-2 border-slate-50">
+                                                    <div className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap italic print:text-black">
                                                         "{entry.content}"
                                                     </div>
                                                 </div>
 
                                                 {attachments.length > 0 && (
-                                                    <div className="grid sm:grid-cols-2 gap-3 pl-4">
-                                                        {attachments.map(file => (
-                                                            <div key={file.id} className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/50 group/doc">
-                                                                <div className="flex items-center gap-3 overflow-hidden">
-                                                                    <div className="p-2 bg-white rounded-lg border">
-                                                                        <FileText className="h-4 w-4 text-slate-400" />
+                                                    <div className="pt-2">
+                                                        <div className="hidden print:block text-[9px] font-black uppercase tracking-widest text-slate-800 mb-2">
+                                                            Linked Documentation
+                                                        </div>
+                                                        <div className="grid sm:grid-cols-2 gap-3 print:block print:space-y-1">
+                                                            {attachments.map(file => (
+                                                                <div key={file.id} className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/50 group/doc print:p-0 print:border-none print:bg-transparent">
+                                                                    <div className="flex items-center gap-3 overflow-hidden">
+                                                                        <div className="p-2 bg-white rounded-lg border no-print">
+                                                                            <FileText className="h-4 w-4 text-slate-400" />
+                                                                        </div>
+                                                                        <div className="flex flex-col min-w-0">
+                                                                            <span className="text-[11px] font-black truncate text-slate-900 print:text-[10px] print:text-black">
+                                                                                <span className="hidden print:inline mr-2">•</span>
+                                                                                {file.file_name}
+                                                                            </span>
+                                                                            <span className="text-[8px] font-bold text-slate-400 uppercase no-print">Linked Evidence</span>
+                                                                        </div>
                                                                     </div>
-                                                                    <div className="flex flex-col min-w-0">
-                                                                        <span className="text-[11px] font-black truncate text-slate-900">{file.file_name}</span>
-                                                                        <span className="text-[8px] font-bold text-slate-400 uppercase">Linked Evidence</span>
-                                                                    </div>
+                                                                    <Button 
+                                                                        variant="ghost" 
+                                                                        size="icon" 
+                                                                        className="h-8 w-8 no-print" 
+                                                                        onClick={() => props.onViewFile(file.file_path, file.id)}
+                                                                        disabled={props.loadingFileId === file.id}
+                                                                    >
+                                                                        {props.loadingFileId === file.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                                                                    </Button>
                                                                 </div>
-                                                                <Button 
-                                                                    variant="ghost" 
-                                                                    size="icon" 
-                                                                    className="h-8 w-8 no-print" 
-                                                                    onClick={() => props.onViewFile(file.file_path, file.id)}
-                                                                    disabled={props.loadingFileId === file.id}
-                                                                >
-                                                                    {props.loadingFileId === file.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                                                                </Button>
-                                                            </div>
-                                                        ))}
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
@@ -170,7 +178,7 @@ export const ReviewDocument = (props: ReviewDocumentProps) => {
             </div>
 
             {/* Print Signature Section */}
-            <div className="pt-20 mt-20 border-t-2 border-slate-100 grid grid-cols-2 gap-20">
+            <div className="pt-20 mt-20 border-t-2 border-slate-100 grid grid-cols-2 gap-20 print-avoid-break">
                 <div className="space-y-4">
                     <div className="h-px w-full bg-slate-900" />
                     <p className="text-[10px] font-black uppercase text-slate-400">Educator Signature & Date</p>
