@@ -15,7 +15,7 @@ import { useScanDataState } from './scan/useScanDataState';
 import { useScanFileHandling } from './scan/useScanFileHandling';
 import { useScanPersistence } from './scan/useScanPersistence';
 
-export const useScanLogic = () => {
+export const useScanLogic = (defaultClassId?: string) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { classes } = useClasses();
@@ -23,7 +23,7 @@ export const useScanLogic = () => {
   const { isOnline } = useSync();
 
   const [scanType, setScanType] = useState<ScanType>('class_marksheet');
-  const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
+  const [selectedClassId, setSelectedClassId] = useState<string | undefined>(defaultClassId);
   const [availableAssessments, setAvailableAssessments] = useState<any[]>([]);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -51,7 +51,8 @@ export const useScanLogic = () => {
 
   useEffect(() => {
     if (location.state?.classId) setSelectedClassId(location.state.classId);
-  }, [location.state]);
+    else if (defaultClassId) setSelectedClassId(defaultClassId);
+  }, [location.state, defaultClassId]);
 
   useEffect(() => {
     const fetchAss = async () => {
@@ -167,7 +168,10 @@ export const useScanLogic = () => {
   
           await archiveScanJob(currentJobId);
           showSuccess("Saved granular marks to record.");
-          navigate(`/classes/${selectedClassId}`);
+          
+          // Re-route slightly dynamically based on whether we are in a modal or page context
+          if (!defaultClassId) navigate(`/classes/${selectedClassId}`);
+          
       } catch (e: any) { 
           showError(e.message || "Failed to commit marks."); 
       }

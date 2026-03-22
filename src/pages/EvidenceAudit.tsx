@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { ShieldCheck, FileText, Image as ImageIcon, Search, ExternalLink, Filter, Calendar, Download, Lock, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { ShieldCheck, FileText, Image as ImageIcon, Search, ExternalLink, Filter, Calendar, Download, Lock, CheckCircle2, AlertTriangle, Loader2, FileSearch } from 'lucide-react';
 import { format } from 'date-fns';
 import { getSignedFileUrl } from '@/services/storage';
 import { showSuccess, showError } from '@/utils/toast';
@@ -26,7 +26,7 @@ interface EvidenceWithContext extends Evidence {
   isModerationSample: boolean;
 }
 
-const EvidenceAudit = () => {
+const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
   const { activeTerm } = useAcademic();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -42,7 +42,9 @@ const EvidenceAudit = () => {
   }, [activeTerm?.id]);
 
   const auditData = useLiveQuery(async () => {
-    const evidence = await db.evidence.orderBy('created_at').reverse().toArray();
+    const evidenceRaw = await db.evidence.orderBy('created_at').reverse().toArray();
+    const evidence = defaultClassId ? evidenceRaw.filter(e => e.class_id === defaultClassId) : evidenceRaw;
+
     const activeClasses = await db.classes.filter(c => !c.archived).toArray();
     const samples = await db.moderation_samples.toArray();
     
@@ -93,7 +95,7 @@ const EvidenceAudit = () => {
     });
 
     return { enrichedEvidence, gradeStats, totalActive: activeClasses.length };
-  }, []) || { enrichedEvidence: [], gradeStats: {}, totalActive: 0 };
+  }, [defaultClassId]) || { enrichedEvidence: [], gradeStats: {}, totalActive: 0 };
 
   const filtered = useMemo(() => {
     return auditData.enrichedEvidence.filter(e => {
@@ -123,66 +125,79 @@ const EvidenceAudit = () => {
       }
   };
 
-  return (
-    <div className="space-y-6 pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Evidence Audit</h1>
-            <p className="text-muted-foreground text-sm">Professional moderation trail management.</p>
-        </div>
-        <Button onClick={() => {}} disabled={filtered.length === 0} variant="outline" className="gap-2">
-            <Download className="h-4 w-4" /> Export Register
-        </Button>
-      </div>
+  const getIcon = (cat: string) => {
+    switch (cat) {
+      case 'script': return <FileText className="h-5 w-5 text-blue-500" />;
+      case 'moderation': return <ShieldCheck className="h-5 w-5 text-green-600" />;
+      case 'photo': return <ImageIcon className="h-5 w-5 text-purple-500" />;
+      default: return <FileSearch className="h-5 w-5 text-gray-500" />;
+    }
+  };
 
-      <div className="grid gap-6 md:grid-cols-3">
-          <Card className="md:col-span-2">
-              <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Compliance Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {Object.entries(auditData.gradeStats).sort().map(([grade, stats]) => {
-                          const percent = Math.round((stats.withEvidence / stats.total) * 100);
-                          return (
-                              <div key={grade} className="p-3 rounded-lg border bg-muted/20 space-y-2">
-                                  <div className="flex justify-between items-center">
-                                      <span className="text-sm font-bold">{grade}</span>
-                                      <span className={`text-[10px] font-bold px-1.5 rounded ${percent === 100 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                                          {percent}%
-                                      </span>
-                                  </div>
-                                  <Progress value={percent} className="h-1" />
-                                  <p className="text-[10px] text-muted-foreground">
-                                      {stats.withEvidence} of {stats.total} classes covered
-                                  </p>
-                              </div>
-                          );
-                      })}
-                  </div>
-              </CardContent>
-          </Card>
-          
-          <Card className="bg-primary/5 border-primary/20">
-              <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-bold text-primary flex items-center gap-2 uppercase tracking-widest">
-                    <ShieldCheck className="h-4 w-4" /> Audit Status
-                  </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-2">
-                  <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Total Evidence Files</span>
-                      <span className="text-xl font-bold">{auditData.enrichedEvidence.length}</span>
-                  </div>
-                  <div className="pt-2">
-                      <div className="flex items-center gap-2 p-2 bg-background rounded border text-[10px]">
-                          <AlertTriangle className="h-3 w-3 text-amber-500" />
-                          <span>Ensure 10% sample scripts are uploaded per class for moderation.</span>
-                      </div>
-                  </div>
-              </CardContent>
-          </Card>
-      </div>
+  return (
+    <div className={`space-y-6 ${embedded ? 'pb-2' : 'pb-12'}`}>
+      {!embedded && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+              <h1 className="text-3xl font-bold tracking-tight">Evidence Audit</h1>
+              <p className="text-muted-foreground text-sm">Professional moderation trail management.</p>
+          </div>
+          <Button onClick={() => {}} disabled={filtered.length === 0} variant="outline" className="gap-2">
+              <Download className="h-4 w-4" /> Export Register
+          </Button>
+        </div>
+      )}
+
+      {!embedded && (
+        <div className="grid gap-6 md:grid-cols-3">
+            <Card className="md:col-span-2">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Compliance Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {Object.entries(auditData.gradeStats).sort().map(([grade, stats]) => {
+                            const percent = Math.round((stats.withEvidence / stats.total) * 100);
+                            return (
+                                <div key={grade} className="p-3 rounded-lg border bg-muted/20 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm font-bold">{grade}</span>
+                                        <span className={`text-[10px] font-bold px-1.5 rounded ${percent === 100 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                            {percent}%
+                                        </span>
+                                    </div>
+                                    <Progress value={percent} className="h-1" />
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {stats.withEvidence} of {stats.total} classes covered
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </CardContent>
+            </Card>
+            
+            <Card className="bg-primary/5 border-primary/20">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold text-primary flex items-center gap-2 uppercase tracking-widest">
+                      <ShieldCheck className="h-4 w-4" /> Audit Status
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Total Evidence Files</span>
+                        <span className="text-xl font-bold">{auditData.enrichedEvidence.length}</span>
+                    </div>
+                    <div className="pt-2">
+                        <div className="flex items-center gap-2 p-2 bg-background rounded border text-[10px]">
+                            <AlertTriangle className="h-3 w-3 text-amber-500" />
+                            <span>Ensure 10% sample scripts are uploaded per class for moderation.</span>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+      )}
 
       <Card className="bg-muted/30 border-none shadow-none">
         <CardContent className="pt-6">
@@ -233,7 +248,7 @@ const EvidenceAudit = () => {
               <TableRow>
                 <TableHead className="w-[300px]">File Name</TableHead>
                 <TableHead>Linked To</TableHead>
-                <TableHead>Class</TableHead>
+                {!embedded && <TableHead>Class</TableHead>}
                 <TableHead>Term</TableHead>
                 <TableHead>Uploaded</TableHead>
                 <TableHead className="text-right">Action</TableHead>
@@ -242,7 +257,7 @@ const EvidenceAudit = () => {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-64 text-center text-muted-foreground">
+                  <TableCell colSpan={embedded ? 5 : 6} className="h-64 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
                         <FileText className="h-10 w-10 opacity-10" />
                         <p>No evidence matching your criteria.</p>
@@ -275,12 +290,14 @@ const EvidenceAudit = () => {
                     <TableCell className="text-sm font-medium">
                         {item.learnerName}
                     </TableCell>
-                    <TableCell className="text-sm">
-                        <div className="flex flex-col">
-                            <span className="font-medium">{item.className}</span>
-                            <span className="text-[10px] text-muted-foreground">{item.subject}</span>
-                        </div>
-                    </TableCell>
+                    {!embedded && (
+                      <TableCell className="text-sm">
+                          <div className="flex flex-col">
+                              <span className="font-medium">{item.className}</span>
+                              <span className="text-[10px] text-muted-foreground">{item.subject}</span>
+                          </div>
+                      </TableCell>
+                    )}
                     <TableCell>
                         <Badge variant="secondary" className="text-[10px]">{item.termName}</Badge>
                     </TableCell>

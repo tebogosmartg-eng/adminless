@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, Camera, Settings, FileBarChart, ShieldCheck, History, Book } from "lucide-react";
+import { LayoutDashboard, Users, Settings, Book } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const NavLinks = () => {
@@ -7,10 +7,6 @@ export const NavLinks = () => {
     { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true },
     { to: "/classes", icon: Users, label: "Classes" },
     { to: "/teacher-file", icon: Book, label: "Teacher File" },
-    { to: "/scan", icon: Camera, label: "Scan Scripts" },
-    { to: "/scan-audit", icon: History, label: "Scan Audit" },
-    { to: "/reports", icon: FileBarChart, label: "Reports" },
-    { to: "/evidence-audit", icon: ShieldCheck, label: "Evidence Audit" },
     { to: "/settings", icon: Settings, label: "Settings" },
   ];
 

@@ -17,11 +17,10 @@ import { SchoolProfile, generateTermSummaryPDF, generateYearSummaryPDF } from '@
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
-import { Link } from 'react-router-dom';
 import { generateSASAMSExport } from '@/utils/sasams';
 import { cn } from '@/lib/utils';
 
-const Reports = () => {
+const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
   const { classes } = useClasses();
   const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   const { terms, years, activeYear, activeTerm, assessments, marks } = useAcademic();
@@ -38,11 +37,13 @@ const Reports = () => {
   const { loading: termLoading, reportData: termData, generateTermReport, allAssessmentTitles, setReportData } = useTermReportData();
   const { loading: yearLoading, yearData, generateYearReport, setYearData } = useYearReportData();
 
+  const defaultClass = useMemo(() => classes.find(c => c.id === defaultClassId), [classes, defaultClassId]);
+
   const [selectedYearId, setSelectedYearId] = useState(activeYear?.id || "");
   const [selectedTermId, setSelectedTermId] = useState(activeTerm?.id || "");
-  const [selectedGrade, setSelectedGrade] = useState("all");
-  const [selectedSubject, setSelectedSubject] = useState("all");
-  const [selectedClassId, setSelectedClassId] = useState("all");
+  const [selectedGrade, setSelectedGrade] = useState(defaultClass?.grade || "all");
+  const [selectedSubject, setSelectedSubject] = useState(defaultClass?.subject || "all");
+  const [selectedClassId, setSelectedClassId] = useState(defaultClassId || "all");
 
   const uniqueGrades = useMemo(() => Array.from(new Set(classes.map(c => c.grade))).sort(), [classes]);
   const uniqueSubjects = useMemo(() => Array.from(new Set(classes.map(c => c.subject))).sort(), [classes]);
@@ -64,10 +65,18 @@ const Reports = () => {
   }, [activeYear?.id]);
 
   useEffect(() => {
-      setSelectedClassId("all");
+      if (defaultClass) {
+          setSelectedGrade(defaultClass.grade);
+          setSelectedSubject(defaultClass.subject);
+          setSelectedClassId(defaultClass.id);
+      }
+  }, [defaultClass]);
+
+  useEffect(() => {
+      if (!defaultClassId) setSelectedClassId("all");
       setReportData(null);
       setYearData(null);
-  }, [selectedGrade, selectedSubject, selectedTermId, setReportData, setYearData]);
+  }, [selectedGrade, selectedSubject, selectedTermId, setReportData, setYearData, defaultClassId]);
 
   const selectedTerm = useMemo(() => terms.find(t => t.id === selectedTermId), [terms, selectedTermId]);
   const isTermClosed = !!selectedTerm?.closed;
@@ -174,11 +183,13 @@ const Reports = () => {
   }, [terms, selectedYearId]);
 
   return (
-    <div className="space-y-6 pb-10">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-        <p className="text-muted-foreground text-sm">Analytical data is strictly caged to the selected class context.</p>
-      </div>
+    <div className={`space-y-6 ${embedded ? 'pb-2' : 'pb-10'}`}>
+      {!embedded && (
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
+          <p className="text-muted-foreground text-sm">Analytical data is strictly caged to the selected class context.</p>
+        </div>
+      )}
 
       <Tabs defaultValue="term" className="w-full">
         <TabsList className="bg-muted/50 p-1 border">
@@ -188,63 +199,72 @@ const Reports = () => {
 
         <TabsContent value="term" className="space-y-6 mt-6">
             <div className="grid gap-6 md:grid-cols-4">
-                <Card className="md:col-span-1 border-none shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Class Context</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground">Year / Term</label>
-                            <div className="flex gap-2">
-                                <Select value={selectedYearId} onValueChange={setSelectedYearId}>
-                                    <SelectTrigger className="h-9"><SelectValue placeholder="Year" /></SelectTrigger>
-                                    <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
-                                </Select>
-                                <Select value={selectedTermId} onValueChange={setSelectedTermId}>
-                                    <SelectTrigger className="h-9"><SelectValue placeholder="Term" /></SelectTrigger>
-                                    <SelectContent>{sequencedTerms.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground">Grade / Subject</label>
-                            <div className="flex gap-2">
-                                <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                                    <SelectTrigger className="h-9"><SelectValue placeholder="Grade" /></SelectTrigger>
-                                    <SelectContent>{uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                                </Select>
-                                <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                                    <SelectTrigger className="h-9"><SelectValue placeholder="Subject" /></SelectTrigger>
-                                    <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground">Specific Class</label>
-                            <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={selectedSubject === 'all' || selectedGrade === 'all'}>
-                                <SelectTrigger className="h-10"><SelectValue placeholder="Choose Class..." /></SelectTrigger>
-                                <SelectContent>{availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                        
-                        {integrityReport && <div className="pt-4 border-t"><IntegrityGuard report={integrityReport} /></div>}
+                {!embedded && (
+                  <Card className="md:col-span-1 border-none shadow-sm">
+                      <CardHeader>
+                          <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Class Context</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                          <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-muted-foreground">Year / Term</label>
+                              <div className="flex gap-2">
+                                  <Select value={selectedYearId} onValueChange={setSelectedYearId}>
+                                      <SelectTrigger className="h-9"><SelectValue placeholder="Year" /></SelectTrigger>
+                                      <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                  <Select value={selectedTermId} onValueChange={setSelectedTermId}>
+                                      <SelectTrigger className="h-9"><SelectValue placeholder="Term" /></SelectTrigger>
+                                      <SelectContent>{sequencedTerms.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                                  </Select>
+                              </div>
+                          </div>
+                          <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-muted-foreground">Grade / Subject</label>
+                              <div className="flex gap-2">
+                                  <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+                                      <SelectTrigger className="h-9"><SelectValue placeholder="Grade" /></SelectTrigger>
+                                      <SelectContent>{uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                  <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                                      <SelectTrigger className="h-9"><SelectValue placeholder="Subject" /></SelectTrigger>
+                                      <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                                  </Select>
+                              </div>
+                          </div>
+                          <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-muted-foreground">Specific Class</label>
+                              <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={selectedSubject === 'all' || selectedGrade === 'all'}>
+                                  <SelectTrigger className="h-10"><SelectValue placeholder="Choose Class..." /></SelectTrigger>
+                                  <SelectContent>{availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}</SelectContent>
+                              </Select>
+                          </div>
+                          
+                          {integrityReport && <div className="pt-4 border-t"><IntegrityGuard report={integrityReport} /></div>}
 
-                        <Button className="w-full mt-4 h-11 font-bold" onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete}>
-                            {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load Analytical Data"}
-                        </Button>
-                    </CardContent>
-                </Card>
+                          <Button className="w-full mt-4 h-11 font-bold" onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete}>
+                              {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load Analytical Data"}
+                          </Button>
+                      </CardContent>
+                  </Card>
+                )}
 
-                <Card className="md:col-span-3 min-h-[600px] flex flex-col border-none shadow-sm overflow-hidden">
+                <Card className={`${embedded ? 'md:col-span-4' : 'md:col-span-3'} min-h-[600px] flex flex-col border-none shadow-sm overflow-hidden`}>
                     <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b bg-muted/5 gap-4">
                         <CardTitle className="text-lg">Class Results Summary</CardTitle>
-                        {termData && isContextComplete && (
-                            <div className="flex flex-wrap gap-2">
-                                <Button variant="outline" size="sm" onClick={handleSASAMSExportAction} className={cn("h-8 gap-2", isTermClosed ? "border-primary text-primary" : "opacity-50")}><Download className="h-3.5 w-3.5" /> SA-SAMS</Button>
-                                <Button variant="outline" size="sm" onClick={handleExportTermCSV} className="h-8 gap-2"><FileSpreadsheet className="h-3.5 w-3.5 text-green-600"/> CSV</Button>
-                                <Button variant="outline" size="sm" onClick={handleExportTermPDF} className="h-8 gap-2"><FileDown className="h-3.5 w-3.5 text-blue-600"/> PDF</Button>
-                            </div>
-                        )}
+                        <div className="flex flex-wrap gap-2">
+                            {embedded && (
+                                <Button onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete} className="font-bold h-8">
+                                    {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load Analytical Data"}
+                                </Button>
+                            )}
+                            {termData && isContextComplete && (
+                                <>
+                                    <Button variant="outline" size="sm" onClick={handleSASAMSExportAction} className={cn("h-8 gap-2", isTermClosed ? "border-primary text-primary" : "opacity-50")}><Download className="h-3.5 w-3.5" /> SA-SAMS</Button>
+                                    <Button variant="outline" size="sm" onClick={handleExportTermCSV} className="h-8 gap-2"><FileSpreadsheet className="h-3.5 w-3.5 text-green-600"/> CSV</Button>
+                                    <Button variant="outline" size="sm" onClick={handleExportTermPDF} className="h-8 gap-2"><FileDown className="h-3.5 w-3.5 text-blue-600"/> PDF</Button>
+                                </>
+                            )}
+                        </div>
                     </CardHeader>
                     <CardContent className="flex-1 overflow-auto p-0">
                         {termData && isContextComplete ? (
@@ -289,8 +309,8 @@ const Reports = () => {
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 p-12 text-center">
                                 <LayoutGrid className="h-16 w-16 opacity-10" />
                                 <div className="space-y-1">
-                                    <h3 className="font-semibold text-foreground">Select Context to Begin</h3>
-                                    <p className="text-xs max-w-xs">Data is caged to specific class selections. Choose a class from the sidebar to view analytical results.</p>
+                                    <h3 className="font-semibold text-foreground">Awaiting Generation</h3>
+                                    <p className="text-xs max-w-xs">{embedded ? "Click Load Analytical Data to view the official summary." : "Data is caged to specific class selections. Choose a class from the sidebar to view analytical results."}</p>
                                 </div>
                             </div>
                         )}
@@ -301,50 +321,59 @@ const Reports = () => {
 
         <TabsContent value="year" className="space-y-6 mt-6">
             <div className="grid gap-6 md:grid-cols-4">
-                <Card className="md:col-span-1 border-none shadow-sm">
-                    <CardHeader><CardTitle className="text-sm font-bold uppercase text-muted-foreground">Yearly Context</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-muted-foreground">Academic Cycle</label>
-                            <Select value={selectedYearId} onValueChange={setSelectedYearId}>
-                                <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
-                                <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-muted-foreground">Grade / Subject</label>
-                            <div className="flex gap-2">
-                                <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                                    <SelectTrigger className="h-10"><SelectValue placeholder="Grade" /></SelectTrigger>
-                                    <SelectContent>{uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                                </Select>
-                                <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                                    <SelectTrigger className="h-10"><SelectValue placeholder="Subject" /></SelectTrigger>
-                                    <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground">Specific Class</label>
-                            <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={selectedSubject === 'all' || selectedGrade === 'all'}>
-                                <SelectTrigger className="h-10"><SelectValue placeholder="Choose Class..." /></SelectTrigger>
-                                <SelectContent>{availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                        <Button className="w-full mt-4 h-11 font-bold" onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'}>
-                            {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Consolidate Year Data"}
-                        </Button>
-                    </CardContent>
-                </Card>
+                {!embedded && (
+                  <Card className="md:col-span-1 border-none shadow-sm">
+                      <CardHeader><CardTitle className="text-sm font-bold uppercase text-muted-foreground">Yearly Context</CardTitle></CardHeader>
+                      <CardContent className="space-y-4">
+                          <div className="space-y-2">
+                              <label className="text-xs font-bold uppercase text-muted-foreground">Academic Cycle</label>
+                              <Select value={selectedYearId} onValueChange={setSelectedYearId}>
+                                  <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                                  <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
+                              </Select>
+                          </div>
+                          <div className="space-y-2">
+                              <label className="text-xs font-bold uppercase text-muted-foreground">Grade / Subject</label>
+                              <div className="flex gap-2">
+                                  <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+                                      <SelectTrigger className="h-10"><SelectValue placeholder="Grade" /></SelectTrigger>
+                                      <SelectContent>{uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                  <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                                      <SelectTrigger className="h-10"><SelectValue placeholder="Subject" /></SelectTrigger>
+                                      <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                                  </Select>
+                              </div>
+                          </div>
+                          <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-muted-foreground">Specific Class</label>
+                              <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={selectedSubject === 'all' || selectedGrade === 'all'}>
+                                  <SelectTrigger className="h-10"><SelectValue placeholder="Choose Class..." /></SelectTrigger>
+                                  <SelectContent>{availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}</SelectContent>
+                              </Select>
+                          </div>
+                          <Button className="w-full mt-4 h-11 font-bold" onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'}>
+                              {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Consolidate Year Data"}
+                          </Button>
+                      </CardContent>
+                  </Card>
+                )}
 
-                <Card className="md:col-span-3 min-h-[500px] flex flex-col border-none shadow-sm overflow-hidden">
+                <Card className={`${embedded ? 'md:col-span-4' : 'md:col-span-3'} min-h-[500px] flex flex-col border-none shadow-sm overflow-hidden`}>
                     <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-muted/5 border-b gap-4">
                         <CardTitle>Year End Consolidation</CardTitle>
-                        {yearData && selectedClassId !== 'all' && (
-                             <Button variant="outline" size="sm" onClick={handleExportYearPDF} className="h-8 gap-2">
-                                <FileDown className="h-3.5 w-3.5 text-blue-600"/> Export PDF
-                             </Button>
-                        )}
+                        <div className="flex gap-2">
+                            {embedded && (
+                                <Button onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'} className="font-bold h-8">
+                                    {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Consolidate Year Data"}
+                                </Button>
+                            )}
+                            {yearData && selectedClassId !== 'all' && (
+                                 <Button variant="outline" size="sm" onClick={handleExportYearPDF} className="h-8 gap-2">
+                                    <FileDown className="h-3.5 w-3.5 text-blue-600"/> Export PDF
+                                 </Button>
+                            )}
+                        </div>
                     </CardHeader>
                     <CardContent className="flex-1 p-0 overflow-auto">
                         {yearData && selectedClassId !== 'all' ? (
@@ -374,7 +403,7 @@ const Reports = () => {
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 p-12 text-center">
                                 <GraduationCap className="h-16 w-16 opacity-10" />
                                 <h3 className="font-semibold text-foreground">Annual Summary</h3>
-                                <p className="text-xs max-w-xs">Consolidate all term marks into a final year-end performance report. Select a specific class to view analytical results.</p>
+                                <p className="text-xs max-w-xs">{embedded ? "Click Consolidate Year Data to generate the report." : "Consolidate all term marks into a final year-end performance report. Select a specific class to view analytical results."}</p>
                             </div>
                         )}
                     </CardContent>

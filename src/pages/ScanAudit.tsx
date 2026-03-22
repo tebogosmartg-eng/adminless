@@ -28,14 +28,17 @@ import { getSignedFileUrl } from '@/services/storage';
 import { showError } from '@/utils/toast';
 import { ScanHistory } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const ScanAudit = () => {
+const ScanAudit = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
   const [search, setSearch] = useState("");
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
 
-  const logs = useLiveQuery(() => 
+  const logsRaw = useLiveQuery(() => 
     db.scan_history.orderBy('timestamp').reverse().toArray()
   ) || [];
+
+  const logs = defaultClassId ? logsRaw.filter(l => l.class_id === defaultClassId) : logsRaw;
 
   const enrichedLogs = useLiveQuery(async () => {
     if (logs.length === 0) return [];
@@ -86,16 +89,18 @@ const ScanAudit = () => {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Scan Audit Logs</h1>
-            <p className="text-muted-foreground text-sm">Permanent record of all AI data extractions and mark replacements.</p>
+    <div className={`space-y-6 ${embedded ? 'pb-2' : 'pb-12'}`}>
+      {!embedded && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+              <h1 className="text-3xl font-bold tracking-tight">Scan Audit Logs</h1>
+              <p className="text-muted-foreground text-sm">Permanent record of all AI data extractions and mark replacements.</p>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-100 text-xs font-bold uppercase tracking-widest">
+              <ShieldCheck className="h-3.5 w-3.5" /> Immutable Records
+          </div>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-100 text-xs font-bold uppercase tracking-widest">
-            <ShieldCheck className="h-3.5 w-3.5" /> Immutable Records
-        </div>
-      </div>
+      )}
 
       <Card className="bg-muted/30 border-none shadow-none">
         <CardContent className="pt-6">
@@ -218,5 +223,3 @@ const ScanAudit = () => {
 };
 
 export default ScanAudit;
-
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";

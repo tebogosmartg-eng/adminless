@@ -24,13 +24,19 @@ import {
   ArrowLeft, 
   Sparkles, 
   Dices, 
-  FileDown
+  FileDown,
+  Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { generateSASAMSExport } from "@/utils/sasams";
 import { checkClassTermIntegrity } from "@/utils/integrity";
 import { showError } from "@/utils/toast";
+
+import Scan from "@/pages/Scan";
+import EvidenceAudit from "@/pages/EvidenceAudit";
+import ScanAudit from "@/pages/ScanAudit";
+import Reports from "@/pages/Reports";
 
 const ClassDetails = () => {
   const { classId } = useParams();
@@ -181,9 +187,11 @@ const ClassDetails = () => {
       <Tabs defaultValue="assessments" className="w-full">
         <TabsList className="flex items-center justify-start w-full h-12 bg-muted/50 border p-1 overflow-x-auto no-scrollbar gap-1 rounded-xl">
           <TabsTrigger value="assessments" className="flex-none h-10 px-6 rounded-lg font-bold">Assessments</TabsTrigger>
-          <TabsTrigger value="attendance" className="flex-none h-10 px-6 rounded-lg font-bold">Register</TabsTrigger>
-          <TabsTrigger value="analysis" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
-            <BarChart3 className="h-3.5 w-3.5" /> Analysis
+          <TabsTrigger value="capture" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
+            <Camera className="h-3.5 w-3.5" /> Capture
+          </TabsTrigger>
+          <TabsTrigger value="insights" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
+            <BarChart3 className="h-3.5 w-3.5" /> Insights
           </TabsTrigger>
           <TabsTrigger value="evidence" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
             <ShieldCheck className="h-3.5 w-3.5" /> Evidence
@@ -191,6 +199,7 @@ const ClassDetails = () => {
           <TabsTrigger value="reports" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
             <FileDown className="h-3.5 w-3.5" /> Reports
           </TabsTrigger>
+          <TabsTrigger value="attendance" className="flex-none h-10 px-6 rounded-lg font-bold">Register</TabsTrigger>
         </TabsList>
         
         <TabsContent value="assessments" className="mt-4">
@@ -202,11 +211,11 @@ const ClassDetails = () => {
              </div>
         </TabsContent>
 
-        <TabsContent value="attendance" className="mt-4">
-           <AttendanceView classId={classInfo.id} learners={learners} />
+        <TabsContent value="capture" className="mt-4">
+           <Scan embedded defaultClassId={classInfo.id} />
         </TabsContent>
 
-        <TabsContent value="analysis" className="mt-4">
+        <TabsContent value="insights" className="mt-4">
              <ClassAnalysisTab 
                classId={classId!} 
                termId={activeTerm?.id} 
@@ -214,7 +223,7 @@ const ClassDetails = () => {
              />
         </TabsContent>
 
-        <TabsContent value="evidence" className="mt-4">
+        <TabsContent value="evidence" className="mt-4 space-y-8">
              <div className="max-w-2xl mx-auto">
                 <EvidenceManager 
                     classId={classId!} 
@@ -222,9 +231,17 @@ const ClassDetails = () => {
                     isLocked={isLocked} 
                 />
              </div>
+             <div className="pt-8 border-t">
+                <h2 className="text-xl font-bold mb-4">Evidence Audit Trail</h2>
+                <EvidenceAudit embedded defaultClassId={classInfo.id} />
+             </div>
+             <div className="pt-8 border-t">
+                <h2 className="text-xl font-bold mb-4">Scan Audit Logs</h2>
+                <ScanAudit embedded defaultClassId={classInfo.id} />
+             </div>
         </TabsContent>
 
-        <TabsContent value="reports" className="mt-4">
+        <TabsContent value="reports" className="mt-4 space-y-8">
              <ClassReportsTab 
                classInfo={classInfo}
                isLocked={isLocked}
@@ -236,6 +253,14 @@ const ClassDetails = () => {
                onSasams={handleSASAMSExportAction}
                onOpenDiagnostic={() => setDiagOpen(true)}
              />
+             <div className="pt-8 border-t">
+                <h2 className="text-xl font-bold mb-4">Term & Year Summaries</h2>
+                <Reports embedded defaultClassId={classInfo.id} />
+             </div>
+        </TabsContent>
+        
+        <TabsContent value="attendance" className="mt-4">
+           <AttendanceView classId={classInfo.id} learners={learners} />
         </TabsContent>
       </Tabs>
 

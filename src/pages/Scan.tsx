@@ -3,7 +3,7 @@ import { ScanUploadSection } from '@/components/scan/ScanUploadSection';
 import { ScanReviewSection } from '@/components/scan/ScanReviewSection';
 import { ControlledReplacementDialog } from '@/components/scan/ControlledReplacementDialog';
 
-const Scan = () => {
+const Scan = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
   const {
     scanType, setScanType,
     imagePreviews,
@@ -29,16 +29,18 @@ const Scan = () => {
     isExtractionReady,
     isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass, targetAssessment,
     isCreateClassOpen, setIsCreateClassOpen
-  } = useScanLogic();
+  } = useScanLogic(defaultClassId);
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-10">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight">Scan Scripts</h1>
-        <p className="text-sm text-muted-foreground">Automated mark extraction bound to specific academic context.</p>
-      </div>
+    <div className={`flex flex-col gap-6 max-w-7xl mx-auto ${embedded ? 'pb-2' : 'pb-10'}`}>
+      {!embedded && (
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold tracking-tight">Scan Scripts</h1>
+          <p className="text-sm text-muted-foreground">Automated mark extraction bound to specific academic context.</p>
+        </div>
+      )}
 
-      <div className="grid gap-6 md:grid-cols-2 lg:h-[calc(100vh-220px)] items-start">
+      <div className={`grid gap-6 md:grid-cols-2 ${embedded ? 'min-h-[600px] lg:h-[700px]' : 'lg:h-[calc(100vh-220px)]'} items-start`}>
         <div className="flex flex-col h-full">
             <ScanUploadSection 
               imagePreviews={imagePreviews}
