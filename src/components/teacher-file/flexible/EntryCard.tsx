@@ -71,22 +71,22 @@ export const EntryCard = ({ entry, isLocked, onUpdate, onDelete }: EntryCardProp
 
   const getVisibilityBadge = () => {
       switch(entry.visibility) {
-          case 'portfolio': return <Badge className="bg-green-600 border-none h-4 text-[8px] uppercase">Review Mode Active</Badge>;
-          case 'moderation': return <Badge className="bg-blue-600 border-none h-4 text-[8px] uppercase">Moderation</Badge>;
-          default: return <Badge variant="outline" className="h-4 text-[8px] uppercase text-muted-foreground">Private</Badge>;
+          case 'portfolio': return <Badge className="bg-green-600 border-none h-4 text-[8px] uppercase no-print">Review Mode Active</Badge>;
+          case 'moderation': return <Badge className="bg-blue-600 border-none h-4 text-[8px] uppercase no-print">Moderation</Badge>;
+          default: return <Badge variant="outline" className="h-4 text-[8px] uppercase text-muted-foreground no-print">Private</Badge>;
       }
   };
 
   return (
     <Card className={cn(
-        "group transition-all hover:border-primary/30",
-        entry.visibility === 'portfolio' && "border-green-200 bg-green-50/10"
+        "group transition-all hover:border-primary/30 print:border-slate-300 print:shadow-none print-avoid-break",
+        entry.visibility === 'portfolio' && "border-green-200 bg-green-50/10 print:border-slate-300 print:bg-transparent"
     )}>
-      <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0">
+      <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0 print:p-3 print:pb-1">
         <div className="flex-1 min-w-0 space-y-1">
             <div className="flex items-center gap-2">
                 {getVisibilityBadge()}
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase print:text-slate-600">
                     {format(new Date(entry.created_at), 'dd MMM yyyy')}
                 </span>
             </div>
@@ -95,10 +95,10 @@ export const EntryCard = ({ entry, isLocked, onUpdate, onDelete }: EntryCardProp
                     value={editTitle} 
                     onChange={e => setEditTitle(e.target.value)} 
                     placeholder="Entry Title..."
-                    className="h-8 text-sm font-bold"
+                    className="h-8 text-sm font-bold no-print"
                 />
             ) : (
-                <CardTitle className="text-sm font-black truncate">
+                <CardTitle className="text-sm font-black truncate print:text-black print:whitespace-normal print:overflow-visible">
                     {entry.title || "Untitled Entry"}
                 </CardTitle>
             )}
@@ -131,17 +131,17 @@ export const EntryCard = ({ entry, isLocked, onUpdate, onDelete }: EntryCardProp
         </div>
       </CardHeader>
       
-      <CardContent className="p-4 pt-0 space-y-4">
+      <CardContent className="p-4 pt-0 space-y-4 print:p-3">
         {isEditing ? (
             <Textarea 
                 value={editContent}
                 onChange={e => setEditContent(e.target.value)}
                 placeholder="Professional notes, observations, or reflections..."
-                className="min-h-[100px] text-sm leading-relaxed bg-muted/20"
+                className="min-h-[100px] text-sm leading-relaxed bg-muted/20 no-print"
             />
         ) : (
             <div className="space-y-4">
-                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap print:text-black">
                     {entry.content}
                 </p>
                 
@@ -151,18 +151,18 @@ export const EntryCard = ({ entry, isLocked, onUpdate, onDelete }: EntryCardProp
 
         <div className="flex flex-wrap gap-1.5 pt-2">
             {(entry.tags || []).map(tag => (
-                <Badge key={tag} variant="secondary" className="h-5 gap-1 pl-1.5 pr-1 text-[10px] font-bold">
-                    <TagIcon className="h-2.5 w-2.5 opacity-40" />
+                <Badge key={tag} variant="secondary" className="h-5 gap-1 pl-1.5 pr-1 text-[10px] font-bold print:border-slate-300 print:bg-transparent print:text-slate-600">
+                    <TagIcon className="h-2.5 w-2.5 opacity-40 no-print" />
                     {tag}
                     {!isLocked && (
-                        <button onClick={() => removeTag(tag)} className="ml-1 hover:text-destructive">
+                        <button onClick={() => removeTag(tag)} className="ml-1 hover:text-destructive no-print">
                             <X className="h-2.5 w-2.5" />
                         </button>
                     )}
                 </Badge>
             ))}
             {!isLocked && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 no-print">
                     <Input 
                         placeholder="Add tag..." 
                         className="h-5 w-20 text-[9px] px-1.5 border-dashed border-muted-foreground/30 focus-visible:ring-0" 

@@ -85,10 +85,11 @@ export const RemediationActionPlan = ({ classId, termId }: RemediationActionPlan
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground border-2 border-dashed rounded-xl bg-muted/5 mt-6 print:border-none print:bg-transparent print:py-2 print:text-left print:p-0">
         <Rocket className="h-10 w-10 mb-2 opacity-20 no-print" />
-        <h3 className="font-bold text-foreground print:text-black print:italic">No Active Remediation Plan</h3>
+        <h3 className="font-bold text-foreground print:hidden">No Active Remediation Plan</h3>
         <p className="text-xs max-w-xs mt-1 no-print">
           Open an Assessment Diagnostic and click "Activate Action Plan" to populate your pedagogical intervention list.
         </p>
+        <p className="hidden print:block text-sm text-slate-800 font-medium italic">No active remediation plans recorded for this period.</p>
       </div>
     );
   }
@@ -182,8 +183,8 @@ export const RemediationActionPlan = ({ classId, termId }: RemediationActionPlan
                         </Card>
                     ))}
                     {pending.length === 0 && (
-                        <div className="py-12 text-center text-muted-foreground italic text-xs print:py-2 print:text-left print:text-black">
-                            No pending interventions. You're all caught up!
+                        <div className="py-12 text-center text-muted-foreground italic text-xs print:py-2 print:text-left print:text-black font-medium">
+                            No pending interventions recorded.
                         </div>
                     )}
                 </div>
@@ -219,7 +220,7 @@ export const RemediationActionPlan = ({ classId, termId }: RemediationActionPlan
                             </div>
                         ))}
                         {completed.length === 0 && (
-                            <div className="py-12 text-center text-muted-foreground italic text-xs print:py-4 print:text-left print:text-black">
+                            <div className="py-12 text-center text-muted-foreground italic text-xs print:py-4 print:text-left print:text-black font-medium">
                                 No completed interventions logged yet.
                             </div>
                         )}

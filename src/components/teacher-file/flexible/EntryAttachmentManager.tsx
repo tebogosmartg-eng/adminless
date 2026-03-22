@@ -90,16 +90,16 @@ export const EntryAttachmentManager = ({ entryId, isLocked }: EntryAttachmentMan
   };
 
   return (
-    <div className="space-y-3 pt-2">
+    <div className="space-y-3 pt-2 print-avoid-break">
       <div className="flex items-center justify-between">
-        <h5 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-            <Paperclip className="h-3 w-3" /> Linked Evidence ({attachments.length})
+        <h5 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 print:text-slate-800">
+            <Paperclip className="h-3 w-3 no-print" /> Linked Evidence ({attachments.length})
         </h5>
         {!isLocked && (
             <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-6 text-[8px] font-black uppercase hover:bg-primary/5 hover:text-primary"
+                className="h-6 text-[8px] font-black uppercase hover:bg-primary/5 hover:text-primary no-print"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
             >
@@ -112,12 +112,12 @@ export const EntryAttachmentManager = ({ entryId, isLocked }: EntryAttachmentMan
 
       <div className="grid gap-2 sm:grid-cols-2">
           {attachments.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-2 rounded-lg border bg-white/50 group/file hover:border-primary/20 transition-all">
+              <div key={item.id} className="flex items-center justify-between p-2 rounded-lg border bg-white/50 group/file hover:border-primary/20 transition-all print:border-slate-300 print:bg-transparent">
                   <div className="flex items-center gap-2 overflow-hidden">
-                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-[11px] font-medium truncate pr-2 text-slate-700">{item.file_name}</span>
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 no-print" />
+                      <span className="text-[11px] font-medium truncate pr-2 text-slate-700 print:text-black">📎 {item.file_name}</span>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0 no-print">
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleView(item.file_path, item.id)} disabled={loadingFileId === item.id}>
                           {loadingFileId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
                       </Button>
