@@ -50,16 +50,21 @@ export const EditLearnersDialog = ({ open, onOpenChange, learners, onUpdateLearn
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Update Class Roster</DialogTitle>
-          <DialogDescription>
-            Add, remove, or rename learners, and assign gender to support Smart Grouping.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 overflow-hidden">
         
-        <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-2">
+        {/* FIXED HEADER */}
+        <div className="p-6 pb-4 border-b shrink-0 bg-background">
+          <DialogHeader>
+            <DialogTitle>Update Class Roster</DialogTitle>
+            <DialogDescription>
+              Add, remove, or rename learners, and assign gender to support Smart Grouping.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+        
+        {/* SCROLLABLE CONTENT */}
+        <ScrollArea className="flex-1 p-6">
+            <div className="space-y-2 pb-2">
                 {editedLearners.map((learner, index) => (
                     <div key={index} className="flex items-center gap-2">
                         <Input 
@@ -86,18 +91,26 @@ export const EditLearnersDialog = ({ open, onOpenChange, learners, onUpdateLearn
                         </Button>
                     </div>
                 ))}
+                
+                {editedLearners.length === 0 && (
+                    <div className="text-center py-8 text-sm text-muted-foreground italic">
+                        No learners in this class yet.
+                    </div>
+                )}
             </div>
         </ScrollArea>
 
-        <div className="flex flex-col gap-2 pt-4 border-t">
+        {/* FIXED FOOTER */}
+        <div className="p-6 pt-4 border-t bg-background shrink-0 flex flex-col gap-3">
             <Button variant="outline" onClick={handleAdd} className="w-full border-dashed hover:border-primary/50">
                 <Plus className="mr-2 h-4 w-4" /> Add Row
             </Button>
-            <div className="flex gap-2 justify-end mt-2">
+            <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                 <Button onClick={handleSave}>Save Roster Changes</Button>
             </div>
         </div>
+        
       </DialogContent>
     </Dialog>
   );
