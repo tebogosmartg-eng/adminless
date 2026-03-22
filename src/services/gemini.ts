@@ -29,7 +29,10 @@ export const processImagesWithGemini = async (images: string[], assessmentSchema
   return invokeGemini('scan-images', { images, assessmentSchema });
 };
 
-// ... other exports (generateClassInsights, etc) kept as they are
+export const scanRosterWithGemini = async (images: string[]): Promise<any> => {
+  return invokeGemini('scan-roster', { images });
+};
+
 export const generateClassInsights = async (classInfo: ClassInfo, learners: Learner[], assessmentData: any): Promise<ClassInsight> => {
   return invokeGemini('generate-insights', { subject: classInfo.subject, grade: classInfo.grade, learners, assessmentData });
 };

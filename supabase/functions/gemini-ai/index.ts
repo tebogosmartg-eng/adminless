@@ -106,6 +106,29 @@ serve(async (req) => {
         if (!extracted) throw new Error("AI returned invalid data format");
 
         return new Response(JSON.stringify({ success: true, data: extracted }), { headers: corsHeaders });
+    } else if (action === 'scan-roster') {
+        const { images } = payload;
+        const imageParts = images.map((img: string) => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
+        
+        const prompt = `
+            Analyze the provided image of a class register or learner list.
+            Extract ONLY the names of the students. Ignore grades, marks, or other metadata.
+            
+            RETURN JSON IN THIS EXACT FORMAT:
+            {
+              "learners": [
+                { "name": "string", "surname": "string" }
+              ]
+            }
+        `;
+
+        const result = await model.generateContent([prompt, ...imageParts]);
+        const responseText = (await result.response).text();
+        const extracted = safeExtractJson(responseText);
+
+        if (!extracted || !extracted.learners) throw new Error("AI returned invalid data format");
+
+        return new Response(JSON.stringify({ success: true, data: extracted }), { headers: corsHeaders });
     }
 
     return new Response(JSON.stringify({ success: true, message: "Action processed" }), { headers: corsHeaders });

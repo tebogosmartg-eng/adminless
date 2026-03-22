@@ -12,13 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Upload, Camera } from "lucide-react";
+import { PlusCircle, Upload, Camera, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 import { showSuccess, showError } from "@/utils/toast";
 import { ClassInfo } from "@/lib/types";
-import { useNavigate } from "react-router-dom";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
+import { compressImage } from "@/utils/image";
+import { scanRosterWithGemini } from "@/services/gemini";
 
 interface CreateClassDialogProps {
   onClassCreate: (classInfo: ClassInfo) => void;
@@ -30,8 +31,11 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
   const [subject, setSubject] = useState("");
   const [className, setClassName] = useState("");
   const [learners, setLearners] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const navigate = useNavigate();
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  
   const { savedSubjects, savedGrades } = useSettings();
   const { activeYear, activeTerm } = useAcademic();
 
@@ -57,6 +61,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
         archived: false,
         notes: ""
       });
+      
       // Reset form and close dialog
       setGrade("");
       setSubject("");
@@ -85,7 +90,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
           }
 
           if (names.length > 0) {
-             const current = learners ? learners + "\n" : "";
+             const current = learners ? learners.trim() + "\n" : "";
              setLearners(current + names.join("\n"));
              showSuccess(`Imported ${names.length} names from CSV.`);
           } else {
@@ -100,16 +105,43 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
     }
   };
 
-  const handleScanNavigate = () => {
-    setIsOpen(false);
-    navigate("/scan", { 
-      state: { 
-        createMode: true,
-        initialGrade: grade,
-        initialSubject: subject,
-        initialClassName: className
-      } 
-    });
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setIsScanning(true);
+    showSuccess("Analyzing register... This may take a few seconds.");
+    
+    try {
+        const compressedImages = await Promise.all(
+            Array.from(files).map(file => compressImage(file))
+        );
+        
+        const result = await scanRosterWithGemini(compressedImages);
+        
+        if (result && result.learners && result.learners.length > 0) {
+            const names = result.learners.map((l: any) => {
+                if (typeof l === 'string') return l;
+                return `${l.name} ${l.surname || ''}`.trim();
+            }).filter((n: string) => n.length > 0);
+            
+            if (names.length > 0) {
+                const current = learners ? learners.trim() + "\n" : "";
+                setLearners(current + names.join("\n"));
+                showSuccess(`Extracted ${names.length} names from image. Please review them.`);
+            } else {
+                showError("No valid names found in the extracted data.");
+            }
+        } else {
+            showError("No names detected in the image.");
+        }
+    } catch (err: any) {
+        console.error(err);
+        showError(err.message || "Failed to scan register.");
+    } finally {
+        setIsScanning(false);
+        if (imageInputRef.current) imageInputRef.current.value = "";
+    }
   };
 
   return (
@@ -138,6 +170,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
                 onChange={(e) => setGrade(e.target.value)} 
                 placeholder="e.g., Grade 10" 
                 list="grades-list"
+                disabled={isScanning}
               />
               <datalist id="grades-list">
                 {savedGrades.map(g => <option key={g} value={g} />)}
@@ -155,6 +188,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
                 onChange={(e) => setSubject(e.target.value)} 
                 placeholder="e.g., Mathematics" 
                 list="subjects-list"
+                disabled={isScanning}
               />
               <datalist id="subjects-list">
                 {savedSubjects.map(s => <option key={s} value={s} />)}
@@ -165,27 +199,35 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
             <Label htmlFor="className" className="text-right">
               Class Name
             </Label>
-            <Input id="className" value={className} onChange={(e) => setClassName(e.target.value)} placeholder="e.g., 10A" className="col-span-3" />
+            <Input id="className" value={className} onChange={(e) => setClassName(e.target.value)} placeholder="e.g., 10A" className="col-span-3" disabled={isScanning} />
           </div>
           <div className="grid grid-cols-4 items-start gap-4">
             <Label htmlFor="learners" className="text-right pt-2">
               Learners
             </Label>
-            <div className="col-span-3 flex flex-col gap-2">
+            <div className="col-span-3 flex flex-col gap-2 relative">
+                {isScanning && (
+                    <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-md border">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
+                        <span className="text-xs font-bold text-muted-foreground">Extracting Names...</span>
+                    </div>
+                )}
                 <Textarea
-                id="learners"
-                value={learners}
-                onChange={(e) => setLearners(e.target.value)}
-                placeholder="Enter one learner name per line..."
-                className="w-full"
-                rows={6}
+                  id="learners"
+                  value={learners}
+                  onChange={(e) => setLearners(e.target.value)}
+                  placeholder="Enter one learner name per line..."
+                  className="w-full"
+                  rows={6}
+                  disabled={isScanning}
                 />
                 <div className="flex justify-between items-center gap-2">
-                    <Button variant="outline" size="sm" type="button" onClick={handleScanNavigate} className="flex-1">
-                        <Camera className="mr-2 h-3 w-3" /> Scan from Image (AI)
+                    <Button variant="outline" size="sm" type="button" onClick={() => imageInputRef.current?.click()} disabled={isScanning} className="flex-1">
+                        {isScanning ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Camera className="mr-2 h-3 w-3" />} 
+                        {isScanning ? "Scanning..." : "Capture Register (AI)"}
                     </Button>
-                    <Button variant="outline" size="sm" type="button" onClick={() => fileInputRef.current?.click()} className="flex-1">
-                        <Upload className="mr-2 h-3 w-3" /> Import CSV List
+                    <Button variant="outline" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={isScanning} className="flex-1">
+                        <Upload className="mr-2 h-3 w-3" /> Upload Class List
                     </Button>
                    <input 
                       type="file" 
@@ -194,12 +236,20 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
                       accept=".csv"
                       onChange={handleFileUpload}
                    />
+                   <input 
+                      type="file" 
+                      ref={imageInputRef} 
+                      className="hidden" 
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleImageUpload}
+                   />
                 </div>
             </div>
           </div>
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSubmit}>Save Class</Button>
+          <Button type="submit" onClick={handleSubmit} disabled={isScanning}>Save Class</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
