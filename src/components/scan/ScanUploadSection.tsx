@@ -52,10 +52,11 @@ export const ScanUploadSection = ({
   const TYPE_OPTIONS = [
     { id: 'class_marksheet', label: 'Class Marksheet', sub: 'Bulk Assessment', icon: Users },
     { id: 'individual_script', label: 'Individual Script', sub: '1 student / set', icon: User },
-    { id: 'learner_roster', label: 'Learner Roster', sub: 'Class Names List', icon: UserPlus },
-    { id: 'attendance_register', label: 'Attendance', sub: 'Daily Register', icon: ClipboardList },
-    { id: 'diagnostic_form', label: 'Diagnostic Form', sub: 'Question Analysis', icon: FileSearch },
-    { id: 'moderation_sample', label: 'Moderation Sample', sub: 'Departmental Audit', icon: ShieldCheck },
+    // Hidden from UI to simplify options, but logic preserved in system:
+    // { id: 'learner_roster', label: 'Learner Roster', sub: 'Class Names List', icon: UserPlus },
+    // { id: 'attendance_register', label: 'Attendance', sub: 'Daily Register', icon: ClipboardList },
+    // { id: 'diagnostic_form', label: 'Diagnostic Form', sub: 'Question Analysis', icon: FileSearch },
+    // { id: 'moderation_sample', label: 'Moderation Sample', sub: 'Departmental Audit', icon: ShieldCheck },
   ];
 
   const needsAssessment = ['class_marksheet', 'individual_script'].includes(scanType);
