@@ -132,7 +132,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
                     user_id: session.user.id,
                     name: l.name,
                     mark: l.mark,
-                    comment: l.comment
+                    comment: l.comment,
+                    gender: l.gender || null
                 });
             }
 

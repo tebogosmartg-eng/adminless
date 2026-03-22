@@ -69,8 +69,7 @@ export const ClassroomToolsDialog = ({ open, onOpenChange, learners }: Classroom
     if (groupMode === 'smart' && (balancePerformance || balanceGender)) {
       const validMarksCount = learners.filter(l => l.mark && !isNaN(parseFloat(l.mark))).length;
       const hasPerformanceData = validMarksCount > 0;
-      // Defensive check for potential future gender property
-      const hasGenderData = learners.some(l => (l as any).gender);
+      const hasGenderData = learners.some(l => l.gender);
 
       const canBalancePerf = balancePerformance && hasPerformanceData;
       const canBalanceGender = balanceGender && hasGenderData;
@@ -98,9 +97,9 @@ export const ClassroomToolsDialog = ({ open, onOpenChange, learners }: Classroom
 
       // 1. Separate by gender if possible, then sort
       if (canBalanceGender) {
-          const males = pool.filter(l => (l as any).gender?.toLowerCase() === 'm' || (l as any).gender?.toLowerCase() === 'male');
-          const females = pool.filter(l => (l as any).gender?.toLowerCase() === 'f' || (l as any).gender?.toLowerCase() === 'female');
-          const unk = pool.filter(l => !males.includes(l) && !females.includes(l));
+          const males = pool.filter(l => l.gender === 'Male');
+          const females = pool.filter(l => l.gender === 'Female');
+          const unk = pool.filter(l => l.gender !== 'Male' && l.gender !== 'Female');
           
           const sortFn = canBalancePerf 
               ? (a: Learner, b: Learner) => (parseFloat(b.mark) || 0) - (parseFloat(a.mark) || 0)

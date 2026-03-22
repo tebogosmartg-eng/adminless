@@ -2,6 +2,7 @@ export interface Learner {
   name: string;
   mark: string; // Legacy/Current Aggregate
   comment?: string;
+  gender?: string | null;
   id?: string; 
   class_id?: string;
 }
