@@ -20,8 +20,9 @@ export const TimetableGrid = () => {
       return (
           <div className="py-10 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none print:text-left print:p-2 print:text-black">
               <CalendarClock className="h-10 w-10 mx-auto text-muted-foreground opacity-20 mb-2 no-print" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground print:text-black">No Timetable Configured</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground no-print">No Timetable Configured</p>
               <p className="text-[9px] text-muted-foreground mt-1 no-print">Set up your teaching schedule in Settings {'>'} Academic.</p>
+              <p className="hidden print:block text-sm text-slate-800 font-medium">Teaching timetable is managed externally for this period.</p>
           </div>
       );
   }

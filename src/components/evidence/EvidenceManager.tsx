@@ -87,10 +87,13 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <ShieldCheck className={cn("h-5 w-5 no-print", isLocked ? "text-muted-foreground" : "text-primary")} />
-                <CardTitle className="text-lg print:text-black">Evidence Folder</CardTitle>
+                <CardTitle className="text-lg print:text-black">
+                    <span className="no-print">Evidence Folder</span>
+                    <span className="hidden print:inline">Evidence Overview</span>
+                </CardTitle>
                 {isLocked && <Badge variant="secondary" className="gap-1 h-5 no-print"><Lock className="h-3 w-3" /> Locked</Badge>}
               </div>
-              <CardDescription className="print:text-slate-600 print:font-medium">
+              <CardDescription className="print:hidden">
                 {isLocked 
                     ? "Digital moderation and evidence repository (Finalized)." 
                     : `Digital moderation and evidence repository${targetLearnerName ? ' for ' + targetLearnerName : ''}.`}
@@ -107,7 +110,8 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
           {isLocked && evidenceList.length === 0 && (
              <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-700 text-xs rounded border border-amber-100 mb-4 print:border-none print:bg-transparent print:p-0">
                 <AlertCircle className="h-4 w-4 shrink-0 no-print" />
-                <span className="print:text-slate-600 print:italic">No supplementary evidence documents attached to this section (Optional).</span>
+                <span className="no-print font-medium">No supplementary evidence documents attached to this section (Optional).</span>
+                <span className="hidden print:inline text-sm text-slate-800 font-medium">No supplementary evidence records attached (Optional).</span>
              </div>
           )}
 
@@ -115,8 +119,8 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
             {evidenceList.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground space-y-2 print:py-2 print:text-left">
                 <History className="h-10 w-10 mx-auto opacity-20 no-print" />
-                <p className="text-sm print:text-slate-600 print:italic no-print">No evidence attached yet.</p>
-                <p className="hidden print:block text-sm italic text-slate-600 mt-2">No supplementary evidence documents attached to this section (Optional).</p>
+                <p className="text-sm no-print">No evidence attached yet.</p>
+                {!isLocked && <p className="hidden print:block text-sm text-slate-800 font-medium">No supplementary evidence records attached (Optional).</p>}
               </div>
             ) : (
               <div className="space-y-3 pr-2 print:pr-0">

@@ -149,29 +149,33 @@ export const ModerationSampleBuilder = ({
 
   const completionCount = [...groupedLearners.high, ...groupedLearners.moderate, ...groupedLearners.low].filter(l => l.hasEvidence).length;
 
-  const AchievementGroup = ({ title, learners, icon: Icon, colorClass, borderClass }: any) => {
+  const AchievementGroup = ({ title, learners, icon: Icon, colorClass }: any) => {
     if (learners.length === 0) return null;
     return (
         <div className="space-y-2">
             <div className="flex items-center gap-2 px-1">
-                <Icon className={cn("h-3 w-3", colorClass)} />
-                <span className={cn("text-[10px] font-black uppercase tracking-widest", colorClass)}>
+                <Icon className={cn("h-3 w-3 no-print", colorClass)} />
+                <span className={cn("text-[10px] font-black uppercase tracking-widest", colorClass, "print:text-slate-800")}>
                     {title} Achievement
                 </span>
                 <span className="text-[10px] font-bold text-muted-foreground opacity-40">({learners.length})</span>
             </div>
-            <div className="grid gap-2">
+            <div className="grid gap-2 print:gap-1">
                 {learners.map((l: any) => (
                     <div key={l.id} className={cn(
-                        "flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all print:border-slate-300",
+                        "flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all",
+                        "print:border-none print:p-1 print:border-b print:border-slate-100 print:rounded-none",
                         l.hasEvidence ? "border-green-100 print:bg-transparent" : "border-slate-100 print:bg-transparent"
                     )}>
                         <div className="flex items-center gap-3">
                             <div className={cn(
-                                "p-1.5 rounded-lg print:border print:border-slate-300 print:bg-transparent",
-                                l.hasEvidence ? "bg-green-100 text-green-700 print:text-slate-500" : "bg-muted text-muted-foreground print:text-slate-400"
+                                "p-1.5 rounded-lg no-print",
+                                l.hasEvidence ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
                             )}>
                                 {l.hasEvidence ? <FileCheck className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                            </div>
+                            <div className="hidden print:flex items-center justify-center w-4">
+                                <span className="text-slate-400 text-lg leading-none mb-1">•</span>
                             </div>
                             <div className="flex flex-col min-w-0">
                                 <span className="text-sm font-bold text-slate-900 truncate max-w-[150px] print:text-black">{l.name}</span>
@@ -191,7 +195,7 @@ export const ModerationSampleBuilder = ({
                                     <FileUp className="h-3 w-3" /> Attach Script
                                 </Button>
                             ) : (
-                                <Badge variant="outline" className="h-5 text-[8px] uppercase font-black border-green-200 text-green-700 bg-green-50/50 print:bg-transparent print:border-slate-400 print:text-black">Stored</Badge>
+                                <Badge variant="outline" className="h-5 text-[8px] uppercase font-black border-green-200 text-green-700 bg-green-50/50">Stored</Badge>
                             )}
                             <button 
                                 onClick={() => l.id && toggleLearner(l.id)}
@@ -214,17 +218,20 @@ export const ModerationSampleBuilder = ({
             <div className="space-y-1">
                 <div className="flex items-center gap-2">
                     <ShieldCheck className="h-5 w-5 text-primary no-print" />
-                    <CardTitle className="text-base print:text-black">Moderation Sample Builder</CardTitle>
+                    <CardTitle className="text-base print:text-black">
+                        <span className="no-print">Moderation Sample Builder</span>
+                        <span className="hidden print:inline">Moderation Sample Breakdown</span>
+                    </CardTitle>
                 </div>
-                <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest print:text-slate-600">
+                <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest no-print">
                     Recommended sample: 10% of class (min 3)
                 </CardDescription>
             </div>
             {selectedLearnerIds.length > 0 && (
-                <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-1 print:text-slate-600">Evidence Status</p>
+                <div className="text-right no-print">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Evidence Status</p>
                     <Badge variant={completionCount === selectedLearnerIds.length ? "default" : "outline"} className={cn(
-                        "h-5 px-2 print:border-slate-400 print:text-black print:bg-transparent",
+                        "h-5 px-2",
                         completionCount === selectedLearnerIds.length && "bg-green-600 border-none"
                     )}>
                         {completionCount} / {selectedLearnerIds.length} Linked
@@ -336,19 +343,19 @@ export const ModerationSampleBuilder = ({
                                 title="High" 
                                 learners={groupedLearners.high} 
                                 icon={TrendingUp} 
-                                colorClass="text-green-600 print:text-slate-800" 
+                                colorClass="text-green-600" 
                             />
                             <AchievementGroup 
                                 title="Moderate" 
                                 learners={groupedLearners.moderate} 
                                 icon={Minus} 
-                                colorClass="text-blue-600 print:text-slate-800" 
+                                colorClass="text-blue-600" 
                             />
                             <AchievementGroup 
                                 title="Low" 
                                 learners={groupedLearners.low} 
                                 icon={TrendingDown} 
-                                colorClass="text-red-600 print:text-slate-800" 
+                                colorClass="text-red-600" 
                             />
                         </div>
                     )}
@@ -362,7 +369,7 @@ export const ModerationSampleBuilder = ({
                 <div className="space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground no-print">Sample Not Defined</p>
                     <p className="text-[9px] text-muted-foreground max-w-[200px] mx-auto no-print">Use the controls above to automatically pick a representative sample for this term.</p>
-                    <p className="hidden print:block text-sm italic text-slate-600 mt-2">Moderation sample not formally defined for this term.</p>
+                    <p className="hidden print:block text-sm text-slate-800 font-medium">No formal moderation sample generated for this period.</p>
                 </div>
             </div>
         )}

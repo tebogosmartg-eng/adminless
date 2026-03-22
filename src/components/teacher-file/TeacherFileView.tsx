@@ -178,12 +178,12 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                 <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-avoid-break">
                     <h4 className="text-sm font-bold mb-4 text-blue-800">4.4 Moderation Evidence</h4>
                     {moderationSample ? (
-                        <div className="mb-6 p-4 rounded-xl border border-green-200 bg-green-50 flex items-start gap-4 print:border-slate-300 print:bg-transparent print:p-0">
+                        <div className="mb-6 p-4 rounded-xl border border-green-200 bg-green-50 flex items-start gap-4 print:border-none print:bg-transparent print:p-0">
                             <ShieldCheck className="h-6 w-6 text-green-600 mt-1 no-print" />
                             <div>
                                 <h5 className="font-bold text-sm text-green-900 print:text-black">Approved Moderation Sample</h5>
-                                <p className="text-xs text-green-800 mb-3 print:text-black">
-                                    Sample logic applied: {moderationSample.rules_json.basis === 'term_overall' ? 'Term Overall Percentage' : 'Specific Task Performance'}.
+                                <p className="text-xs text-green-800 mb-3 print:text-slate-800">
+                                    Sample basis: {moderationSample.rules_json.basis === 'term_overall' ? 'Term Overall Percentage' : 'Specific Task Performance'}.
                                     Required size: {moderationSample.learner_ids.length} learners.
                                 </p>
                                 <div className="flex flex-wrap gap-2">
@@ -198,8 +198,9 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                         <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-4 print:border-none print:bg-transparent print:p-0">
                             <AlertTriangle className="h-6 w-6 text-amber-600 mt-1 no-print" />
                             <div>
-                                <h5 className="font-bold text-sm text-amber-900 print:text-black print:italic">Moderation Sample Pending</h5>
+                                <h5 className="font-bold text-sm text-amber-900 print:text-black no-print">Moderation Sample Pending</h5>
                                 <p className="text-xs text-amber-800 no-print">Please generate a moderation sample in the active workspace to populate this audit section.</p>
+                                <p className="hidden print:block text-sm text-slate-800 font-medium">No formal moderation sample generated for this period.</p>
                             </div>
                         </div>
                     )}
@@ -234,7 +235,10 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                             })}
                         </div>
                     ) : (
-                        <p className="text-sm text-muted-foreground italic mb-6 print:text-slate-600">Diagnostic analysis will automatically appear once assessments are fully analyzed.</p>
+                        <div>
+                            <p className="text-sm text-muted-foreground italic mb-6 no-print">Diagnostic analysis will automatically appear once assessments are fully analyzed.</p>
+                            <p className="hidden print:block text-sm text-slate-800 font-medium mb-6">No diagnostic analysis recorded for this period. Reports are auto-generated upon assessment completion.</p>
+                        </div>
                     )}
                 </div>
             </div>

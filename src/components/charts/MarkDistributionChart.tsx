@@ -79,7 +79,8 @@ const MarkDistributionChart = ({
           </div>
         ) : (
           <div className="flex items-center justify-center h-80 text-muted-foreground print:text-black">
-            <p>Enter some marks to see the distribution chart.</p>
+            <p className="no-print">Enter some marks to see the distribution chart.</p>
+            <p className="hidden print:block font-medium text-sm">Distribution charts will generate automatically once marks are recorded.</p>
           </div>
         )}
       </CardContent>
