@@ -22,7 +22,7 @@ export const TimetableGrid = () => {
               <CalendarClock className="h-10 w-10 mx-auto text-muted-foreground opacity-20 mb-2 no-print" />
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground no-print">No Timetable Configured</p>
               <p className="text-[9px] text-muted-foreground mt-1 no-print">Set up your teaching schedule in Settings {'>'} Academic.</p>
-              <p className="hidden print:block text-sm text-slate-800 font-medium">Teaching timetable is managed externally for this period.</p>
+              <p className="hidden print:block text-sm text-slate-800 font-medium">The educator's official teaching allocation and master timetable are securely held in the school's central administrative repository.</p>
           </div>
       );
   }

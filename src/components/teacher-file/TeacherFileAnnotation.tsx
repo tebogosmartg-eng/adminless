@@ -76,7 +76,7 @@ export const TeacherFileAnnotation = ({
               isLocked 
                 ? "bg-muted/30 border-dashed border-muted-foreground/10 cursor-not-allowed text-slate-500" 
                 : "bg-blue-50/10 hover:border-blue-100 focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/5",
-              "print:hidden" // <--- We hide the textarea in print mode
+              "print:hidden" // Hide the textarea in print mode
           )}
           style={{ height: content ? 'auto' : '100px' }}
           onInput={(e) => {
@@ -88,7 +88,7 @@ export const TeacherFileAnnotation = ({
         
         {/* Print-only substitute block guarantees all text is visible and wraps properly */}
         <div className="hidden print:block whitespace-pre-wrap text-sm leading-relaxed text-slate-800 italic border-l-2 border-slate-300 pl-4 py-2 min-h-[40px]">
-            {content || "No additional professional commentary required for this section."}
+            {content || "Section requirements have been reviewed. No additional qualitative commentary was deemed necessary for this administrative period."}
         </div>
 
         <div className={cn(

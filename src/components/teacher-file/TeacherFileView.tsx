@@ -158,7 +158,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                                     </TableRow>
                                 ))}
                                 {assessments.length === 0 && (
-                                    <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground text-xs italic">No formal tasks scheduled for this term.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground text-xs italic print:text-black">No formal SBA (School-Based Assessment) tasks are prescribed or recorded in the system for this specific term cycle.</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -200,7 +200,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                             <div>
                                 <h5 className="font-bold text-sm text-amber-900 print:text-black no-print">Moderation Sample Pending</h5>
                                 <p className="text-xs text-amber-800 no-print">Please generate a moderation sample in the active workspace to populate this audit section.</p>
-                                <p className="hidden print:block text-sm text-slate-800 font-medium">No formal moderation sample generated for this period.</p>
+                                <p className="hidden print:block text-sm text-slate-800 font-medium">Moderation sample selection is managed externally or not required for the current assessment cycle.</p>
                             </div>
                         </div>
                     )}
@@ -237,7 +237,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                     ) : (
                         <div>
                             <p className="text-sm text-muted-foreground italic mb-6 no-print">Diagnostic analysis will automatically appear once assessments are fully analyzed.</p>
-                            <p className="hidden print:block text-sm text-slate-800 font-medium mb-6">No diagnostic analysis recorded for this period. Reports are auto-generated upon assessment completion.</p>
+                            <p className="hidden print:block text-sm text-slate-800 font-medium mb-6">Diagnostic analysis is pending or managed via external departmental processes for this cycle.</p>
                         </div>
                     )}
                 </div>

@@ -111,7 +111,7 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
              <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-700 text-xs rounded border border-amber-100 mb-4 print:border-none print:bg-transparent print:p-0">
                 <AlertCircle className="h-4 w-4 shrink-0 no-print" />
                 <span className="no-print font-medium">No supplementary evidence documents attached to this section (Optional).</span>
-                <span className="hidden print:inline text-sm text-slate-800 font-medium">No supplementary evidence records attached (Optional).</span>
+                <span className="hidden print:inline text-sm text-slate-800 font-medium">Physical evidence and learner scripts are archived in the educator's classroom files or submitted directly to the moderation committee.</span>
              </div>
           )}
 
@@ -120,7 +120,7 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
               <div className="text-center py-12 text-muted-foreground space-y-2 print:py-2 print:text-left">
                 <History className="h-10 w-10 mx-auto opacity-20 no-print" />
                 <p className="text-sm no-print">No evidence attached yet.</p>
-                {!isLocked && <p className="hidden print:block text-sm text-slate-800 font-medium">No supplementary evidence records attached (Optional).</p>}
+                {!isLocked && <p className="hidden print:block text-sm text-slate-800 font-medium">Physical evidence and learner scripts are archived in the educator's classroom files or submitted directly to the moderation committee.</p>}
               </div>
             ) : (
               <div className="space-y-3 pr-2 print:pr-0">

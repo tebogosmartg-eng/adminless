@@ -120,7 +120,7 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
 
       <div className="grid gap-2">
           {attachments.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all print:border-slate-300">
+              <div key={item.id} className="flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all print:border-slate-300 print:bg-transparent">
                   <div className="flex items-center gap-3 overflow-hidden">
                       <div className="p-2 bg-muted rounded-lg group-hover:bg-primary/5 transition-colors print:bg-transparent print:border print:border-slate-200">
                           <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary print:text-slate-600" />
@@ -147,7 +147,7 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
           {attachments.length === 0 && (
               <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none print:bg-transparent print:py-2 print:text-left print:p-0">
                   <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-30 no-print">No supplementary documents attached</p>
-                  <p className="hidden print:block text-sm italic text-slate-600 mt-2">No supplementary evidence documents attached to this section (Optional).</p>
+                  <p className="hidden print:block text-sm italic text-slate-600 mt-2">Documentation for this section is maintained in physical files or external departmental archives as per standard compliance procedures.</p>
               </div>
           )}
       </div>

@@ -108,7 +108,7 @@ export const EntryCard = ({ entry, isLocked, onUpdate, onDelete }: EntryCardProp
             {!isLocked && !isEditing && (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity no-print">
                             <MoreVertical className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -123,7 +123,7 @@ export const EntryCard = ({ entry, isLocked, onUpdate, onDelete }: EntryCardProp
                 </DropdownMenu>
             )}
             {isEditing && (
-                <div className="flex gap-1">
+                <div className="flex gap-1 no-print">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsEditing(false)}><X className="h-4 w-4" /></Button>
                     <Button variant="default" size="icon" className="h-7 w-7" onClick={handleSave}><Save className="h-4 w-4" /></Button>
                 </div>
