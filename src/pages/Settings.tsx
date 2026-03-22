@@ -7,7 +7,6 @@ import { StandardListsSettings } from "@/components/settings/StandardListsSettin
 import { AcademicYearSettings } from "@/components/settings/AcademicYearSettings";
 import { TimetableSettings } from "@/components/settings/TimetableSettings";
 import { RubricLibrary } from "@/components/settings/RubricLibrary";
-import { CurriculumSettings } from "@/components/settings/CurriculumSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { 
@@ -16,8 +15,7 @@ import {
     Layers, 
     School, 
     Database,
-    ArrowLeft,
-    ListChecks
+    ArrowLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,9 +47,6 @@ const Settings = () => {
             <TabsTrigger value="academic" className="gap-2">
                 <CalendarClock className="h-4 w-4" /> Academic
             </TabsTrigger>
-            <TabsTrigger value="curriculum" className="gap-2">
-                <ListChecks className="h-4 w-4" /> Curriculum
-            </TabsTrigger>
             <TabsTrigger value="rubrics" className="gap-2">
                 <Layers className="h-4 w-4" /> Rubric Library
             </TabsTrigger>
@@ -71,10 +66,6 @@ const Settings = () => {
                 <AcademicYearSettings />
             </div>
             <TimetableSettings />
-        </TabsContent>
-
-        <TabsContent value="curriculum">
-            <CurriculumSettings />
         </TabsContent>
 
         <TabsContent value="rubrics">

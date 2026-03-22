@@ -10,9 +10,6 @@ import { AttendanceView } from "@/components/AttendanceView";
 import { ClassDialogsManager } from "@/components/ClassDialogsManager";
 import { EvidenceManager } from "@/components/evidence/EvidenceManager";
 import { ClassAnalysisTab } from "@/components/analysis/ClassAnalysisTab";
-import { ClassCurriculumTab } from "@/components/ClassCurriculumTab";
-import { ClassLessonJournal } from "@/components/ClassLessonJournal";
-import { RemediationActionPlan } from "@/components/analysis/RemediationActionPlan";
 import { ClassReportsTab } from "@/components/ClassDetails/ClassReportsTab";
 import { DiagnosticReportDialog } from "@/components/assessments/DiagnosticReportDialog";
 import { useLearnerState } from "@/hooks/useLearnerState";
@@ -27,8 +24,6 @@ import {
   ArrowLeft, 
   Sparkles, 
   Dices, 
-  BookOpen,
-  Activity,
   FileDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -187,14 +182,8 @@ const ClassDetails = () => {
         <TabsList className="flex items-center justify-start w-full h-12 bg-muted/50 border p-1 overflow-x-auto no-scrollbar gap-1 rounded-xl">
           <TabsTrigger value="assessments" className="flex-none h-10 px-6 rounded-lg font-bold">Assessments</TabsTrigger>
           <TabsTrigger value="attendance" className="flex-none h-10 px-6 rounded-lg font-bold">Register</TabsTrigger>
-          <TabsTrigger value="curriculum" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
-            <BookOpen className="h-3.5 w-3.5" /> Curriculum
-          </TabsTrigger>
           <TabsTrigger value="analysis" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
             <BarChart3 className="h-3.5 w-3.5" /> Analysis
-          </TabsTrigger>
-          <TabsTrigger value="remediation" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
-            <Activity className="h-3.5 w-3.5" /> Remediation
           </TabsTrigger>
           <TabsTrigger value="evidence" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
             <ShieldCheck className="h-3.5 w-3.5" /> Evidence
@@ -217,25 +206,12 @@ const ClassDetails = () => {
            <AttendanceView classId={classInfo.id} learners={learners} />
         </TabsContent>
 
-        <TabsContent value="curriculum" className="mt-4 space-y-8">
-             <ClassCurriculumTab classId={classId!} subject={classInfo.subject} grade={classInfo.grade} />
-             <div className="border-t pt-8">
-                <ClassLessonJournal classId={classId!} />
-             </div>
-        </TabsContent>
-
         <TabsContent value="analysis" className="mt-4">
              <ClassAnalysisTab 
                classId={classId!} 
                termId={activeTerm?.id} 
                learners={learners} 
              />
-        </TabsContent>
-
-        <TabsContent value="remediation" className="mt-4">
-            <div className="max-w-4xl mx-auto">
-                <RemediationActionPlan classId={classId!} termId={activeTerm?.id || ''} />
-            </div>
         </TabsContent>
 
         <TabsContent value="evidence" className="mt-4">

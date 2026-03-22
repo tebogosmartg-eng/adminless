@@ -10,12 +10,10 @@ import { TeacherFileTasks } from './TeacherFileTasks';
 import { TeacherFileMarkSchedule } from './TeacherFileMarkSchedule';
 import { TeacherFileReports } from './TeacherFileReports';
 import { EvidenceManager } from '@/components/evidence/EvidenceManager';
-import { ClassCurriculumTab } from '@/components/ClassCurriculumTab';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useSettings } from '@/context/SettingsContext';
-import { Loader2, User, Hash, ShieldCheck, Printer, AlertTriangle, BookOpen, Info } from 'lucide-react';
-import { RemediationActionPlan } from '@/components/analysis/RemediationActionPlan';
+import { Loader2, User, Hash, ShieldCheck, Printer, BookOpen, Info, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { year: AcademicYear, term: Term, classId: string, isBulkMode?: boolean }) => {
@@ -122,10 +120,6 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
             isLocked={isLocked}
         >
             <div className="space-y-10">
-                <div className="print-avoid-break">
-                    <h4 className="text-sm font-bold mb-4">Annual Teaching Plan (ATP) Tracker</h4>
-                    <ClassCurriculumTab classId={classInfo.id} subject={classInfo.subject} grade={classInfo.grade} />
-                </div>
                 <div className="pt-8 border-t border-slate-100 print:border-slate-300">
                     <h4 className="text-sm font-bold mb-4">File Control / Record of Work</h4>
                     <TeacherFileRecordOfWork termId={term.id} classId={classInfo.id} />
@@ -215,7 +209,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                 <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-page-break">
                     <h4 className="text-sm font-bold mb-4 text-blue-800">4.5 Diagnostic Analysis & Subject Improvement Plan</h4>
                     
-                    {diagnostics.length > 0 && (
+                    {diagnostics.length > 0 ? (
                         <div className="mb-6 space-y-4">
                             {diagnostics.map((d: any) => {
                                 const ass = assessments.find((a: Assessment) => a.id === d.assessment_id);
@@ -239,9 +233,9 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                                 )
                             })}
                         </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground italic mb-6 print:text-black">No diagnostic reports finalized yet.</p>
                     )}
-
-                    <RemediationActionPlan classId={classInfo.id} termId={term.id} />
                 </div>
             </div>
         </TeacherFileSection>

@@ -5,10 +5,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
     Download, 
@@ -16,7 +15,6 @@ import {
     AlertTriangle, 
     Save,
     CheckCircle2,
-    Plus,
     Trash2,
     Table as TableIcon,
     BrainCircuit,
@@ -29,7 +27,6 @@ import {
 import { Assessment, Learner, DiagnosticRow, FullDiagnostic } from '@/lib/types';
 import { useQuestionAnalysis } from '@/hooks/useQuestionAnalysis';
 import { useSettings } from '@/context/SettingsContext';
-import { useRemediation } from '@/hooks/useRemediation';
 import { generateQuestionDiagnosticPDF } from '@/utils/pdf/questionDiagnosticReport';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -45,7 +42,6 @@ interface QuestionDiagnosticDialogProps {
 export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learners, classSubject = "General" }: QuestionDiagnosticDialogProps) => {
   const { stats, loading, saveDiagnostic, generateAIAnalysis } = useQuestionAnalysis(assessment, learners, classSubject);
   const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
-  const { activateInterventions } = useRemediation(assessment.class_id, assessment.term_id);
   
   const [rows, setRows] = useState<DiagnosticRow[]>([]);
   const [themes, setThemes] = useState<string[]>([]);
@@ -54,7 +50,6 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [isActivating, setIsActivating] = useState(false);
   
   const initializedRef = useRef(false);
 
@@ -134,29 +129,6 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
       }
   };
 
-  const handleActivatePlan = async () => {
-      setIsActivating(true);
-      try {
-          const interventions = rows.flatMap(r => 
-              r.targeted_interventions
-                .filter(i => i.trim())
-                .map(i => ({ title: r.question, description: i.trim() }))
-          );
-          
-          // Add themes as high-level items
-          themes.forEach(t => interventions.push({ title: "Class Theme", description: t }));
-
-          if (interventions.length === 0) {
-              showError("No interventions found to activate.");
-              return;
-          }
-
-          await activateInterventions(assessment.id, interventions);
-      } finally {
-          setIsActivating(false);
-      }
-  };
-
   const handleExport = () => {
     if (!stats) return;
     setIsExporting(true);
@@ -216,11 +188,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                         Save Analysis
                     </Button>
-                    <Button onClick={handleActivatePlan} disabled={isActivating || rows.length === 0} className="gap-2 font-bold h-9 bg-green-600 hover:bg-green-700">
-                        {isActivating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                        Activate Action Plan
-                    </Button>
-                    <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-2 h-9">
+                    <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-2 h-9 bg-blue-600 hover:bg-blue-700 text-white">
                         {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                         Export PDF
                     </Button>
@@ -383,9 +351,9 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl flex items-start gap-3 h-fit">
                         <Rocket className="h-5 w-5 text-purple-600 mt-0.5" />
                         <div className="space-y-1">
-                            <p className="text-xs font-bold text-purple-900 uppercase tracking-tight">Audit Trail Ready</p>
+                            <p className="text-xs font-bold text-purple-900 uppercase tracking-tight">Actionable Insights</p>
                             <p className="text-[11px] text-purple-800 leading-tight">
-                                Themes and interventions detected here are automatically bridged to your Remediation Action Plan for official record keeping.
+                                Themes and interventions detected here are seamlessly embedded into your diagnostic reports and review packs.
                             </p>
                         </div>
                     </div>
