@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useRef } from 'react';
 import { Learner } from '@/lib/types';
-import { Upload, Camera, Loader2 } from 'lucide-react';
+import { Upload, Camera, Loader2, Users } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Papa from "papaparse";
 import { showSuccess, showError } from "@/utils/toast";
@@ -141,34 +141,50 @@ export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearn
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Bulk Add Learners</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Add Learners
+          </DialogTitle>
           <DialogDescription>
-            Add multiple learners at once. Paste a list, scan a register, or upload a CSV.
+            Quickly populate your roster using existing materials.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="flex gap-2">
-              <Button variant="secondary" size="sm" type="button" onClick={() => imageInputRef.current?.click()} disabled={isScanning} className="flex-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-                  {isScanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />} 
-                  {isScanning ? "Scanning..." : "Scan Paper Register"}
+        <div className="space-y-4 pt-2">
+          <div className="grid grid-cols-2 gap-3 mb-2">
+              <Button 
+                  variant="outline" 
+                  type="button" 
+                  onClick={() => imageInputRef.current?.click()} 
+                  disabled={isScanning} 
+                  className="h-16 flex flex-col items-center justify-center gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
+              >
+                  {isScanning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />} 
+                  <span className="text-[10px] font-black uppercase tracking-wider">{isScanning ? "Scanning..." : "Capture from Register"}</span>
               </Button>
-              <Button variant="secondary" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={isScanning} className="flex-1">
-                  <Upload className="mr-2 h-4 w-4" /> Upload CSV List
+              <Button 
+                  variant="outline" 
+                  type="button" 
+                  onClick={() => fileInputRef.current?.click()} 
+                  disabled={isScanning} 
+                  className="h-16 flex flex-col items-center justify-center gap-1 hover:bg-slate-50"
+              >
+                  <Upload className="h-5 w-5 text-muted-foreground" /> 
+                  <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Upload Class List</span>
               </Button>
           </div>
           
           <div className="relative">
               {isScanning && (
-                  <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-md border">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
-                      <span className="text-xs font-bold text-muted-foreground">Extracting Names...</span>
+                  <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-md border border-blue-100">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-2" />
+                      <span className="text-xs font-bold text-blue-800">Extracting Names with AI...</span>
                   </div>
               )}
               <Textarea 
-                placeholder="Or type/paste list here...&#10;John Doe&#10;Jane Smith, 85&#10;Peter Pan, 92" 
-                className="min-h-[200px] font-mono text-sm"
+                placeholder="Or create manually by typing one name per line...&#10;John Doe&#10;Jane Smith" 
+                className="min-h-[200px] bg-muted/20"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 disabled={isScanning}
@@ -177,7 +193,7 @@ export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearn
           
           <div className="flex justify-end gap-2 mt-2">
              <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-             <Button onClick={handleAdd} disabled={!text.trim() || isScanning}>Add Learners</Button>
+             <Button onClick={handleAdd} disabled={!text.trim() || isScanning} className="font-bold">Add to Roster</Button>
           </div>
           
           <input 

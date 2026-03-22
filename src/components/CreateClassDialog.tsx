@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Upload, Camera, Loader2 } from "lucide-react";
+import { PlusCircle, Upload, Camera, Loader2, FileText } from "lucide-react";
 import Papa from "papaparse";
 import { showSuccess, showError } from "@/utils/toast";
 import { ClassInfo } from "@/lib/types";
@@ -151,24 +151,22 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
           <PlusCircle className="mr-2 h-4 w-4" /> Create Class
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create a New Class</DialogTitle>
           <DialogDescription>
-            Fill in the details below to set up your class register.
+            Set up your class and instantly populate the register using AI or CSV.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="grade" className="text-right">
-              Grade
-            </Label>
-            <div className="col-span-3">
+        <div className="grid gap-6 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="grade">Grade</Label>
               <Input 
                 id="grade" 
                 value={grade} 
                 onChange={(e) => setGrade(e.target.value)} 
-                placeholder="e.g., Grade 10" 
+                placeholder="e.g. Grade 10" 
                 list="grades-list"
                 disabled={isScanning}
               />
@@ -176,17 +174,13 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
                 {savedGrades.map(g => <option key={g} value={g} />)}
               </datalist>
             </div>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="subject" className="text-right">
-              Subject
-            </Label>
-            <div className="col-span-3">
+            <div className="space-y-2">
+              <Label htmlFor="subject">Subject</Label>
               <Input 
                 id="subject" 
                 value={subject} 
                 onChange={(e) => setSubject(e.target.value)} 
-                placeholder="e.g., Mathematics" 
+                placeholder="e.g. Mathematics" 
                 list="subjects-list"
                 disabled={isScanning}
               />
@@ -194,73 +188,80 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
                 {savedSubjects.map(s => <option key={s} value={s} />)}
               </datalist>
             </div>
+            <div className="space-y-2 col-span-2">
+              <Label htmlFor="className">Class Name</Label>
+              <Input 
+                id="className" 
+                value={className} 
+                onChange={(e) => setClassName(e.target.value)} 
+                placeholder="e.g. 10A" 
+                disabled={isScanning} 
+              />
+            </div>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="className" className="text-right">
-              Class Name
-            </Label>
-            <Input id="className" value={className} onChange={(e) => setClassName(e.target.value)} placeholder="e.g., 10A" className="col-span-3" disabled={isScanning} />
-          </div>
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="learners" className="text-right pt-2">
-              Learners
-            </Label>
-            <div className="col-span-3 flex flex-col gap-2 relative">
-                <div className="flex gap-2">
-                    <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        type="button" 
-                        onClick={() => imageInputRef.current?.click()} 
-                        disabled={isScanning} 
-                        className="flex-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-                    >
-                        {isScanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />} 
-                        {isScanning ? "Scanning..." : "Scan Paper Register"}
-                    </Button>
-                    <Button variant="secondary" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={isScanning} className="flex-1">
-                        <Upload className="mr-2 h-4 w-4" /> Upload CSV List
-                    </Button>
-                </div>
-                
-                <div className="relative mt-1">
-                    {isScanning && (
-                        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-md border">
-                            <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
-                            <span className="text-xs font-bold text-muted-foreground">Extracting Names...</span>
-                        </div>
-                    )}
-                    <Textarea
-                      id="learners"
-                      value={learners}
-                      onChange={(e) => setLearners(e.target.value)}
-                      placeholder="Or type/paste one learner name per line..."
-                      className="w-full min-h-[120px]"
-                      rows={6}
-                      disabled={isScanning}
-                    />
-                </div>
-                
-                <input 
-                   type="file" 
-                   ref={fileInputRef} 
-                   className="hidden" 
-                   accept=".csv"
-                   onChange={handleFileUpload}
-                />
-                <input 
-                   type="file" 
-                   ref={imageInputRef} 
-                   className="hidden" 
-                   accept="image/*"
-                   capture="environment"
-                   onChange={handleImageUpload}
+
+          <div className="border-t pt-4">
+            <Label className="mb-3 block text-sm font-bold">Populate Class Register</Label>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+                <Button 
+                    variant="outline" 
+                    type="button" 
+                    onClick={() => imageInputRef.current?.click()} 
+                    disabled={isScanning} 
+                    className="h-20 flex flex-col items-center justify-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
+                >
+                    {isScanning ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />} 
+                    <span className="text-xs font-black uppercase tracking-wider">{isScanning ? "Scanning..." : "Capture from Register"}</span>
+                </Button>
+                <Button 
+                    variant="outline" 
+                    type="button" 
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={isScanning} 
+                    className="h-20 flex flex-col items-center justify-center gap-2 hover:bg-slate-50"
+                >
+                    <Upload className="h-6 w-6 text-muted-foreground" /> 
+                    <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">Upload Class List</span>
+                </Button>
+            </div>
+            
+            <div className="relative">
+                {isScanning && (
+                    <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-md border border-blue-100">
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-2" />
+                        <span className="text-xs font-bold text-blue-800">Extracting Names with AI...</span>
+                    </div>
+                )}
+                <Textarea
+                  id="learners"
+                  value={learners}
+                  onChange={(e) => setLearners(e.target.value)}
+                  placeholder="Or create manually by typing one name per line..."
+                  className="w-full min-h-[150px] resize-y bg-muted/20"
+                  disabled={isScanning}
                 />
             </div>
+            
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept=".csv"
+                onChange={handleFileUpload}
+            />
+            <input 
+                type="file" 
+                ref={imageInputRef} 
+                className="hidden" 
+                accept="image/*"
+                capture="environment"
+                onChange={handleImageUpload}
+            />
           </div>
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSubmit} disabled={isScanning}>Save Class</Button>
+          <Button variant="ghost" onClick={() => setIsOpen(false)} disabled={isScanning}>Cancel</Button>
+          <Button type="submit" onClick={handleSubmit} disabled={isScanning} className="font-bold">Create Class & Save Roster</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
