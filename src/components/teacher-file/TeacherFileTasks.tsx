@@ -13,7 +13,7 @@ interface TeacherFileTasksProps {
 }
 
 export const TeacherFileTasks = ({ assessments, rubrics }: TeacherFileTasksProps) => {
-    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center print:border-none print:text-left print:p-2 print:text-black">No Formal Assessment Tasks recorded for this term.</div>;
+    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center print:border-none print:text-left print:p-2 print:text-slate-600">No formal assessment tasks scheduled for this term.</div>;
     
     return (
         <div className="space-y-6">
@@ -92,9 +92,9 @@ export const TeacherFileTasks = ({ assessments, rubrics }: TeacherFileTasksProps
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-center py-6 text-xs text-slate-400 italic print:text-black">
+                                <div className="flex items-center justify-center py-6 text-xs text-slate-400 italic print:text-slate-600 print:justify-start">
                                     <CheckCircle2 className="h-4 w-4 mr-2 opacity-30 no-print" />
-                                    No question-level breakdown or rubric attached to this task.
+                                    Standard marks-only assessment; no granular rubric or item analysis required.
                                 </div>
                             )}
                         </div>

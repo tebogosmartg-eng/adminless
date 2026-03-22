@@ -163,39 +163,39 @@ export const ModerationSampleBuilder = ({
             <div className="grid gap-2">
                 {learners.map((l: any) => (
                     <div key={l.id} className={cn(
-                        "flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all",
-                        l.hasEvidence ? "border-green-100" : "border-slate-100"
+                        "flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all print:border-slate-300",
+                        l.hasEvidence ? "border-green-100 print:bg-transparent" : "border-slate-100 print:bg-transparent"
                     )}>
                         <div className="flex items-center gap-3">
                             <div className={cn(
-                                "p-1.5 rounded-lg",
-                                l.hasEvidence ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
+                                "p-1.5 rounded-lg print:border print:border-slate-300 print:bg-transparent",
+                                l.hasEvidence ? "bg-green-100 text-green-700 print:text-slate-500" : "bg-muted text-muted-foreground print:text-slate-400"
                             )}>
                                 {l.hasEvidence ? <FileCheck className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{l.name}</span>
-                                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter">
+                                <span className="text-sm font-bold text-slate-900 truncate max-w-[150px] print:text-black">{l.name}</span>
+                                <span className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter print:text-slate-600">
                                     {l.score.toFixed(1)}% {basis === 'assessment' ? 'Task' : 'Term'}
                                 </span>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 no-print">
                             {!l.hasEvidence ? (
                                 <Button 
                                     variant="ghost" 
                                     size="sm" 
                                     onClick={() => onUploadForLearner(l)} 
-                                    className="h-7 text-[10px] font-black uppercase text-blue-600 hover:bg-blue-50 gap-1.5"
+                                    className="h-7 text-[10px] font-black uppercase text-blue-600 hover:bg-blue-50 gap-1.5 no-print"
                                 >
                                     <FileUp className="h-3 w-3" /> Attach Script
                                 </Button>
                             ) : (
-                                <Badge variant="outline" className="h-5 text-[8px] uppercase font-black border-green-200 text-green-700 bg-green-50/50">Stored</Badge>
+                                <Badge variant="outline" className="h-5 text-[8px] uppercase font-black border-green-200 text-green-700 bg-green-50/50 print:bg-transparent print:border-slate-400 print:text-black">Stored</Badge>
                             )}
                             <button 
                                 onClick={() => l.id && toggleLearner(l.id)}
-                                className="p-1 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                className="p-1 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 no-print"
                             >
                                 <X className="h-3.5 w-3.5" />
                             </button>
@@ -208,23 +208,23 @@ export const ModerationSampleBuilder = ({
   };
 
   return (
-    <Card className="border-primary/20 bg-primary/[0.01] shadow-none">
-      <CardHeader className="pb-3">
+    <Card className="border-primary/20 bg-primary/[0.01] shadow-none print:shadow-none print:border-none print:bg-transparent print-avoid-break">
+      <CardHeader className="pb-3 print:px-0">
         <div className="flex justify-between items-start">
             <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-base">Moderation Sample Builder</CardTitle>
+                    <ShieldCheck className="h-5 w-5 text-primary no-print" />
+                    <CardTitle className="text-base print:text-black">Moderation Sample Builder</CardTitle>
                 </div>
-                <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest print:text-slate-600">
                     Recommended sample: 10% of class (min 3)
                 </CardDescription>
             </div>
             {selectedLearnerIds.length > 0 && (
                 <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Evidence Status</p>
+                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-1 print:text-slate-600">Evidence Status</p>
                     <Badge variant={completionCount === selectedLearnerIds.length ? "default" : "outline"} className={cn(
-                        "h-5 px-2",
+                        "h-5 px-2 print:border-slate-400 print:text-black print:bg-transparent",
                         completionCount === selectedLearnerIds.length && "bg-green-600 border-none"
                     )}>
                         {completionCount} / {selectedLearnerIds.length} Linked
@@ -233,9 +233,9 @@ export const ModerationSampleBuilder = ({
             )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 print:px-0">
         {/* Controls */}
-        <div className="grid gap-4 p-4 rounded-xl border bg-background shadow-sm">
+        <div className="grid gap-4 p-4 rounded-xl border bg-background shadow-sm no-print">
             <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label className="text-[10px] uppercase font-black">Sampling Basis</Label>
@@ -297,10 +297,10 @@ export const ModerationSampleBuilder = ({
         {selectedLearnerIds.length > 0 && (
             <div className="space-y-6">
                 <div className="flex items-center justify-between border-b pb-2">
-                    <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                        <Users className="h-3 w-3" /> Audit Selection ({selectedLearnerIds.length})
+                    <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2 print:text-slate-800">
+                        <Users className="h-3 w-3 no-print" /> Audit Selection ({selectedLearnerIds.length})
                     </h4>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 no-print">
                         <Button variant="ghost" size="sm" className="h-6 text-[9px] uppercase font-black" onClick={() => setIsEditing(!isEditing)}>
                             {isEditing ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Edit3 className="h-3 w-3 mr-1" />}
                             {isEditing ? "Finish Editing" : "Edit Selection"}
@@ -313,7 +313,7 @@ export const ModerationSampleBuilder = ({
 
                 <div className="grid gap-6">
                     {isEditing ? (
-                        <div className="p-3 border rounded-xl bg-background max-h-[350px] overflow-y-auto shadow-inner">
+                        <div className="p-3 border rounded-xl bg-background max-h-[350px] overflow-y-auto shadow-inner no-print">
                             <div className="grid grid-cols-2 gap-2">
                                 {classInfo.learners.map(l => (
                                     <button 
@@ -336,19 +336,19 @@ export const ModerationSampleBuilder = ({
                                 title="High" 
                                 learners={groupedLearners.high} 
                                 icon={TrendingUp} 
-                                colorClass="text-green-600" 
+                                colorClass="text-green-600 print:text-slate-800" 
                             />
                             <AchievementGroup 
                                 title="Moderate" 
                                 learners={groupedLearners.moderate} 
                                 icon={Minus} 
-                                colorClass="text-blue-600" 
+                                colorClass="text-blue-600 print:text-slate-800" 
                             />
                             <AchievementGroup 
                                 title="Low" 
                                 learners={groupedLearners.low} 
                                 icon={TrendingDown} 
-                                colorClass="text-red-600" 
+                                colorClass="text-red-600 print:text-slate-800" 
                             />
                         </div>
                     )}
@@ -357,11 +357,12 @@ export const ModerationSampleBuilder = ({
         )}
 
         {!selectedLearnerIds.length && (
-            <div className="py-12 text-center border-2 border-dashed rounded-2xl bg-muted/5 flex flex-col items-center gap-3">
-                <Target className="h-8 w-8 text-muted-foreground opacity-20" />
+            <div className="py-12 text-center border-2 border-dashed rounded-2xl bg-muted/5 flex flex-col items-center gap-3 print:border-none print:bg-transparent print:text-left print:p-2">
+                <Target className="h-8 w-8 text-muted-foreground opacity-20 no-print" />
                 <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Sample Not Defined</p>
-                    <p className="text-[9px] text-muted-foreground max-w-[200px] mx-auto">Use the controls above to automatically pick a representative sample for this term.</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground no-print">Sample Not Defined</p>
+                    <p className="text-[9px] text-muted-foreground max-w-[200px] mx-auto no-print">Use the controls above to automatically pick a representative sample for this term.</p>
+                    <p className="hidden print:block text-sm italic text-slate-600 mt-2">Moderation sample not formally defined for this term.</p>
                 </div>
             </div>
         )}

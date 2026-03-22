@@ -15,7 +15,7 @@ interface TeacherFileMarkScheduleProps {
 }
 
 export const TeacherFileMarkSchedule = ({ classInfo, assessments, marks, gradingScheme }: TeacherFileMarkScheduleProps) => {
-    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center print:border-none print:text-left print:p-2 print:text-black">No assessments available to generate mark schedule.</div>;
+    if (!assessments.length) return <div className="text-sm text-muted-foreground italic border-2 border-dashed p-8 rounded-xl text-center print:border-none print:text-left print:p-2 print:text-slate-600">No formal assessments scheduled for this term.</div>;
 
     const learners = classInfo.learners || [];
 

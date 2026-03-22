@@ -88,7 +88,7 @@ export const TeacherFileAnnotation = ({
         
         {/* Print-only substitute block guarantees all text is visible and wraps properly */}
         <div className="hidden print:block whitespace-pre-wrap text-sm leading-relaxed text-slate-800 italic border-l-2 border-slate-300 pl-4 py-2 min-h-[40px]">
-            {content || "No professional commentary or notes recorded for this section."}
+            {content || "No additional professional commentary required for this section."}
         </div>
 
         <div className={cn(

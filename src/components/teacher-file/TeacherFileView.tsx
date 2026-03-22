@@ -107,7 +107,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
             className="print-page-break print:pt-8"
             yearId={year.id} termId={term.id} sectionKey={`${prefix}policy`}
             title="2. Policy & Support Documents"
-            description="Upload CAPS documents, NPPPR, and subject guidelines here."
+            description="CAPS documents, NPPPR, and subject guidelines."
             isLocked={isLocked}
         />
 
@@ -158,7 +158,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                                     </TableRow>
                                 ))}
                                 {assessments.length === 0 && (
-                                    <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground text-xs italic">No formal tasks recorded yet.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground text-xs italic">No formal tasks scheduled for this term.</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -234,7 +234,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                             })}
                         </div>
                     ) : (
-                        <p className="text-sm text-muted-foreground italic mb-6 print:text-black">No diagnostic reports finalized yet.</p>
+                        <p className="text-sm text-muted-foreground italic mb-6 print:text-slate-600">Diagnostic analysis will automatically appear once assessments are fully analyzed.</p>
                     )}
                 </div>
             </div>
@@ -264,7 +264,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
         <div className="print-page-break print:pt-8 space-y-10 pt-16 border-t border-slate-200 mt-16 print:border-none print:mt-0">
             <div className="space-y-2">
                 <h3 className="text-xl font-black text-slate-900">7. Additional Evidence</h3>
-                <p className="text-xs text-muted-foreground no-print">Optional supporting documentation for this term.</p>
+                <p className="text-xs text-muted-foreground no-print">Supplementary documentation for this academic period.</p>
             </div>
 
             <TeacherFileSection 
@@ -296,7 +296,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                 className="print-page-break print:pt-8"
                 yearId={year.id} termId={term.id} sectionKey={`${prefix}portfolio`}
                 title="8. Professional Portfolio"
-                description="Custom educator entries, observations, and term targets."
+                description="Professional portfolio entries, observations, and term targets."
                 isLocked={isLocked}
                 hideAttachments
                 hideCommentary

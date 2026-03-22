@@ -146,7 +146,8 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
           ))}
           {attachments.length === 0 && (
               <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none print:bg-transparent print:py-2 print:text-left print:p-0">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-30 print:opacity-100 print:normal-case print:italic print:text-slate-800">No supplementary documents attached</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-30 no-print">No supplementary documents attached</p>
+                  <p className="hidden print:block text-sm italic text-slate-600 mt-2">No supplementary evidence documents attached to this section (Optional).</p>
               </div>
           )}
       </div>

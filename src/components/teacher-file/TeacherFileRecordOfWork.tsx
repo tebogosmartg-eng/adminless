@@ -51,8 +51,9 @@ export const TeacherFileRecordOfWork = ({ termId, classId }: TeacherFileRecordOf
       return (
           <div className="py-10 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none print:text-left print:py-2 print:p-0">
               <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground opacity-20 mb-2 no-print" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground print:text-black">No Lesson Logs Recorded</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground print:hidden">No Lesson Logs Recorded</p>
               <p className="text-[9px] text-muted-foreground mt-1 no-print">Populate logs via the Timetable widget on your Dashboard.</p>
+              <p className="hidden print:block text-sm italic text-slate-600 mt-2">Lesson planning and daily tracking are managed externally for this period.</p>
           </div>
       );
   }
