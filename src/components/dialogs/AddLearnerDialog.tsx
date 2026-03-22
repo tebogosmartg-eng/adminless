@@ -3,10 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useRef } from 'react';
 import { Learner } from '@/lib/types';
-import { Upload, Camera } from 'lucide-react';
+import { Upload, Camera, Loader2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Papa from "papaparse";
 import { showSuccess, showError } from "@/utils/toast";
+import { scanRosterWithGemini } from "@/services/gemini";
+import { compressImage } from "@/utils/image";
 
 interface AddLearnerDialogProps {
   open: boolean;
@@ -16,7 +18,9 @@ interface AddLearnerDialogProps {
 
 export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearnerDialogProps) => {
   const [text, setText] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { classId } = useParams();
 
@@ -96,9 +100,43 @@ export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearn
     }
   };
 
-  const handleScanNavigate = () => {
-    onOpenChange(false);
-    navigate("/scan", { state: { classId } });
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setIsScanning(true);
+    showSuccess("Analyzing register... This may take a few seconds.");
+    
+    try {
+        const compressedImages = await Promise.all(
+            Array.from(files).map(file => compressImage(file))
+        );
+        
+        const result = await scanRosterWithGemini(compressedImages);
+        
+        if (result && result.learners && result.learners.length > 0) {
+            const names = result.learners.map((l: any) => {
+                if (typeof l === 'string') return l;
+                return `${l.name} ${l.surname || ''}`.trim();
+            }).filter((n: string) => n.length > 0);
+            
+            if (names.length > 0) {
+                const current = text ? text.trim() + "\n" : "";
+                setText(current + names.join("\n"));
+                showSuccess(`Extracted ${names.length} names from image. Please review them.`);
+            } else {
+                showError("No valid names found in the extracted data.");
+            }
+        } else {
+            showError("No names detected in the image.");
+        }
+    } catch (err: any) {
+        console.error(err);
+        showError(err.message || "Failed to scan register.");
+    } finally {
+        setIsScanning(false);
+        if (imageInputRef.current) imageInputRef.current.value = "";
+    }
   };
 
   return (
@@ -107,39 +145,56 @@ export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearn
         <DialogHeader>
           <DialogTitle>Bulk Add Learners</DialogTitle>
           <DialogDescription>
-            Add multiple learners at once. Paste a list (Name, Mark) or upload a CSV.
+            Add multiple learners at once. Paste a list, scan a register, or upload a CSV.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <Textarea 
-            placeholder="John Doe&#10;Jane Smith, 85&#10;Peter Pan, 92" 
-            className="min-h-[200px] font-mono text-sm"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-          
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-             <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleScanNavigate}>
-                    <Camera className="mr-2 h-4 w-4" /> Scan Image
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="mr-2 h-4 w-4" /> Upload CSV
-                </Button>
-                <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                />
-             </div>
-             
-             <div className="flex gap-2 justify-end mt-2 sm:mt-0">
-                <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button onClick={handleAdd} disabled={!text.trim()}>Add Learners</Button>
-             </div>
+          <div className="flex gap-2">
+              <Button variant="secondary" size="sm" type="button" onClick={() => imageInputRef.current?.click()} disabled={isScanning} className="flex-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
+                  {isScanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />} 
+                  {isScanning ? "Scanning..." : "Scan Paper Register"}
+              </Button>
+              <Button variant="secondary" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={isScanning} className="flex-1">
+                  <Upload className="mr-2 h-4 w-4" /> Upload CSV List
+              </Button>
           </div>
+          
+          <div className="relative">
+              {isScanning && (
+                  <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-md border">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
+                      <span className="text-xs font-bold text-muted-foreground">Extracting Names...</span>
+                  </div>
+              )}
+              <Textarea 
+                placeholder="Or type/paste list here...&#10;John Doe&#10;Jane Smith, 85&#10;Peter Pan, 92" 
+                className="min-h-[200px] font-mono text-sm"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                disabled={isScanning}
+              />
+          </div>
+          
+          <div className="flex justify-end gap-2 mt-2">
+             <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+             <Button onClick={handleAdd} disabled={!text.trim() || isScanning}>Add Learners</Button>
+          </div>
+          
+          <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept=".csv"
+              onChange={handleFileUpload}
+          />
+          <input 
+              type="file" 
+              ref={imageInputRef} 
+              className="hidden" 
+              accept="image/*"
+              capture="environment"
+              onChange={handleImageUpload}
+          />
         </div>
       </DialogContent>
     </Dialog>

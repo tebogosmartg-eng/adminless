@@ -206,45 +206,56 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
               Learners
             </Label>
             <div className="col-span-3 flex flex-col gap-2 relative">
-                {isScanning && (
-                    <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-md border">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
-                        <span className="text-xs font-bold text-muted-foreground">Extracting Names...</span>
-                    </div>
-                )}
-                <Textarea
-                  id="learners"
-                  value={learners}
-                  onChange={(e) => setLearners(e.target.value)}
-                  placeholder="Enter one learner name per line..."
-                  className="w-full"
-                  rows={6}
-                  disabled={isScanning}
-                />
-                <div className="flex justify-between items-center gap-2">
-                    <Button variant="outline" size="sm" type="button" onClick={() => imageInputRef.current?.click()} disabled={isScanning} className="flex-1">
-                        {isScanning ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Camera className="mr-2 h-3 w-3" />} 
-                        {isScanning ? "Scanning..." : "Capture Register (AI)"}
+                <div className="flex gap-2">
+                    <Button 
+                        variant="secondary" 
+                        size="sm" 
+                        type="button" 
+                        onClick={() => imageInputRef.current?.click()} 
+                        disabled={isScanning} 
+                        className="flex-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                    >
+                        {isScanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />} 
+                        {isScanning ? "Scanning..." : "Scan Paper Register"}
                     </Button>
-                    <Button variant="outline" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={isScanning} className="flex-1">
-                        <Upload className="mr-2 h-3 w-3" /> Upload Class List
+                    <Button variant="secondary" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={isScanning} className="flex-1">
+                        <Upload className="mr-2 h-4 w-4" /> Upload CSV List
                     </Button>
-                   <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept=".csv"
-                      onChange={handleFileUpload}
-                   />
-                   <input 
-                      type="file" 
-                      ref={imageInputRef} 
-                      className="hidden" 
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handleImageUpload}
-                   />
                 </div>
+                
+                <div className="relative mt-1">
+                    {isScanning && (
+                        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-md border">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
+                            <span className="text-xs font-bold text-muted-foreground">Extracting Names...</span>
+                        </div>
+                    )}
+                    <Textarea
+                      id="learners"
+                      value={learners}
+                      onChange={(e) => setLearners(e.target.value)}
+                      placeholder="Or type/paste one learner name per line..."
+                      className="w-full min-h-[120px]"
+                      rows={6}
+                      disabled={isScanning}
+                    />
+                </div>
+                
+                <input 
+                   type="file" 
+                   ref={fileInputRef} 
+                   className="hidden" 
+                   accept=".csv"
+                   onChange={handleFileUpload}
+                />
+                <input 
+                   type="file" 
+                   ref={imageInputRef} 
+                   className="hidden" 
+                   accept="image/*"
+                   capture="environment"
+                   onChange={handleImageUpload}
+                />
             </div>
           </div>
         </div>
