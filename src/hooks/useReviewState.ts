@@ -15,9 +15,11 @@ import { TeacherFileEntry, ReviewSnapshot } from '@/lib/types';
 
 export const useReviewState = (classId: string, termId: string) => {
   const { classes } = useClasses();
-  const { activeTerm } = useAcademic();
+  const { activeTerm, terms } = useAcademic();
   const { teacherName, schoolName, schoolLogo, contactEmail, contactPhone } = useSettings();
   
+  const currentTerm = useMemo(() => terms.find(t => t.id === termId) || activeTerm, [terms, termId, activeTerm]);
+
   const { sections, entries, loading } = useTeacherFileFlexible(classId, termId);
   const { snapshots, createSnapshot, deleteSnapshot } = useReviewSnapshots(classId, termId);
   
@@ -75,7 +77,7 @@ export const useReviewState = (classId: string, termId: string) => {
 
   // Actions
   const handleExportPDF = async () => {
-    if (!currentClass || !activeTerm) return;
+    if (!currentClass || !currentTerm) return;
     setIsExporting(true);
     try {
         const packName = activeSnapshotId 
@@ -84,7 +86,7 @@ export const useReviewState = (classId: string, termId: string) => {
         await generateReviewPackPDF(
             packName,
             { className: currentClass.className, subject: currentClass.subject, grade: currentClass.grade },
-            activeTerm.name,
+            currentTerm.name,
             filteredEntries,
             allAttachments,
             { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone }
@@ -131,7 +133,7 @@ export const useReviewState = (classId: string, termId: string) => {
     state: {
         loading,
         currentClass,
-        activeTerm,
+        activeTerm: currentTerm,
         teacherName,
         search,
         selectedSectionId,
