@@ -28,8 +28,8 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
   const { classInfo, assessments, marks, moderationSample, rubrics, diagnostics, flexSections, flexEntries, flexAttachments } = data;
   const prefix = `${classId}_${term.id}_`; // Isolates manual file uploads to this specific class+term
   
-  // FORCE LOCKED MODE for pure document preview
-  const isLocked = true;
+  // Dynamic lock based on term or class finalization, or if we are bulk printing
+  const isLocked = !!term.closed || !!term.is_finalised || !!classInfo.is_finalised || isBulkMode;
 
   const summaryText = `During the ${term.name} of ${year.name}, ${classInfo.learners.length} learners completed ${assessments.length} formal assessment tasks in ${classInfo.subject}. The class achieved an overall average of ${data.stats.average}% with a pass rate of ${data.stats.passRate}%.` 
   + (diagnostics.length > 0 ? ` ${diagnostics.length} diagnostic analyses were conducted to guide ongoing pedagogical interventions.` : '') 
