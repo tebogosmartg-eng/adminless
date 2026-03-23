@@ -1,7 +1,5 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +33,39 @@ const safeExtractJson = (text: string) => {
     }
 };
 
+async function callGeminiAPI(prompt: string, imageParts: any[], apiKey: string) {
+    // Explicitly target gemini-2.5-flash via the v1 endpoint (NOT v1beta)
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    
+    // Retain required payload structure (contents + parts)
+    const payload = {
+        contents: [
+            {
+                parts: [
+                    { text: prompt },
+                    ...imageParts
+                ]
+            }
+        ]
+    };
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini API Error ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -51,22 +82,16 @@ serve(async (req) => {
 
     const body = await req.json();
     const { action, payload } = body;
-    const genAI = new GoogleGenerativeAI(apiKey)
     
     const systemInstruction = "You are a strict academic data API. Return ONLY valid JSON. Validate all numbers: awarded marks cannot exceed possible marks.";
 
-    // Safely resolve the model name, falling back to 1.5-flash if the secret is missing or invalid (like gemini-3)
-    let envModel = Deno.env.get('GEMINI_MODEL_NAME');
-    let modelName = (envModel && !envModel.includes('gemini-3')) ? envModel : "gemini-1.5-flash";
-    
-    // Removing the hardcoded apiVersion: "v1" so the SDK can negotiate the right endpoint for the 1.5 models
-    const model = genAI.getGenerativeModel({
-        model: modelName
-    });
-
     if (action === 'scan-images') {
         const { images, assessmentSchema } = payload;
-        const imageParts = images.map(img => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
+        
+        // Image formatting remains completely unchanged
+        const imageParts = images.map((img: string) => ({ 
+            inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } 
+        }));
         
         const prompt = `
             ${systemInstruction}
@@ -107,8 +132,7 @@ serve(async (req) => {
             }
         `;
 
-        const result = await model.generateContent([prompt, ...imageParts]);
-        const responseText = (await result.response).text();
+        const responseText = await callGeminiAPI(prompt, imageParts, apiKey);
         const extracted = safeExtractJson(responseText);
 
         if (!extracted) throw new Error("AI returned invalid data format");
@@ -116,7 +140,11 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: extracted }), { headers: corsHeaders });
     } else if (action === 'scan-roster') {
         const { images } = payload;
-        const imageParts = images.map((img: string) => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
+        
+        // Image formatting remains completely unchanged
+        const imageParts = images.map((img: string) => ({ 
+            inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } 
+        }));
         
         const prompt = `
             ${systemInstruction}
@@ -132,8 +160,7 @@ serve(async (req) => {
             }
         `;
 
-        const result = await model.generateContent([prompt, ...imageParts]);
-        const responseText = (await result.response).text();
+        const responseText = await callGeminiAPI(prompt, imageParts, apiKey);
         const extracted = safeExtractJson(responseText);
 
         if (!extracted || !extracted.learners) throw new Error("AI returned invalid data format");
