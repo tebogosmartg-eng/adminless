@@ -53,9 +53,10 @@ serve(async (req) => {
     const { action, payload } = body;
     const genAI = new GoogleGenerativeAI(apiKey)
     
+    const systemInstruction = "You are a strict academic data API. Return ONLY valid JSON. Validate all numbers: awarded marks cannot exceed possible marks.";
+
     const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        systemInstruction: "You are a strict academic data API. Return ONLY valid JSON. Validate all numbers: awarded marks cannot exceed possible marks."
+        model: "gemini-1.5-flash"
     }, { apiVersion: "v1" });
 
     if (action === 'scan-images') {
@@ -63,6 +64,8 @@ serve(async (req) => {
         const imageParts = images.map(img => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
         
         const prompt = `
+            ${systemInstruction}
+            
             Analyze the provided student script(s).
             
             TARGET ASSESSMENT SCHEMA:
@@ -111,6 +114,8 @@ serve(async (req) => {
         const imageParts = images.map((img: string) => ({ inlineData: { data: img.split(',')[1] || img, mimeType: "image/jpeg" } }));
         
         const prompt = `
+            ${systemInstruction}
+            
             Analyze the provided image of a class register or learner list.
             Extract ONLY the names of the students. Ignore grades, marks, or other metadata.
             
