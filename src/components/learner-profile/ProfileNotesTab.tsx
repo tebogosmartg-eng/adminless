@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useLearnerNotes } from '@/hooks/useLearnerNotes';
 import { LearnerNote } from '@/lib/types';
 import { format } from 'date-fns';
-import { AlertTriangle, BookOpen, MessageCircle, ThumbsUp, Trash2, Plus, StickyNote } from 'lucide-react';
+import { AlertTriangle, BookOpen, MessageCircle, ThumbsUp, Trash2, Plus, StickyNote, Loader2 } from 'lucide-react';
 
 interface ProfileNotesTabProps {
   learnerId?: string;
@@ -18,11 +18,18 @@ export const ProfileNotesTab = ({ learnerId }: ProfileNotesTabProps) => {
   const [content, setContent] = useState("");
   const [category, setCategory] = useState<LearnerNote['category']>("general");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!content.trim()) return;
-    addNote(content, category, date);
-    setContent("");
+    
+    setIsSaving(true);
+    try {
+      await addNote(content, category, date);
+      setContent("");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getIcon = (cat: string) => {
@@ -69,9 +76,11 @@ export const ProfileNotesTab = ({ learnerId }: ProfileNotesTabProps) => {
             onChange={(e) => setContent(e.target.value)}
             className="resize-none"
             rows={2}
+            disabled={isSaving}
           />
-          <Button onClick={handleSubmit} disabled={!content.trim()} className="w-full">
-            <Plus className="mr-2 h-4 w-4" /> Add Note
+          <Button onClick={handleSubmit} disabled={!content.trim() || isSaving} className="w-full">
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+            {isSaving ? "Saving..." : "Add Note"}
           </Button>
         </CardContent>
       </Card>
