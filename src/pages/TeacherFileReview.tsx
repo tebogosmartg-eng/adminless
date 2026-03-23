@@ -8,11 +8,9 @@ import { ReviewSidebar } from '@/components/teacher-file/review/ReviewSidebar';
 import { ReviewDocument } from '@/components/teacher-file/review/ReviewDocument';
 import { Loader2 } from 'lucide-react';
 
-const TeacherFileReview = () => {
-  const { classId, termId } = useParams();
+const TeacherFileReviewContent = ({ classId, termId }: { classId: string; termId: string }) => {
   const navigate = useNavigate();
-  
-  const { state, actions } = useReviewState(classId!, termId!);
+  const { state, actions } = useReviewState(classId, termId);
 
   if (state.loading) {
       return (
@@ -75,6 +73,20 @@ const TeacherFileReview = () => {
       </div>
     </div>
   );
+};
+
+const TeacherFileReview = () => {
+  const { classId, termId } = useParams();
+
+  if (!classId || !termId) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Invalid or missing route parameters.</p>
+      </div>
+    );
+  }
+
+  return <TeacherFileReviewContent classId={classId} termId={termId} />;
 };
 
 export default TeacherFileReview;
