@@ -142,9 +142,6 @@ const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolea
               <h1 className="text-3xl font-bold tracking-tight">Evidence Audit</h1>
               <p className="text-muted-foreground text-sm">Professional moderation trail management.</p>
           </div>
-          <Button onClick={() => {}} disabled={filtered.length === 0} variant="outline" className="gap-2">
-              <Download className="h-4 w-4" /> Export Register
-          </Button>
         </div>
       )}
 
