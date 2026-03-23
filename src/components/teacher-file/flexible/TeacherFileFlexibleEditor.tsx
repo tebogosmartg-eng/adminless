@@ -23,6 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { SectionType } from '@/lib/types';
 import { Link } from 'react-router-dom';
+import { useAcademic } from '@/context/AcademicContext';
 
 interface TeacherFileFlexibleEditorProps {
   classId: string;
@@ -31,6 +32,7 @@ interface TeacherFileFlexibleEditorProps {
 }
 
 export const TeacherFileFlexibleEditor = ({ classId, termId, isLocked = false }: TeacherFileFlexibleEditorProps) => {
+  const { activeYear } = useAcademic();
   const { 
     template, 
     sections, 
@@ -85,7 +87,7 @@ export const TeacherFileFlexibleEditor = ({ classId, termId, isLocked = false }:
         
         <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button variant="outline" size="sm" asChild className="flex-1 sm:flex-none h-10 px-6 rounded-xl font-bold border-green-200 text-green-700 hover:bg-green-50">
-                <Link to={`/year/${template.user_id}/term/${termId}/class/${classId}/teacher-file/review`} className="flex items-center gap-2">
+                <Link to={`/year/${activeYear?.id}/term/${termId}/class/${classId}/teacher-file/review`} className="flex items-center gap-2">
                     <Eye className="h-4 w-4" /> Enter Review Mode
                 </Link>
             </Button>
