@@ -36,6 +36,9 @@ export const useMonthlyAttendance = (classId: string, monthDate: Date) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Retrieve existing record to reuse stable ID
+    const existingRecord = records?.find(r => r.learner_id === learnerId && r.date === dateStr);
+
     // Cycle: null -> present -> absent -> late -> excused -> null
     let nextStatus: AttendanceStatus | null = 'present';
     if (currentStatus === 'present') nextStatus = 'absent';
@@ -44,11 +47,23 @@ export const useMonthlyAttendance = (classId: string, monthDate: Date) => {
     else if (currentStatus === 'excused') nextStatus = null;
 
     if (nextStatus === null) {
-        // Delete record
-        await db.attendance.where({ learner_id: learnerId, date: dateStr }).delete();
-        await queueAction('attendance', 'delete', { learner_id: learnerId, date: dateStr });
+        // Delete record - using stable ID to ensure sync resolves correctly
+        if (existingRecord?.id) {
+            await db.attendance.delete(existingRecord.id);
+            await queueAction('attendance', 'delete', { id: existingRecord.id });
+        } else {
+            // Fallback: lookup locally if not present in cached records
+            const localRecs = await db.attendance.where({ learner_id: learnerId, date: dateStr }).toArray();
+            for (const rec of localRecs) {
+                if (rec.id) {
+                    await db.attendance.delete(rec.id);
+                    await queueAction('attendance', 'delete', { id: rec.id });
+                }
+            }
+        }
     } else {
         const payload = {
+            id: existingRecord?.id || crypto.randomUUID(), // Guarantee stable ID
             learner_id: learnerId,
             class_id: classId,
             term_id: activeTerm.id,
