@@ -55,10 +55,14 @@ serve(async (req) => {
     
     const systemInstruction = "You are a strict academic data API. Return ONLY valid JSON. Validate all numbers: awarded marks cannot exceed possible marks.";
 
-    const modelName = Deno.env.get('GEMINI_MODEL_NAME') || "gemini-pro-vision";
+    // Safely resolve the model name, falling back to 1.5-flash if the secret is missing or invalid (like gemini-3)
+    let envModel = Deno.env.get('GEMINI_MODEL_NAME');
+    let modelName = (envModel && !envModel.includes('gemini-3')) ? envModel : "gemini-1.5-flash";
+    
+    // Removing the hardcoded apiVersion: "v1" so the SDK can negotiate the right endpoint for the 1.5 models
     const model = genAI.getGenerativeModel({
         model: modelName
-    }, { apiVersion: "v1" });
+    });
 
     if (action === 'scan-images') {
         const { images, assessmentSchema } = payload;
