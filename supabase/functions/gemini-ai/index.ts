@@ -55,8 +55,9 @@ serve(async (req) => {
     
     const systemInstruction = "You are a strict academic data API. Return ONLY valid JSON. Validate all numbers: awarded marks cannot exceed possible marks.";
 
+    const modelName = Deno.env.get('GEMINI_MODEL_NAME') || "gemini-pro-vision";
     const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash"
+        model: modelName
     }, { apiVersion: "v1" });
 
     if (action === 'scan-images') {
