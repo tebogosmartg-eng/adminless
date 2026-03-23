@@ -39,7 +39,10 @@ export const useReviewState = (classId: string, termId: string) => {
   // Data Aggregation
   const entryIds = useMemo(() => entries.map(e => e.id), [entries]);
   const allAttachments = useLiveQuery(
-    () => db.teacherfile_entry_attachments.where('entry_id').anyOf(entryIds).toArray(),
+    async () => {
+      if (entryIds.length === 0) return [];
+      return db.teacherfile_entry_attachments.where('entry_id').anyOf(entryIds).toArray();
+    },
     [entryIds]
   ) || [];
 
