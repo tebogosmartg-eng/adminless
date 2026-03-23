@@ -74,8 +74,8 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
          </div>
       </TeacherFileLayout>
 
-      {/* Chapter 2: Admin & Planning */}
-      <TeacherFileLayout pageNumber={2}>
+      {/* Section 1: Profile & Allocation */}
+      <TeacherFileLayout pageNumber={2} className="print-page-break">
           <TeacherFileSection 
               yearId={year.id} termId={term.id} sectionKey={`${prefix}profile`}
               title="1. Profile & Allocation"
@@ -115,14 +115,20 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                   </div>
               </div>
           </TeacherFileSection>
+      </TeacherFileLayout>
 
+      {/* Section 2: Policy */}
+      <TeacherFileLayout pageNumber={3} className="print-page-break">
           <TeacherFileSection 
               yearId={year.id} termId={term.id} sectionKey={`${prefix}policy`}
               title="2. Policy & Support Documents"
               description="CAPS documents, NPPPR, and subject guidelines."
               isLocked={isLocked}
           />
+      </TeacherFileLayout>
 
+      {/* Section 3: Planning */}
+      <TeacherFileLayout pageNumber={4} className="print-page-break">
           <TeacherFileSection 
               yearId={year.id} termId={term.id} sectionKey={`${prefix}planning`}
               title="3. Planning"
@@ -138,8 +144,8 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
           </TeacherFileSection>
       </TeacherFileLayout>
 
-      {/* Chapter 3: Assessment & Moderation */}
-      <TeacherFileLayout pageNumber={3}>
+      {/* Section 4: Assessment & Moderation */}
+      <TeacherFileLayout pageNumber={5} className="print-page-break">
           <TeacherFileSection 
               yearId={year.id} termId={term.id} sectionKey={`${prefix}assessment`}
               title="4. Assessment & Moderation"
@@ -176,17 +182,17 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                       </div>
                   </div>
 
-                  <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-avoid-break">
+                  <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-page-break">
                       <h4 className="text-sm font-bold mb-4 text-blue-800">4.2 Formal Assessment Tasks & Memoranda</h4>
                       <TeacherFileTasks assessments={assessments} rubrics={rubrics} />
                   </div>
 
-                  <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-avoid-break">
+                  <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-page-break">
                       <h4 className="text-sm font-bold mb-4 text-blue-800">4.3 Term Mark Schedule</h4>
                       <TeacherFileMarkSchedule classInfo={classInfo} assessments={assessments} marks={marks} gradingScheme={gradingScheme} />
                   </div>
 
-                  <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-avoid-break">
+                  <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-page-break">
                       <h4 className="text-sm font-bold mb-4 text-blue-800">4.4 Moderation Evidence</h4>
                       {moderationSample ? (
                           <div className="mb-6 p-4 rounded-xl border border-green-200 bg-green-50 flex items-start gap-4 print:border-none print:bg-transparent print:p-0">
@@ -256,8 +262,8 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
           </TeacherFileSection>
       </TeacherFileLayout>
 
-      {/* Chapter 4: Reports, Resources & Additional */}
-      <TeacherFileLayout pageNumber={4}>
+      {/* Section 5: Reports */}
+      <TeacherFileLayout pageNumber={6} className="print-page-break">
           <TeacherFileSection 
               yearId={year.id} termId={term.id} sectionKey={`${prefix}reports`}
               title="5. Educator Reports & Statistics"
@@ -266,30 +272,45 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
           >
                <TeacherFileReports classInfo={classInfo} assessments={assessments} marks={marks} />
           </TeacherFileSection>
+      </TeacherFileLayout>
 
+      {/* Section 6: Resources */}
+      <TeacherFileLayout pageNumber={7} className="print-page-break">
           <TeacherFileSection 
               yearId={year.id} termId={term.id} sectionKey={`${prefix}resources`}
               title="6. Resources & LTSM"
               description="Textbook and Learner Teacher Support Material control records."
               isLocked={isLocked}
           />
+      </TeacherFileLayout>
 
-          <div className="space-y-10 pt-16 border-t border-slate-200 mt-16 print:border-none print:mt-0">
-              <div className="space-y-2">
-                  <h3 className="text-xl font-black text-slate-900">7. Additional Evidence</h3>
-                  <p className="text-xs text-muted-foreground no-print">Supplementary documentation for this academic period.</p>
-              </div>
-
-              <TeacherFileSection yearId={year.id} termId={term.id} sectionKey={`${prefix}meeting_minutes`} title="7.1 Subject Meeting Minutes" isLocked={isLocked} />
-              <TeacherFileSection yearId={year.id} termId={term.id} sectionKey={`${prefix}moderation_notes`} title="7.2 Moderation Notes" hideAttachments isLocked={isLocked} />
-              <TeacherFileSection yearId={year.id} termId={term.id} sectionKey={`${prefix}correspondence`} title="7.3 Correspondence" isLocked={isLocked} />
-              <TeacherFileSection yearId={year.id} termId={term.id} sectionKey={`${prefix}supporting_docs`} title="7.4 Supporting Documents" isLocked={isLocked} />
+      {/* Section 7.1: Subject Meeting Minutes */}
+      <TeacherFileLayout pageNumber={8} className="print-page-break">
+          <div className="space-y-2 mb-8">
+              <h3 className="text-xl font-black text-slate-900">7. Additional Evidence</h3>
+              <p className="text-xs text-muted-foreground no-print">Supplementary documentation for this academic period.</p>
           </div>
+          <TeacherFileSection yearId={year.id} termId={term.id} sectionKey={`${prefix}meeting_minutes`} title="7.1 Subject Meeting Minutes" isLocked={isLocked} />
+      </TeacherFileLayout>
+
+      {/* Section 7.2: Moderation Notes */}
+      <TeacherFileLayout pageNumber={9} className="print-page-break">
+          <TeacherFileSection yearId={year.id} termId={term.id} sectionKey={`${prefix}moderation_notes`} title="7.2 Moderation Notes" hideAttachments isLocked={isLocked} />
+      </TeacherFileLayout>
+
+      {/* Section 7.3: Correspondence */}
+      <TeacherFileLayout pageNumber={10} className="print-page-break">
+          <TeacherFileSection yearId={year.id} termId={term.id} sectionKey={`${prefix}correspondence`} title="7.3 Correspondence" isLocked={isLocked} />
+      </TeacherFileLayout>
+
+      {/* Section 7.4: Supporting Documents */}
+      <TeacherFileLayout pageNumber={11} className="print-page-break">
+          <TeacherFileSection yearId={year.id} termId={term.id} sectionKey={`${prefix}supporting_docs`} title="7.4 Supporting Documents" isLocked={isLocked} />
       </TeacherFileLayout>
       
       {/* Chapter 5: Flexible Portfolio & Sign-off */}
-      <TeacherFileLayout pageNumber={5}>
-         {flexSections?.length > 0 && flexEntries?.length > 0 && (
+      {flexSections?.length > 0 && flexEntries?.length > 0 && (
+          <TeacherFileLayout pageNumber={12} className="print-page-break">
               <TeacherFileSection 
                   yearId={year.id} termId={term.id} sectionKey={`${prefix}portfolio`}
                   title="8. Professional Portfolio"
@@ -347,9 +368,12 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                       })}
                   </div>
               </TeacherFileSection>
-         )}
+          </TeacherFileLayout>
+      )}
 
-          <div className="space-y-10 pt-16 border-t border-slate-200 mt-16 print:border-none print:mt-0">
+      {/* Sign-off */}
+      <TeacherFileLayout pageNumber={flexSections?.length > 0 && flexEntries?.length > 0 ? 13 : 12} className="print-page-break">
+          <div className="space-y-10">
               <div className="space-y-2">
                   <h3 className="text-xl font-black text-slate-900">{flexEntries?.length > 0 ? "9" : "8"}. File Control & Moderation Sign-off</h3>
                   <p className="text-xs text-muted-foreground no-print">Official signature block for departmental audits.</p>
