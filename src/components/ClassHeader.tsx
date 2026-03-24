@@ -40,7 +40,7 @@ export const ClassHeader = ({
   const isLocked = isTermClosed || classInfo.is_finalised;
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white dark:bg-card p-4 md:p-6 rounded-lg border shadow-sm transition-all duration-300">
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-card text-card-foreground p-4 md:p-6 rounded-lg border border-border shadow-sm transition-all duration-300">
       <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto overflow-hidden">
         <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 md:h-10 md:w-10 hover:bg-muted shrink-0">
           <ArrowLeft className="h-4 w-4 md:h-5 w-5" />
@@ -49,7 +49,7 @@ export const ClassHeader = ({
           <div className="flex items-center gap-2 md:gap-3 flex-wrap">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground/90 truncate">{classInfo.className}</h1>
             {isLocked ? (
-                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 gap-1 md:gap-1.5 px-2 md:px-3 py-0.5 md:py-1 shrink-0">
+                <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-900 gap-1 md:gap-1.5 px-2 md:px-3 py-0.5 md:py-1 shrink-0">
                     <CheckCircle2 className="h-3 w-3 md:h-3.5 md:w-3.5" />
                     Finalised
                 </Badge>

@@ -76,7 +76,7 @@ export const ContextBar = () => {
   return (
     <div className={cn(
         "border-b px-4 md:px-8 h-10 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider z-20 sticky top-0 md:relative overflow-hidden no-print transition-all duration-500",
-        isGuided ? "bg-primary text-primary-foreground border-primary" : "bg-white dark:bg-card"
+        isGuided ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-border"
     )}>
       <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
         {isGuided ? (

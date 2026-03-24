@@ -68,7 +68,7 @@ const Header = () => {
   const sortedTerms = [...terms].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-blue-700 dark:bg-blue-950 px-3 md:px-8 no-print shadow-md z-30 transition-all duration-300 text-white border-blue-800">
+    <header className="flex h-16 items-center justify-between border-b bg-background px-3 md:px-8 no-print shadow-sm z-30 transition-all duration-300 text-foreground border-border">
       <div className="flex items-center gap-2 md:hidden">
         <MobileSidebar />
       </div>
@@ -77,36 +77,36 @@ const Header = () => {
         <div className="relative group flex-1 md:flex-none">
             <Button 
             variant="outline" 
-            className="h-9 w-full md:w-64 justify-start text-xs text-white/80 bg-blue-800/40 hover:bg-blue-800/60 border-blue-600/50 group-hover:border-blue-500 transition-all px-2 md:px-4"
+            className="h-9 w-full md:w-64 justify-start text-xs text-muted-foreground bg-muted/40 hover:bg-muted/60 border-border group-hover:border-primary transition-all px-2 md:px-4"
             onClick={triggerSearch}
             >
-            <Search className="md:mr-2 h-3.5 w-3.5 text-white/70" />
+            <Search className="md:mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
             <span className="hidden lg:inline-flex">Search learners...</span>
             <span className="hidden sm:inline-flex lg:hidden">Search...</span>
-            <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border border-blue-600 bg-blue-800/50 px-1.5 font-mono text-[9px] font-medium text-white/50 sm:flex">
+            <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[9px] font-medium text-muted-foreground sm:flex">
                 <span className="text-[10px]">⌘</span>K
             </kbd>
             </Button>
         </div>
 
         {currentPeriod && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10 animate-in slide-in-from-top-1">
-                <BookMarked className="h-3.5 w-3.5 text-blue-200" />
-                <span className="text-[9px] font-black uppercase tracking-tight text-blue-100">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-full border border-border animate-in slide-in-from-top-1">
+                <BookMarked className="h-3.5 w-3.5 text-primary" />
+                <span className="text-[9px] font-black uppercase tracking-tight text-foreground">
                     Session {currentPeriod.period}
                 </span>
-                <span className="w-1 h-1 rounded-full bg-blue-300" />
-                <span className="text-[10px] font-bold truncate max-w-[120px]">{currentPeriod.class_name}</span>
+                <span className="w-1 h-1 rounded-full bg-primary/50" />
+                <span className="text-[10px] font-bold truncate max-w-[120px] text-foreground">{currentPeriod.class_name}</span>
             </div>
         )}
 
         <div className="hidden sm:flex xl:flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-9 px-2 md:px-3 gap-1 md:gap-2 font-normal text-white/80 hover:bg-white/10 relative">
+                <Button variant="ghost" className="h-9 px-2 md:px-3 gap-1 md:gap-2 font-normal text-muted-foreground hover:bg-muted relative">
                   <CalendarDays className="h-4 w-4" />
-                  <span className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-white hidden md:inline-block">{activeYear?.name || "Year"}</span>
-                  <span className="text-[10px] md:text-xs font-medium text-white/70">{activeTerm?.name || "Term"}</span>
+                  <span className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-foreground hidden md:inline-block">{activeYear?.name || "Year"}</span>
+                  <span className="text-[10px] md:text-xs font-medium text-foreground/70">{activeTerm?.name || "Term"}</span>
                   <ChevronDown className="h-3 w-3 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
@@ -187,12 +187,12 @@ const Header = () => {
         
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 md:gap-3 pl-1 sm:pl-2 border-l border-white/20 ml-1 hover:bg-white/5 transition-colors p-1 rounded-md outline-none">
-                    <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-white/90">
+                <button className="flex items-center gap-2 md:gap-3 pl-1 sm:pl-2 border-l border-border ml-1 hover:bg-muted transition-colors p-1 rounded-md outline-none">
+                    <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-foreground/90">
                         {teacherName || "Teacher"}
                     </span>
-                    <Avatar className="h-7 w-7 md:h-8 md:w-8 ring-2 ring-white/20">
-                        <AvatarFallback className="bg-white/10 text-white text-xs font-bold">{initials}</AvatarFallback>
+                    <Avatar className="h-7 w-7 md:h-8 md:w-8 ring-2 ring-border">
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">{initials}</AvatarFallback>
                     </Avatar>
                 </button>
             </DropdownMenuTrigger>

@@ -21,8 +21,8 @@ export const NavLinks = () => {
             cn(
               "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200",
               isActive 
-                ? "bg-white/10 text-white font-medium shadow-sm" 
-                : "text-white/60 hover:bg-white/5 hover:text-white"
+                ? "bg-primary/10 text-primary font-medium shadow-sm" 
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )
           }
         >

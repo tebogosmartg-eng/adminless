@@ -187,7 +187,7 @@ export const MarkSheetTable = ({
 
   if (assessments.length === 0) {
     return (
-      <div className="p-12 text-center text-muted-foreground bg-white dark:bg-card border-2 border-dashed rounded-lg">
+      <div className="p-12 text-center text-muted-foreground bg-card border-2 border-dashed border-border rounded-lg">
         <p className="mb-2">No assessments found for {currentViewTermName}.</p>
         <p className="text-sm opacity-70 mb-6">Create a new task to begin recording marks.</p>
         {!isLocked && (
@@ -204,12 +204,12 @@ export const MarkSheetTable = ({
 
   return (
     <>
-      <div className="border bg-white dark:bg-card rounded-md overflow-hidden shadow-sm w-full max-w-full">
+      <div className="border border-border bg-card rounded-md overflow-hidden shadow-sm w-full max-w-full">
         <div className="overflow-x-auto w-full">
             <Table className="border-collapse table-fixed w-full min-w-max">
             <TableHeader>
-                <TableRow className="hover:bg-transparent border-b h-12">
-                <TableHead className="w-[140px] sm:w-[220px] sticky left-0 bg-muted/90 dark:bg-card z-20 border-r backdrop-blur-sm">
+                <TableRow className="hover:bg-transparent border-b border-border h-12">
+                <TableHead className="w-[140px] sm:w-[220px] sticky left-0 bg-muted/90 dark:bg-muted/50 z-20 border-r border-border backdrop-blur-sm">
                     <div 
                         className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors select-none"
                         onClick={() => onSort && onSort('name')}
@@ -219,7 +219,7 @@ export const MarkSheetTable = ({
                     </div>
                 </TableHead>
                 {visibleAssessments.map(ass => (
-                    <TableHead key={ass.id} className="text-center min-w-[120px] border-r">
+                    <TableHead key={ass.id} className="text-center min-w-[120px] border-r border-border">
                     <div className="flex flex-col items-center group relative py-1">
                         <div className="flex items-center gap-1">
                             <span className="font-bold text-foreground text-[11px] uppercase tracking-wide truncate max-w-[90px]">{ass.title}</span>
@@ -318,19 +318,19 @@ export const MarkSheetTable = ({
                     <TableRow 
                       key={learner.id || learner.name} 
                       className={cn(
-                        "group transition-all h-10",
+                        "group transition-all h-10 border-border",
                         isRowFocused ? "bg-primary/5 shadow-inner" : "hover:bg-muted/30"
                       )}
                     >
                     <TableCell 
                       className={cn(
-                        "font-medium sticky left-0 z-10 border-r shadow-sm transition-colors",
+                        "font-medium sticky left-0 z-10 border-r border-border shadow-sm transition-colors",
                         isRowFocused ? "bg-primary/10" : "bg-background dark:bg-card"
                       )}
                     >
                         <div className="flex items-center justify-between px-1">
                         <button 
-                            className="hover:underline text-xs sm:text-sm truncate max-w-[90px] sm:max-w-[160px] text-left"
+                            className="hover:underline text-xs sm:text-sm truncate max-w-[90px] sm:max-w-[160px] text-left text-foreground"
                             onClick={() => onViewLearnerProfile && onViewLearnerProfile(learner)}
                         >
                             {learner.name}
@@ -345,7 +345,7 @@ export const MarkSheetTable = ({
                         const isHighRiskCell = learner.id ? highRiskCells.has(`${ass.id}-${learner.id}`) : false;
                         
                         return (
-                        <TableCell key={ass.id} className="p-0 border-r last:border-r-0 relative min-w-[60px]">
+                        <TableCell key={ass.id} className="p-0 border-r border-border last:border-r-0 relative min-w-[60px]">
                             <ContextMenu>
                             <ContextMenuTrigger>
                                 <div className="flex items-center justify-center h-10 w-full relative group/cell">
@@ -353,8 +353,8 @@ export const MarkSheetTable = ({
                                     id={`cell-${colIdx}-${rowIdx}`}
                                     className={cn(
                                         "h-full w-full bg-transparent text-center text-sm outline-none transition-all",
-                                        "border border-transparent hover:border-muted-foreground/20",
-                                        "focus:bg-white dark:focus:bg-background focus:ring-2 focus:ring-primary focus:z-10",
+                                        "border border-transparent hover:border-muted-foreground/20 text-foreground",
+                                        "focus:bg-background focus:ring-2 focus:ring-primary focus:z-10",
                                         isLocked && "bg-muted/50 cursor-not-allowed text-muted-foreground",
                                         comment && "font-bold text-primary",
                                         hasQuestions && "cursor-pointer",
@@ -439,7 +439,7 @@ export const MarkSheetTable = ({
                     })}
                     <TableCell className={cn(
                         "text-center font-bold text-sm transition-colors",
-                        isAtRisk ? "text-amber-600 bg-amber-50" : "text-primary bg-primary/5"
+                        isAtRisk ? "text-amber-600 bg-amber-50 dark:bg-amber-900/10" : "text-primary bg-primary/5"
                     )}>
                         {learner.id ? total.toFixed(1) : '-'}
                     </TableCell>
@@ -447,19 +447,19 @@ export const MarkSheetTable = ({
                 );
                 })}
 
-                <TableRow className="bg-muted/50 border-t-2 h-10">
-                <TableCell className="font-bold sticky left-0 bg-muted z-10 border-r text-[9px] uppercase tracking-widest text-muted-foreground px-2">
+                <TableRow className="bg-muted/50 border-t-2 border-border h-10">
+                <TableCell className="font-bold sticky left-0 bg-muted z-10 border-r border-border text-[9px] uppercase tracking-widest text-muted-foreground px-2">
                     Avg
                 </TableCell>
                 {visibleAssessments.map(ass => {
                     const stats = getAssessmentStats(ass.id);
                     return (
-                    <TableCell key={ass.id} className="text-center p-0 border-r last:border-r-0">
+                    <TableCell key={ass.id} className="text-center p-0 border-r border-border last:border-r-0">
                         <div className="font-bold text-[10px] text-foreground">{stats.avg}%</div>
                     </TableCell>
                     );
                 })}
-                <TableCell className="bg-primary/10"></TableCell>
+                <TableCell className="bg-primary/10 border-border"></TableCell>
                 </TableRow>
             </TableBody>
             </Table>
@@ -467,13 +467,13 @@ export const MarkSheetTable = ({
       </div>
 
       <Dialog open={noteDialog.open} onOpenChange={(open) => setNoteDialog(prev => ({ ...prev, open }))}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[400px] bg-background text-foreground">
           <DialogHeader>
-            <DialogTitle className="text-sm">Note for {noteDialog.learnerName}</DialogTitle>
+            <DialogTitle className="text-sm text-foreground">Note for {noteDialog.learnerName}</DialogTitle>
           </DialogHeader>
           <div className="py-2">
             <textarea 
-                className="w-full min-h-[80px] bg-muted/30 border rounded-md p-2 text-sm outline-none resize-none"
+                className="w-full min-h-[80px] bg-muted/30 border border-border rounded-md p-2 text-sm outline-none resize-none text-foreground"
                 value={noteDialog.comment} 
                 onChange={(e) => setNoteDialog(prev => ({ ...prev, comment: e.target.value }))}
                 placeholder="Absent, late, etc..."

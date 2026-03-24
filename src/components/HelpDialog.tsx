@@ -21,7 +21,7 @@ export function HelpDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" title="Help & Documentation" className="text-white/80 hover:bg-white/10">
+        <Button variant="ghost" size="icon" title="Help & Documentation" className="text-muted-foreground hover:bg-muted">
           <HelpCircle className="h-5 w-5" />
           <span className="sr-only">Help</span>
         </Button>

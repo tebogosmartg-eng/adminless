@@ -31,7 +31,7 @@ export default function RecentActivity() {
   };
 
   return (
-    <Card className="border-none shadow-sm bg-white dark:bg-card no-print">
+    <Card className="border-none shadow-sm bg-card text-card-foreground no-print">
       <CardHeader className="pb-2 pt-4">
         <CardTitle className="text-base flex items-center gap-2">
           <Clock className="h-4 w-4 text-primary" />

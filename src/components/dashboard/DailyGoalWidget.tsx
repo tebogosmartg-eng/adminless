@@ -49,7 +49,7 @@ export const DailyGoalWidget = () => {
   return (
     <Card className={cn(
         "overflow-hidden transition-all duration-500",
-        stats.isDone ? "bg-green-600 text-white border-none shadow-lg scale-[1.01]" : "bg-white dark:bg-card border-dashed"
+        stats.isDone ? "bg-green-600 text-white border-none shadow-lg scale-[1.01]" : "bg-card border-dashed border-border"
     )}>
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-2">

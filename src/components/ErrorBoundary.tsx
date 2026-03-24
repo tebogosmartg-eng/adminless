@@ -28,22 +28,22 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
-          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full border">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-center">
+          <div className="bg-card text-card-foreground p-8 rounded-lg shadow-lg max-w-md w-full border border-border">
             <div className="flex justify-center mb-6">
               <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
                 <AlertTriangle className="h-8 w-8 text-red-600" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h1>
-            <p className="text-gray-600 mb-6">
+            <h1 className="text-2xl font-bold text-foreground mb-2">Something went wrong</h1>
+            <p className="text-muted-foreground mb-6">
               An unexpected error occurred in the application.
             </p>
             
             {this.state.error && (
-                <div className="bg-gray-100 p-4 rounded-md text-left mb-6 overflow-auto max-h-32 border border-gray-200">
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Error Details:</p>
-                    <code className="text-xs text-red-700 break-words font-mono">
+                <div className="bg-muted p-4 rounded-md text-left mb-6 overflow-auto max-h-32 border border-border">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Error Details:</p>
+                    <code className="text-xs text-destructive break-words font-mono">
                         {this.state.error.message}
                     </code>
                 </div>

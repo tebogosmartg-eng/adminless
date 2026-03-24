@@ -14,7 +14,7 @@ const TeacherFileReviewContent = ({ classId, termId }: { classId: string; termId
 
   if (state.loading) {
       return (
-          <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+          <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background">
               <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
               <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Compiling Review Portfolio...</p>
           </div>
@@ -22,7 +22,7 @@ const TeacherFileReviewContent = ({ classId, termId }: { classId: string; termId
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-black/90 pb-20">
+    <div className="min-h-screen bg-background pb-20">
       <ReviewHeader 
         onBack={() => navigate(-1)}
         activeSnapshotId={state.activeSnapshotId}
@@ -80,7 +80,7 @@ const TeacherFileReview = () => {
 
   if (!classId || !termId) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background">
           <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Invalid or missing route parameters.</p>
       </div>
     );

@@ -26,7 +26,7 @@ export const TodoList = () => {
   const completedCount = todos.filter(t => t.completed).length;
 
   return (
-    <Card className="border-none shadow-sm bg-white dark:bg-card">
+    <Card className="border-none shadow-sm bg-card text-card-foreground">
       <CardHeader className="pb-2 pt-4">
         <div className="flex justify-between items-center">
           <div>

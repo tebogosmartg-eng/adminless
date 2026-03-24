@@ -21,8 +21,8 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md shadow-2xl border-border/50 rounded-[2rem] overflow-hidden">
-        <CardHeader className="text-center space-y-6 pt-12 pb-8 bg-white">
+      <Card className="w-full max-w-md shadow-2xl border-border/50 rounded-[2rem] overflow-hidden bg-card text-card-foreground">
+        <CardHeader className="text-center space-y-6 pt-12 pb-8 bg-card">
             <div className="mx-auto">
                  <img 
                   src={icon} 
@@ -31,8 +31,8 @@ const Login = () => {
                  />
             </div>
             <div className="space-y-1">
-              <CardTitle className="text-4xl font-black tracking-tighter text-blue-900">AdminLess</CardTitle>
-              <CardDescription className="text-xs font-black text-blue-600 uppercase tracking-[0.3em]">
+              <CardTitle className="text-4xl font-black tracking-tighter text-primary">AdminLess</CardTitle>
+              <CardDescription className="text-xs font-black text-primary/80 uppercase tracking-[0.3em]">
                   Less Admin. More Teaching.
               </CardDescription>
             </div>

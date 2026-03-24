@@ -45,13 +45,13 @@ export const TimetableGrid = ({ isDocumentMode = false }: TimetableGridProps) =>
     timetable.find(t => t.day === day && t.period === period);
 
   return (
-    <div className={cn("overflow-hidden bg-white print-avoid-break", isDocumentMode ? "border-slate-200 border rounded-xl" : "border rounded-xl shadow-sm")}>
+    <div className={cn("overflow-hidden print-avoid-break", isDocumentMode ? "bg-white border-slate-200 border rounded-xl text-slate-900" : "bg-card text-card-foreground border border-border rounded-xl shadow-sm")}>
       <Table className="table-fixed w-full border-collapse">
         <TableHeader>
-          <TableRow className={cn("border-b", isDocumentMode ? "bg-slate-50" : "bg-slate-50")}>
-            <TableHead className={cn("w-16 text-center font-black text-[9px] uppercase tracking-widest border-r", isDocumentMode ? "text-slate-800" : "text-slate-400")}>Per</TableHead>
+          <TableRow className={cn("border-b", isDocumentMode ? "bg-slate-50 border-slate-200" : "bg-muted/50 border-border")}>
+            <TableHead className={cn("w-16 text-center font-black text-[9px] uppercase tracking-widest border-r", isDocumentMode ? "text-slate-800 border-slate-200" : "text-muted-foreground border-border")}>Per</TableHead>
             {DAYS.map(day => (
-              <TableHead key={day} className={cn("text-center font-black text-[10px] uppercase tracking-widest border-r last:border-r-0", isDocumentMode ? "text-slate-800" : "text-slate-700")}>
+              <TableHead key={day} className={cn("text-center font-black text-[10px] uppercase tracking-widest border-r last:border-r-0", isDocumentMode ? "text-slate-800 border-slate-200" : "text-foreground border-border")}>
                 {day}
               </TableHead>
             ))}
@@ -59,9 +59,9 @@ export const TimetableGrid = ({ isDocumentMode = false }: TimetableGridProps) =>
         </TableHeader>
         <TableBody>
           {periods.map(period => (
-            <TableRow key={period} className="h-16 border-b last:border-b-0 group">
-              <TableCell className={cn("text-center border-r", isDocumentMode ? "bg-transparent" : "bg-slate-50/50")}>
-                <span className={cn("font-black text-lg transition-colors", isDocumentMode ? "text-slate-500" : "text-slate-200 group-hover:text-primary")}>{period}</span>
+            <TableRow key={period} className="h-16 border-b border-border last:border-b-0 group">
+              <TableCell className={cn("text-center border-r", isDocumentMode ? "bg-transparent border-slate-200" : "bg-muted/30 border-border")}>
+                <span className={cn("font-black text-lg transition-colors", isDocumentMode ? "text-slate-500" : "text-muted-foreground group-hover:text-primary")}>{period}</span>
               </TableCell>
               {DAYS.map(day => {
                 const entry = getEntry(day, period);
@@ -70,24 +70,24 @@ export const TimetableGrid = ({ isDocumentMode = false }: TimetableGridProps) =>
                 return (
                   <TableCell key={`${day}-${period}`} className={cn(
                     "p-2 align-top border-r last:border-r-0 transition-colors",
-                    isBreak ? (isDocumentMode ? "bg-transparent" : "bg-amber-50/30") : "bg-white",
-                    isDocumentMode && "border-slate-200"
+                    isBreak ? (isDocumentMode ? "bg-transparent" : "bg-amber-50/30 dark:bg-amber-950/10") : (isDocumentMode ? "bg-white" : "bg-background"),
+                    isDocumentMode ? "border-slate-200" : "border-border"
                   )}>
                     {entry ? (
                       <div className="flex flex-col h-full justify-between overflow-hidden">
                         <div className="space-y-0.5">
                             <p className={cn(
                                 "text-[11px] font-black leading-none truncate",
-                                isBreak ? (isDocumentMode ? "text-black" : "text-amber-700") : "text-slate-900"
+                                isBreak ? (isDocumentMode ? "text-black" : "text-amber-700 dark:text-amber-500") : (isDocumentMode ? "text-slate-900" : "text-foreground")
                             )}>
                                 {entry.class_name}
                             </p>
-                            <p className={cn("text-[9px] font-bold truncate uppercase tracking-tighter", isDocumentMode ? "text-slate-600" : "text-slate-400")}>
+                            <p className={cn("text-[9px] font-bold truncate uppercase tracking-tighter", isDocumentMode ? "text-slate-600" : "text-muted-foreground")}>
                                 {entry.subject}
                             </p>
                         </div>
                         {(entry.start_time || entry.end_time) && (
-                            <div className={cn("mt-auto pt-1 flex items-center gap-1 text-[8px] font-bold uppercase", isDocumentMode ? "text-slate-500" : "text-slate-300")}>
+                            <div className={cn("mt-auto pt-1 flex items-center gap-1 text-[8px] font-bold uppercase", isDocumentMode ? "text-slate-500" : "text-muted-foreground opacity-60")}>
                                 <span>{entry.start_time || '--:--'}</span>
                                 <span>-</span>
                                 <span>{entry.end_time || '--:--'}</span>
@@ -96,7 +96,7 @@ export const TimetableGrid = ({ isDocumentMode = false }: TimetableGridProps) =>
                       </div>
                     ) : (
                       <div className={cn("h-full w-full flex items-center justify-center transition-opacity", isDocumentMode ? "hidden" : "opacity-5 group-hover:opacity-10")}>
-                         <div className="w-full h-px bg-slate-200 rotate-12" />
+                         <div className="w-full h-px bg-muted-foreground rotate-12" />
                       </div>
                     )}
                   </TableCell>
