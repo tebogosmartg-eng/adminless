@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 import { pullData, pushChanges } from '@/services/sync';
@@ -25,6 +25,27 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
   
   const pendingChanges = useLiveQuery(() => db.sync_queue.count()) || 0;
 
+  const forceSync = useCallback(async () => {
+    if (syncInProgress.current || !isOnline) return;
+    
+    syncInProgress.current = true;
+    setIsSyncing(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await pushChanges(); 
+        await pullData(user.id); 
+        setLastSyncTime(new Date());
+      }
+    } catch (error) {
+      console.error("Sync failed:", error);
+    } finally {
+      setIsSyncing(false);
+      syncInProgress.current = false;
+    }
+  }, [isOnline]);
+
   useEffect(() => {
     const handleOnline = () => {
         setIsOnline(true);
@@ -43,36 +64,44 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [forceSync]);
 
   useEffect(() => {
+    let mounted = true;
+
     const initSync = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user && isOnline) {
+      if (session?.user && isOnline && mounted) {
         await forceSync();
       }
     };
     initSync();
-  }, []);
 
-  const forceSync = async () => {
-    if (syncInProgress.current || !isOnline) return;
-    
-    syncInProgress.current = true;
-    setIsSyncing(true);
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await pushChanges(); 
-        await pullData(user.id); 
-        setLastSyncTime(new Date());
+    // 1. Auto sync on login
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && isOnline && mounted) {
+        forceSync();
       }
-    } finally {
-      setIsSyncing(false);
-      syncInProgress.current = false;
-    }
-  };
+    });
+
+    // 2. Auto sync on window focus
+    const handleFocus = () => {
+      if (isOnline && mounted) forceSync();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // 3. Periodic background sync (every 30 seconds)
+    const syncInterval = setInterval(() => {
+      if (isOnline && mounted) forceSync();
+    }, 30000);
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(syncInterval);
+    };
+  }, [isOnline, forceSync]);
 
   return (
     <SyncContext.Provider value={{ isOnline, isSyncing, pendingChanges, lastSyncTime, forceSync }}>
