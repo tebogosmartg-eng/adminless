@@ -162,11 +162,11 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-[1200px] h-[90vh] flex flex-col p-0 overflow-hidden">
-        <div className="p-6 pb-4 border-b bg-muted/20 shrink-0">
+        <div className="p-4 sm:p-6 pb-4 border-b bg-muted/20 shrink-0">
           <DialogHeader>
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                 <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black">
                             Differentiated Item Analysis
                         </Badge>
@@ -176,28 +176,29 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                             </Badge>
                         )}
                     </div>
-                    <DialogTitle className="text-2xl font-bold">{assessment.title}</DialogTitle>
-                    <DialogDescription>Identify skill-specific barriers and class-wide patterns.</DialogDescription>
+                    <DialogTitle className="text-xl sm:text-2xl font-bold">{assessment.title}</DialogTitle>
+                    <DialogDescription className="text-xs sm:text-sm">Identify skill-specific barriers and class-wide patterns.</DialogDescription>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleRunAI} disabled={isGeneratingAI || loading} className="gap-2 font-bold h-9 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100">
-                        {isGeneratingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
-                        Run Skill-Aware AI Analysis
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <Button variant="outline" onClick={handleRunAI} disabled={isGeneratingAI || loading} className="gap-1.5 sm:gap-2 font-bold h-9 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 flex-1 sm:flex-none px-2 sm:px-4 text-[10px] sm:text-sm">
+                        {isGeneratingAI ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <BrainCircuit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                        <span className="hidden sm:inline">Run Skill-Aware AI Analysis</span>
+                        <span className="sm:hidden">Auto-Analyze</span>
                     </Button>
-                    <Button variant="outline" onClick={handleSave} disabled={isSaving || loading} className="gap-2 font-bold h-9">
-                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        Save Analysis
+                    <Button variant="outline" onClick={handleSave} disabled={isSaving || loading} className="gap-1.5 sm:gap-2 font-bold h-9 flex-1 sm:flex-none px-2 sm:px-4 text-[10px] sm:text-sm">
+                        {isSaving ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                        Save
                     </Button>
-                    <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-2 h-9 bg-blue-600 hover:bg-blue-700 text-white">
-                        {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                        Export PDF
+                    <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-1.5 sm:gap-2 h-9 bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none px-2 sm:px-4 text-[10px] sm:text-sm">
+                        {isExporting ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                        PDF
                     </Button>
                 </div>
             </div>
           </DialogHeader>
         </div>
 
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea className="flex-1 p-4 sm:p-6">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
@@ -205,19 +206,19 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
             </div>
           ) : stats ? (
             <div className="space-y-10 pb-10">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                     {stats.qStats.map(s => (
                         <div key={s.id} className={cn(
-                            "flex flex-col p-4 rounded-xl border transition-all relative overflow-hidden",
+                            "flex flex-col p-3 sm:p-4 rounded-xl border transition-all relative overflow-hidden",
                             s.isWeak ? "bg-red-50 border-red-100" : "bg-muted/30 border-muted-foreground/10"
                         )}>
                             <div className="flex justify-between items-start mb-2 relative z-10">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Q{s.number}</span>
                                 {s.isWeak ? <AlertTriangle className="h-3 w-3 text-red-500" /> : <CheckCircle2 className="h-3 w-3 text-green-600" />}
                             </div>
-                            <div className="text-2xl font-black relative z-10">{s.avg}%</div>
+                            <div className="text-xl sm:text-2xl font-black relative z-10">{s.avg}%</div>
                             <div className="flex justify-between items-center mt-1 relative z-10">
-                                <p className="text-[9px] text-muted-foreground uppercase font-bold truncate max-w-[80px]" title={s.skill}>{s.skill || "Skill"}</p>
+                                <p className="text-[9px] text-muted-foreground uppercase font-bold truncate max-w-[60px] sm:max-w-[80px]" title={s.skill}>{s.skill || "Skill"}</p>
                                 <span className="text-[8px] font-black text-muted-foreground/60">{s.passRate}% Pass</span>
                             </div>
                         </div>
@@ -273,8 +274,8 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Item-Level Root Cause Analysis</h4>
                     </div>
 
-                    <div className="border rounded-xl overflow-hidden bg-background shadow-sm">
-                        <Table>
+                    <div className="border rounded-xl overflow-x-auto bg-background shadow-sm w-full">
+                        <Table className="min-w-[800px]">
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
                                     <TableHead className="w-[15%] font-black text-[9px] uppercase tracking-widest py-3">Question / Skill</TableHead>
@@ -291,7 +292,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                                             <Input 
                                                 value={row.question}
                                                 onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
-                                                className="border-none shadow-none font-bold text-sm bg-transparent p-0 focus-visible:ring-0"
+                                                className="border-none shadow-none font-bold text-sm bg-transparent p-0 focus-visible:ring-0 h-auto"
                                             />
                                             <Badge className={cn("text-[8px] uppercase font-black px-1.5 h-4 border-none", getCognitiveColor(row.cognitive_level))}>
                                                 {row.cognitive_level || 'unknown'}
@@ -337,9 +338,9 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
                     <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 h-fit">
-                        <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                        <Info className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
                         <div className="space-y-1">
                             <p className="text-xs font-bold text-blue-900 uppercase tracking-tight">Precision Diagnostics</p>
                             <p className="text-[11px] text-blue-800 leading-tight">
@@ -349,7 +350,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     </div>
                     
                     <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl flex items-start gap-3 h-fit">
-                        <Rocket className="h-5 w-5 text-purple-600 mt-0.5" />
+                        <Rocket className="h-5 w-5 text-purple-600 mt-0.5 shrink-0" />
                         <div className="space-y-1">
                             <p className="text-xs font-bold text-purple-900 uppercase tracking-tight">Actionable Insights</p>
                             <p className="text-[11px] text-purple-800 leading-tight">

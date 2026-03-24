@@ -67,7 +67,7 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       {isLocked && (
           <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-800 text-xs rounded border border-amber-100 mb-2">
             <Lock className="h-4 w-4" />
@@ -75,17 +75,17 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
           </div>
       )}
 
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-muted/20 p-4 rounded-lg border">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/20 p-4 rounded-lg border w-full">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button variant="outline" size="icon" onClick={() => setDate(subDays(date, 1))}>
                 <ChevronLeft className="h-4 w-4" />
             </Button>
             
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-[240px] justify-start text-left font-normal", !date && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(date, "dd/MM/yyyy")}
+                <Button variant="outline" className={cn("w-full sm:w-[240px] justify-start text-left font-normal flex-1", !date && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="truncate">{format(date, "dd/MM/yyyy")}</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -98,36 +98,39 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
             </Button>
         </div>
 
-        <div className="flex items-center gap-2 text-sm">
-             <div className="flex items-center gap-4 mr-2 hidden md:flex">
-                 <div className="flex items-center gap-1 text-green-600 font-medium"><Check className="h-4 w-4" /> {stats.present}</div>
-                 <div className="flex items-center gap-1 text-red-600 font-medium"><X className="h-4 w-4" /> {stats.absent}</div>
-                 <div className="flex items-center gap-1 text-orange-600 font-medium"><Clock className="h-4 w-4" /> {stats.late}</div>
+        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto text-sm">
+             <div className="flex items-center gap-4 mr-2">
+                 <div className="flex items-center gap-1 text-green-600 font-medium"><Check className="h-4 w-4" /> <span className="hidden sm:inline">{stats.present}</span></div>
+                 <div className="flex items-center gap-1 text-red-600 font-medium"><X className="h-4 w-4" /> <span className="hidden sm:inline">{stats.absent}</span></div>
+                 <div className="flex items-center gap-1 text-orange-600 font-medium"><Clock className="h-4 w-4" /> <span className="hidden sm:inline">{stats.late}</span></div>
              </div>
              
-             {!isLocked && (
-                 <Button onClick={saveAttendance} disabled={!hasChanges || saving} size="sm">
-                    {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    {hasChanges ? "Save Changes" : "Saved"}
-                 </Button>
-             )}
-
-             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                   <Button variant="outline" size="sm" disabled={isExporting}>
-                      <Download className="h-4 w-4 md:mr-2" /> 
-                      <span className="hidden md:inline">Export</span>
+             <div className="flex items-center gap-2">
+               {!isLocked && (
+                   <Button onClick={saveAttendance} disabled={!hasChanges || saving} size="sm">
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                      <span className="hidden sm:inline">{hasChanges ? "Save Changes" : "Saved"}</span>
+                      <span className="sm:hidden">Save</span>
                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                   <DropdownMenuItem onClick={() => handleExportReport('csv')}>
-                      <FileSpreadsheet className="mr-2 h-4 w-4" /> Monthly CSV
-                   </DropdownMenuItem>
-                   <DropdownMenuItem onClick={() => handleExportReport('pdf')}>
-                      <FileText className="mr-2 h-4 w-4" /> Monthly PDF
-                   </DropdownMenuItem>
-                </DropdownMenuContent>
-             </DropdownMenu>
+               )}
+
+               <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                     <Button variant="outline" size="sm" disabled={isExporting}>
+                        <Download className="h-4 w-4 sm:mr-2" /> 
+                        <span className="hidden sm:inline">Export</span>
+                     </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                     <DropdownMenuItem onClick={() => handleExportReport('csv')}>
+                        <FileSpreadsheet className="mr-2 h-4 w-4" /> Monthly CSV
+                     </DropdownMenuItem>
+                     <DropdownMenuItem onClick={() => handleExportReport('pdf')}>
+                        <FileText className="mr-2 h-4 w-4" /> Monthly PDF
+                     </DropdownMenuItem>
+                  </DropdownMenuContent>
+               </DropdownMenu>
+             </div>
         </div>
       </div>
 
@@ -144,24 +147,26 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
         <TabsContent value="daily" className="mt-4">
           <Card>
             <CardHeader className="pb-2">
-              <div className="flex justify-between items-center">
-                  <CardTitle>Daily Register</CardTitle>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <CardTitle>Daily Register</CardTitle>
+                    <CardDescription>
+                        Record attendance for {format(date, 'EEEE, dd MMMM yyyy')}.
+                    </CardDescription>
+                  </div>
                   {!isLocked && (
-                    <Button variant="ghost" size="sm" onClick={() => handleMarkAll('present')}>
+                    <Button variant="ghost" size="sm" onClick={() => handleMarkAll('present')} className="w-full sm:w-auto">
                         Mark All Present
                     </Button>
                   )}
               </div>
-              <CardDescription>
-                  Record attendance for {format(date, 'EEEE, dd MMMM yyyy')}.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
                 <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
               ) : (
-                <div className="border rounded-md">
-                    <Table>
+                <div className="border rounded-md overflow-x-auto w-full">
+                    <Table className="min-w-[500px]">
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px]">#</TableHead>
@@ -214,24 +219,28 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
         <TabsContent value="monthly" className="mt-4">
            <Card>
               <CardHeader className="pb-2">
-                 <div className="flex justify-between items-center">
-                    <CardTitle>Monthly Overview</CardTitle>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleExportReport('pdf')} disabled={isExporting}>
-                            {isExporting ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <FileText className="h-3 w-3 mr-2" />}
-                            Export Grid (PDF)
+                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <CardTitle>Monthly Overview</CardTitle>
+                        <CardDescription>
+                            Viewing records for {format(date, 'MMMM yyyy')}.
+                        </CardDescription>
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => handleExportReport('pdf')} disabled={isExporting}>
+                            {isExporting ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <FileText className="h-3 w-3 sm:mr-2" />}
+                            <span className="hidden sm:inline">Export Grid (PDF)</span>
+                            <span className="sm:hidden">PDF</span>
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleExportReport('csv')} disabled={isExporting}>
-                            <FileSpreadsheet className="h-3 w-3 mr-2" />
-                            Export CSV
+                        <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => handleExportReport('csv')} disabled={isExporting}>
+                            <FileSpreadsheet className="h-3 w-3 sm:mr-2" />
+                            <span className="hidden sm:inline">Export CSV</span>
+                            <span className="sm:hidden">CSV</span>
                         </Button>
                     </div>
                  </div>
-                 <CardDescription>
-                    Viewing attendance records for {format(date, 'MMMM yyyy')}. Click a column header to switch to that day.
-                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-0 sm:p-6 overflow-hidden">
                  <MonthlyAttendanceGrid 
                     classId={classId} 
                     learners={learners} 

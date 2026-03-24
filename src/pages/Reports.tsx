@@ -192,9 +192,9 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
       )}
 
       <Tabs defaultValue="term" className="w-full">
-        <TabsList className="bg-muted/50 p-1 border">
-            <TabsTrigger value="term" className="px-6">Term Reports</TabsTrigger>
-            <TabsTrigger value="year" className="px-6">Year End Summary</TabsTrigger>
+        <TabsList className="bg-muted/50 p-1 border flex overflow-x-auto w-full h-auto no-scrollbar">
+            <TabsTrigger value="term" className="px-4 sm:px-6 whitespace-nowrap h-9">Term Reports</TabsTrigger>
+            <TabsTrigger value="year" className="px-4 sm:px-6 whitespace-nowrap h-9">Year End Summary</TabsTrigger>
         </TabsList>
 
         <TabsContent value="term" className="space-y-6 mt-6">
@@ -207,26 +207,26 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
                       <CardContent className="space-y-4">
                           <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-muted-foreground">Year / Term</label>
-                              <div className="flex gap-2">
+                              <div className="flex flex-col sm:flex-row gap-2">
                                   <Select value={selectedYearId} onValueChange={setSelectedYearId}>
-                                      <SelectTrigger className="h-9"><SelectValue placeholder="Year" /></SelectTrigger>
+                                      <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Year" /></SelectTrigger>
                                       <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
                                   </Select>
                                   <Select value={selectedTermId} onValueChange={setSelectedTermId}>
-                                      <SelectTrigger className="h-9"><SelectValue placeholder="Term" /></SelectTrigger>
+                                      <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Term" /></SelectTrigger>
                                       <SelectContent>{sequencedTerms.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                                   </Select>
                               </div>
                           </div>
                           <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-muted-foreground">Grade / Subject</label>
-                              <div className="flex gap-2">
+                              <div className="flex flex-col sm:flex-row gap-2">
                                   <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                                      <SelectTrigger className="h-9"><SelectValue placeholder="Grade" /></SelectTrigger>
+                                      <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Grade" /></SelectTrigger>
                                       <SelectContent>{uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
                                   </Select>
                                   <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                                      <SelectTrigger className="h-9"><SelectValue placeholder="Subject" /></SelectTrigger>
+                                      <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Subject" /></SelectTrigger>
                                       <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                                   </Select>
                               </div>
@@ -248,63 +248,65 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
                   </Card>
                 )}
 
-                <Card className={`${embedded ? 'md:col-span-4' : 'md:col-span-3'} min-h-[600px] flex flex-col border-none shadow-sm overflow-hidden`}>
+                <Card className={`${embedded ? 'md:col-span-4' : 'md:col-span-3'} min-h-[600px] flex flex-col border-none shadow-sm overflow-hidden w-full`}>
                     <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b bg-muted/5 gap-4">
                         <CardTitle className="text-lg">Class Results Summary</CardTitle>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                             {embedded && (
-                                <Button onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete} className="font-bold h-8">
+                                <Button onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete} className="font-bold h-8 flex-1 sm:flex-none">
                                     {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load Analytical Data"}
                                 </Button>
                             )}
                             {termData && isContextComplete && (
                                 <>
-                                    <Button variant="outline" size="sm" onClick={handleSASAMSExportAction} className={cn("h-8 gap-2", isTermClosed ? "border-primary text-primary" : "opacity-50")}><Download className="h-3.5 w-3.5" /> SA-SAMS</Button>
-                                    <Button variant="outline" size="sm" onClick={handleExportTermCSV} className="h-8 gap-2"><FileSpreadsheet className="h-3.5 w-3.5 text-green-600"/> CSV</Button>
-                                    <Button variant="outline" size="sm" onClick={handleExportTermPDF} className="h-8 gap-2"><FileDown className="h-3.5 w-3.5 text-blue-600"/> PDF</Button>
+                                    <Button variant="outline" size="sm" onClick={handleSASAMSExportAction} className={cn("h-8 gap-2 flex-1 sm:flex-none", isTermClosed ? "border-primary text-primary" : "opacity-50")}><Download className="h-3.5 w-3.5" /> SA-SAMS</Button>
+                                    <Button variant="outline" size="sm" onClick={handleExportTermCSV} className="h-8 gap-2 flex-1 sm:flex-none"><FileSpreadsheet className="h-3.5 w-3.5 text-green-600"/> CSV</Button>
+                                    <Button variant="outline" size="sm" onClick={handleExportTermPDF} className="h-8 gap-2 flex-1 sm:flex-none"><FileDown className="h-3.5 w-3.5 text-blue-600"/> PDF</Button>
                                 </>
                             )}
                         </div>
                     </CardHeader>
-                    <CardContent className="flex-1 overflow-auto p-0">
+                    <CardContent className="flex-1 p-0 overflow-hidden">
                         {termData && isContextComplete ? (
-                            <Table>
-                                <TableHeader className="bg-muted/30">
-                                    <TableRow>
-                                        <TableHead>Learner</TableHead>
-                                        {allAssessmentTitles.map(title => (
-                                            <TableHead key={title} className="text-right whitespace-nowrap">{title}</TableHead>
-                                        ))}
-                                        <TableHead className="text-right font-bold">Term %</TableHead>
-                                        <TableHead className="text-center">Symbol</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {termData
-                                      .filter(r => {
-                                          const cls = classes.find(c => c.id === selectedClassId);
-                                          return r.className === cls?.className;
-                                      })
-                                      .map((r, i) => (
-                                        <TableRow key={i} className="hover:bg-muted/30">
-                                            <TableCell className="font-medium">{r.learnerName}</TableCell>
+                            <div className="overflow-x-auto w-full h-full">
+                                <Table className="min-w-[800px] w-full">
+                                    <TableHeader className="bg-muted/30">
+                                        <TableRow>
+                                            <TableHead className="sticky left-0 bg-muted/90 z-10 border-r">Learner</TableHead>
                                             {allAssessmentTitles.map(title => (
-                                                <TableCell key={title} className="text-right text-xs">
-                                                    {r.assessments[title] || "-"}
-                                                </TableCell>
+                                                <TableHead key={title} className="text-right whitespace-nowrap">{title}</TableHead>
                                             ))}
-                                            <TableCell className="text-right font-bold text-primary">{r.termAverage}%</TableCell>
-                                            <TableCell className="text-center">
-                                                {getGradeSymbol(r.termAverage, gradingScheme) && (
-                                                    <Badge variant="outline" className={getGradeSymbol(r.termAverage, gradingScheme)?.badgeColor}>
-                                                        {getGradeSymbol(r.termAverage, gradingScheme)?.symbol}
-                                                    </Badge>
-                                                )}
-                                            </TableCell>
+                                            <TableHead className="text-right font-bold">Term %</TableHead>
+                                            <TableHead className="text-center">Symbol</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {termData
+                                          .filter(r => {
+                                              const cls = classes.find(c => c.id === selectedClassId);
+                                              return r.className === cls?.className;
+                                          })
+                                          .map((r, i) => (
+                                            <TableRow key={i} className="hover:bg-muted/30">
+                                                <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{r.learnerName}</TableCell>
+                                                {allAssessmentTitles.map(title => (
+                                                    <TableCell key={title} className="text-right text-xs">
+                                                        {r.assessments[title] || "-"}
+                                                    </TableCell>
+                                                ))}
+                                                <TableCell className="text-right font-bold text-primary">{r.termAverage}%</TableCell>
+                                                <TableCell className="text-center">
+                                                    {getGradeSymbol(r.termAverage, gradingScheme) && (
+                                                        <Badge variant="outline" className={getGradeSymbol(r.termAverage, gradingScheme)?.badgeColor}>
+                                                            {getGradeSymbol(r.termAverage, gradingScheme)?.symbol}
+                                                        </Badge>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 p-12 text-center">
                                 <LayoutGrid className="h-16 w-16 opacity-10" />
@@ -334,13 +336,13 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
                           </div>
                           <div className="space-y-2">
                               <label className="text-xs font-bold uppercase text-muted-foreground">Grade / Subject</label>
-                              <div className="flex gap-2">
+                              <div className="flex flex-col sm:flex-row gap-2">
                                   <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                                      <SelectTrigger className="h-10"><SelectValue placeholder="Grade" /></SelectTrigger>
+                                      <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Grade" /></SelectTrigger>
                                       <SelectContent>{uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
                                   </Select>
                                   <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                                      <SelectTrigger className="h-10"><SelectValue placeholder="Subject" /></SelectTrigger>
+                                      <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Subject" /></SelectTrigger>
                                       <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                                   </Select>
                               </div>
@@ -359,46 +361,48 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
                   </Card>
                 )}
 
-                <Card className={`${embedded ? 'md:col-span-4' : 'md:col-span-3'} min-h-[500px] flex flex-col border-none shadow-sm overflow-hidden`}>
+                <Card className={`${embedded ? 'md:col-span-4' : 'md:col-span-3'} min-h-[500px] flex flex-col border-none shadow-sm overflow-hidden w-full`}>
                     <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-muted/5 border-b gap-4">
                         <CardTitle>Year End Consolidation</CardTitle>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 w-full sm:w-auto">
                             {embedded && (
-                                <Button onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'} className="font-bold h-8">
+                                <Button onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'} className="font-bold h-8 flex-1 sm:flex-none">
                                     {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Consolidate Year Data"}
                                 </Button>
                             )}
                             {yearData && selectedClassId !== 'all' && (
-                                 <Button variant="outline" size="sm" onClick={handleExportYearPDF} className="h-8 gap-2">
+                                 <Button variant="outline" size="sm" onClick={handleExportYearPDF} className="h-8 gap-2 flex-1 sm:flex-none">
                                     <FileDown className="h-3.5 w-3.5 text-blue-600"/> Export PDF
                                  </Button>
                             )}
                         </div>
                     </CardHeader>
-                    <CardContent className="flex-1 p-0 overflow-auto">
+                    <CardContent className="flex-1 p-0 overflow-hidden">
                         {yearData && selectedClassId !== 'all' ? (
-                            <Table>
-                                <TableHeader className="bg-muted/30">
-                                    <TableRow>
-                                        <TableHead>Learner Name</TableHead>
-                                        {sequencedTerms.map(t => <TableHead key={t.id} className="text-right">{t.name}</TableHead>)}
-                                        <TableHead className="text-right font-bold bg-primary/5">Year Final %</TableHead>
-                                        <TableHead className="text-center bg-primary/5">Status</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>{yearData.map((r, i) => (
-                                    <TableRow key={i} className="hover:bg-muted/30">
-                                        <TableCell className="font-medium">{r.learnerName}</TableCell>
-                                        {sequencedTerms.map(t => (
-                                            <TableCell key={t.id} className="text-right text-xs">
-                                                {r.termMarks[t.name] !== null ? `${r.termMarks[t.name]}%` : "-"}
-                                            </TableCell>
-                                        ))}
-                                        <TableCell className="text-right font-bold text-primary bg-primary/[0.02]">{r.finalYearMark}%</TableCell>
-                                        <TableCell className="text-center bg-primary/[0.02]"><Badge variant={r.finalYearMark >= 50 ? "outline" : "destructive"} className={r.finalYearMark >= 50 ? "bg-green-50 text-green-700 border-green-200" : ""}>{r.finalYearMark >= 50 ? "Pass" : "Fail"}</Badge></TableCell>
-                                    </TableRow>
-                                ))}</TableBody>
-                            </Table>
+                            <div className="overflow-x-auto w-full h-full">
+                                <Table className="min-w-[800px] w-full">
+                                    <TableHeader className="bg-muted/30">
+                                        <TableRow>
+                                            <TableHead className="sticky left-0 bg-muted/90 z-10 border-r">Learner Name</TableHead>
+                                            {sequencedTerms.map(t => <TableHead key={t.id} className="text-right">{t.name}</TableHead>)}
+                                            <TableHead className="text-right font-bold bg-primary/5">Year Final %</TableHead>
+                                            <TableHead className="text-center bg-primary/5">Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>{yearData.map((r, i) => (
+                                        <TableRow key={i} className="hover:bg-muted/30">
+                                            <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{r.learnerName}</TableCell>
+                                            {sequencedTerms.map(t => (
+                                                <TableCell key={t.id} className="text-right text-xs">
+                                                    {r.termMarks[t.name] !== null ? `${r.termMarks[t.name]}%` : "-"}
+                                                </TableCell>
+                                            ))}
+                                            <TableCell className="text-right font-bold text-primary bg-primary/[0.02]">{r.finalYearMark}%</TableCell>
+                                            <TableCell className="text-center bg-primary/[0.02]"><Badge variant={r.finalYearMark >= 50 ? "outline" : "destructive"} className={r.finalYearMark >= 50 ? "bg-green-50 text-green-700 border-green-200" : ""}>{r.finalYearMark >= 50 ? "Pass" : "Fail"}</Badge></TableCell>
+                                        </TableRow>
+                                    ))}</TableBody>
+                                </Table>
+                            </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 p-12 text-center">
                                 <GraduationCap className="h-16 w-16 opacity-10" />

@@ -135,7 +135,7 @@ const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolea
   };
 
   return (
-    <div className={`space-y-6 ${embedded ? 'pb-2' : 'pb-12'}`}>
+    <div className={`space-y-6 w-full ${embedded ? 'pb-2' : 'pb-12'}`}>
       {!embedded && (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -199,11 +199,11 @@ const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolea
       <Card className="bg-muted/30 border-none shadow-none">
         <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
+                <div className="relative flex-1 w-full">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input 
                         placeholder="Search learner, class, or file name..." 
-                        className="pl-9"
+                        className="pl-9 w-full"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
@@ -238,9 +238,9 @@ const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolea
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <Table>
+      <Card className="w-full overflow-hidden">
+        <CardContent className="p-0 overflow-x-auto w-full">
+          <Table className="min-w-[800px] w-full">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[300px]">File Name</TableHead>

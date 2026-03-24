@@ -73,16 +73,16 @@ export const ScanReviewSection = ({
   };
 
   return (
-    <Card className="h-full flex flex-col overflow-hidden border-none shadow-none">
-      <CardHeader className="flex-shrink-0 border-b bg-muted/10">
-        <div className="flex justify-between items-center">
+    <Card className="h-full flex flex-col overflow-hidden border-none shadow-none w-full">
+      <CardHeader className="flex-shrink-0 border-b bg-muted/10 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
                 <CardTitle className="text-lg">2. Verification Pipeline</CardTitle>
                 <CardDescription className="text-[10px] font-black uppercase text-primary">Question-Level Mode</CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
                 {handleSaveDraft && (
-                    <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={isSavingDraft}>
+                    <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={isSavingDraft} className="w-full sm:w-auto">
                         {isSavingDraft ? <Loader2 className="h-3 w-3 animate-spin" /> : <Cloud className="h-3 w-3 mr-2" />}
                         {isSavingDraft ? "Saving..." : "Save Draft"}
                     </Button>
@@ -94,14 +94,14 @@ export const ScanReviewSection = ({
       <CardContent className="flex-1 overflow-y-auto p-0">
         <TooltipProvider>
             {scannedLearners.length > 0 ? (
-            <div className="p-4 space-y-4">
-                <div className="border rounded-xl bg-background overflow-hidden shadow-sm">
-                    <Table>
+            <div className="p-2 sm:p-4 space-y-4">
+                <div className="border rounded-xl bg-background overflow-x-auto shadow-sm w-full">
+                    <Table className="min-w-[500px]">
                         <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="w-8"></TableHead>
+                                <TableHead className="w-8 px-2"></TableHead>
                                 <TableHead className="text-[10px] uppercase font-black">Learner Identity</TableHead>
-                                <TableHead className="text-[10px] uppercase font-black w-32 text-right">Total extracted</TableHead>
+                                <TableHead className="text-[10px] uppercase font-black w-32 text-right px-4">Total</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -113,17 +113,17 @@ export const ScanReviewSection = ({
                                 return (
                                     <React.Fragment key={i}>
                                         <TableRow className={cn("transition-colors", hasWarn ? "bg-red-50/20" : isExpanded ? "bg-muted/10" : "")}>
-                                            <TableCell className="p-0 text-center">
-                                                <button onClick={() => toggleRow(i)} className="p-1 hover:bg-muted rounded">
-                                                    {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                            <TableCell className="p-1 sm:p-2 text-center">
+                                                <button onClick={() => toggleRow(i)} className="p-2 hover:bg-muted rounded">
+                                                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                                 </button>
                                             </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold">{l.name}</span>
+                                            <TableCell className="py-2 pr-2">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-sm font-bold truncate max-w-[200px]">{l.name}</span>
                                                     <Select value={learnerMappings[i] || ""} onValueChange={(v) => updateLearnerMapping(i, v)}>
-                                                        <SelectTrigger className="h-6 text-[10px] border-none p-0 bg-transparent text-primary underline focus:ring-0">
-                                                            <SelectValue placeholder="Map to class list..." />
+                                                        <SelectTrigger className="h-7 text-[10px] border-muted bg-background focus:ring-1">
+                                                            <SelectValue placeholder="Map to list..." />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             {targetClass?.learners.map(cl => <SelectItem key={cl.id} value={cl.id!}>{cl.name}</SelectItem>)}
@@ -131,7 +131,7 @@ export const ScanReviewSection = ({
                                                     </Select>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right px-4">
                                                 <div className="flex items-center justify-end gap-2">
                                                     {hasWarn && (
                                                         <Tooltip>
@@ -152,8 +152,8 @@ export const ScanReviewSection = ({
                                         
                                         {isExpanded && l.questionMarks && (
                                             <TableRow className="bg-muted/5 border-b">
-                                                <TableCell colSpan={3} className="p-4 pl-12">
-                                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                                <TableCell colSpan={3} className="p-3 sm:p-4 sm:pl-12">
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                                         {l.questionMarks.map((qm: any, qIdx: number) => {
                                                             const isLowConf = qm.confidence < 0.6;
                                                             return (
@@ -163,7 +163,7 @@ export const ScanReviewSection = ({
                                                                         <Tooltip>
                                                                             <TooltipTrigger asChild>
                                                                                 <div className={cn("text-[8px] font-bold cursor-help", getConfidenceColor(qm.confidence))}>
-                                                                                    {Math.round(qm.confidence * 100)}% Conf.
+                                                                                    {Math.round(qm.confidence * 100)}%
                                                                                 </div>
                                                                             </TooltipTrigger>
                                                                             <TooltipContent className="max-w-[200px] text-[10px]">
@@ -176,7 +176,7 @@ export const ScanReviewSection = ({
                                                                         value={qm.score} 
                                                                         onChange={e => updateQM(i, qIdx, e.target.value)}
                                                                         className={cn(
-                                                                            "h-8 text-center font-bold text-lg",
+                                                                            "h-8 text-center font-bold text-base sm:text-lg",
                                                                             isLowConf && "border-amber-200 bg-amber-50/30",
                                                                             qm.score === "" && "border-red-200 bg-red-50/30"
                                                                         )} 
@@ -195,19 +195,19 @@ export const ScanReviewSection = ({
                     </Table>
                 </div>
 
-                <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                    <ShieldCheck className="h-5 w-5 text-blue-600 shrink-0" />
-                    <p className="text-[11px] text-blue-800 leading-tight font-medium">
+                <div className="flex items-start sm:items-center gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                    <ShieldCheck className="h-5 w-5 text-blue-600 shrink-0 mt-0.5 sm:mt-0" />
+                    <p className="text-[10px] sm:text-[11px] text-blue-800 leading-tight font-medium">
                         <strong>Integrity Notice:</strong> Reviewing individual question scores ensures your Diagnostic Reports are accurate. High-confidence items (80%+) are likely correct, but please verify any highlighted low-confidence scores.
                     </p>
                 </div>
 
-                <Button onClick={onSaveToExisting} className="w-full h-14 font-black text-lg shadow-xl shadow-green-500/10 bg-green-600 hover:bg-green-700 active:scale-[0.98] transition-all">
-                    <CheckCircle2 className="mr-2 h-5 w-5" /> Finalize & Commit to Record
+                <Button onClick={onSaveToExisting} className="w-full h-14 font-black text-base sm:text-lg shadow-xl shadow-green-500/10 bg-green-600 hover:bg-green-700 active:scale-[0.98] transition-all">
+                    <CheckCircle2 className="mr-2 h-5 w-5 hidden sm:block" /> Finalize & Commit
                 </Button>
             </div>
             ) : (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 p-12 text-center">
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 p-8 sm:p-12 text-center min-h-[300px]">
                     <div className="bg-muted p-6 rounded-full">
                         <Sparkles className="h-10 w-10 opacity-20" />
                     </div>

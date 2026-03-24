@@ -89,7 +89,7 @@ const ScanAudit = ({ embedded = false, defaultClassId }: { embedded?: boolean, d
   };
 
   return (
-    <div className={`space-y-6 ${embedded ? 'pb-2' : 'pb-12'}`}>
+    <div className={`space-y-6 w-full ${embedded ? 'pb-2' : 'pb-12'}`}>
       {!embedded && (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -104,11 +104,11 @@ const ScanAudit = ({ embedded = false, defaultClassId }: { embedded?: boolean, d
 
       <Card className="bg-muted/30 border-none shadow-none">
         <CardContent className="pt-6">
-            <div className="relative max-w-md">
+            <div className="relative max-w-md w-full">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input 
                     placeholder="Search by class or scan type..." 
-                    className="pl-9"
+                    className="pl-9 w-full"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
@@ -116,9 +116,9 @@ const ScanAudit = ({ embedded = false, defaultClassId }: { embedded?: boolean, d
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <Table>
+      <Card className="w-full overflow-hidden">
+        <CardContent className="p-0 overflow-x-auto w-full">
+          <Table className="min-w-[800px] w-full">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[200px]">Timestamp</TableHead>
