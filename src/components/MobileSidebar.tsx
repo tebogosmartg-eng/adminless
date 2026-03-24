@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
@@ -5,8 +6,10 @@ import { NavLinks } from "./NavLinks";
 import icon from "@/source bucket/ICON.png";
 
 const MobileSidebar = () => {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" size="icon" className="md:hidden">
           <Menu className="h-5 w-5" />
@@ -29,7 +32,7 @@ const MobileSidebar = () => {
           <h1 className="text-2xl font-bold">AdminLess</h1>
         </div>
         <nav className="grid gap-2 text-lg font-medium p-4">
-          <NavLinks />
+          <NavLinks onClick={() => setOpen(false)} />
         </nav>
       </SheetContent>
     </Sheet>

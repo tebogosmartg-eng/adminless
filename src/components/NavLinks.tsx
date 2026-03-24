@@ -2,7 +2,11 @@ import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Users, Settings, Book } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const NavLinks = () => {
+interface NavLinksProps {
+  onClick?: () => void;
+}
+
+export const NavLinks = ({ onClick }: NavLinksProps) => {
   const links = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true },
     { to: "/classes", icon: Users, label: "Classes" },
@@ -17,6 +21,7 @@ export const NavLinks = () => {
           key={link.to}
           to={link.to}
           end={link.end}
+          onClick={onClick}
           className={({ isActive }) =>
             cn(
               "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200",
