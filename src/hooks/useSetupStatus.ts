@@ -21,7 +21,7 @@ export interface SetupStep {
 export const useSetupStatus = () => {
   const { activeYear, activeTerm, loading: academicLoading } = useAcademic();
   const { classes, loading: classesLoading } = useClasses();
-  const { savedSubjects } = useSettings();
+  const { teacherName } = useSettings();
 
   // Scoped Data Presence Checks - Reactive to activeYear AND activeTerm
   const stats = useLiveQuery(async () => {
@@ -87,105 +87,85 @@ export const useSetupStatus = () => {
 
     const steps: SetupStep[] = [];
 
-    // 1. Academic Year
-    const step1Done = !!activeYear;
+    // 1. Personal Details
+    const step1Done = !!teacherName && teacherName.trim() !== "";
     steps.push({
         id: 1,
-        title: 'Select Academic Year',
-        description: 'This ensures all your records are filed under the correct school year.',
+        title: 'Personal Details',
+        description: 'Set up your professional profile to display accurately on your reports.',
         status: step1Done ? 'completed' : 'in-progress',
         isLocked: false
     });
 
-    // 2. Active Term
-    const step2Done = !!activeTerm;
+    // 2. Academic Year / Term
+    const step2Done = !!activeYear && !!activeTerm;
     steps.push({
         id: 2,
-        title: 'Select Active Term',
-        description: 'This ensures your daily work and marks are saved in the right term.',
+        title: 'Academic Year / Term',
+        description: 'This ensures all your records are filed under the correct school cycle.',
         status: step2Done ? 'completed' : (step1Done ? 'in-progress' : 'not-started'),
         isLocked: !step1Done
     });
 
-    // 3. Confirm Subjects
-    const step3Done = savedSubjects.length > 0;
+    // 3. Create Class
+    const step3Done = classes.filter(c => c.term_id === activeTerm?.id).length > 0;
     steps.push({
         id: 3,
-        title: 'Confirm Subjects Taught',
-        description: 'Confirming your subjects ensures your reports and marksheets are professional.',
+        title: 'Create Class',
+        description: 'Creating classes provides the digital register needed for daily admin.',
         status: step3Done ? 'completed' : (step2Done ? 'in-progress' : 'not-started'),
         isLocked: !step2Done
     });
 
-    // 4. Create Classes
-    const step4Done = classes.filter(c => c.term_id === activeTerm?.id).length > 0;
+    // 4. Add Learners
+    const step4Done = stats.learners > 0;
     steps.push({
         id: 4,
-        title: 'Create or Import Classes',
-        description: 'Creating classes provides the digital register needed for daily admin.',
+        title: 'Add Learners',
+        description: 'Populate your class rosters for report cards and marksheets.',
         status: step4Done ? 'completed' : (step3Done ? 'in-progress' : 'not-started'),
         isLocked: !step3Done
     });
 
-    // 5. Learner Lists
-    const step5Done = stats.learners > 0;
+    // 5. Create Assessment
+    const step5Done = stats.assessments > 0;
     steps.push({
         id: 5,
-        title: 'Review Learner Lists',
-        description: 'Reviewing rosters ensures learners are correctly captured for report cards.',
+        title: 'Create Assessment',
+        description: 'Plan formal tasks to organize marksheets and calculations.',
         status: step5Done ? 'completed' : (step4Done ? 'in-progress' : 'not-started'),
         isLocked: !step4Done
     });
 
-    // 6. Assessment Activities
-    const step6Done = stats.assessments > 0;
-    steps.push({
-        id: 6,
-        title: 'Create Assessment Activities',
-        description: 'Planning tasks allows the system to organize marksheets and calculations.',
-        status: step6Done ? 'completed' : (step5Done ? 'in-progress' : 'not-started'),
-        isLocked: !step5Done
-    });
-
-    // 7. Capture Marks
+    // 6. Capture Marks
     const marksCaptured = stats.marks > 0;
     const allMarksDone = stats.totalExpectedMarks > 0 && stats.marks >= stats.totalExpectedMarks;
     steps.push({
-        id: 7,
+        id: 6,
         title: 'Capture Marks',
-        description: 'Recording scores lets the system calculate weighted averages instantly.',
-        status: allMarksDone ? 'completed' : (marksCaptured ? 'in-progress' : (step6Done ? 'in-progress' : 'not-started')),
-        isLocked: !step6Done
+        description: 'Record scores to calculate weighted averages instantly.',
+        status: allMarksDone ? 'completed' : (marksCaptured ? 'in-progress' : (step5Done ? 'in-progress' : 'not-started')),
+        isLocked: !step5Done
     });
 
-    // 8. Resolve Validation Issues
-    const step8Done = weightingReport.isValid && allMarksDone;
+    // 7. Resolve Validation Issues
+    const step7Done = weightingReport.isValid && allMarksDone;
     steps.push({
-        id: 8,
+        id: 7,
         title: 'Resolve Validation Issues',
-        description: 'Resolving issues ensures your data is accurate and ready for moderation.',
-        status: step8Done ? 'completed' : (allMarksDone ? 'in-progress' : 'not-started'),
+        description: 'Ensure data is accurate and ready for moderation.',
+        status: step7Done ? 'completed' : (allMarksDone ? 'in-progress' : 'not-started'),
         isLocked: !allMarksDone
     });
 
-    // 9. Finalise Term
-    const step9Done = !!activeTerm?.is_finalised;
+    // 8. Finalise Term
+    const step8Done = !!activeTerm?.is_finalised;
     steps.push({
-        id: 9,
+        id: 8,
         title: 'Finalise Term',
-        description: 'Finalising locks your work into a professional record safe from changes.',
-        status: step9Done ? 'completed' : (step8Done ? 'in-progress' : 'not-started'),
-        isLocked: !step8Done
-    });
-
-    // 10. Roll Forward
-    steps.push({
-        id: 10,
-        title: 'Roll Forward to Next Term',
-        description: 'Rolling forward saves time by moving learner lists to the next term.',
-        status: 'not-started',
-        isLocked: !step9Done,
-        optional: true
+        description: 'Lock your work into a professional record safe from changes.',
+        status: step8Done ? 'completed' : (step7Done ? 'in-progress' : 'not-started'),
+        isLocked: !step7Done
     });
 
     const completedCount = steps.filter(s => s.status === 'completed' && !s.optional).length;
@@ -196,11 +176,11 @@ export const useSetupStatus = () => {
         coreSteps: steps,
         progress,
         isLoading: false,
-        isReadyForFinalization: step9Done,
+        isReadyForFinalization: step8Done,
         hasMarksCaptured: marksCaptured,
         missingRequired: steps.filter(s => s.status !== 'completed' && !s.optional)
     };
-  }, [activeYear, activeTerm, classes, stats, weightingReport, savedSubjects, academicLoading, classesLoading]);
+  }, [activeYear, activeTerm, classes, stats, weightingReport, teacherName, academicLoading, classesLoading]);
 
   return status;
 };

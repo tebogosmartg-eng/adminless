@@ -145,6 +145,14 @@ const ClassDetails = () => {
     }
   }, [location.state, learners, dialogs]);
 
+  useEffect(() => {
+    if (location.state?.openDialog === 'addLearners') {
+        dialogs.setIsEditLearnersOpen(true);
+        // Clear state to prevent reopening on refresh
+        window.history.replaceState({}, document.title);
+    }
+  }, [location.state?.openDialog, dialogs]);
+
   if (classesLoading) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">

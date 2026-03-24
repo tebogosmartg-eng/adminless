@@ -26,7 +26,7 @@ const Settings = () => {
   const isGuided = location.state?.fromOnboarding;
 
   let defaultTab = "academic";
-  if (highlightId === 'subject-config') defaultTab = "profile";
+  if (highlightId === 'subject-config' || highlightId === 'profile-settings') defaultTab = "profile";
 
   return (
     <div className="space-y-6 pb-20">
@@ -73,7 +73,9 @@ const Settings = () => {
         </TabsContent>
 
         <TabsContent value="profile" className="space-y-6">
-            <SchoolProfileSettings />
+            <div className={cn(highlightId === 'profile-settings' ? "guide-highlight rounded-lg" : "")}>
+                <SchoolProfileSettings />
+            </div>
             <div className={cn(highlightId === 'subject-config' ? "guide-highlight rounded-lg" : "")}>
                 <StandardListsSettings />
             </div>

@@ -92,48 +92,44 @@ export const GetStartedChecklist = () => {
 
     switch (id) {
       case 1:
+        navigate('/settings', { state: { highlightId: 'profile-settings', fromOnboarding: true } });
+        break;
       case 2:
         navigate('/settings', { state: { highlightId: 'year-selector', fromOnboarding: true } });
         break;
       case 3:
-        navigate('/settings', { state: { highlightId: 'subject-config', fromOnboarding: true } });
-        break;
-      case 4:
         navigate('/classes', { state: { highlightId: 'create-class-btn', fromOnboarding: true } });
         break;
-      case 5:
+      case 4:
         if (firstClassId) {
-            navigate(`/classes/${firstClassId}`, { state: { fromOnboarding: true } });
+            navigate(`/classes/${firstClassId}`, { state: { openDialog: 'addLearners', fromOnboarding: true } });
         } else {
-            navigate('/classes', { state: { highlightId: 'class-list-roster', fromOnboarding: true } });
+            navigate('/classes', { state: { highlightId: 'create-class-btn', fromOnboarding: true } });
         }
         break;
-      case 6:
+      case 5:
         if (firstClassId) {
             navigate(`/classes/${firstClassId}`, { state: { highlightId: 'new-task-btn', fromOnboarding: true } });
         } else {
             navigate('/classes');
         }
         break;
-      case 7:
+      case 6:
         if (firstClassId) {
             navigate(`/classes/${firstClassId}`, { state: { highlightId: 'mark-sheet-grid', fromOnboarding: true } });
         } else {
             navigate('/classes');
         }
         break;
-      case 8:
+      case 7:
         if (firstClassId) {
             navigate(`/classes/${firstClassId}`, { state: { highlightId: 'integrity-guard', fromOnboarding: true } });
         } else {
             navigate('/classes');
         }
         break;
-      case 9:
+      case 8:
         navigate('/settings', { state: { highlightId: 'finalize-term-btn', fromOnboarding: true } });
-        break;
-      case 10:
-        navigate('/settings', { state: { highlightId: 'roll-forward-btn', fromOnboarding: true } });
         break;
       default:
         navigate('/settings');
@@ -216,7 +212,7 @@ export const GetStartedChecklist = () => {
       
       {!isMinimized && (
         <CardContent className="pb-6 px-6 animate-in slide-in-from-top-2 duration-300">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {coreSteps.map((step) => (
                 <button
                 key={step.id}

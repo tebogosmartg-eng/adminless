@@ -37,6 +37,8 @@ interface SettingsContextType {
   savedGrades: string[];
   addGrade: (grade: string) => void;
   removeGrade: (grade: string) => void;
+  onboardingCompleted: boolean;
+  setOnboardingCompleted: (val: boolean) => void;
   updateProfileSettings: (updates: {
     schoolName?: string;
     schoolCode?: string;
@@ -45,6 +47,7 @@ interface SettingsContextType {
     contactEmail?: string;
     contactPhone?: string;
     atRiskThreshold?: number;
+    onboardingCompleted?: boolean;
   }) => Promise<void>;
   hasProfile: boolean;
 }
@@ -80,6 +83,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [commentBank, setCommentBankState] = useState<string[]>([]);
   const [savedSubjects, setSavedSubjectsState] = useState<string[]>(DEFAULT_DBE_SUBJECTS);
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
+  const [onboardingCompleted, setOnboardingCompletedState] = useState<boolean>(false);
 
   /**
    * BOOTSTRAP GUARD: Ensures the remote profile row exists.
@@ -128,6 +132,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
         if (Array.isArray(profile.comment_bank)) setCommentBankState(profile.comment_bank);
         if (Array.isArray(profile.subjects) && profile.subjects.length > 0) setSavedSubjectsState(profile.subjects);
         if (Array.isArray(profile.grades)) setSavedGradesState(profile.grades);
+        if (profile.onboarding_completed !== undefined) setOnboardingCompletedState(profile.onboarding_completed);
     }
   }, [profile]);
 
@@ -147,6 +152,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     contactEmail?: string;
     contactPhone?: string;
     atRiskThreshold?: number;
+    onboardingCompleted?: boolean;
   }) => {
     if (!session?.user.id) return;
     const dbUpdates: any = {};
@@ -157,6 +163,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     if (updates.contactEmail !== undefined) dbUpdates.contact_email = updates.contactEmail;
     if (updates.contactPhone !== undefined) dbUpdates.contact_phone = updates.contactPhone;
     if (updates.atRiskThreshold !== undefined) dbUpdates.at_risk_threshold = updates.atRiskThreshold;
+    if (updates.onboardingCompleted !== undefined) dbUpdates.onboarding_completed = updates.onboardingCompleted;
 
     if (updates.schoolName !== undefined) setSchoolNameState(updates.schoolName);
     if (updates.schoolCode !== undefined) setSchoolCodeState(updates.schoolCode || "");
@@ -165,6 +172,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     if (updates.contactEmail !== undefined) setContactEmailState(updates.contactEmail);
     if (updates.contactPhone !== undefined) setContactPhoneState(updates.contactPhone);
     if (updates.atRiskThreshold !== undefined) setAtRiskThresholdState(updates.atRiskThreshold);
+    if (updates.onboardingCompleted !== undefined) setOnboardingCompletedState(updates.onboardingCompleted);
 
     await updateProfile(dbUpdates);
   };
@@ -221,6 +229,11 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     updateProfile({ at_risk_threshold: threshold });
   };
 
+  const setOnboardingCompleted = (val: boolean) => {
+    setOnboardingCompletedState(val);
+    updateProfile({ onboarding_completed: val });
+  };
+
   const addToCommentBank = (comment: string) => {
     if (!commentBank.includes(comment)) {
       const newBank = [...commentBank, comment];
@@ -275,6 +288,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
       addToCommentBank, removeFromCommentBank,
       savedSubjects, addSubject, removeSubject,
       savedGrades, addGrade, removeGrade,
+      onboardingCompleted, setOnboardingCompleted,
       updateProfileSettings,
       hasProfile: !!profile
     }}>
