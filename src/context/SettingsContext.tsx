@@ -132,7 +132,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
         if (Array.isArray(profile.comment_bank)) setCommentBankState(profile.comment_bank);
         if (Array.isArray(profile.subjects) && profile.subjects.length > 0) setSavedSubjectsState(profile.subjects);
         if (Array.isArray(profile.grades)) setSavedGradesState(profile.grades);
-        if (profile.onboarding_completed !== undefined) setOnboardingCompletedState(profile.onboarding_completed);
+        if (profile.onboarding_completed !== undefined && profile.onboarding_completed !== null) setOnboardingCompletedState(profile.onboarding_completed);
     }
   }, [profile]);
 
