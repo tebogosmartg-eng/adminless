@@ -39,8 +39,10 @@ export const ContextBar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isOnline, isSyncing, syncProgress, pendingChanges, forceSync } = useSync();
+  const isOnlineOnly = localStorage.getItem('sma_online_only_mode') === 'true';
 
   const currentClass = classId ? classes.find(c => c.id === classId) : null;
+
   const isClassPage = location.pathname.includes('/classes/') && currentClass;
   
   // Detect if we are in guided setup mode
@@ -162,29 +164,30 @@ export const ContextBar = () => {
          <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <button 
-                        onClick={() => forceSync()}
+                    <button
+                        onClick={() => !isOnlineOnly && forceSync()}
                         className={cn(
                             "flex items-center gap-2 px-2.5 py-1 rounded-md transition-all",
-                            isGuided 
-                                ? "bg-white/10 text-white" 
-                                : isSyncing ? "bg-blue-50 text-blue-600" : pendingChanges > 0 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"
+                            isGuided
+                                ? "bg-white/10 text-white"
+                                : isSyncing ? "bg-blue-50 text-blue-600" : (pendingChanges > 0 || isOnlineOnly) ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700",
+                            isOnlineOnly && "cursor-default opacity-80"
                         )}
                     >
                         {isSyncing ? (
                             <RefreshCw className="h-3 w-3 animate-spin" />
-                        ) : pendingChanges > 0 ? (
+                        ) : (pendingChanges > 0 || isOnlineOnly) ? (
                             <CloudUpload className="h-3 w-3" />
                         ) : (
                             <CheckCircle2 className="h-3 w-3" />
                         )}
                         <span className="hidden sm:inline">
-                            {isSyncing ? `Syncing... ${syncProgress > 0 ? `${syncProgress}%` : ''}` : pendingChanges > 0 ? `${pendingChanges} pending` : "Safe in Cloud"}
+                            {isSyncing ? `Syncing... ${syncProgress > 0 ? `${syncProgress}%` : ''}` : isOnlineOnly ? "Cloud Active" : pendingChanges > 0 ? `${pendingChanges} pending` : "Safe in Cloud"}
                         </span>
                     </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                    {pendingChanges > 0 ? "Changes saving to Supabase..." : "Your data is backed up and synced."}
+                    {isOnlineOnly ? "App is running in stable online-only mode." : pendingChanges > 0 ? "Changes saving to Supabase..." : "Your data is backed up and synced."}
                 </TooltipContent>
             </Tooltip>
          </TooltipProvider>

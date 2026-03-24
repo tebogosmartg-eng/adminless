@@ -184,7 +184,71 @@ export const pullData = async (userId: string, onProgress?: (progress: number) =
 };
 
 export const queueAction = async (table: string, action: 'create' | 'update' | 'delete' | 'upsert', data: any) => {
+  const isOnlineOnly = localStorage.getItem('sma_online_only_mode') === 'true';
   const dataItems = Array.isArray(data) ? data : [data];
+  
+  if (isOnlineOnly && navigator.onLine) {
+    // Direct push to Supabase for stability in online-only mode
+    for (const item of dataItems) {
+      const payload = { ...item };
+      delete payload.sync_status;
+
+      // Map fields if necessary (duplicating logic from pushChanges for consistency)
+      if (table === 'classes') {
+        if (payload.className !== undefined) {
+          payload.class_name = payload.className;
+          delete payload.className;
+        }
+      }
+      if (table === 'assessments') {
+        if (payload.max !== undefined) {
+          payload.max_mark = payload.max;
+          delete payload.max;
+        }
+        if (payload.termId && !payload.term_id) {
+          payload.term_id = payload.termId;
+        }
+        delete payload.termId;
+      }
+
+      if (!payload.user_id && table !== 'profiles') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) payload.user_id = user.id;
+      }
+
+      let error = null;
+      if (action === 'create' || action === 'upsert') {
+        const { error: e } = await supabase.from(table as any).upsert(payload);
+        error = e;
+      } else if (action === 'update') {
+        const { error: e } = await supabase.from(table as any).update(payload).eq('id', payload.id);
+        error = e;
+      } else if (action === 'delete') {
+        const { error: e } = await supabase.from(table as any).delete().eq('id', payload.id);
+        error = e;
+      }
+
+      if (error) {
+        console.error(`[OnlineOnly:Error] Direct push failed for table '${table}':`, error.message);
+        throw error; // Rethrow to handle in UI
+      }
+    }
+    
+    // Also update Dexie as a local cache to keep useLiveQuery working correctly
+    // This maintains UI reactivity without relying on the sync engine
+    for (const item of dataItems) {
+      if (action === 'delete') {
+        // @ts-ignore
+        await db[table].delete(item.id);
+      } else {
+        // @ts-ignore
+        await db[table].put(item);
+      }
+    }
+    return;
+  }
+
+  // Legacy sync queue logic
   for (const item of dataItems) {
     if (item.id && (action === 'update' || action === 'upsert' || action === 'create')) {
       const existing = await db.sync_queue

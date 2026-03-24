@@ -32,6 +32,7 @@ import { SyncProvider } from "./context/SyncContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { SystemThemeManager } from "./components/SystemThemeManager";
 import { ScopeDiagnostics } from "./components/ScopeDiagnostics";
+import { DataMigrationGuard } from "./components/DataMigrationGuard";
 
 const queryClient = new QueryClient();
 
@@ -96,33 +97,36 @@ const App = () => {
                     <ActivityProvider session={session}>
                         <SettingsProvider session={session}>
                             <ClassesProvider session={session}>
-                                <ScopeDiagnostics />
-                                <OfflineIndicator />
-                                <Routes>
-                                <Route path="/welcome" element={session ? <Navigate to="/" /> : <Landing />} />
-                                <Route path="/pilot-signup" element={session ? <Navigate to="/login" /> : <PilotSignup />} />
-                                <Route path="/login" element={session ? <Navigate to="/" /> : <Login />} />
-                                <Route
-                                    element={
-                                    <ProtectedRoute session={session}>
-                                        <Layout />
-                                    </ProtectedRoute>
-                                    }
-                                >
-                                    <Route path="/" element={<Dashboard />} />
-                                    <Route path="/classes" element={<Classes />} />
-                                    <Route path="/classes/:classId" element={<ClassDetails />} />
-                                    <Route path="/scan" element={<Scan />} />
-                                    <Route path="/scan-audit" element={<ScanAudit />} />
-                                    <Route path="/teacher-file" element={<TeacherFile />} /> 
-                                    <Route path="/year/:yearId/term/:termId/class/:classId/teacher-file/review" element={<TeacherFileReview />} />
-                                    <Route path="/reports" element={<Reports />} />
-                                    <Route path="/evidence-audit" element={<EvidenceAudit />} />
-                                    <Route path="/settings" element={<Settings />} />
-                                </Route>
-                                <Route path="*" element={<Navigate to="/" />} />
-                                </Routes>
+                                <DataMigrationGuard>
+                                    <ScopeDiagnostics />
+                                    <OfflineIndicator />
+                                    <Routes>
+                                    <Route path="/welcome" element={session ? <Navigate to="/" /> : <Landing />} />
+                                    <Route path="/pilot-signup" element={session ? <Navigate to="/login" /> : <PilotSignup />} />
+                                    <Route path="/login" element={session ? <Navigate to="/" /> : <Login />} />
+                                    <Route
+                                        element={
+                                        <ProtectedRoute session={session}>
+                                            <Layout />
+                                        </ProtectedRoute>
+                                        }
+                                    >
+                                        <Route path="/" element={<Dashboard />} />
+                                        <Route path="/classes" element={<Classes />} />
+                                        <Route path="/classes/:classId" element={<ClassDetails />} />
+                                        <Route path="/scan" element={<Scan />} />
+                                        <Route path="/scan-audit" element={<ScanAudit />} />
+                                        <Route path="/teacher-file" element={<TeacherFile />} />
+                                        <Route path="/year/:yearId/term/:termId/class/:classId/teacher-file/review" element={<TeacherFileReview />} />
+                                        <Route path="/reports" element={<Reports />} />
+                                        <Route path="/evidence-audit" element={<EvidenceAudit />} />
+                                        <Route path="/settings" element={<Settings />} />
+                                    </Route>
+                                    <Route path="*" element={<Navigate to="/" />} />
+                                    </Routes>
+                                </DataMigrationGuard>
                             </ClassesProvider>
+
                         </SettingsProvider>
                     </ActivityProvider>
                 </AcademicProvider>

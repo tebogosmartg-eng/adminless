@@ -7,6 +7,7 @@ export const OfflineIndicator = () => {
   const { isOnline, isSyncing, syncProgress, pendingChanges } = useSync();
   const [showSynced, setShowSynced] = useState(false);
   const [hasInitialSynced, setHasInitialSynced] = useState(false);
+  const isOnlineOnly = localStorage.getItem('sma_online_only_mode') === 'true';
 
   useEffect(() => {
     if (isSyncing) {
@@ -19,6 +20,7 @@ export const OfflineIndicator = () => {
   }, [isSyncing, pendingChanges, isOnline, hasInitialSynced]);
 
   if (isOnline && pendingChanges === 0 && !isSyncing && !showSynced) return null;
+  if (isOnlineOnly && isOnline && !isSyncing) return null; // Don't show in online-only mode unless syncing or offline
 
   return (
     <div className={cn(

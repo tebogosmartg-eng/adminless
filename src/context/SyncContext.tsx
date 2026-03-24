@@ -37,8 +37,17 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await pushChanges((p) => setSyncProgress(p)); 
-        await pullData(user.id, (p) => setSyncProgress(p)); 
+        const isOnlineOnly = localStorage.getItem('sma_online_only_mode') === 'true';
+        
+        if (isOnlineOnly) {
+          // In online-only mode, we still "pull" to keep Dexie in sync for UI reactivity
+          // but we skip the "pushChanges" queue as writes are direct now
+          await pullData(user.id, (p) => setSyncProgress(p));
+        } else {
+          await pushChanges((p) => setSyncProgress(p));
+          await pullData(user.id, (p) => setSyncProgress(p));
+        }
+        
         setLastSyncTime(new Date());
         setSyncProgress(100);
       }
