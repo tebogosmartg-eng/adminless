@@ -1,16 +1,16 @@
 import { ClassInfo, Learner, ClassInsight, LearnerComment, ScanMode, DiagnosticRow, FullDiagnostic } from "@/lib/types";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
 
 const invokeGemini = async (action: string, payload: any) => {
   const { data: { session } } = await supabase.auth.getSession();
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini-ai`;
+  const url = `${SUPABASE_URL}/functions/v1/gemini-ai`;
   
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${session?.access_token}`,
       'Content-Type': 'application/json',
-      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+      'apikey': SUPABASE_ANON_KEY
     },
     body: JSON.stringify({ action, payload })
   });

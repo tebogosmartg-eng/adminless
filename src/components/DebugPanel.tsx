@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 
 export const DebugPanel = () => {
   const [data, setData] = useState<any>(null);
@@ -16,7 +16,7 @@ export const DebugPanel = () => {
       const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single();
       const { count: classCount } = await supabase.from('classes').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
       
-      const host = new URL(import.meta.env.VITE_SUPABASE_URL).hostname;
+      const host = SUPABASE_URL ? new URL(SUPABASE_URL).hostname : 'Unknown';
 
       setData({
         url: host,

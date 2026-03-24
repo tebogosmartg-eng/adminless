@@ -1,8 +1,7 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 
 export const runSupabaseDiagnostics = async () => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const hostname = url ? new URL(url).hostname : 'Unknown';
+  const hostname = SUPABASE_URL ? new URL(SUPABASE_URL).hostname : 'Unknown';
   
   console.group("%c[Supabase Diagnostic]", "color: #2563eb; font-weight: bold;");
   console.log(`Project Host: ${hostname}`);
