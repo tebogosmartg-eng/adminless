@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 interface SyncContextType {
   isOnline: boolean;
   isSyncing: boolean;
+  syncProgress: number;
   pendingChanges: number;
   lastSyncTime: Date | null;
   forceSync: () => Promise<void>;
@@ -20,6 +21,7 @@ const SyncContext = createContext<SyncContextType | undefined>(undefined);
 export const SyncProvider = ({ children }: { children: ReactNode }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const syncInProgress = useRef(false);
   
@@ -30,19 +32,23 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
     
     syncInProgress.current = true;
     setIsSyncing(true);
+    setSyncProgress(0);
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await pushChanges(); 
-        await pullData(user.id); 
+        await pushChanges((p) => setSyncProgress(p)); 
+        await pullData(user.id, (p) => setSyncProgress(p)); 
         setLastSyncTime(new Date());
+        setSyncProgress(100);
       }
     } catch (error) {
       console.error("Sync failed:", error);
     } finally {
       setIsSyncing(false);
       syncInProgress.current = false;
+      // Let the 100% display briefly before resetting
+      setTimeout(() => setSyncProgress(0), 1500);
     }
   }, [isOnline]);
 
@@ -77,20 +83,17 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
     };
     initSync();
 
-    // 1. Auto sync on login
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && isOnline && mounted) {
         forceSync();
       }
     });
 
-    // 2. Auto sync on window focus
     const handleFocus = () => {
       if (isOnline && mounted) forceSync();
     };
     window.addEventListener('focus', handleFocus);
 
-    // 3. Periodic background sync (every 30 seconds)
     const syncInterval = setInterval(() => {
       if (isOnline && mounted) forceSync();
     }, 30000);
@@ -104,7 +107,7 @@ export const SyncProvider = ({ children }: { children: ReactNode }) => {
   }, [isOnline, forceSync]);
 
   return (
-    <SyncContext.Provider value={{ isOnline, isSyncing, pendingChanges, lastSyncTime, forceSync }}>
+    <SyncContext.Provider value={{ isOnline, isSyncing, syncProgress, pendingChanges, lastSyncTime, forceSync }}>
       {children}
     </SyncContext.Provider>
   );

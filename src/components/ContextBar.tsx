@@ -38,7 +38,7 @@ export const ContextBar = () => {
   const { classId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isOnline, isSyncing, pendingChanges, forceSync } = useSync();
+  const { isOnline, isSyncing, syncProgress, pendingChanges, forceSync } = useSync();
 
   const currentClass = classId ? classes.find(c => c.id === classId) : null;
   const isClassPage = location.pathname.includes('/classes/') && currentClass;
@@ -179,7 +179,7 @@ export const ContextBar = () => {
                             <CheckCircle2 className="h-3 w-3" />
                         )}
                         <span className="hidden sm:inline">
-                            {isSyncing ? "Syncing..." : pendingChanges > 0 ? `${pendingChanges} pending` : "Safe in Cloud"}
+                            {isSyncing ? `Syncing... ${syncProgress > 0 ? `${syncProgress}%` : ''}` : pendingChanges > 0 ? `${pendingChanges} pending` : "Safe in Cloud"}
                         </span>
                     </button>
                 </TooltipTrigger>

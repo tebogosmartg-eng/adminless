@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
 export const OfflineIndicator = () => {
-  const { isOnline, isSyncing, pendingChanges } = useSync();
+  const { isOnline, isSyncing, syncProgress, pendingChanges } = useSync();
   const [showSynced, setShowSynced] = useState(false);
   const [hasInitialSynced, setHasInitialSynced] = useState(false);
 
@@ -37,7 +37,7 @@ export const OfflineIndicator = () => {
       ) : isSyncing ? (
         <>
             <RefreshCw className="h-3 w-3 animate-spin" />
-            <span>Syncing...</span>
+            <span>Syncing... {syncProgress > 0 ? `${syncProgress}%` : ''}</span>
         </>
       ) : pendingChanges > 0 ? (
          <>

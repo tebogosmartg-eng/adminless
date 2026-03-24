@@ -4,18 +4,22 @@ import { supabase } from '@/integrations/supabase/client';
 let isPushing = false;
 let isPulling = false;
 
-export const pushChanges = async () => {
+export const pushChanges = async (onProgress?: (progress: number) => void) => {
   if (isPushing || !navigator.onLine) return;
   
   const queueCount = await db.sync_queue.count();
-  if (queueCount === 0) return;
+  if (queueCount === 0) {
+    if (onProgress) onProgress(50); // Skip to 50% if there is nothing to push
+    return;
+  }
 
   isPushing = true;
   console.log(`[Sync] Pushing ${queueCount} changes to Supabase...`);
   
   try {
     const queue = await db.sync_queue.orderBy('timestamp').toArray();
-    
+    let completed = 0;
+
     for (const item of queue) {
       const { table, action, data, id } = item;
       const payload = { ...data };
@@ -64,6 +68,9 @@ export const pushChanges = async () => {
       }
       
       await db.sync_queue.delete(id!);
+      
+      completed++;
+      if (onProgress) onProgress(Math.round((completed / queueCount) * 50));
     }
   } catch (err) {
       console.error("[Sync:Critical] Push process interrupted:", err);
@@ -72,7 +79,7 @@ export const pushChanges = async () => {
   }
 };
 
-export const pullData = async (userId: string) => {
+export const pullData = async (userId: string, onProgress?: (progress: number) => void) => {
   if (isPulling || !navigator.onLine) return;
   isPulling = true;
   
@@ -86,8 +93,15 @@ export const pullData = async (userId: string) => {
       return acc;
     }, {} as Record<string, Set<string>>);
 
+    let pulledCount = 0;
+    const totalToPull = 26; // Total number of tables to check
+    
     const pullTable = async (tableName: string, query: any) => {
       const { data, error } = await query;
+      
+      pulledCount++;
+      if (onProgress) onProgress(50 + Math.round((pulledCount / totalToPull) * 50));
+      
       if (error) {
           console.error(`[Sync:Error] Pull failed for table '${tableName}':`, error.message);
           return;
@@ -111,6 +125,7 @@ export const pullData = async (userId: string) => {
       }
     };
 
+    // Global Base Tables
     await pullTable('academic_years', supabase.from('academic_years').select('*').eq('user_id', userId));
     await pullTable('terms', supabase.from('terms').select('*').eq('user_id', userId));
     await pullTable('profiles', supabase.from('profiles').select('*').eq('id', userId));
@@ -120,6 +135,7 @@ export const pullData = async (userId: string) => {
     const classIds = localClasses.map(c => c.id);
 
     if (classIds.length > 0) {
+      // Class Scoped Tables
       await pullTable('learners', supabase.from('learners').select('*').in('class_id', classIds));
       await pullTable('assessments', supabase.from('assessments').select('*').in('class_id', classIds));
       
@@ -128,12 +144,19 @@ export const pullData = async (userId: string) => {
 
       if (assIds.length > 0) {
         await pullTable('assessment_marks', supabase.from('assessment_marks').select('*').in('assessment_id', assIds));
+      } else {
+        pulledCount++;
+        if (onProgress) onProgress(50 + Math.round((pulledCount / totalToPull) * 50));
       }
 
       await pullTable('attendance', supabase.from('attendance').select('*').in('class_id', classIds));
       await pullTable('evidence', supabase.from('evidence').select('*').in('class_id', classIds));
+    } else {
+      pulledCount += 5;
+      if (onProgress) onProgress(50 + Math.round((pulledCount / totalToPull) * 50));
     }
 
+    // Other Independent/Linked Tables
     await pullTable('todos', supabase.from('todos').select('*').eq('user_id', userId));
     await pullTable('timetable', supabase.from('timetable').select('*').eq('user_id', userId));
     await pullTable('lesson_logs', supabase.from('lesson_logs').select('*').eq('user_id', userId));
@@ -146,8 +169,6 @@ export const pullData = async (userId: string) => {
     await pullTable('teacher_file_attachments', supabase.from('teacher_file_attachments').select('*').eq('user_id', userId));
     await pullTable('diagnostics', supabase.from('diagnostics').select('*').eq('user_id', userId));
     await pullTable('moderation_samples', supabase.from('moderation_samples').select('*').eq('user_id', userId));
-    
-    // NEW FLEXIBLE TEACHER FILE TABLES
     await pullTable('teacherfile_templates', supabase.from('teacherfile_templates').select('*').eq('user_id', userId));
     await pullTable('teacherfile_template_sections', supabase.from('teacherfile_template_sections').select('*').eq('user_id', userId));
     await pullTable('teacherfile_entries', supabase.from('teacherfile_entries').select('*').eq('user_id', userId));
