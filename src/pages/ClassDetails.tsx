@@ -158,10 +158,10 @@ const ClassDetails = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-7xl space-y-6 pb-20 relative animate-in fade-in duration-700">
-      <div className="flex flex-col gap-4">
+    <div className="container mx-auto p-2 sm:p-4 w-full max-w-7xl space-y-6 pb-20 relative animate-in fade-in duration-700">
+      <div className="flex flex-col gap-4 w-full">
         {isGuided && (
-            <div className="flex justify-end">
+            <div className="flex justify-end w-full">
                 <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2 border-primary text-primary hover:bg-primary/5">
                     <ArrowLeft className="h-4 w-4" /> Back to Checklist
                 </Button>
@@ -184,22 +184,22 @@ const ClassDetails = () => {
         />
       </div>
 
-      <Tabs defaultValue="assessments" className="w-full">
-        <TabsList className="flex items-center justify-start w-full h-12 bg-muted/50 border p-1 overflow-x-auto no-scrollbar gap-1 rounded-xl">
-          <TabsTrigger value="assessments" className="flex-none h-10 px-6 rounded-lg font-bold">Assessments</TabsTrigger>
-          <TabsTrigger value="capture" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
+      <Tabs defaultValue="assessments" className="w-full max-w-full">
+        <TabsList className="flex items-center justify-start w-full h-auto min-h-12 bg-muted/50 border p-1 overflow-x-auto no-scrollbar gap-1 rounded-xl flex-nowrap">
+          <TabsTrigger value="assessments" className="flex-none h-10 px-4 sm:px-6 rounded-lg font-bold text-xs sm:text-sm">Assessments</TabsTrigger>
+          <TabsTrigger value="capture" className="flex-none h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
             <Camera className="h-3.5 w-3.5" /> Capture
           </TabsTrigger>
-          <TabsTrigger value="insights" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
+          <TabsTrigger value="insights" className="flex-none h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
             <BarChart3 className="h-3.5 w-3.5" /> Insights
           </TabsTrigger>
-          <TabsTrigger value="evidence" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
+          <TabsTrigger value="evidence" className="flex-none h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
             <ShieldCheck className="h-3.5 w-3.5" /> Evidence
           </TabsTrigger>
-          <TabsTrigger value="reports" className="flex-none h-10 px-6 gap-2 rounded-lg font-bold">
+          <TabsTrigger value="reports" className="flex-none h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
             <FileDown className="h-3.5 w-3.5" /> Reports
           </TabsTrigger>
-          <TabsTrigger value="attendance" className="flex-none h-10 px-6 rounded-lg font-bold">Register</TabsTrigger>
+          <TabsTrigger value="attendance" className="flex-none h-10 px-4 sm:px-6 rounded-lg font-bold text-xs sm:text-sm">Register</TabsTrigger>
         </TabsList>
         
         <TabsContent value="assessments" className="mt-4">
@@ -224,7 +224,7 @@ const ClassDetails = () => {
         </TabsContent>
 
         <TabsContent value="evidence" className="mt-4 space-y-8">
-             <div className="max-w-2xl mx-auto">
+             <div className="max-w-2xl mx-auto w-full">
                 <EvidenceManager 
                     classId={classId!} 
                     termId={activeTerm?.id}

@@ -47,7 +47,7 @@ export const EditClassDialog = ({ open, onOpenChange, classInfo }: EditClassDial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] w-[95vw]">
         <DialogHeader>
           <DialogTitle>Edit Class</DialogTitle>
           <DialogDescription>
@@ -55,47 +55,55 @@ export const EditClassDialog = ({ open, onOpenChange, classInfo }: EditClassDial
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-grade" className="text-right">
+          <div className="flex flex-col sm:grid sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+            <Label htmlFor="edit-grade" className="sm:text-right font-semibold">
               Grade
             </Label>
-            <div className="col-span-3">
+            <div className="sm:col-span-3 w-full">
               <Input 
                 id="edit-grade" 
                 value={grade} 
                 onChange={(e) => setGrade(e.target.value)} 
                 list="edit-grades-list"
+                className="w-full"
               />
               <datalist id="edit-grades-list">
                 {savedGrades.map(g => <option key={g} value={g} />)}
               </datalist>
             </div>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-subject" className="text-right">
+          <div className="flex flex-col sm:grid sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+            <Label htmlFor="edit-subject" className="sm:text-right font-semibold">
               Subject
             </Label>
-            <div className="col-span-3">
+            <div className="sm:col-span-3 w-full">
               <Input 
                 id="edit-subject" 
                 value={subject} 
                 onChange={(e) => setSubject(e.target.value)} 
                 list="edit-subjects-list"
+                className="w-full"
               />
               <datalist id="edit-subjects-list">
                 {savedSubjects.map(s => <option key={s} value={s} />)}
               </datalist>
             </div>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-className" className="text-right">
+          <div className="flex flex-col sm:grid sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+            <Label htmlFor="edit-className" className="sm:text-right font-semibold">
               Class Name
             </Label>
-            <Input id="edit-className" value={className} onChange={(e) => setClassName(e.target.value)} className="col-span-3" />
+            <Input 
+                id="edit-className" 
+                value={className} 
+                onChange={(e) => setClassName(e.target.value)} 
+                className="sm:col-span-3 w-full" 
+            />
           </div>
         </div>
-        <DialogFooter>
-          <Button type="submit" onClick={handleSubmit}>Save Changes</Button>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancel</Button>
+          <Button type="submit" onClick={handleSubmit} className="w-full sm:w-auto">Save Changes</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

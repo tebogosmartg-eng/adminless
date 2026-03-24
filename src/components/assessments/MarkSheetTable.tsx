@@ -204,12 +204,12 @@ export const MarkSheetTable = ({
 
   return (
     <>
-      <div className="border bg-white dark:bg-card rounded-md overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-            <Table className="border-collapse table-fixed w-full">
+      <div className="border bg-white dark:bg-card rounded-md overflow-hidden shadow-sm w-full max-w-full">
+        <div className="overflow-x-auto w-full">
+            <Table className="border-collapse table-fixed w-full min-w-max">
             <TableHeader>
                 <TableRow className="hover:bg-transparent border-b h-12">
-                <TableHead className="w-[220px] sticky left-0 bg-muted/80 dark:bg-card z-20 border-r backdrop-blur-sm">
+                <TableHead className="w-[140px] sm:w-[220px] sticky left-0 bg-muted/90 dark:bg-card z-20 border-r backdrop-blur-sm">
                     <div 
                         className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors select-none"
                         onClick={() => onSort && onSort('name')}
@@ -330,12 +330,12 @@ export const MarkSheetTable = ({
                     >
                         <div className="flex items-center justify-between px-1">
                         <button 
-                            className="hover:underline text-sm truncate max-w-[160px] text-left"
+                            className="hover:underline text-xs sm:text-sm truncate max-w-[90px] sm:max-w-[160px] text-left"
                             onClick={() => onViewLearnerProfile && onViewLearnerProfile(learner)}
                         >
                             {learner.name}
                         </button>
-                        {isAtRisk && <AlertCircle className="h-3.5 w-3.5 text-amber-500" />}
+                        {isAtRisk && <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
                         </div>
                     </TableCell>
                     {visibleAssessments.map((ass, colIdx) => {
@@ -345,7 +345,7 @@ export const MarkSheetTable = ({
                         const isHighRiskCell = learner.id ? highRiskCells.has(`${ass.id}-${learner.id}`) : false;
                         
                         return (
-                        <TableCell key={ass.id} className="p-0 border-r last:border-r-0 relative">
+                        <TableCell key={ass.id} className="p-0 border-r last:border-r-0 relative min-w-[60px]">
                             <ContextMenu>
                             <ContextMenuTrigger>
                                 <div className="flex items-center justify-center h-10 w-full relative group/cell">
@@ -377,7 +377,7 @@ export const MarkSheetTable = ({
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="h-6 w-6 absolute right-0.5 opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-primary/10 hover:text-primary"
+                                        className="h-6 w-6 absolute right-0.5 opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-primary/10 hover:text-primary hidden sm:inline-flex"
                                         onClick={() => onOpenRubric && onOpenRubric(ass.id, learner)}
                                         title="Mark with Rubric"
                                     >
@@ -389,7 +389,7 @@ export const MarkSheetTable = ({
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="h-6 w-6 absolute right-0.5 opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-blue-100 hover:text-blue-600"
+                                        className="h-6 w-6 absolute right-0.5 opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-blue-100 hover:text-blue-600 hidden sm:inline-flex"
                                         onClick={() => onOpenQuestions && onOpenQuestions(ass.id, learner)}
                                         title="Question-Level marking"
                                     >
@@ -448,7 +448,7 @@ export const MarkSheetTable = ({
                 })}
 
                 <TableRow className="bg-muted/50 border-t-2 h-10">
-                <TableCell className="font-bold sticky left-0 bg-muted z-10 border-r text-[9px] uppercase tracking-widest text-muted-foreground">
+                <TableCell className="font-bold sticky left-0 bg-muted z-10 border-r text-[9px] uppercase tracking-widest text-muted-foreground px-2">
                     Avg
                 </TableCell>
                 {visibleAssessments.map(ass => {

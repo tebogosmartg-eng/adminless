@@ -125,7 +125,7 @@ export const LearnerList = ({
   const allSelected = sortedAndFilteredLearners.length > 0 && selectedIndices.length === sortedAndFilteredLearners.length;
 
   return (
-    <Card className="transition-all duration-300">
+    <Card className="transition-all duration-300 w-full overflow-hidden">
       <LearnerListToolbar 
         showComments={showComments}
         selectedCount={selectedIndices.length}
@@ -139,85 +139,87 @@ export const LearnerList = ({
         onBatchComment={executeBatchComment}
         onBatchClearMarks={executeBatchClearMarks}
       />
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[40px]">
-                <Checkbox 
-                  checked={allSelected}
-                  onCheckedChange={handleSelectAll}
-                />
-              </TableHead>
-              <TableHead className="w-[50px]">#</TableHead>
-              <TableHead className="min-w-[200px]">
-                <Button variant="ghost" onClick={() => requestSort('name')} className="pl-0 hover:pl-2 transition-all">
-                  Learner Name
-                  {sortConfig.key === 'name' && <ArrowUpDown className="ml-2 h-3 w-3" />}
-                </Button>
-              </TableHead>
-              <TableHead className="w-[120px]">
-                 <Button variant="ghost" onClick={() => requestSort('mark')} className="pl-0 hover:pl-2 transition-all">
-                  Mark
-                  {sortConfig.key === 'mark' && <ArrowUpDown className="ml-2 h-3 w-3" />}
-                </Button>
-              </TableHead>
-              <TableHead className="w-[100px]">Symbol</TableHead>
-              {showComments && (
-                 <TableHead>
-                  <Button variant="ghost" onClick={() => requestSort('comment')}>
-                    Comment
-                    {sortConfig.key === 'comment' && <ArrowUpDown className="ml-2 h-3 w-3" />}
-                  </Button>
-                 </TableHead>
-              )}
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedAndFilteredLearners.length > 0 ? (
-              sortedAndFilteredLearners.map((learner, index) => (
-                <LearnerListRow 
-                  key={learner.originalIndex}
-                  index={index}
-                  learner={learner}
-                  gradingScheme={gradingScheme}
-                  atRiskThreshold={atRiskThreshold}
-                  showComments={showComments}
-                  isSelected={selectedIndices.includes(learner.originalIndex)}
-                  onSelect={(checked) => handleSelectOne(learner.originalIndex, checked)}
-                  onMarkChange={onMarkChange}
-                  onCommentChange={onCommentChange}
-                  onRenameLearner={onRenameLearner}
-                  onMarkBlur={handleMarkBlur}
-                  onRemoveLearner={onRemoveLearner}
-                  onProfileClick={onProfileClick}
-                  onKeyDown={handleKeyDown}
-                />
-              ))
-            ) : (
+      <CardContent className="p-0 sm:p-6">
+        <div className="overflow-x-auto w-full">
+          <Table className="min-w-[600px] w-full">
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={showComments ? 7 : 6} className="h-48 text-center">
-                  <div className="flex flex-col items-center justify-center space-y-3">
-                     {statusFilter !== 'all' || searchQuery ? (
-                       <p className="text-muted-foreground">No learners match your filters.</p>
-                     ) : (
-                       <>
-                         <p className="text-muted-foreground">This class is empty.</p>
-                         <Button variant="outline" onClick={onAddLearnerClick}>
-                            <Plus className="mr-2 h-4 w-4" /> Add Learners Manually
-                         </Button>
-                       </>
-                     )}
-                  </div>
-                </TableCell>
+                <TableHead className="w-[40px] px-2 sm:px-4">
+                  <Checkbox 
+                    checked={allSelected}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
+                <TableHead className="w-[50px] px-2">#</TableHead>
+                <TableHead className="min-w-[150px]">
+                  <Button variant="ghost" onClick={() => requestSort('name')} className="pl-0 hover:pl-2 transition-all text-xs sm:text-sm h-8">
+                    Learner Name
+                    {sortConfig.key === 'name' && <ArrowUpDown className="ml-2 h-3 w-3" />}
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[100px] sm:w-[120px]">
+                   <Button variant="ghost" onClick={() => requestSort('mark')} className="pl-0 hover:pl-2 transition-all text-xs sm:text-sm h-8">
+                    Mark
+                    {sortConfig.key === 'mark' && <ArrowUpDown className="ml-2 h-3 w-3" />}
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[80px] sm:w-[100px] text-xs sm:text-sm">Symbol</TableHead>
+                {showComments && (
+                   <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('comment')} className="h-8 text-xs sm:text-sm">
+                      Comment
+                      {sortConfig.key === 'comment' && <ArrowUpDown className="ml-2 h-3 w-3" />}
+                    </Button>
+                   </TableHead>
+                )}
+                <TableHead className="w-[40px] sm:w-[50px]"></TableHead>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {sortedAndFilteredLearners.length > 0 ? (
+                sortedAndFilteredLearners.map((learner, index) => (
+                  <LearnerListRow 
+                    key={learner.originalIndex}
+                    index={index}
+                    learner={learner}
+                    gradingScheme={gradingScheme}
+                    atRiskThreshold={atRiskThreshold}
+                    showComments={showComments}
+                    isSelected={selectedIndices.includes(learner.originalIndex)}
+                    onSelect={(checked) => handleSelectOne(learner.originalIndex, checked)}
+                    onMarkChange={onMarkChange}
+                    onCommentChange={onCommentChange}
+                    onRenameLearner={onRenameLearner}
+                    onMarkBlur={handleMarkBlur}
+                    onRemoveLearner={onRemoveLearner}
+                    onProfileClick={onProfileClick}
+                    onKeyDown={handleKeyDown}
+                  />
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={showComments ? 7 : 6} className="h-48 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                       {statusFilter !== 'all' || searchQuery ? (
+                         <p className="text-muted-foreground">No learners match your filters.</p>
+                       ) : (
+                         <>
+                           <p className="text-muted-foreground">This class is empty.</p>
+                           <Button variant="outline" onClick={onAddLearnerClick} className="text-xs sm:text-sm">
+                              <Plus className="mr-2 h-4 w-4" /> Add Learners
+                           </Button>
+                         </>
+                       )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
         
         {sortedAndFilteredLearners.length > 0 && (
-            <div className="pt-4 border-t mt-4 flex justify-center">
+            <div className="p-4 sm:p-0 sm:pt-4 border-t mt-0 sm:mt-4 flex justify-center">
                 <Button variant="outline" onClick={onAddLearnerClick} className="w-full sm:w-auto">
                     <Plus className="mr-2 h-4 w-4" /> Add Learner
                 </Button>

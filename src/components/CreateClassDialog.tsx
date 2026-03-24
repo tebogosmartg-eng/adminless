@@ -147,11 +147,11 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="w-full md:w-auto">
           <PlusCircle className="mr-2 h-4 w-4" /> Create Class
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] w-[95vw] max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create a New Class</DialogTitle>
           <DialogDescription>
@@ -159,7 +159,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="grade">Grade</Label>
               <Input 
@@ -188,7 +188,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
                 {savedSubjects.map(s => <option key={s} value={s} />)}
               </datalist>
             </div>
-            <div className="space-y-2 col-span-2">
+            <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="className">Class Name</Label>
               <Input 
                 id="className" 
@@ -202,15 +202,15 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
 
           <div className="border-t pt-4">
             <Label className="mb-3 block text-sm font-bold">Populate Class Register</Label>
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <Button 
                     variant="outline" 
                     type="button" 
                     onClick={() => imageInputRef.current?.click()} 
                     disabled={isScanning} 
-                    className="h-20 flex flex-col items-center justify-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
+                    className="h-16 flex flex-col items-center justify-center gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
                 >
-                    {isScanning ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />} 
+                    {isScanning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />} 
                     <span className="text-xs font-black uppercase tracking-wider">{isScanning ? "Scanning..." : "Capture from Register"}</span>
                 </Button>
                 <Button 
@@ -218,9 +218,9 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
                     type="button" 
                     onClick={() => fileInputRef.current?.click()} 
                     disabled={isScanning} 
-                    className="h-20 flex flex-col items-center justify-center gap-2 hover:bg-slate-50"
+                    className="h-16 flex flex-col items-center justify-center gap-1 hover:bg-slate-50"
                 >
-                    <Upload className="h-6 w-6 text-muted-foreground" /> 
+                    <Upload className="h-5 w-5 text-muted-foreground" /> 
                     <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">Upload Class List</span>
                 </Button>
             </div>
@@ -259,9 +259,9 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setIsOpen(false)} disabled={isScanning}>Cancel</Button>
-          <Button type="submit" onClick={handleSubmit} disabled={isScanning} className="font-bold">Create Class & Save Roster</Button>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+          <Button variant="ghost" onClick={() => setIsOpen(false)} disabled={isScanning} className="w-full sm:w-auto">Cancel</Button>
+          <Button type="submit" onClick={handleSubmit} disabled={isScanning} className="font-bold w-full sm:w-auto">Create Class & Save Roster</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

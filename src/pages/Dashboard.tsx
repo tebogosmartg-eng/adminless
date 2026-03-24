@@ -31,21 +31,21 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-4 pb-6 w-full">
       <div className="flex flex-col gap-0.5">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground text-xs">Professional overview of your academic workload and results.</p>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="bg-muted/50 p-1 border h-9">
-          <TabsTrigger value="overview" className="flex items-center gap-2 px-4 h-7 text-xs">
-            < BarChart3 className="h-3.5 w-3.5" /> Overview
+      <Tabs defaultValue="overview" className="space-y-4 w-full">
+        <TabsList className="bg-muted/50 p-1 border h-auto min-h-9 flex flex-wrap w-full sm:w-auto">
+          <TabsTrigger value="overview" className="flex items-center gap-2 px-4 h-8 text-xs flex-1 sm:flex-none">
+            <BarChart3 className="h-3.5 w-3.5" /> Overview
           </TabsTrigger>
-          <TabsTrigger value="subjects" className="flex items-center gap-2 px-4 h-7 text-xs">
+          <TabsTrigger value="subjects" className="flex items-center gap-2 px-4 h-8 text-xs flex-1 sm:flex-none">
             <LayoutGrid className="h-3.5 w-3.5" /> By Subject
           </TabsTrigger>
-          <TabsTrigger value="grades" className="flex items-center gap-2 px-4 h-7 text-xs">
+          <TabsTrigger value="grades" className="flex items-center gap-2 px-4 h-8 text-xs flex-1 sm:flex-none">
             <GraduationCap className="h-3.5 w-3.5" /> By Grade
           </TabsTrigger>
         </TabsList>

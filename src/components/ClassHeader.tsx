@@ -40,45 +40,44 @@ export const ClassHeader = ({
   const isLocked = isTermClosed || classInfo.is_finalised;
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white dark:bg-card p-6 rounded-lg border shadow-sm transition-all duration-300">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack} className="h-10 w-10 hover:bg-muted">
-          <ArrowLeft className="h-5 w-5" />
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white dark:bg-card p-4 md:p-6 rounded-lg border shadow-sm transition-all duration-300">
+      <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto overflow-hidden">
+        <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 md:h-10 md:w-10 hover:bg-muted shrink-0">
+          <ArrowLeft className="h-4 w-4 md:h-5 w-5" />
         </Button>
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground/90">{classInfo.className}</h1>
+        <div className="space-y-0.5 md:space-y-1 min-w-0 flex-1">
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground/90 truncate">{classInfo.className}</h1>
             {isLocked ? (
-                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 gap-1.5 px-3 py-1">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
+                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 gap-1 md:gap-1.5 px-2 md:px-3 py-0.5 md:py-1 shrink-0">
+                    <CheckCircle2 className="h-3 w-3 md:h-3.5 md:w-3.5" />
                     Finalised
                 </Badge>
             ) : (
-                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-20 hover:opacity-100" onClick={() => onEdit({})}>
-                    <Edit className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7 opacity-20 hover:opacity-100 shrink-0" onClick={() => onEdit({})}>
+                    <Edit className="h-3 w-3 md:h-4 md:w-4" />
                 </Button>
             )}
           </div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            <span>{classInfo.grade}</span>
-            <span className="h-1 w-1 bg-muted-foreground/30 rounded-full" />
-            <span>{classInfo.subject}</span>
+          <div className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs font-semibold uppercase tracking-widest text-muted-foreground truncate">
+            <span className="truncate">{classInfo.grade}</span>
+            <span className="h-1 w-1 bg-muted-foreground/30 rounded-full shrink-0" />
+            <span className="truncate">{classInfo.subject}</span>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center flex-wrap gap-2 pt-2 md:pt-0">
+      <div className="flex items-center w-full md:w-auto gap-2 pt-2 md:pt-0 border-t md:border-none border-border mt-2 md:mt-0">
         {!isLocked && (
-            <Button onClick={onSave} className="flex-1 sm:flex-none px-5 shadow-sm active:scale-95 transition-transform">
-                <Save className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Save Changes</span>
-                <span className="sm:hidden">Save</span>
+            <Button onClick={onSave} className="flex-1 sm:flex-none px-4 md:px-5 shadow-sm active:scale-95 transition-transform text-sm h-9 md:h-10">
+                <Save className="mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
+                <span>Save Changes</span>
             </Button>
         )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="h-10 w-10">
+            <Button variant="outline" size="icon" className="h-9 w-9 md:h-10 md:w-10 shrink-0">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
