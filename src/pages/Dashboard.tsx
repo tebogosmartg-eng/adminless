@@ -1,7 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import { DashboardOverviewTab } from '@/components/dashboard/DashboardOverviewTab';
-import { DashboardGroupedView } from '@/components/dashboard/DashboardGroupedView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, LayoutGrid, GraduationCap, Loader2 } from 'lucide-react';
 import { useClasses } from '@/context/ClassesContext';
@@ -9,6 +7,11 @@ import { GlobalAddNoteDialog } from '@/components/dialogs/GlobalAddNoteDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useSettings } from '@/context/SettingsContext';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Lazy load heavy dashboard views to improve initial TTI (Time to Interactive)
+const DashboardOverviewTab = lazy(() => import('@/components/dashboard/DashboardOverviewTab').then(m => ({ default: m.DashboardOverviewTab })));
+const DashboardGroupedView = lazy(() => import('@/components/dashboard/DashboardGroupedView').then(m => ({ default: m.DashboardGroupedView })));
 
 const Dashboard = () => {
   const { loading } = useClasses();
@@ -22,20 +25,46 @@ const Dashboard = () => {
 
   const { onboardingCompleted, setOnboardingCompleted } = useSettings();
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+  const [isTimeout, setIsTimeout] = useState(false);
 
-  if (loading) {
+  // Safety fallback: If database loading takes longer than 4 seconds, force resolve to prevent infinite loading
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (loading) {
+      timer = setTimeout(() => setIsTimeout(true), 4000);
+    }
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  if (loading && !isTimeout) {
     return (
-      <div className="flex h-[60vh] w-full items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Preparing Dashboard</p>
+      <div className="space-y-6 w-full p-2 animate-in fade-in duration-500">
+        <div className="space-y-2">
+            <Skeleton className="h-10 w-48" />
+            <Skeleton className="h-4 w-64" />
+        </div>
+        <div className="flex gap-2">
+            <Skeleton className="h-10 w-24 rounded-md" />
+            <Skeleton className="h-10 w-24 rounded-md" />
+            <Skeleton className="h-10 w-24 rounded-md" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+            <div className="lg:col-span-2 space-y-4">
+                <Skeleton className="h-[200px] w-full rounded-xl" />
+                <Skeleton className="h-[300px] w-full rounded-xl" />
+            </div>
+            <div className="space-y-4">
+                <Skeleton className="h-[150px] w-full rounded-xl" />
+                <Skeleton className="h-[150px] w-full rounded-xl" />
+                <Skeleton className="h-[200px] w-full rounded-xl" />
+            </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 pb-6 w-full">
+    <div className="space-y-4 pb-6 w-full animate-in fade-in duration-500">
       <div className="flex flex-col gap-0.5">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground text-xs">Professional overview of your academic workload and results.</p>
@@ -54,30 +83,32 @@ const Dashboard = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="mt-0">
-          <DashboardOverviewTab 
-            activeClasses={activeClasses}
-            allActiveLearners={allActiveLearners}
-            totalClassesCount={classes.length}
-            onAddNote={() => setIsNoteDialogOpen(true)}
-          />
-        </TabsContent>
+        <Suspense fallback={<div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/40" /></div>}>
+          <TabsContent value="overview" className="mt-0">
+            <DashboardOverviewTab 
+              activeClasses={activeClasses}
+              allActiveLearners={allActiveLearners}
+              totalClassesCount={classes.length}
+              onAddNote={() => setIsNoteDialogOpen(true)}
+            />
+          </TabsContent>
 
-        <TabsContent value="subjects" className="mt-0">
-          <DashboardGroupedView 
-            activeClasses={activeClasses}
-            groupedClasses={classesBySubject}
-            groupBy="subject"
-          />
-        </TabsContent>
+          <TabsContent value="subjects" className="mt-0">
+            <DashboardGroupedView 
+              activeClasses={activeClasses}
+              groupedClasses={classesBySubject}
+              groupBy="subject"
+            />
+          </TabsContent>
 
-        <TabsContent value="grades" className="mt-0">
-          <DashboardGroupedView 
-            activeClasses={activeClasses}
-            groupedClasses={classesByGrade}
-            groupBy="grade"
-          />
-        </TabsContent>
+          <TabsContent value="grades" className="mt-0">
+            <DashboardGroupedView 
+              activeClasses={activeClasses}
+              groupedClasses={classesByGrade}
+              groupBy="grade"
+            />
+          </TabsContent>
+        </Suspense>
       </Tabs>
 
       <GlobalAddNoteDialog 
