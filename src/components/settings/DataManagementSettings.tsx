@@ -9,7 +9,8 @@ import {
     Calculator, 
     Wind,
     History,
-    Merge
+    Merge,
+    Workflow
 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,17 +69,45 @@ export const DataManagementSettings = () => {
 
     setIsRecovering(true);
     try {
-        const { data, error } = await supabase.functions.invoke('account-recovery');
+        const { data, error } = await supabase.functions.invoke('account-recovery', {
+            body: { mode: 'recover-email' }
+        });
         if (error) throw error;
         
         if (data.success) {
             showSuccess(data.message);
-            setTimeout(() => window.location.reload(), 1500); // Reload to pull the recovered data
+            setTimeout(() => window.location.reload(), 1500); 
         } else {
             showError(data.message || "No historical data found.");
         }
     } catch (e: any) {
         showError("Recovery failed: " + e.message);
+    } finally {
+        setIsRecovering(false);
+    }
+  };
+
+  const handleFixOrphans = async () => {
+    if (!navigator.onLine) {
+        showError("Internet connection required.");
+        return;
+    }
+
+    setIsRecovering(true);
+    try {
+        const { data, error } = await supabase.functions.invoke('account-recovery', {
+            body: { mode: 'fix-orphans' }
+        });
+        if (error) throw error;
+        
+        if (data.success) {
+            showSuccess(data.message);
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showError(data.message || "Migration failed.");
+        }
+    } catch (e: any) {
+        showError("Migration failed: " + e.message);
     } finally {
         setIsRecovering(false);
     }
@@ -128,7 +157,6 @@ export const DataManagementSettings = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
       
-      // Fetch all tables for backup
       const tables = [
         'profiles', 'academic_years', 'terms', 'classes', 'learners', 
         'assessments', 'assessment_marks', 'activities', 'todos', 
@@ -195,17 +223,15 @@ export const DataManagementSettings = () => {
               await db.transaction('rw', Object.keys(db).filter(k => !k.startsWith('_')), async () => {
                   for (const [table, records] of Object.entries(backup.data)) {
                       if (Array.isArray(records) && records.length > 0) {
-                          // Update records to current user ID to ensure ownership
                           const processedRecords = records.map((r: any) => ({
                               ...r,
-                              user_id: r.user_id ? user.id : undefined // Only set if the table uses user_id
+                              user_id: r.user_id ? user.id : undefined 
                           }));
 
                           // @ts-ignore
                           if (db[table]) {
                               // @ts-ignore
                               await db[table].bulkPut(processedRecords);
-                              // Queue for sync
                               await queueAction(table, 'upsert', processedRecords);
                           }
                       }
@@ -246,7 +272,7 @@ export const DataManagementSettings = () => {
 
   return (
     <div className="space-y-6">
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-3">
             <Card className="border-primary/20 bg-primary/5">
                 <CardHeader>
                     <CardTitle>Demo Environment</CardTitle>
@@ -254,7 +280,7 @@ export const DataManagementSettings = () => {
                 </CardHeader>
                 <CardContent>
                     <Button onClick={handleLoadDemo} disabled={isDemoLoading} className="w-full font-bold">
-                        {isDemoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Full Demo Context"}
+                        {isDemoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Generate Demo Context"}
                     </Button>
                 </CardContent>
             </Card>
@@ -265,12 +291,28 @@ export const DataManagementSettings = () => {
                         <History className="h-5 w-5 text-blue-600" />
                         Account Recovery
                     </CardTitle>
-                    <CardDescription>Restore data if you previously signed in with a different provider (e.g. Google vs Email).</CardDescription>
+                    <CardDescription>Restore data if you previously signed in with a different provider email.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Button onClick={handleAccountRecovery} disabled={isRecovering} variant="outline" className="w-full border-blue-300 text-blue-700 hover:bg-blue-100 font-bold">
                         {isRecovering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Merge className="mr-2 h-4 w-4" />}
                         Restore Historical Data
+                    </Button>
+                </CardContent>
+            </Card>
+            
+            <Card className="border-green-200 bg-green-50/30">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Workflow className="h-5 w-5 text-green-600" />
+                        Migrate Local Data
+                    </CardTitle>
+                    <CardDescription>If data exists in the cloud but is missing from your UI (e.g. missing User IDs), claim it here.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button onClick={handleFixOrphans} disabled={isRecovering} variant="outline" className="w-full border-green-300 text-green-700 hover:bg-green-100 font-bold">
+                        {isRecovering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                        Claim Orphaned Data
                     </Button>
                 </CardContent>
             </Card>

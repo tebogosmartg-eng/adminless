@@ -29,10 +29,65 @@ serve(async (req) => {
     )
     if (authError || !currentUser) throw new Error("Invalid session")
 
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
+    const mode = body.mode || 'recover-email'
+
+    // ORPHAN DATA MIGRATION MODE
+    if (mode === 'fix-orphans') {
+        console.log(`[account-recovery] Fixing orphans for user: ${currentUser.id}`)
+        let recordsMoved = 0;
+        const tables = [
+            'classes', 'academic_years', 'terms', 'assessments', 
+            'assessment_marks', 'activities', 'todos', 'attendance', 
+            'learner_notes', 'evidence', 'timetable', 'lesson_logs', 
+            'curriculum_topics', 'diagnostics', 'remediation_tasks', 
+            'scan_history', 'scan_jobs', 'teacherfile_templates', 
+            'teacherfile_entries', 'review_snapshots'
+        ];
+
+        const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        if (listError) throw listError;
+        const validUserIds = new Set(users.map(u => u.id));
+
+        for (const table of tables) {
+            const { data } = await supabaseAdmin.from(table).select('user_id');
+            if (data) {
+                const uniqueUserIds = [...new Set(data.map(r => r.user_id).filter(Boolean))];
+                for (const uid of uniqueUserIds) {
+                    if (!validUserIds.has(uid)) {
+                        // This is an invalid/local ID! Migrate it.
+                        const { data: updated, error: updateError } = await supabaseAdmin
+                            .from(table)
+                            .update({ user_id: currentUser.id })
+                            .eq('user_id', uid)
+                            .select('id');
+                        if (!updateError && updated) recordsMoved += updated.length;
+                    }
+                }
+                
+                // Also migrate NULL user_ids
+                const { data: nullUpdated, error: nullError } = await supabaseAdmin
+                    .from(table)
+                    .update({ user_id: currentUser.id })
+                    .is('user_id', null)
+                    .select('id');
+                if (!nullError && nullUpdated) recordsMoved += nullUpdated.length;
+            }
+        }
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          migratedCount: recordsMoved,
+          message: `Successfully migrated ${recordsMoved} local/orphaned records to your account.`
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+    }
+
+    // EMAIL RECOVERY MODE
     console.log(`[account-recovery] Checking recovery for: ${currentUser.email} (${currentUser.id})`)
 
     // 2. Find all users with this email (including old IDs)
-    // We use the admin API to list users
     const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers()
     if (listError) throw listError
 
@@ -48,8 +103,13 @@ serve(async (req) => {
     let sourceIdUsed = ""
 
     // 3. Check each duplicate for data and migrate
+    const tables = [
+        'classes', 'academic_years', 'terms', 'assessments', 
+        'assessment_marks', 'activities', 'todos', 'attendance', 
+        'learner_notes', 'evidence', 'timetable', 'lesson_logs', 'curriculum_topics'
+    ]
+
     for (const oldUser of matches) {
-      // Check if this old user has classes
       const { count, error: countError } = await supabaseAdmin
         .from('classes')
         .select('*', { count: 'exact', head: true })
@@ -58,31 +118,21 @@ serve(async (req) => {
       if (!countError && count > 0) {
         console.log(`[account-recovery] Found ${count} classes on old ID: ${oldUser.id}. Migrating...`)
         
-        // MIGRATE ALL DATA TABLES
-        const tables = [
-            'classes', 'academic_years', 'terms', 'assessments', 
-            'assessment_marks', 'activities', 'todos', 'attendance', 
-            'learner_notes', 'evidence', 'timetable', 'lesson_logs', 'curriculum_topics'
-        ]
-
         for (const table of tables) {
-            const { error: moveError } = await supabaseAdmin
+            const { data: updated } = await supabaseAdmin
                 .from(table)
                 .update({ user_id: currentUser.id })
                 .eq('user_id', oldUser.id)
+                .select('id');
             
-            if (moveError) console.error(`[account-recovery] Error moving ${table}:`, moveError)
+            if (updated) recordsMoved += updated.length;
         }
 
-        // Migrate Profile Data (Merge into current)
         const { data: oldProfile } = await supabaseAdmin.from('profiles').select('*').eq('id', oldUser.id).single()
         if (oldProfile) {
             const { id, ...profileData } = oldProfile
             await supabaseAdmin.from('profiles').upsert({ id: currentUser.id, ...profileData })
         }
-
-        recordsMoved += count
-        sourceIdUsed = oldUser.id
       }
     }
 
@@ -90,7 +140,7 @@ serve(async (req) => {
       success: true, 
       migratedCount: recordsMoved,
       message: recordsMoved > 0 
-        ? `Successfully restored ${recordsMoved} classes from your historical account.` 
+        ? `Successfully restored ${recordsMoved} records from your historical account.` 
         : "No historical data found in linked accounts."
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

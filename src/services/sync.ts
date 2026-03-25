@@ -24,7 +24,7 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
       delete payload.termId;
     }
 
-    if (!payload.user_id && table !== 'profiles') {
+    if (!payload.user_id && !['profiles', 'learners', 'teacherfile_template_sections', 'teacherfile_entry_attachments'].includes(table)) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) payload.user_id = user.id;
     }

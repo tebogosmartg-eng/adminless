@@ -57,7 +57,7 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
                         delete payload.termId;
                     }
                     
-                    if (!payload.user_id && !['profiles', 'teacherfile_template_sections', 'teacherfile_entry_attachments', 'learners'].includes(table)) {
+                    if (!payload.user_id && !['profiles', 'learners', 'teacherfile_template_sections', 'teacherfile_entry_attachments'].includes(table)) {
                         payload.user_id = session.user.id;
                     }
                     return payload;
@@ -79,7 +79,16 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
         for (const table of tables) {
           if (!(db as any)[table]) continue;
           
-          const { data, error } = await supabase.from(table).select('*').limit(10000);
+          const hasUserId = !['profiles', 'learners', 'teacherfile_template_sections', 'teacherfile_entry_attachments'].includes(table);
+          let query = supabase.from(table).select('*').limit(10000);
+          
+          if (hasUserId) {
+              query = query.eq('user_id', session.user.id);
+          } else if (table === 'profiles') {
+              query = query.eq('id', session.user.id);
+          }
+          
+          const { data, error } = await query;
           
           if (!error && data) {
             const mappedData = data.map((item: any) => {
