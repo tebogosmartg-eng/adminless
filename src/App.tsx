@@ -29,7 +29,6 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { SettingsProvider } from "./context/SettingsContext";
 import { AcademicProvider } from "./context/AcademicContext";
 import { SystemThemeManager } from "./components/SystemThemeManager";
-import { ScopeDiagnostics } from "./components/ScopeDiagnostics";
 import { DataMigrationGuard } from "./components/DataMigrationGuard";
 
 const queryClient = new QueryClient({
@@ -112,7 +111,6 @@ const App = () => {
                         <SettingsProvider session={session}>
                             <ClassesProvider session={session}>
                                 <DataMigrationGuard>
-                                    <ScopeDiagnostics />
                                     <Routes>
                                     <Route path="/welcome" element={session ? <Navigate to="/" /> : <Landing />} />
                                     <Route path="/pilot-signup" element={session ? <Navigate to="/login" /> : <PilotSignup />} />
@@ -139,7 +137,6 @@ const App = () => {
                                     </Routes>
                                 </DataMigrationGuard>
                             </ClassesProvider>
-
                         </SettingsProvider>
                     </ActivityProvider>
                 </AcademicProvider>
