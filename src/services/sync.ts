@@ -51,6 +51,8 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
       delete payload.isCurrentClass;
       delete payload.key;
       delete payload.originalIndex;
+      delete payload.mark;
+      delete payload.comment;
     }
 
     if (table === 'timetable') {

@@ -74,8 +74,7 @@ export const importDemoData = async () => {
         id: crypto.randomUUID(),
         class_id: cls.id,
         user_id: user.id,
-        name,
-        mark: "" 
+        name
       });
     });
   });

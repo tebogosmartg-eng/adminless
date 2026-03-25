@@ -103,9 +103,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
           const learnersWithIds = newClass.learners.map(l => ({
               id: l.id || crypto.randomUUID(),
               class_id: newClass.id,
-              name: l.name,
-              mark: l.mark,
-              comment: l.comment
+              name: l.name
           }));
           const { error: lErr } = await supabase.from('learners').upsert(learnersWithIds);
           if (lErr) throw lErr;
@@ -134,9 +132,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             toUpsert.push({
                 id,
                 class_id: classId,
-                name: l.name,
-                mark: l.mark,
-                comment: l.comment
+                name: l.name
             });
         }
 

@@ -45,9 +45,7 @@ export const useAcademicMigration = (
                 id: crypto.randomUUID(),
                 user_id: userId,
                 class_id: newClassId,
-                name: l.name,
-                mark: "",
-                comment: ""
+                name: l.name
             }));
             if (newLearners.length > 0) {
                 learnersToQueue.push(...newLearners);
