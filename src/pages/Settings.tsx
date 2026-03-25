@@ -14,7 +14,7 @@ import {
     CalendarClock, 
     Layers, 
     School, 
-    Database,
+    Sparkles,
     ArrowLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,7 +43,7 @@ const Settings = () => {
       </div>
       
       <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className="bg-muted/50 border p-1">
+        <TabsList className="bg-muted/50 border p-1 flex-wrap h-auto">
             <TabsTrigger value="academic" className="gap-2">
                 <CalendarClock className="h-4 w-4" /> Academic
             </TabsTrigger>
@@ -57,7 +57,7 @@ const Settings = () => {
                 <Settings2 className="h-4 w-4" /> Preferences
             </TabsTrigger>
             <TabsTrigger value="data" className="gap-2">
-                <Database className="h-4 w-4" /> Data & Sync
+                <Sparkles className="h-4 w-4" /> Demo Data
             </TabsTrigger>
         </TabsList>
 

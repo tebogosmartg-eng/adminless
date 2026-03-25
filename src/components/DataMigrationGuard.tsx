@@ -5,10 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/db';
 import { Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAcademicAverages } from '@/hooks/useAcademicAverages';
 
 export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const queryClient = useQueryClient();
+  const { recalculateAllActiveAverages } = useAcademicAverages();
 
   useEffect(() => {
     let isMounted = true;
@@ -18,6 +20,30 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
       if (!session) return;
 
       if (isMounted) setIsSyncing(true);
+
+      // 0. Background Maintenance (Run silently on first load / login)
+      try {
+        const sessionKey = `adminless_maintenance_run_${session.user.id}`;
+        const lastRun = sessionStorage.getItem(sessionKey);
+        
+        // Run once per browser session to fix orphans, recover email data, and repair averages automatically
+        if (!lastRun) {
+           console.log("[Background Maintenance] Auto-recovering and migrating data...");
+           
+           // Auto migrate orphaned data
+           await supabase.functions.invoke('account-recovery', { body: { mode: 'fix-orphans' } });
+           
+           // Auto recover data from other emails
+           await supabase.functions.invoke('account-recovery', { body: { mode: 'recover-email' } });
+           
+           // Auto repair averages
+           await recalculateAllActiveAverages(true);
+           
+           sessionStorage.setItem(sessionKey, 'true');
+        }
+      } catch (e) {
+        console.warn("[Background Maintenance] Skipped or failed:", e);
+      }
 
       const tables = [
         'academic_years', 'terms', 'classes', 'learners',
@@ -131,7 +157,7 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
     return () => {
       isMounted = false;
     };
-  }, [queryClient]);
+  }, [queryClient, recalculateAllActiveAverages]);
 
   return (
     <>
