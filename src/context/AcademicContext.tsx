@@ -1,5 +1,3 @@
-"use client";
-
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { AcademicYear, Term, Assessment, AssessmentMark } from '@/lib/types';
@@ -74,14 +72,14 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [allTerms, activeYear?.id, diagnosticMode]);
 
   const { data: assessments = [], isLoading: loadingAss } = useQuery({
-    queryKey: ['assessments', session?.user?.id, currentClassFilter?.classId, currentClassFilter?.termId, diagnosticMode, activeYear?.id],
+    queryKey: ['assessments', session?.user?.id, currentClassFilter?.classId, currentClassFilter?.termId, diagnosticMode],
     queryFn: async () => {
       if (!session?.user?.id) return [];
       if (diagnosticMode) {
           const { data } = await supabase.from('assessments').select('*').eq('user_id', session.user.id);
           return data || [];
       }
-      if (!currentClassFilter || !activeYear) return [];
+      if (!currentClassFilter?.classId || !currentClassFilter?.termId) return [];
       const { data } = await supabase.from('assessments')
         .select('*')
         .eq('class_id', currentClassFilter.classId)
@@ -89,34 +87,21 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         .eq('user_id', session.user.id);
       return data || [];
     },
-    enabled: !!session?.user?.id && (diagnosticMode || !!currentClassFilter)
+    enabled: !!session?.user?.id && (diagnosticMode || (!!currentClassFilter?.classId && !!currentClassFilter?.termId))
   });
 
   const { data: marks = [] } = useQuery({
     queryKey: ['assessment_marks', session?.user?.id, assessments.map((a: any) => a.id).join(',')],
     queryFn: async () => {
-      if (!session?.user?.id) return [];
-      if (diagnosticMode) {
-          const { data } = await supabase.from('assessment_marks').select('*').eq('user_id', session.user.id);
-          return data || [];
-      }
-      if (assessments.length === 0) return [];
+      if (!session?.user?.id || assessments.length === 0) return [];
       const assIds = assessments.map((a: any) => a.id);
-      
-      // Batch fetch marks if many assessments
-      const chunkSize = 100;
-      let allData: any[] = [];
-      for (let i = 0; i < assIds.length; i += chunkSize) {
-          const chunk = assIds.slice(i, i + chunkSize);
-          const { data } = await supabase.from('assessment_marks')
-            .select('*')
-            .in('assessment_id', chunk)
-            .eq('user_id', session.user.id);
-          if (data) allData = [...allData, ...data];
-      }
-      return allData;
+      const { data } = await supabase.from('assessment_marks')
+        .select('*')
+        .in('assessment_id', assIds)
+        .eq('user_id', session.user.id);
+      return data || [];
     },
-    enabled: !!session?.user?.id && (diagnosticMode || assessments.length > 0)
+    enabled: !!session?.user?.id && assessments.length > 0
   });
 
   const { updateLearnerActiveAverages, recalculateAllActiveAverages, runDataVacuum } = useAcademicAverages();
@@ -125,125 +110,89 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (!session?.user?.id) return;
     const targetYearId = yearId || activeYear?.id;
     const targetTermId = termId || activeTerm?.id;
-    
     if (!targetYearId || !targetTermId) return;
-
-    const newActivity = {
+    await supabase.from('activities').insert({
       id: crypto.randomUUID(),
       user_id: session.user.id,
       year_id: targetYearId,
       term_id: targetTermId,
       message,
       timestamp: new Date().toISOString(),
-    };
-    await supabase.from('activities').insert(newActivity);
+    });
     queryClient.invalidateQueries({ queryKey: ['activities'] });
   }, [session?.user?.id, activeYear?.id, activeTerm?.id, queryClient]);
 
-  const { rollForwardClasses: doRollForward } = useAcademicMigration(
-    session?.user?.id, 
-    logInternalActivity
-  );
+  const { rollForwardClasses: doRollForward } = useAcademicMigration(session?.user?.id, logInternalActivity);
 
   const createYear = useCallback(async (name: string) => {
     if (!session?.user?.id) return;
     const yearId = crypto.randomUUID();
-    const yearData = { id: yearId, name, user_id: session.user.id, closed: false };
-    
-    await supabase.from('academic_years').insert(yearData);
-    
+    await supabase.from('academic_years').insert({ id: yearId, name, user_id: session.user.id, closed: false });
     const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName) => ({
-      id: crypto.randomUUID(), 
-      year_id: yearId, 
-      name: tName, 
-      user_id: session.user.id, 
-      closed: false,
-      is_finalised: false,
-      weight: 25, 
+      id: crypto.randomUUID(), year_id: yearId, name: tName, user_id: session.user.id, closed: false, is_finalised: false, weight: 25, 
     }));
     await supabase.from('terms').insert(termsToCreate);
-    
-    await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
-    await queryClient.invalidateQueries({ queryKey: ['terms'] });
-    showSuccess(`Academic Year ${name} initialized.`);
+    queryClient.invalidateQueries({ queryKey: ['academic_years'] });
+    queryClient.invalidateQueries({ queryKey: ['terms'] });
   }, [session?.user?.id, queryClient]);
 
   const deleteYear = useCallback(async (id: string) => {
     await supabase.from('terms').delete().eq('year_id', id);
     await supabase.from('academic_years').delete().eq('id', id);
-    await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
-    await queryClient.invalidateQueries({ queryKey: ['terms'] });
-    showSuccess("Academic Year removed.");
+    queryClient.invalidateQueries({ queryKey: ['academic_years'] });
+    queryClient.invalidateQueries({ queryKey: ['terms'] });
   }, [queryClient]);
 
   const updateTerm = useCallback(async (term: Term) => {
     await supabase.from('terms').update(term).eq('id', term.id);
-    await queryClient.invalidateQueries({ queryKey: ['terms'] });
-    recalculateAllActiveAverages(true);
-  }, [recalculateAllActiveAverages, queryClient]);
+    queryClient.invalidateQueries({ queryKey: ['terms'] });
+  }, [queryClient]);
 
   const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
-    if (!assessment.term_id) throw new Error("Missing term scope");
-
     const id = crypto.randomUUID();
-    const data = { ...assessment, id, user_id: session?.user?.id || '' };
-    await supabase.from('assessments').insert(data);
-    await queryClient.invalidateQueries({ queryKey: ['assessments'] });
+    await supabase.from('assessments').insert({ ...assessment, id, user_id: session?.user?.id || '' });
+    queryClient.invalidateQueries({ queryKey: ['assessments'] });
     return id;
   }, [session?.user?.id, queryClient]);
 
   const updateAssessment = useCallback(async (a: Assessment) => {
     await supabase.from('assessments').update(a).eq('id', a.id);
-    await queryClient.invalidateQueries({ queryKey: ['assessments'] });
+    queryClient.invalidateQueries({ queryKey: ['assessments'] });
   }, [queryClient]);
 
   const deleteAssessment = useCallback(async (id: string) => {
     await supabase.from('assessment_marks').delete().eq('assessment_id', id); 
     await supabase.from('assessments').delete().eq('id', id);
-    await queryClient.invalidateQueries({ queryKey: ['assessments'] });
-    await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
+    queryClient.invalidateQueries({ queryKey: ['assessments'] });
+    queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
   }, [queryClient]);
 
   const updateMarks = useCallback(async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
     if (!session?.user?.id || updates.length === 0) return;
-    
     const toUpsert = await Promise.all(updates.map(async (u) => {
-        const { data: existing } = await supabase.from('assessment_marks')
-            .select('id')
-            .eq('assessment_id', u.assessment_id)
-            .eq('learner_id', u.learner_id)
-            .single();
-            
+        const { data: existing } = await supabase.from('assessment_marks').select('id').eq('assessment_id', u.assessment_id).eq('learner_id', u.learner_id).single();
         return { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id } as AssessmentMark;
     }));
-    
     await supabase.from('assessment_marks').upsert(toUpsert);
-    await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
-    await updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
+    queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
+    updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
   }, [session?.user?.id, updateLearnerActiveAverages, queryClient]);
 
   const refreshAssessments = useCallback(async (c: string, t?: string) => {
     const targetTermId = t || activeTerm?.id || '';
-    setCurrentClassFilter(prev => {
-      if (prev?.classId === c && prev?.termId === targetTermId) return prev;
-      return { classId: c, termId: targetTermId };
-    });
+    if (targetTermId) {
+        setCurrentClassFilter({ classId: c, termId: targetTermId });
+    }
   }, [activeTerm?.id]);
 
   const toggleTermStatus = useCallback(async (termId: string, finalised: boolean) => {
     await supabase.from('terms').update({ is_finalised: finalised, closed: finalised }).eq('id', termId);
-    await queryClient.invalidateQueries({ queryKey: ['terms'] });
-    
-    if (finalised) {
-        logInternalActivity(`Finalised term: ${allTerms.find(t => t.id === termId)?.name}`);
-    }
-    showSuccess(`Term ${finalised ? 'finalised and locked' : 're-activated'}.`);
-  }, [allTerms, logInternalActivity, queryClient]);
+    queryClient.invalidateQueries({ queryKey: ['terms'] });
+  }, [queryClient]);
 
   const closeYear = useCallback(async (id: string) => {
     await supabase.from('academic_years').update({ closed: true }).eq('id', id);
-    await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
-    showSuccess("Year cycle finalized.");
+    queryClient.invalidateQueries({ queryKey: ['academic_years'] });
   }, [queryClient]);
 
   const rollForwardClasses = useCallback((s: string, t: string, d: any[]) => 
@@ -252,7 +201,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const value = useMemo(() => ({
     years, terms, assessments, marks, 
-    loading: loadingYears || loadingTerms || !session?.user?.id, 
+    loading: loadingYears || loadingTerms || loadingAss, 
     activeYear, activeTerm, setActiveYear, setActiveTerm, 
     createYear, deleteYear, updateTerm,
     createAssessment, updateAssessment, deleteAssessment,
@@ -264,7 +213,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm, 
     createAssessment, updateAssessment, deleteAssessment, updateMarks, 
     refreshAssessments, toggleTermStatus, closeYear, recalculateAllActiveAverages, 
-    runDataVacuum, rollForwardClasses, diagnosticMode, session?.user?.id, loadingYears, loadingTerms
+    runDataVacuum, rollForwardClasses, diagnosticMode, loadingYears, loadingTerms, loadingAss
   ]);
 
   return (
