@@ -188,7 +188,6 @@ export const importDemoData = async () => {
   classes.forEach((cls, index) => {
       daysOfWeek.forEach(day => {
           timetable.push({
-              id: crypto.randomUUID(),
               user_id: userId,
               day: day,
               period: index + 1, // Distribute classes sequentially
@@ -202,7 +201,7 @@ export const importDemoData = async () => {
   });
 
   for (let i = 0; i < timetable.length; i += 50) {
-      const { error: ttErr } = await supabase.from('timetable').upsert(timetable.slice(i, i + 50));
+      const { error: ttErr } = await supabase.from('timetable').upsert(timetable.slice(i, i + 50), { onConflict: 'day,period,class_id' });
       if (ttErr) throw new Error(`Timetable Error: ${ttErr.message}`);
   }
 
