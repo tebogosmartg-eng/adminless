@@ -5,7 +5,7 @@ import { Learner, ClassInfo, ClassInsight } from '@/lib/types';
 import { db } from '@/db';
 
 export const useAiFeatures = (
-  classInfo: ClassInfo,
+  classInfo: ClassInfo | undefined,
   learners: Learner[],
   setLearners?: React.Dispatch<React.SetStateAction<Learner[]>>
 ) => {
@@ -48,6 +48,7 @@ export const useAiFeatures = (
   };
 
   const handleGenerateInsights = async () => {
+    if (!classInfo) return;
     if (!navigator.onLine) {
         toast({ title: "Offline", description: "Insights unavailable offline.", variant: "destructive" });
         return;

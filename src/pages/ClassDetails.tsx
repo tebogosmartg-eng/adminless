@@ -48,32 +48,6 @@ const ClassDetails = () => {
   const { currentPeriod } = useCurrentPeriod();
   
   const classInfo = classes.find((c) => c.id === classId);
-  
-  // Guard: Wait for academic context
-  if (classesLoading || academicLoading) {
-    return (
-      <div className="flex h-[50vh] w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-30" />
-      </div>
-    );
-  }
-
-  if (!classId || !classInfo) {
-    return <div className="p-8 text-center text-muted-foreground">Class not found.</div>;
-  }
-
-  // Guard: Ensure activeTerm is available
-  if (!activeTerm) {
-      return <div className="p-8 text-center text-muted-foreground">Academic term not selected. Please select a term in the header.</div>;
-  }
-
-  // Ensure assessments are loaded for the current term
-  useEffect(() => {
-      if (classId && activeTerm?.id) {
-          refreshAssessments(classId, activeTerm.id);
-      }
-  }, [classId, activeTerm?.id, refreshAssessments]);
-
   const isLocked = !!activeTerm?.closed || !!classInfo?.is_finalised;
 
   const [diagOpen, setDiagOpen] = useState(false);
@@ -123,6 +97,19 @@ const ClassDetails = () => {
       marks
   );
 
+  // Ensure assessments are loaded for the current term
+  useEffect(() => {
+      if (classId && activeTerm?.id) {
+          refreshAssessments(classId, activeTerm.id);
+      }
+  }, [classId, activeTerm?.id, refreshAssessments]);
+
+  useEffect(() => {
+    if (classInfo) {
+      document.title = `${classInfo.className} | AdminLess`;
+    }
+  }, [classInfo]);
+
   const handleSASAMSExportAction = () => {
       if (!classInfo || !activeTerm || !activeYear) return;
       if (!classInfo.is_finalised && !activeTerm.closed) {
@@ -149,9 +136,23 @@ const ClassDetails = () => {
       );
   };
 
-  useEffect(() => {
-    document.title = `${classInfo.className} | AdminLess`;
-  }, [classInfo]);
+  // Guard: Wait for academic context
+  if (classesLoading || academicLoading) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-30" />
+      </div>
+    );
+  }
+
+  if (!classId || !classInfo) {
+    return <div className="p-8 text-center text-muted-foreground">Class not found.</div>;
+  }
+
+  // Guard: Ensure activeTerm is available
+  if (!activeTerm) {
+      return <div className="p-8 text-center text-muted-foreground">Academic term not selected. Please select a term in the header.</div>;
+  }
 
   return (
     <div className="container mx-auto p-2 sm:p-4 w-full max-w-7xl space-y-6 pb-20 relative animate-in fade-in duration-700">
