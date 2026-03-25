@@ -39,7 +39,6 @@ export const importDemoData = async () => {
   const activeTermId = terms[2].id;
 
   // 3. Create Classes
-  // NOTE: The classes table in the schema DOES NOT have term_id or year_id. They are global.
   const classes = [
     { id: crypto.randomUUID(), user_id: userId, grade: "Grade 10", subject: "Mathematics", class_name: "10A", archived: false, notes: "Demo Class" },
     { id: crypto.randomUUID(), user_id: userId, grade: "Grade 11", subject: "Physical Sciences", class_name: "11C", archived: false, notes: "Demo Class" },
@@ -73,13 +72,12 @@ export const importDemoData = async () => {
     });
   });
 
-  // Batch insert learners (safeguard limits)
   for (let i = 0; i < learners.length; i += 50) {
       const { error: learnerErr } = await supabase.from('learners').upsert(learners.slice(i, i + 50));
       if (learnerErr) throw new Error(`Learners Error: ${learnerErr.message}`);
   }
 
-  // 5. Create Assessments (3 per class in Term 3)
+  // 5. Create Assessments (3 per class)
   const assessments: any[] = [];
   classes.forEach(cls => {
       assessments.push({
@@ -125,9 +123,8 @@ export const importDemoData = async () => {
   assessments.forEach(ass => {
       const classLearners = learners.filter(l => l.class_id === ass.class_id);
       classLearners.forEach(l => {
-          // Centered random distribution for realistic marks
           let rawPct = (Math.random() + Math.random() + Math.random()) / 3;
-          rawPct = rawPct * 0.8 + 0.2; // Shift bounds between 20% and 100%
+          rawPct = rawPct * 0.8 + 0.2; 
           const score = Math.round(rawPct * ass.max_mark);
           
           marks.push({
@@ -154,11 +151,9 @@ export const importDemoData = async () => {
   while (daysAdded < 5) {
       const d = subDays(today, dayOffset);
       dayOffset++;
-      
       if (isWeekend(d)) continue;
       
       const dateStr = format(d, 'yyyy-MM-dd');
-      
       classes.forEach(cls => {
           const classLearners = learners.filter(l => l.class_id === cls.id);
           classLearners.forEach(l => {
@@ -185,6 +180,52 @@ export const importDemoData = async () => {
       const { error: attErr } = await supabase.from('attendance').upsert(attendance.slice(i, i + 50));
       if (attErr) throw new Error(`Attendance Error: ${attErr.message}`);
   }
+
+  // 8. Create Timetable
+  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const timetable: any[] = [];
+  
+  classes.forEach((cls, index) => {
+      daysOfWeek.forEach(day => {
+          timetable.push({
+              id: crypto.randomUUID(),
+              user_id: userId,
+              day: day,
+              period: index + 1, // Distribute classes sequentially
+              subject: cls.subject,
+              class_name: cls.class_name,
+              class_id: cls.id,
+              start_time: `0${8 + index}:00`,
+              end_time: `0${8 + index}:55`
+          });
+      });
+  });
+
+  for (let i = 0; i < timetable.length; i += 50) {
+      const { error: ttErr } = await supabase.from('timetable').upsert(timetable.slice(i, i + 50));
+      if (ttErr) throw new Error(`Timetable Error: ${ttErr.message}`);
+  }
+
+  // 9. Create Tasks / Todos
+  const todos = [
+      { id: crypto.randomUUID(), user_id: userId, year_id: yearId, term_id: activeTermId, title: "Review Term 3 Mathematics assessments", completed: false },
+      { id: crypto.randomUUID(), user_id: userId, year_id: yearId, term_id: activeTermId, title: "Prepare moderation sample for HOD", completed: false },
+      { id: crypto.randomUUID(), user_id: userId, year_id: yearId, term_id: activeTermId, title: "Print attendance registers", completed: true }
+  ];
+
+  const { error: todoErr } = await supabase.from('todos').upsert(todos);
+  if (todoErr) throw new Error(`Todos Error: ${todoErr.message}`);
+
+  // 10. Create Curriculum Topics
+  const topics: any[] = [];
+  classes.forEach(cls => {
+      topics.push({ id: crypto.randomUUID(), user_id: userId, term_id: activeTermId, subject: cls.subject, grade: cls.grade, title: "Term 3 Introduction", order: 1 });
+      topics.push({ id: crypto.randomUUID(), user_id: userId, term_id: activeTermId, subject: cls.subject, grade: cls.grade, title: "Core Fundamentals", order: 2 });
+      topics.push({ id: crypto.randomUUID(), user_id: userId, term_id: activeTermId, subject: cls.subject, grade: cls.grade, title: "Advanced Applications", order: 3 });
+  });
+
+  const { error: topicsErr } = await supabase.from('curriculum_topics').upsert(topics);
+  if (topicsErr) throw new Error(`Topics Error: ${topicsErr.message}`);
 
   return { yearId, activeTermId };
 };
