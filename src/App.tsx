@@ -69,9 +69,17 @@ const App = () => {
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
       setLoading(false);
+      
+      // Force React Query to flush cache and refetch if the user signs in or out
+      if (event === 'SIGNED_IN') {
+          await queryClient.cancelQueries();
+          await queryClient.invalidateQueries();
+      } else if (event === 'SIGNED_OUT') {
+          queryClient.clear();
+      }
     });
 
     return () => subscription.unsubscribe();

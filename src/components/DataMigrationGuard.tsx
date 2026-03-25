@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/db';
-import { CloudDownload, Loader2, Database } from 'lucide-react';
+import { CloudDownload, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
@@ -37,10 +37,9 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
         'teacherfile_entry_attachments', 'review_snapshots', 'remediation_tasks', 'scan_history'
       ];
 
+      // 2. Push local data first to prevent data loss if you had unsynced local data
       try {
         if (isMounted) setSyncStatus("Pushing local offline changes to cloud...");
-        
-        // 2. Push local data first to prevent data loss if you had unsynced local data
         for (const table of tables) {
           if (!(db as any)[table]) continue;
           const localData = await (db as any)[table].toArray();
@@ -67,8 +66,9 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
                         delete payload.termId;
                     }
                     
-                    // Enforce user_id for RLS safety
-                    if (!payload.user_id && table !== 'profiles' && table !== 'teacherfile_template_sections' && table !== 'teacherfile_entry_attachments') {
+                    // Enforce user_id for RLS safety. 
+                    // IMPORTANT: The learners table is secured via class_id and does NOT have a user_id column.
+                    if (!payload.user_id && !['profiles', 'teacherfile_template_sections', 'teacherfile_entry_attachments', 'learners'].includes(table)) {
                         payload.user_id = session.user.id;
                     }
                     return payload;
@@ -81,15 +81,19 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
             }
           }
         }
+      } catch (pushErr) {
+        console.error("[Sync] Error during push phase:", pushErr);
+      }
 
+      // 3. Pull remote data down and overwrite Dexie
+      try {
         if (isMounted) setSyncStatus("Pulling latest data from cloud...");
         
-        // 3. Pull remote data down and overwrite Dexie
-        // Supabase RLS policies naturally handle the user_id filtering for us via select('*')
         for (const table of tables) {
           if (!(db as any)[table]) continue;
           
-          const { data, error } = await supabase.from(table).select('*');
+          // Use limit 10000 to confidently capture user's records instead of PostgREST 1000 default
+          const { data, error } = await supabase.from(table).select('*').limit(10000);
           
           if (!error && data) {
             await (db as any)[table].clear();
@@ -103,18 +107,20 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
                 });
                 await (db as any)[table].bulkPut(mappedData);
             }
+          } else if (error) {
+            console.error(`[Sync] Failed to pull ${table}`, error);
           }
         }
-        
-        if (isMounted) setSyncStatus("Finalizing...");
-        // 4. Ensure all active queries rerun with the freshly synced data
-        await queryClient.invalidateQueries();
-
-      } catch (err) {
-        console.error("[Sync] Error syncing data:", err);
-      } finally {
-        if (isMounted) setIsSyncing(false);
+      } catch (pullErr) {
+        console.error("[Sync] Error during pull phase:", pullErr);
       }
+        
+      if (isMounted) setSyncStatus("Finalizing...");
+      
+      // 4. Ensure all active queries rerun with the freshly synced data
+      await queryClient.invalidateQueries();
+
+      if (isMounted) setIsSyncing(false);
     };
 
     syncData();
