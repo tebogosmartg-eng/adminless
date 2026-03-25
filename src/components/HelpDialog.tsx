@@ -8,7 +8,18 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HelpCircle, Settings, Layers, AlertCircle, BadgeCheck } from "lucide-react";
+import { 
+  HelpCircle, 
+  Settings, 
+  Layers, 
+  AlertCircle, 
+  BadgeCheck,
+  Sparkles,
+  Camera,
+  FileText,
+  Book,
+  BarChart3
+} from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
@@ -95,6 +106,58 @@ export function HelpDialog() {
                             <p className="text-[10px] mt-1 font-bold">{g.min}% - {g.max}%</p>
                         </div>
                     ))}
+                  </div>
+                </section>
+              </TabsContent>
+
+              <TabsContent value="ai" className="space-y-6 mt-0">
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                      <Sparkles className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <h3 className="font-bold text-lg">AI Tools & Automation</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    AdminLess includes several assistive AI tools to help reduce your administrative burden. These tools are always under your control.
+                  </p>
+                  
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {/* Card 1: Scan Marksheet */}
+                    <div className="p-4 border rounded-xl bg-card hover:border-primary/30 transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Camera className="h-4 w-4 text-primary" />
+                        <h4 className="font-bold text-sm">Scan Marksheet</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Upload photos of handwritten class lists to automatically create your digital roster.</p>
+                    </div>
+
+                    {/* Card 2: AI Mark Extraction */}
+                    <div className="p-4 border rounded-xl bg-card hover:border-primary/30 transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText className="h-4 w-4 text-purple-500" />
+                        <h4 className="font-bold text-sm">AI Mark Extraction</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Extract marks question-by-question from scanned student scripts directly into your marksheet.</p>
+                    </div>
+
+                    {/* Card 3: Teacher File Builder */}
+                    <div className="p-4 border rounded-xl bg-card hover:border-primary/30 transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Book className="h-4 w-4 text-green-500" />
+                        <h4 className="font-bold text-sm">Teacher File Builder</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Automatically assemble your academic data into a formal portfolio ready for moderation.</p>
+                    </div>
+
+                    {/* Card 4: Analytics Generator */}
+                    <div className="p-4 border rounded-xl bg-card hover:border-primary/30 transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <BarChart3 className="h-4 w-4 text-amber-500" />
+                        <h4 className="font-bold text-sm">Analytics Generator</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Generate deep insights, identify at-risk learners, and get intervention strategies automatically.</p>
+                    </div>
                   </div>
                 </section>
               </TabsContent>
