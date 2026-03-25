@@ -47,7 +47,7 @@ export const ActivityProvider = ({ children, session }: { children: ReactNode; s
             message,
             timestamp: new Date().toISOString(),
         };
-        const { error } = await supabase.from('activities').insert(newActivity);
+        const { error } = await supabase.from('activities').upsert(newActivity);
         if (error) throw error;
     },
     onSuccess: () => {

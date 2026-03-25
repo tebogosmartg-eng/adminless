@@ -59,7 +59,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       if (!session?.user?.id) return [];
       const { data, error } = await supabase.from('terms').select('*').eq('user_id', session.user.id);
       if (error) throw error;
-      return data as Term[];
+      // Remap the missing schema property locally for the UI based on standard 'closed' status
+      return data.map(t => ({ ...t, is_finalised: !!t.closed })) as Term[];
     },
     enabled: !!session?.user?.id
   });
@@ -113,7 +114,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     const targetYearId = yearId || activeYear?.id;
     const targetTermId = termId || activeTerm?.id;
     if (!targetYearId || !targetTermId) return;
-    await supabase.from('activities').insert({
+    await supabase.from('activities').upsert({
       id: crypto.randomUUID(),
       user_id: session.user.id,
       year_id: targetYearId,
@@ -129,11 +130,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const createYear = useCallback(async (name: string) => {
     if (!session?.user?.id) return;
     const yearId = crypto.randomUUID();
-    await supabase.from('academic_years').insert({ id: yearId, name, user_id: session.user.id, closed: false });
+    // Using upsert instead of insert
+    await supabase.from('academic_years').upsert({ id: yearId, name, user_id: session.user.id, closed: false });
     const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName) => ({
-      id: crypto.randomUUID(), year_id: yearId, name: tName, user_id: session.user.id, closed: false, is_finalised: false, weight: 25, 
+      id: crypto.randomUUID(), year_id: yearId, name: tName, user_id: session.user.id, closed: false, weight: 25, 
     }));
-    await supabase.from('terms').insert(termsToCreate);
+    await supabase.from('terms').upsert(termsToCreate);
     queryClient.invalidateQueries({ queryKey: ['academic_years'] });
     queryClient.invalidateQueries({ queryKey: ['terms'] });
   }, [session?.user?.id, queryClient]);
@@ -146,19 +148,29 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [queryClient]);
 
   const updateTerm = useCallback(async (term: Term) => {
-    await supabase.from('terms').update(term).eq('id', term.id);
+    const payload = { ...term };
+    delete (payload as any).is_finalised; // Local UI logic only
+    await supabase.from('terms').upsert(payload);
     queryClient.invalidateQueries({ queryKey: ['terms'] });
   }, [queryClient]);
 
   const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
     const id = crypto.randomUUID();
-    await supabase.from('assessments').insert({ ...assessment, id, user_id: session?.user?.id || '' });
+    const payload: any = { ...assessment, id, user_id: session?.user?.id || '' };
+    delete payload.questions;
+    delete payload.rubric_id;
+    delete payload.task_slot_key;
+    await supabase.from('assessments').upsert(payload);
     queryClient.invalidateQueries({ queryKey: ['assessments'] });
     return id;
   }, [session?.user?.id, queryClient]);
 
   const updateAssessment = useCallback(async (a: Assessment) => {
-    await supabase.from('assessments').update(a).eq('id', a.id);
+    const payload: any = { ...a };
+    delete payload.questions;
+    delete payload.rubric_id;
+    delete payload.task_slot_key;
+    await supabase.from('assessments').upsert(payload);
     queryClient.invalidateQueries({ queryKey: ['assessments'] });
   }, [queryClient]);
 
@@ -173,7 +185,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (!session?.user?.id || updates.length === 0) return;
     const toUpsert = await Promise.all(updates.map(async (u) => {
         const { data: existing } = await supabase.from('assessment_marks').select('id').eq('assessment_id', u.assessment_id).eq('learner_id', u.learner_id).single();
-        return { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id } as AssessmentMark;
+        const cleaned = { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id };
+        delete cleaned.question_marks;
+        delete cleaned.rubric_selections;
+        return cleaned as AssessmentMark;
     }));
     await supabase.from('assessment_marks').upsert(toUpsert);
     queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
@@ -188,7 +203,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [activeTerm?.id]);
 
   const toggleTermStatus = useCallback(async (termId: string, finalised: boolean) => {
-    await supabase.from('terms').update({ is_finalised: finalised, closed: finalised }).eq('id', termId);
+    await supabase.from('terms').update({ closed: finalised }).eq('id', termId);
     queryClient.invalidateQueries({ queryKey: ['terms'] });
   }, [queryClient]);
 

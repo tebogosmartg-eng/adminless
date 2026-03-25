@@ -70,7 +70,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
           learners: (learnersData || []).filter(l => l.class_id === c.id)
       })) as ClassInfo[];
 
-      // Filter locally since remote schema lacks year_id and term_id
       if (!diagnosticMode && activeYear && activeTerm) {
           mappedClasses = mappedClasses.filter(c => c.year_id === activeYear.id && c.term_id === activeTerm.id);
       }
@@ -97,17 +96,18 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         notes: newClass.notes || ''
       };
 
-      const { error: cErr } = await supabase.from('classes').insert(classData);
+      const { error: cErr } = await supabase.from('classes').upsert(classData);
       if (cErr) throw cErr;
 
       if (newClass.learners.length > 0) {
           const learnersWithIds = newClass.learners.map(l => ({
-              ...l,
               id: l.id || crypto.randomUUID(),
               class_id: newClass.id,
-              user_id: session.user.id
+              name: l.name,
+              mark: l.mark,
+              comment: l.comment
           }));
-          const { error: lErr } = await supabase.from('learners').insert(learnersWithIds);
+          const { error: lErr } = await supabase.from('learners').upsert(learnersWithIds);
           if (lErr) throw lErr;
       }
 
@@ -134,11 +134,9 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
             toUpsert.push({
                 id,
                 class_id: classId,
-                user_id: session.user.id,
                 name: l.name,
                 mark: l.mark,
-                comment: l.comment,
-                gender: l.gender || null
+                comment: l.comment
             });
         }
 

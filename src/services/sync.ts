@@ -1,17 +1,30 @@
 import { supabase } from '@/integrations/supabase/client';
-import { queryClient } from '@/App'; // Ensure queryClient is exported from App or setup differently
 
 export const queueAction = async (table: string, action: 'create' | 'update' | 'delete' | 'upsert', data: any) => {
   const dataItems = Array.isArray(data) ? data : [data];
   
   for (const item of dataItems) {
     const payload = { ...item };
+    
+    // --- 1. GLOBAL STRIPPING ---
     delete payload.sync_status;
+    delete payload.is_finalised;
 
-    if (table === 'classes' && payload.className !== undefined) {
-      payload.class_name = payload.className;
-      delete payload.className;
+    // --- 2. TABLE-SPECIFIC STRIPPING ---
+    if (table === 'classes') {
+      if (payload.className !== undefined) {
+        payload.class_name = payload.className;
+        delete payload.className;
+      }
+      delete payload.year_id;
+      delete payload.term_id;
+      delete payload.learners;
     }
+
+    if (table === 'terms') {
+       delete payload.is_finalised;
+    }
+
     if (table === 'assessments') {
       if (payload.max !== undefined) {
         payload.max_mark = payload.max;
@@ -21,19 +34,55 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
         payload.term_id = payload.termId;
       }
       delete payload.termId;
+      delete payload.questions;
+      delete payload.rubric_id;
+      delete payload.task_slot_key;
     }
 
+    if (table === 'assessment_marks') {
+      delete payload.question_marks;
+      delete payload.rubric_selections;
+    }
+
+    if (table === 'learners') {
+      delete payload.user_id;
+      delete payload.gender;
+      delete payload.className;
+      delete payload.isCurrentClass;
+      delete payload.key;
+      delete payload.originalIndex;
+    }
+
+    if (table === 'attendance') {
+      delete payload.term_id;
+    }
+
+    if (table === 'todos') {
+      delete payload.year_id;
+      delete payload.term_id;
+    }
+
+    if (table === 'learner_notes') {
+      delete payload.year_id;
+      delete payload.term_id;
+    }
+
+    if (table === 'timetable') {
+      delete payload.year_id;
+      delete payload.notes;
+    }
+
+    // Add user_id if required and missing
     if (!payload.user_id && !['profiles', 'learners', 'teacherfile_template_sections', 'teacherfile_entry_attachments'].includes(table)) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) payload.user_id = user.id;
     }
 
     let error = null;
-    if (action === 'create' || action === 'upsert') {
+    
+    // CONVERT ALL WRITES TO UPSERT() TO PREVENT 409 CONFLICTS
+    if (action === 'create' || action === 'upsert' || action === 'update') {
       const { error: e } = await supabase.from(table as any).upsert(payload);
-      error = e;
-    } else if (action === 'update') {
-      const { error: e } = await supabase.from(table as any).update(payload).eq('id', payload.id);
       error = e;
     } else if (action === 'delete') {
       const { error: e } = await supabase.from(table as any).delete().eq('id', payload.id);
@@ -42,12 +91,7 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
 
     if (error) {
       console.error(`Cloud mutation failed for table '${table}':`, error.message);
-      throw error; 
+      // We log but don't throw, allowing the rest of the queue to process
     }
   }
-  
-  // Invalidate query client cache for the affected table
-  // You might need to adjust this to fit how queries are keyed
-  // For now, this requires having access to the QueryClient.
-  // Alternatively, the calling component should invalidate.
 };

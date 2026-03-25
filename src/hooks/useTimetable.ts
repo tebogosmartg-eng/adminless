@@ -14,7 +14,6 @@ export const useTimetable = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
       
-      // Direct Supabase call (omitting the non-existent year_id column filter)
       const { data, error } = await supabase
         .from('timetable')
         .select('*')
@@ -52,9 +51,11 @@ export const useTimetable = () => {
         class_id: entry.class_id || null,
         start_time: entry.start_time || '',
         end_time: entry.end_time || '',
-        notes: entry.notes !== undefined ? entry.notes : (existing?.notes || '')
       };
 
+      // Supabase Schema lacks 'year_id' and 'notes' on 'timetable' 
+      // ensuring they are completely stripped out to prevent 400 Bad Request
+      
       const { error } = await supabase.from('timetable').upsert(payload);
       if (error) throw error;
       

@@ -114,7 +114,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
             updated_at: new Date().toISOString()
         };
         
-        await supabase.from('profiles').insert(newProfile);
+        await supabase.from('profiles').upsert(newProfile);
         setOnboardingCompletedState(hasExistingData);
         queryClient.invalidateQueries({ queryKey: ['profile'] });
     }
