@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useClasses } from '@/context/ClassesContext';
 import { useAcademic } from '@/context/AcademicContext';
-import { useSync } from '@/context/SyncContext';
 import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { ScanType, AssessmentMark, ScannedLearner } from '@/lib/types';
@@ -20,7 +19,6 @@ export const useScanLogic = (defaultClassId?: string) => {
   const location = useLocation();
   const { classes } = useClasses();
   const { activeYear, activeTerm, updateMarks } = useAcademic();
-  const { isOnline } = useSync();
 
   const [scanType, setScanType] = useState<ScanType>('class_marksheet');
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>(defaultClassId);
@@ -64,7 +62,7 @@ export const useScanLogic = (defaultClassId?: string) => {
   }, [selectedClassId, activeTerm]);
 
   const handleProcessImage = async () => {
-    if (!selectedClassId || !targetAssessment || imagePreviews.length === 0 || !isOnline) return;
+    if (!selectedClassId || !targetAssessment || imagePreviews.length === 0 || !navigator.onLine) return;
     
     setIsProcessing(true);
     try {

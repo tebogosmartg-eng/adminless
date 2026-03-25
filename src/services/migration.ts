@@ -136,9 +136,6 @@ export const migrateAllData = async (onProgress: (p: MigrationProgress) => void)
 
       completedTables.push(dexieTable);
     }
-
-    // Clear sync queue after successful migration
-    await db.sync_queue.clear();
     
     // Set migration completion flag
     localStorage.setItem('sma_migration_v2_complete', 'true');

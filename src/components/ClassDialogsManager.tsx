@@ -8,7 +8,6 @@ import { LearnerProfileDialog } from '@/components/dialogs/LearnerProfileDialog'
 import { AddLearnerDialog } from '@/components/dialogs/AddLearnerDialog';
 import { ClassroomToolsDialog } from '@/components/dialogs/ClassroomToolsDialog';
 import { ClassInfo, Learner, ClassInsight } from '@/lib/types';
-import { useSync } from '@/context/SyncContext';
 import { showError } from '@/utils/toast';
 
 interface ClassDialogsManagerProps {
@@ -54,7 +53,6 @@ export const ClassDialogsManager = ({
   handlers,
   aiFeatures
 }: ClassDialogsManagerProps) => {
-  const { isOnline } = useSync();
 
   const getCurrentLearnerIndex = () => {
     if (!dialogs.selectedProfileLearner) return -1;
@@ -78,7 +76,7 @@ export const ClassDialogsManager = ({
   };
 
   const handleAiInsightsOpen = (open: boolean) => {
-      if (open && !isOnline) {
+      if (open && !navigator.onLine) {
           showError("AI Insights require an internet connection.");
           return;
       }

@@ -4,12 +4,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { db, TeacherFileAnnotation } from '@/db';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
-import { useSync } from '@/context/SyncContext';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'queued';
 
 export const useTeacherFileAnnotations = (yearId: string | undefined, termId: string | undefined, sectionKey: string) => {
-  const { isOnline } = useSync();
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [localContent, setLocalContent] = useState("");
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -78,14 +76,14 @@ export const useTeacherFileAnnotations = (yearId: string | undefined, termId: st
       await queueAction('teacher_file_annotations', 'upsert', payload);
       
       if (isMounted.current) {
-          setStatus(isOnline ? 'saved' : 'queued');
+          setStatus(navigator.onLine ? 'saved' : 'queued');
           setTimeout(() => { if(isMounted.current) setStatus('idle'); }, 3000);
       }
     } catch (e) {
       console.error("[Annotations] Save failed:", e);
       if (isMounted.current) setStatus('idle');
     }
-  }, [yearId, termId, sectionKey, isOnline]);
+  }, [yearId, termId, sectionKey]);
 
   const updateContent = (content: string) => {
     setLocalContent(content);

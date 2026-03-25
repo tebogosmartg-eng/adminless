@@ -6,7 +6,6 @@ import {
     Upload,
     AlertTriangle, 
     Loader2, 
-    RefreshCw, 
     Calculator, 
     Wind,
     History,
@@ -27,13 +26,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { db } from "@/db";
-import { useSync } from "@/context/SyncContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { importDemoData } from "@/services/demoData";
 import { queueAction } from "@/services/sync";
 
 export const DataManagementSettings = () => {
-  const { isOnline, forceSync, isSyncing } = useSync();
   const { 
     activeTerm,
     recalculateAllActiveAverages, 
@@ -64,7 +61,7 @@ export const DataManagementSettings = () => {
   };
 
   const handleAccountRecovery = async () => {
-    if (!isOnline) {
+    if (!navigator.onLine) {
         showError("Internet connection required for account recovery.");
         return;
     }
@@ -76,7 +73,7 @@ export const DataManagementSettings = () => {
         
         if (data.success) {
             showSuccess(data.message);
-            await forceSync(); // Pull the recovered data
+            setTimeout(() => window.location.reload(), 1500); // Reload to pull the recovered data
         } else {
             showError(data.message || "No historical data found.");
         }
@@ -101,7 +98,7 @@ export const DataManagementSettings = () => {
         if (error) throw error;
 
         showSuccess(data.message);
-        await forceSync();
+        setTimeout(() => window.location.reload(), 1500);
     } catch (e: any) {
         showError("Consolidation failed.");
     } finally {
@@ -288,7 +285,7 @@ export const DataManagementSettings = () => {
             <CardDescription>Maintain data integrity and manage backups.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3">
                 <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/20">
                     <div>
                         <h3 className="font-semibold text-sm mb-1">Repair Averages</h3>
@@ -307,16 +304,6 @@ export const DataManagementSettings = () => {
                     <Button variant="outline" size="sm" onClick={handleVacuum} disabled={isVacuuming} className="w-full mt-auto h-9">
                         {isVacuuming ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Wind className="h-3.5 w-3.5 mr-2" />}
                         Purge
-                    </Button>
-                </div>
-                <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/20">
-                    <div>
-                        <h3 className="font-semibold text-sm mb-1">Force Sync</h3>
-                        <p className="text-[10px] text-muted-foreground">Manually push pending changes and pull latest data.</p>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={forceSync} disabled={isSyncing || !isOnline} className="w-full mt-auto h-9">
-                        {isSyncing ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
-                        Sync
                     </Button>
                 </div>
                 <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/20">

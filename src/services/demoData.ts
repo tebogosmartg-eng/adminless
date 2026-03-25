@@ -188,7 +188,7 @@ export const importDemoData = async () => {
   await db.transaction('rw', [
     db.academic_years, db.terms, db.classes, db.learners, 
     db.assessments, db.assessment_marks, db.timetable,
-    db.attendance, db.todos, db.learner_notes, db.sync_queue
+    db.attendance, db.todos, db.learner_notes
   ], async () => {
     await db.academic_years.put(year);
     await db.terms.bulkPut(terms);

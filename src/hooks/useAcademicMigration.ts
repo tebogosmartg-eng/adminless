@@ -26,7 +26,7 @@ export const useAcademicMigration = (
         const targetTerm = await db.terms.get(targetTermId);
         if (!sourceTerm || !targetTerm) throw new Error("Invalid term context.");
 
-        await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
+        await db.transaction('rw', [db.classes, db.learners], async () => {
             for (const sClass of preparedClasses) {
                 const newClassId = crypto.randomUUID();
                 const newClass = {

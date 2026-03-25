@@ -19,7 +19,7 @@ import Reports from "./pages/Reports";
 import EvidenceAudit from "./pages/EvidenceAudit";
 import ScanAudit from "./pages/ScanAudit";
 import TeacherFile from "./pages/TeacherFile"; 
-import TeacherFileReview from "./pages/TeacherFileReview"; // New Page
+import TeacherFileReview from "./pages/TeacherFileReview";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
 import PilotSignup from "./pages/PilotSignup";
@@ -28,8 +28,6 @@ import { ActivityProvider } from "./context/ActivityContext";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { SettingsProvider } from "./context/SettingsContext";
 import { AcademicProvider } from "./context/AcademicContext";
-import { SyncProvider } from "./context/SyncContext";
-import { OfflineIndicator } from "./components/OfflineIndicator";
 import { SystemThemeManager } from "./components/SystemThemeManager";
 import { ScopeDiagnostics } from "./components/ScopeDiagnostics";
 import { DataMigrationGuard } from "./components/DataMigrationGuard";
@@ -91,7 +89,6 @@ const App = () => {
           <SystemThemeManager />
           <Toaster />
           <Sonner />
-          <SyncProvider>
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <AcademicProvider session={session}>
                     <ActivityProvider session={session}>
@@ -99,7 +96,6 @@ const App = () => {
                             <ClassesProvider session={session}>
                                 <DataMigrationGuard>
                                     <ScopeDiagnostics />
-                                    <OfflineIndicator />
                                     <Routes>
                                     <Route path="/welcome" element={session ? <Navigate to="/" /> : <Landing />} />
                                     <Route path="/pilot-signup" element={session ? <Navigate to="/login" /> : <PilotSignup />} />
@@ -131,7 +127,6 @@ const App = () => {
                     </ActivityProvider>
                 </AcademicProvider>
             </BrowserRouter>
-          </SyncProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

@@ -58,7 +58,7 @@ export const useTeacherFileFlexible = (classId: string, termId: string) => {
         { template_id: templateId, title: "Interventions", type: 'interventions', sort_order: 6, config: {} }
       ];
 
-      await db.transaction('rw', [db.teacherfile_templates, db.teacherfile_template_sections, db.sync_queue], async () => {
+      await db.transaction('rw', [db.teacherfile_templates, db.teacherfile_template_sections], async () => {
         await db.teacherfile_templates.add(newTemplate);
         await queueAction('teacherfile_templates', 'create', newTemplate);
 

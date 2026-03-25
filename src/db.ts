@@ -68,14 +68,6 @@ export interface DBLearner extends Learner {
   sync_status?: 'synced' | 'pending';
 }
 
-export interface DBSyncItem {
-  id?: number;
-  table: string;
-  action: 'create' | 'update' | 'delete' | 'upsert';
-  data: any;
-  timestamp: number;
-}
-
 export interface ScanJob {
   id: string;
   user_id: string;
@@ -99,7 +91,6 @@ export class SmaRegDB extends Dexie {
   activities!: Table<Activity>;
   todos!: Table<Todo>;
   attendance!: Table<AttendanceRecord>;
-  sync_queue!: Table<DBSyncItem>;
   profiles!: Table<any>;
   timetable!: Table<TimetableEntry>;
   learner_notes!: Table<LearnerNote>;
@@ -133,7 +124,6 @@ export class SmaRegDB extends Dexie {
       assessment_marks: '[assessment_id+learner_id], assessment_id, learner_id',
       activities: 'id, timestamp',
       todos: 'id, completed',
-      sync_queue: '++id, table, timestamp',
       profiles: 'id'
     });
 
@@ -164,11 +154,9 @@ export class SmaRegDB extends Dexie {
       teacherfile_entries: 'id, user_id, [class_id+term_id], section_id',
       teacherfile_entry_attachments: 'id, entry_id',
       review_snapshots: 'id, user_id, [class_id+term_id], created_at',
-      sync_queue: '++id, table, timestamp',
       profiles: 'id'
     });
 
-    // Version 41: Added 'class_id' to timetable index
     this.version(41).stores({
       academic_years: 'id, user_id, closed',
       terms: 'id, year_id, user_id',
@@ -196,7 +184,6 @@ export class SmaRegDB extends Dexie {
       teacherfile_entries: 'id, user_id, [class_id+term_id], section_id',
       teacherfile_entry_attachments: 'id, entry_id',
       review_snapshots: 'id, user_id, [class_id+term_id], created_at',
-      sync_queue: '++id, table, timestamp',
       profiles: 'id'
     });
   }

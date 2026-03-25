@@ -3,8 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Loader2, PlayCircle, Camera, WifiOff, Users, User, ClipboardList, ShieldCheck, FileSearch, UserPlus, AlertCircle, Info, PlusCircle } from 'lucide-react';
-import { useSync } from '@/context/SyncContext';
+import { FileText, Loader2, PlayCircle, Camera, Users, User, ClipboardList, ShieldCheck, FileSearch, UserPlus, AlertCircle, PlusCircle } from 'lucide-react';
 import { ScanType, ClassInfo, Assessment } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { CreateClassInlineDialog } from './CreateClassInlineDialog';
@@ -47,16 +46,10 @@ export const ScanUploadSection = ({
   isCreateClassOpen,
   setIsCreateClassOpen
 }: ScanUploadSectionProps) => {
-  const { isOnline } = useSync();
 
   const TYPE_OPTIONS = [
     { id: 'class_marksheet', label: 'Class Marksheet', sub: 'Bulk Assessment', icon: Users },
     { id: 'individual_script', label: 'Individual Script', sub: '1 student / set', icon: User },
-    // Hidden from UI to simplify options, but logic preserved in system:
-    // { id: 'learner_roster', label: 'Learner Roster', sub: 'Class Names List', icon: UserPlus },
-    // { id: 'attendance_register', label: 'Attendance', sub: 'Daily Register', icon: ClipboardList },
-    // { id: 'diagnostic_form', label: 'Diagnostic Form', sub: 'Question Analysis', icon: FileSearch },
-    // { id: 'moderation_sample', label: 'Moderation Sample', sub: 'Departmental Audit', icon: ShieldCheck },
   ];
 
   const needsAssessment = ['class_marksheet', 'individual_script'].includes(scanType);
@@ -153,7 +146,7 @@ export const ScanUploadSection = ({
                     </div>
                 )}
                 
-                <Button onClick={onProcess} disabled={isProcessing || !isReady || imagePreviews.length === 0 || !isOnline} className="w-full h-11 font-bold">
+                <Button onClick={onProcess} disabled={isProcessing || !isReady || imagePreviews.length === 0 || !navigator.onLine} className="w-full h-11 font-bold">
                     {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</> : <><FileText className="mr-2 h-4 w-4" /> Start AI Extraction</>}
                 </Button>
                 
