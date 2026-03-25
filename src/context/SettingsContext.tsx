@@ -96,20 +96,26 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
     
     const { data: existing, error } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, onboarding_completed')
         .eq('id', session.user.id)
         .single();
 
     if (error || !existing) {
         console.log("[Bootstrap] Profile not found. Creating minimal row...");
+        
+        // Smart Check: Does this user already have classes in the database?
+        const { count } = await supabase.from('classes').select('*', { count: 'exact', head: true }).eq('user_id', session.user.id);
+        const hasExistingData = (count || 0) > 0;
+
         const newProfile = {
             id: session.user.id,
             contact_email: session.user.email,
-            onboarding_completed: false, // New users start with onboarding
+            onboarding_completed: hasExistingData, // Bypass onboarding if they have data
             updated_at: new Date().toISOString()
         };
         
         await supabase.from('profiles').insert(newProfile);
+        setOnboardingCompletedState(hasExistingData);
         queryClient.invalidateQueries({ queryKey: ['profile'] });
     }
   }, [session?.user, queryClient]);
@@ -133,8 +139,6 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
         if (Array.isArray(profile.subjects) && profile.subjects.length > 0) setSavedSubjectsState(profile.subjects);
         if (Array.isArray(profile.grades)) setSavedGradesState(profile.grades);
         
-        // Important: if onboarding_completed is null/undefined in DB, it's an existing user who never did onboarding
-        // Default to true for them
         if (profile.onboarding_completed !== undefined && profile.onboarding_completed !== null) {
             setOnboardingCompletedState(profile.onboarding_completed);
         } else {

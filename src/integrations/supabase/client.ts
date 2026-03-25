@@ -9,6 +9,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    storageKey: 'adminless-auth-token',
+    // Removed custom storageKey to use default reliable Supabase token management
   },
 });
