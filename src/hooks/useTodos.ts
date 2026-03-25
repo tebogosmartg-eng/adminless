@@ -13,15 +13,15 @@ export const useTodos = () => {
   // Scoped Loading: Only show items for active term
   const todos = useLiveQuery(
     async () => {
-        if (!activeTerm) return [];
-        return db.todos.where('term_id').equals(activeTerm.id).toArray();
+        if (!activeTerm?.id) return [];
+        return await db.todos.where('term_id').equals(activeTerm.id).toArray();
     },
     [activeTerm?.id]
   ) || [];
 
   const addTodo = async (title: string) => {
     // VALIDATION: Prevent creation without loaded scope
-    if (!title.trim() || !activeYear || !activeTerm) {
+    if (!title.trim() || !activeYear?.id || !activeTerm?.id) {
         showError("Task creation blocked: Academic context required.");
         return;
     }

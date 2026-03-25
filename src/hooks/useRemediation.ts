@@ -10,7 +10,7 @@ import { showSuccess, showError } from '@/utils/toast';
 export const useRemediation = (classId?: string, termId?: string) => {
   const tasks = useLiveQuery(async () => {
     if (!classId || !termId) return [];
-    return db.remediation_tasks
+    return await db.remediation_tasks
         .where('class_id').equals(classId)
         .filter(t => t.term_id === termId)
         .reverse()

@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, LessonLog } from '@/db';
+import { db } from '@/db';
+import { LessonLog } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';

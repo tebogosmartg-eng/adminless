@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import { db, TeacherFileAttachment } from '@/db';
+import { db } from '@/db';
+import { TeacherFileAttachment } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { uploadEvidenceFile, deleteEvidenceFile } from '@/services/storage';
@@ -21,18 +22,22 @@ export const useTeacherFileAttachments = (
     async () => {
       if (!yearId || !sectionKey) return [];
       
-      let query = db.teacher_file_attachments
-          .where({ 
-              academic_year_id: yearId, 
-              term_id: termId || null, 
-              section_key: sectionKey 
-          });
+      const filters: any = { 
+          academic_year_id: yearId, 
+          section_key: sectionKey 
+      };
+      
+      if (termId !== undefined) {
+          filters.term_id = termId || null;
+      }
+
+      let query = db.teacher_file_attachments.where(filters);
 
       const results = await query.toArray();
       
       // Secondary filter for assessment-specific attachments if needed
       if (assessmentId) {
-          return results.filter(a => a.assessment_id === assessmentId);
+          return results.filter((a: any) => a.assessment_id === assessmentId);
       }
       return results;
     },

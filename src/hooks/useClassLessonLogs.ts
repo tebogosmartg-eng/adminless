@@ -1,16 +1,17 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, LessonLog } from '@/db';
+import { db } from '@/db';
+import { LessonLog } from '@/lib/types';
 import { useAcademic } from '@/context/AcademicContext';
 
 export const useClassLessonLogs = (classId: string) => {
   const { activeTerm } = useAcademic();
 
   const logs = useLiveQuery(async () => {
-    if (!activeTerm) return [];
+    if (!activeTerm?.id || !classId) return [];
 
     // 1. Get all timetable slots for this class
     const slots = await db.timetable.where('class_id').equals(classId).toArray();
-    const slotIds = slots.map(s => s.id);
+    const slotIds = slots.map((s: any) => s.id);
 
     if (slotIds.length === 0) return [];
 

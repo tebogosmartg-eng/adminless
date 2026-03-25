@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { ListChecks, BookOpen, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export const CurriculumProgressWidget = () => {
   const { classes } = useClasses();
@@ -22,21 +23,21 @@ export const CurriculumProgressWidget = () => {
 
     // Get all topics for the active term
     const allTopics = await db.curriculum_topics.where('term_id').equals(activeTerm.id).toArray();
-    if (allTopics.length === 0) return { totalPercent: 0, count: 0, topicsTotal: 0 };
+    if (allTopics.length === 0) return { totalPercent: 0, count: 0, topicsTotal: 0, subjectBreakdown: [] };
 
     // Get all lesson logs to check coverage
     const allLogs = await db.lesson_logs.toArray();
-    const coveredTopicIds = new Set(allLogs.flatMap(l => l.topic_ids || []));
+    const coveredTopicIds = new Set(allLogs.flatMap((l: any) => l.topic_ids || []));
 
-    const coveredCount = allTopics.filter(t => coveredTopicIds.has(t.id)).length;
+    const coveredCount = allTopics.filter((t: any) => coveredTopicIds.has(t.id)).length;
     const totalPercent = Math.round((coveredCount / allTopics.length) * 100);
 
     // Group by Subject for a breakdown
-    const subjectBreakdown = Array.from(new Set(allTopics.map(t => t.subject))).map(sub => {
-        const subTopics = allTopics.filter(t => t.subject === sub);
-        const subCovered = subTopics.filter(t => coveredTopicIds.has(t.id)).length;
+    const subjectBreakdown = Array.from(new Set(allTopics.map((t: any) => t.subject))).map(sub => {
+        const subTopics = allTopics.filter((t: any) => t.subject === sub);
+        const subCovered = subTopics.filter((t: any) => coveredTopicIds.has(t.id)).length;
         return {
-            subject: sub,
+            subject: String(sub),
             percent: Math.round((subCovered / subTopics.length) * 100),
             count: subCovered,
             total: subTopics.length
@@ -68,7 +69,7 @@ export const CurriculumProgressWidget = () => {
         <Progress value={stats.totalPercent} className="h-1.5" />
         
         <div className="space-y-2">
-            {stats.subjectBreakdown?.slice(0, 3).map(sub => (
+            {(stats.subjectBreakdown as any[])?.slice(0, 3).map((sub: any) => (
                 <div key={sub.subject} className="space-y-1">
                     <div className="flex justify-between text-[10px] font-medium">
                         <span className="truncate max-w-[120px]">{sub.subject}</span>
@@ -90,5 +91,3 @@ export const CurriculumProgressWidget = () => {
     </Card>
   );
 };
-
-import { Button } from "@/components/ui/button";

@@ -371,3 +371,59 @@ export interface ReviewSnapshot {
   entry_ids: string[];
   created_at: string;
 }
+
+export interface LessonLog {
+  id: string;
+  user_id: string;
+  timetable_id: string;
+  date: string;
+  content: string;
+  homework?: string;
+  topic_ids?: string[];
+  created_at?: string;
+}
+
+export interface ScanJob {
+  id: string;
+  user_id: string;
+  class_id: string | null;
+  assessment_id: string | null;
+  file_path: string | null;
+  status: string;
+  raw_extraction_json: any;
+  edited_extraction_json: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssessmentDiagnostic {
+  id: string;
+  assessment_id: string;
+  user_id: string;
+  findings: string;
+  interventions: string;
+  updated_at: string;
+}
+
+export interface TeacherFileAnnotation {
+  id: string;
+  user_id: string;
+  academic_year_id: string;
+  term_id: string | null;
+  section_key: string;
+  content: string;
+  updated_at: string;
+}
+
+export interface TeacherFileAttachment {
+  id: string;
+  user_id: string;
+  academic_year_id: string;
+  term_id: string | null;
+  section_key: string;
+  assessment_id: string | null;
+  file_path: string;
+  file_name: string;
+  file_type: string;
+  created_at: string;
+}

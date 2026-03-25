@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useCallback } from 'react';
-import { db, AssessmentDiagnostic } from '@/db';
-import { Assessment, Learner, AssessmentMark, DiagnosticRow, FullDiagnostic } from '@/lib/types';
+import { db } from '@/db';
+import { Assessment, Learner, AssessmentMark, DiagnosticRow, FullDiagnostic, AssessmentDiagnostic } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
@@ -39,8 +39,8 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[],
 
     const qStats: QuestionStat[] = assessment.questions.map(q => {
       const qMarks = marks
-        .map(m => m.question_marks?.find(qm => qm.question_id === q.id)?.score)
-        .filter(s => s !== undefined && s !== null) as number[];
+        .map((m: any) => m.question_marks?.find((qm: any) => qm.question_id === q.id)?.score)
+        .filter((s: any) => s !== undefined && s !== null) as number[];
 
       if (qMarks.length === 0) {
         return { 
@@ -108,7 +108,7 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[],
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
-          const payload: any = {
+          const payload: AssessmentDiagnostic = {
               id: savedDiagnostic?.id || crypto.randomUUID(),
               assessment_id: assessment.id,
               user_id: user.id,

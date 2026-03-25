@@ -4,8 +4,13 @@ class QueryShim {
   constructor(public tableName: string, public filters: any[] = [], public orderField?: string, public isReverse?: boolean, public limitCount?: number) {}
 
   where(field: string | any) {
-    if (typeof field === 'object') {
-        const newFilters = [...this.filters, { type: 'match', value: field }];
+    if (typeof field === 'object' && field !== null) {
+        // Clean undefined values to prevent Supabase 400 errors
+        const cleanObj: any = {};
+        for (const k in field) {
+            if (field[k] !== undefined) cleanObj[k] = field[k];
+        }
+        const newFilters = [...this.filters, { type: 'match', value: cleanObj }];
         return new QueryShim(this.tableName, newFilters, this.orderField, this.isReverse, this.limitCount);
     }
     return {
@@ -41,28 +46,35 @@ class QueryShim {
   }
 
   async toArray() {
-    let query = supabase.from(this.tableName).select('*');
+    let query: any = supabase.from(this.tableName).select('*');
     
     // Apply basic Supabase filters where possible
     const jsFilters = [];
     for (const f of this.filters) {
         if (f.type === 'eq') {
+            if (f.val === undefined) {
+                return []; // Safe bailout to prevent 400 Bad Request
+            }
             if (f.field.includes('+')) {
                 // handle compound index ['class_id+term_id'].equals([c, t])
                 const keys = f.field.replace(/[\[\]]/g, '').split('+');
+                let hasUndefined = false;
                 keys.forEach((k: string, i: number) => {
-                    query = query.eq(k, f.val[i]);
+                    if (f.val[i] === undefined) hasUndefined = true;
+                    else query = query.eq(k, f.val[i]);
                 });
+                if (hasUndefined) return []; // Safe bailout
             } else {
                 query = query.eq(f.field, f.val);
             }
         } else if (f.type === 'in') {
-             if (f.val.length > 0) {
+             if (f.val && f.val.length > 0) {
                  query = query.in(f.field, f.val);
              } else {
                  return []; // empty IN clause returns empty
              }
         } else if (f.type === 'match') {
+             if (!f.val || Object.keys(f.val).length === 0) continue;
              query = query.match(f.val);
         } else if (f.type === 'js_filter') {
              jsFilters.push(f.fn);
@@ -97,7 +109,7 @@ class QueryShim {
 
   async first() {
       const results = await this.limit(1).toArray();
-      return results[0] || undefined;
+      return results[0] || null; // Return null instead of undefined
   }
 }
 
@@ -121,7 +133,9 @@ class TableShim {
   }
 
   async get(id: string) {
-      const res = await new QueryShim(this.name).where('id').equals(id).first();
+      if (!id) return null;
+      const q: any = new QueryShim(this.name).where('id');
+      const res = await q.equals(id).first();
       return res;
   }
 
@@ -156,11 +170,13 @@ class TableShim {
   }
 
   async update(id: string, updates: any) {
+      if (!id) return;
       const { error } = await supabase.from(this.name).update(updates).eq('id', id);
       if (error) throw error;
   }
 
   async delete(id: string) {
+      if (!id) return;
       const { error } = await supabase.from(this.name).delete().eq('id', id);
       if (error) throw error;
   }

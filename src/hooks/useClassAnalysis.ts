@@ -16,7 +16,7 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
   const marks = useLiveQuery(
     async () => {
       if (assessments.length === 0) return [];
-      const ids = assessments.map(a => a.id);
+      const ids = assessments.map((a: any) => a.id);
       return db.assessment_marks.where('assessment_id').anyOf(ids).toArray();
     },
     [assessments]
@@ -26,11 +26,11 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
     if (!termId || assessments.length === 0) return null;
 
     // Calculate per-assessment stats
-    const assessmentPerformance = assessments.map(ass => {
-      const assMarks = marks.filter(m => m.assessment_id === ass.id && m.score !== null);
+    const assessmentPerformance = assessments.map((ass: any) => {
+      const assMarks = marks.filter((m: any) => m.assessment_id === ass.id && m.score !== null);
       if (assMarks.length === 0) return { title: ass.title, avg: 0, weight: ass.weight, date: ass.date };
 
-      const totalPct = assMarks.reduce((sum, m) => sum + (Number(m.score) / ass.max_mark) * 100, 0);
+      const totalPct = assMarks.reduce((sum: number, m: any) => sum + (Number(m.score) / ass.max_mark) * 100, 0);
       return {
         id: ass.id,
         title: ass.title,
@@ -38,12 +38,12 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
         weight: ass.weight,
         date: ass.date
       };
-    }).sort((a, b) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime());
+    }).sort((a: any, b: any) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime());
 
     // Calculate per-learner analytics
-    const learnerIds = [...new Set(marks.map(m => m.learner_id))];
-    const learnerPerformance = learnerIds.map(lId => {
-      const avg = calculateWeightedAverage(assessments, marks, lId);
+    const learnerIds = [...new Set(marks.map((m: any) => m.learner_id))];
+    const learnerPerformance = learnerIds.map((lId: any) => {
+      const avg = calculateWeightedAverage(assessments, marks, lId as string);
       
       return {
         learnerId: lId,

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { db, ScanJob } from '@/db';
+import { db } from '@/db';
+import { ScanJob } from '@/lib/types';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
 

@@ -28,7 +28,7 @@ export const useTermReportData = () => {
       const allClasses = await db.classes
         .where('term_id')
         .equals(termId)
-        .filter(c => c.grade === grade && c.subject === subject && !c.archived)
+        .filter((c: any) => c.grade === grade && c.subject === subject && !c.archived)
         .toArray();
 
       if (!allClasses || allClasses.length === 0) {
@@ -37,7 +37,7 @@ export const useTermReportData = () => {
         return;
       }
 
-      const classIds = allClasses.map(c => c.id);
+      const classIds = allClasses.map((c: any) => c.id);
       const allLearners = await db.learners
         .where('class_id')
         .anyOf(classIds)
@@ -46,13 +46,13 @@ export const useTermReportData = () => {
       const assessmentsData = await db.assessments
         .where('term_id')
         .equals(termId)
-        .filter(a => classIds.includes(a.class_id))
+        .filter((a: any) => classIds.includes(a.class_id))
         .toArray();
 
-      const uniqueTitles = Array.from(new Set(assessmentsData.map(a => a.title))).sort();
+      const uniqueTitles = Array.from(new Set<string>(assessmentsData.map((a: any) => a.title as string))).sort();
       setAllAssessmentTitles(uniqueTitles);
 
-      const assessmentIds = assessmentsData.map(a => a.id);
+      const assessmentIds = assessmentsData.map((a: any) => a.id);
       const marksData = await db.assessment_marks
         .where('assessment_id')
         .anyOf(assessmentIds)
@@ -60,20 +60,20 @@ export const useTermReportData = () => {
 
       const results: TermReportResult[] = [];
 
-      allClasses.forEach((cls) => {
-        const classAssessments = assessmentsData.filter(a => a.class_id === cls.id);
-        const classLearners = allLearners.filter(l => l.class_id === cls.id);
-        const displayClassName = cls.className || (cls as any).class_name;
+      allClasses.forEach((cls: any) => {
+        const classAssessments = assessmentsData.filter((a: any) => a.class_id === cls.id);
+        const classLearners = allLearners.filter((l: any) => l.class_id === cls.id);
+        const displayClassName = cls.className || cls.class_name;
         
-        classLearners.forEach((learner) => {
+        classLearners.forEach((learner: any) => {
           if (!learner.id) return;
 
           const learnerAssessments: { [title: string]: string } = {};
 
-          uniqueTitles.forEach(title => {
-              const ass = classAssessments.find(a => a.title === title);
+          uniqueTitles.forEach((title: string) => {
+              const ass = classAssessments.find((a: any) => a.title === title);
               if (ass) {
-                  const markRecord = marksData.find(m => m.assessment_id === ass.id && m.learner_id === learner.id);
+                  const markRecord = marksData.find((m: any) => m.assessment_id === ass.id && m.learner_id === learner.id);
                   if (markRecord && markRecord.score !== null) {
                     const score = Number(markRecord.score);
                     learnerAssessments[title] = `${score}/${ass.max_mark}`;

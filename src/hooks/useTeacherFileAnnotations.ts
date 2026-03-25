@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { db, TeacherFileAnnotation } from '@/db';
+import { db } from '@/db';
+import { TeacherFileAnnotation } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 
@@ -17,17 +18,21 @@ export const useTeacherFileAnnotations = (yearId: string | undefined, termId: st
     isMounted.current = true;
     
     const loadInitial = async () => {
-        // Enforce strict context: if we are in a term-based section, we MUST have a termId
+        // Enforce strict context: if we are in a term-based section, we MUST have a yearId and sectionKey
         if (!yearId || !sectionKey) return;
         
         try {
-            // Check for record matching the specific year/term/section
+            // Build filter dynamically to avoid passing undefined values
+            const filters: any = { 
+                academic_year_id: yearId, 
+                section_key: sectionKey 
+            };
+            if (termId !== undefined) {
+                filters.term_id = termId || null;
+            }
+
             const annotation = await db.teacher_file_annotations
-                .where({ 
-                    academic_year_id: yearId, 
-                    term_id: termId || null, 
-                    section_key: sectionKey 
-                })
+                .where(filters)
                 .first();
             
             if (isMounted.current) {
@@ -54,12 +59,16 @@ export const useTeacherFileAnnotations = (yearId: string | undefined, termId: st
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const filters: any = { 
+          academic_year_id: yearId, 
+          section_key: sectionKey 
+      };
+      if (termId !== undefined) {
+          filters.term_id = termId || null;
+      }
+
       const existing = await db.teacher_file_annotations
-          .where({ 
-              academic_year_id: yearId, 
-              term_id: termId || null, 
-              section_key: sectionKey 
-          })
+          .where(filters)
           .first();
 
       const payload: TeacherFileAnnotation = {

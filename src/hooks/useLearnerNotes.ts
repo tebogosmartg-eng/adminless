@@ -11,15 +11,21 @@ export const useLearnerNotes = (learnerId: string | undefined) => {
   
   // Scoped Query
   const notes = useLiveQuery(
-    () => (learnerId && activeTerm) 
-      ? db.learner_notes.where('learner_id').equals(learnerId).filter(n => n.term_id === activeTerm.id).reverse().sortBy('date') 
-      : [],
+    async () => {
+      if (!learnerId || !activeTerm?.id) return [];
+      return await db.learner_notes
+        .where('learner_id')
+        .equals(learnerId)
+        .filter(n => n.term_id === activeTerm.id)
+        .reverse()
+        .sortBy('date');
+    },
     [learnerId, activeTerm?.id]
-  );
+  ) || [];
 
   const addNote = async (content: string, category: LearnerNote['category'], date: string) => {
     // VALIDATION: Throw if context missing
-    if (!learnerId || !activeYear || !activeTerm) {
+    if (!learnerId || !activeYear?.id || !activeTerm?.id) {
         showError("Note creation blocked: Academic context not loaded.");
         return;
     }

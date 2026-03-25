@@ -8,7 +8,8 @@ import { FileUp, Trash2, ExternalLink, FileText, Loader2, Paperclip, Download } 
 import { getSignedFileUrl } from '@/services/storage';
 import { showError, showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
-import { db, TeacherFileAttachment } from '@/db';
+import { db } from '@/db';
+import { TeacherFileAttachment } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { uploadEvidenceFile, deleteEvidenceFile } from '@/services/storage';
@@ -32,7 +33,7 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
       ? db.teacher_file_attachments
           .where('[academic_year_id+term_id+section_key]')
           .equals([yearId, termId, sectionKey])
-          .filter(a => assessmentId ? a.assessment_id === assessmentId : true)
+          .filter((a: any) => assessmentId ? a.assessment_id === assessmentId : true)
           .toArray()
       : [],
     [yearId, termId, sectionKey, assessmentId]
@@ -118,7 +119,7 @@ export const TeacherFileAttachmentManager = ({ yearId, termId, sectionKey, isLoc
       </div>
 
       <div className={cn("grid gap-2", isLocked ? "sm:grid-cols-1" : "sm:grid-cols-2")}>
-          {attachments.map((item) => (
+          {attachments.map((item: any) => (
               <div key={item.id} className={cn("flex items-center justify-between p-2 rounded-lg transition-all group/file", isLocked ? "bg-transparent py-1 px-0" : "border bg-white/50 hover:border-primary/20", "print:border-none print:bg-transparent print:p-0")}>
                   <div className="flex items-center gap-2 overflow-hidden">
                       <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0 no-print" />

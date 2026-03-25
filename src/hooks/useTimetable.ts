@@ -11,15 +11,16 @@ export const useTimetable = () => {
   
   // Scoped Query: routines typically change per year
   const timetable = useLiveQuery(
-    () => activeYear 
-        ? db.timetable.where('year_id').equals(activeYear.id).toArray() 
-        : [],
+    async () => {
+      if (!activeYear?.id) return [];
+      return await db.timetable.where('year_id').equals(activeYear.id).toArray();
+    },
     [activeYear?.id]
   ) || [];
 
   const updateEntry = async (entry: Partial<TimetableEntry> & { day: string; period: number }) => {
     // VALIDATION: Prevent insertion without year scope
-    if (!activeYear) {
+    if (!activeYear?.id) {
         showError("Schedule update blocked: No active year cycle selected.");
         return;
     }

@@ -33,7 +33,7 @@ export const useNotesLogic = () => {
         const notes = await db.learner_notes
           .where('term_id')
           .equals(activeTerm.id) // Enforce term filter
-          .and(n => ['behavior', 'academic', 'parent'].includes(n.category))
+          .and((n: any) => ['behavior', 'academic', 'parent'].includes(n.category))
           .reverse()
           .sortBy('date');
         
@@ -45,17 +45,17 @@ export const useNotesLogic = () => {
             return;
         }
 
-        const learnerIds = [...new Set(topNotes.map(n => n.learner_id))];
+        const learnerIds = [...new Set(topNotes.map((n: any) => n.learner_id))];
         const learners = await db.learners.where('id').anyOf(learnerIds).toArray();
-        const learnerMap = new Map(learners.map(l => [l.id, l]));
+        const learnerMap = new Map(learners.map((l: any) => [l.id, l]));
 
-        const classIds = [...new Set(learners.map(l => l.class_id))];
+        const classIds = [...new Set(learners.map((l: any) => l.class_id))];
         const classes = await db.classes.where('id').anyOf(classIds).toArray();
-        const classMap = new Map(classes.map(c => [c.id, c.className]));
+        const classMap = new Map(classes.map((c: any) => [c.id, c.className]));
 
-        const alerts = topNotes.map(note => {
-            const learner = learnerMap.get(note.learner_id);
-            const className = learner ? classMap.get(learner.class_id) || 'Unknown Class' : 'Unknown';
+        const alerts = topNotes.map((note: any) => {
+            const learner = learnerMap.get(note.learner_id) as any;
+            const className = learner ? (classMap.get(learner.class_id) as string) || 'Unknown Class' : 'Unknown';
             
             return {
                 ...note,

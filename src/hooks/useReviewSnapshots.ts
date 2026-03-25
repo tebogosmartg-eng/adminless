@@ -9,7 +9,14 @@ import { showSuccess, showError } from '@/utils/toast';
 
 export const useReviewSnapshots = (classId: string, termId: string) => {
   const snapshots = useLiveQuery(
-    () => db.review_snapshots.where('[class_id+term_id]').equals([classId, termId]).reverse().sortBy('created_at'),
+    async () => {
+        if (!classId || !termId) return [];
+        return await db.review_snapshots
+            .where('[class_id+term_id]')
+            .equals([classId, termId])
+            .reverse()
+            .sortBy('created_at');
+    },
     [classId, termId]
   ) || [];
 

@@ -116,7 +116,7 @@ export const RemediationActionPlan = ({ classId, termId }: RemediationActionPlan
 
       {/* AI Worksheet Accelerator Row */}
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 no-print">
-          {sourceAssessmentIds.map(id => {
+          {(sourceAssessmentIds as string[]).map((id: string) => {
               const ass = assessments.find(a => a.id === id);
               if (!ass) return null;
               return (

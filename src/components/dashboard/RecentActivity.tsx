@@ -11,8 +11,8 @@ export default function RecentActivity() {
 
   const activities = useLiveQuery(
     async () => {
-      if (!activeTerm) return [];
-      return db.activities
+      if (!activeTerm?.id) return [];
+      return await db.activities
         .where('term_id')
         .equals(activeTerm.id)
         .reverse()
@@ -20,7 +20,7 @@ export default function RecentActivity() {
         .toArray();
     },
     [activeTerm?.id]
-  );
+  ) || [];
 
   const getActivityIcon = (message: string) => {
     if (message.includes("AUDIT")) return <ShieldCheck className="h-3.5 w-3.5 text-purple-600" />;

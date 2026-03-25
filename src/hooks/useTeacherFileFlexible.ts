@@ -11,14 +11,17 @@ import { useCallback } from 'react';
 export const useTeacherFileFlexible = (classId: string, termId: string) => {
   
   const template = useLiveQuery(
-    () => db.teacherfile_templates.where('[class_id+term_id]').equals([classId, termId]).first(),
+    async () => {
+      if (!classId || !termId) return null;
+      return await db.teacherfile_templates.where('[class_id+term_id]').equals([classId, termId]).first();
+    },
     [classId, termId]
   );
 
   const sections = useLiveQuery(
     async () => {
-      if (!template) return [];
-      return db.teacherfile_template_sections
+      if (!template?.id) return [];
+      return await db.teacherfile_template_sections
         .where('template_id')
         .equals(template.id)
         .sortBy('sort_order');
@@ -27,7 +30,10 @@ export const useTeacherFileFlexible = (classId: string, termId: string) => {
   ) || [];
 
   const entries = useLiveQuery(
-    () => db.teacherfile_entries.where('[class_id+term_id]').equals([classId, termId]).toArray(),
+    async () => {
+      if (!classId || !termId) return [];
+      return await db.teacherfile_entries.where('[class_id+term_id]').equals([classId, termId]).toArray();
+    },
     [classId, termId]
   ) || [];
 
@@ -75,7 +81,7 @@ export const useTeacherFileFlexible = (classId: string, termId: string) => {
   }, [classId, termId]);
 
   const addSection = async (title: string, type: SectionType) => {
-    if (!template) return;
+    if (!template?.id) return;
     const newSection: TeacherFileTemplateSection = {
       id: crypto.randomUUID(),
       template_id: template.id,
