@@ -72,24 +72,24 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [allTerms, activeYear?.id, diagnosticMode]);
 
   const { data: assessments = [], isLoading: loadingAss } = useQuery({
-    queryKey: ['assessments', session?.user?.id, currentClassFilter?.classId, currentClassFilter?.termId, diagnosticMode],
+    queryKey: ['assessments', session?.user?.id, currentClassFilter?.classId, currentClassFilter?.termId, activeTerm?.id, diagnosticMode],
     queryFn: async () => {
       if (!session?.user?.id) return [];
       if (diagnosticMode) {
           const { data } = await supabase.from('assessments').select('*').eq('user_id', session.user.id);
           return data || [];
       }
-      // Ensure we have a valid termId before querying
-      if (!currentClassFilter?.classId || !currentClassFilter?.termId) return [];
+      const termId = currentClassFilter?.termId || activeTerm?.id;
+      if (!currentClassFilter?.classId || !termId) return [];
       
       const { data } = await supabase.from('assessments')
         .select('*')
         .eq('class_id', currentClassFilter.classId)
-        .eq('term_id', currentClassFilter.termId)
+        .eq('term_id', termId)
         .eq('user_id', session.user.id);
       return data || [];
     },
-    enabled: !!session?.user?.id && (diagnosticMode || (!!currentClassFilter?.classId && !!currentClassFilter?.termId))
+    enabled: !!session?.user?.id && (diagnosticMode || (!!currentClassFilter?.classId && !!(currentClassFilter?.termId || activeTerm?.id)))
   });
 
   const { data: marks = [] } = useQuery({
@@ -181,7 +181,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [session?.user?.id, updateLearnerActiveAverages, queryClient]);
 
   const refreshAssessments = useCallback(async (c: string, t?: string) => {
-    const targetTermId = t || activeTerm?.id;
+    const targetTermId = t || activeTerm?.id || '';
     if (targetTermId) {
         setCurrentClassFilter({ classId: c, termId: targetTermId });
     }
