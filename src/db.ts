@@ -158,7 +158,16 @@ class TableShim {
       if (user && !item.user_id && !['profiles', 'learners', 'teacherfile_template_sections', 'teacherfile_entry_attachments'].includes(this.name)) {
          item.user_id = user.id;
       }
-      const { error } = await supabase.from(this.name).insert(item);
+      
+      let error;
+      if (this.name === 'attendance') {
+          const { error: e } = await supabase.from(this.name).upsert(item, { onConflict: 'learner_id,date' });
+          error = e;
+      } else {
+          const { error: e } = await supabase.from(this.name).insert(item);
+          error = e;
+      }
+      
       if (error) throw error;
       return item.id;
   }
@@ -169,7 +178,16 @@ class TableShim {
       if (user && !['profiles', 'learners', 'teacherfile_template_sections', 'teacherfile_entry_attachments'].includes(this.name)) {
          items.forEach(i => { if(!i.user_id) i.user_id = user.id; });
       }
-      const { error } = await supabase.from(this.name).insert(items);
+      
+      let error;
+      if (this.name === 'attendance') {
+          const { error: e } = await supabase.from(this.name).upsert(items, { onConflict: 'learner_id,date' });
+          error = e;
+      } else {
+          const { error: e } = await supabase.from(this.name).insert(items);
+          error = e;
+      }
+      
       if (error) throw error;
   }
 
@@ -178,7 +196,11 @@ class TableShim {
       if (user && !item.user_id && !['profiles', 'learners', 'teacherfile_template_sections', 'teacherfile_entry_attachments'].includes(this.name)) {
          item.user_id = user.id;
       }
-      const { error } = await supabase.from(this.name).upsert(item);
+      const options: any = {};
+      if (this.name === 'attendance') {
+          options.onConflict = 'learner_id,date';
+      }
+      const { error } = await supabase.from(this.name).upsert(item, options);
       if (error) throw error;
       return item.id;
   }
@@ -197,7 +219,12 @@ class TableShim {
 
   async bulkPut(items: any[]) {
       if (!items.length) return;
-      await supabase.from(this.name).upsert(items);
+      const options: any = {};
+      if (this.name === 'attendance') {
+          options.onConflict = 'learner_id,date';
+      }
+      const { error } = await supabase.from(this.name).upsert(items, options);
+      if (error) throw error;
   }
   
   async count() {

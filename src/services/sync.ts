@@ -68,7 +68,12 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
     
     // CONVERT ALL WRITES TO UPSERT() TO PREVENT 409 CONFLICTS
     if (action === 'create' || action === 'upsert' || action === 'update') {
-      const { error: e } = await supabase.from(table as any).upsert(payload);
+      const options: any = {};
+      if (table === 'attendance') {
+          options.onConflict = 'learner_id,date';
+      }
+      
+      const { error: e } = await supabase.from(table as any).upsert(payload, options);
       error = e;
     } else if (action === 'delete') {
       const { error: e } = await supabase.from(table as any).delete().eq('id', payload.id);
