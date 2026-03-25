@@ -29,9 +29,8 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { SettingsProvider } from "./context/SettingsContext";
 import { AcademicProvider } from "./context/AcademicContext";
 import { SystemThemeManager } from "./components/SystemThemeManager";
-import { DataMigrationGuard } from "./components/DataMigrationGuard";
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
@@ -110,7 +109,6 @@ const App = () => {
                     <ActivityProvider session={session}>
                         <SettingsProvider session={session}>
                             <ClassesProvider session={session}>
-                                <DataMigrationGuard>
                                     <Routes>
                                     <Route path="/welcome" element={session ? <Navigate to="/" /> : <Landing />} />
                                     <Route path="/pilot-signup" element={session ? <Navigate to="/login" /> : <PilotSignup />} />
@@ -135,7 +133,6 @@ const App = () => {
                                     </Route>
                                     <Route path="*" element={<Navigate to="/" />} />
                                     </Routes>
-                                </DataMigrationGuard>
                             </ClassesProvider>
                         </SettingsProvider>
                     </ActivityProvider>

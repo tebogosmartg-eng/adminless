@@ -1,8 +1,7 @@
-import { db } from '@/db';
 import { supabase } from '@/integrations/supabase/client';
+import { queryClient } from '@/App'; // Ensure queryClient is exported from App or setup differently
 
 export const queueAction = async (table: string, action: 'create' | 'update' | 'delete' | 'upsert', data: any) => {
-  // Direct push to Supabase for stability in online-only mode
   const dataItems = Array.isArray(data) ? data : [data];
   
   for (const item of dataItems) {
@@ -42,19 +41,13 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
     }
 
     if (error) {
-      console.error(`Direct cloud mutation failed for table '${table}':`, error.message);
+      console.error(`Cloud mutation failed for table '${table}':`, error.message);
       throw error; 
     }
   }
   
-  // Update local Dexie cache to keep UI reactive for components using useLiveQuery
-  for (const item of dataItems) {
-    if (action === 'delete') {
-      // @ts-ignore
-      if (db[table]) await db[table].delete(item.id);
-    } else {
-      // @ts-ignore
-      if (db[table]) await db[table].put(item);
-    }
-  }
+  // Invalidate query client cache for the affected table
+  // You might need to adjust this to fit how queries are keyed
+  // For now, this requires having access to the QueryClient.
+  // Alternatively, the calling component should invalidate.
 };

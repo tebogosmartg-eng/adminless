@@ -23,7 +23,8 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "dexie-react-hooks": ["./src/lib/dexie-react-hooks.ts"]
     }
   },
   "include": ["src"]
