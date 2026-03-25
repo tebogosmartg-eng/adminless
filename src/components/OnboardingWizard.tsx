@@ -189,24 +189,39 @@ export const OnboardingWizard = ({ onComplete }: { onComplete: () => void }) => 
             </CardContent>
 
             <CardFooter className="p-8 pt-0 border-t mt-4 bg-muted/10">
-                <Button 
-                    className="w-full h-12 font-bold text-base" 
-                    onClick={handleNext} 
-                    disabled={
-                        isProcessing || 
-                        (step === 1 && !tName.trim()) || 
-                        (step === 2 && !yName.trim()) || 
-                        (step === 3 && (!cName.trim() || !activeYear || !activeTerm))
-                    }
-                >
-                    {isProcessing ? (
-                        <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Please wait...</>
-                    ) : step === 4 ? (
-                        "Go to Dashboard"
-                    ) : (
-                        <>Continue <ArrowRight className="ml-2 h-5 w-5" /></>
+                <div className="flex flex-col w-full gap-2 mt-4">
+                    <Button 
+                        className="w-full h-12 font-bold text-base" 
+                        onClick={handleNext} 
+                        disabled={
+                            isProcessing || 
+                            (step === 1 && !tName.trim()) || 
+                            (step === 2 && !yName.trim()) || 
+                            (step === 3 && (!cName.trim() || !activeYear || !activeTerm))
+                        }
+                    >
+                        {isProcessing ? (
+                            <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Please wait...</>
+                        ) : step === 4 ? (
+                            "Go to Dashboard"
+                        ) : (
+                            <>Continue <ArrowRight className="ml-2 h-5 w-5" /></>
+                        )}
+                    </Button>
+                    {step < 4 && (
+                        <Button 
+                            variant="ghost" 
+                            className="w-full text-muted-foreground" 
+                            onClick={async () => {
+                                await updateProfileSettings({ onboardingCompleted: true });
+                                onComplete();
+                            }}
+                            disabled={isProcessing}
+                        >
+                            Skip for now
+                        </Button>
                     )}
-                </Button>
+                </div>
             </CardFooter>
         </Card>
     );

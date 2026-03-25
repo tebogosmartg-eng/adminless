@@ -48,6 +48,7 @@ interface SettingsContextType {
     onboardingCompleted?: boolean;
   }) => Promise<void>;
   hasProfile: boolean;
+  isLoadingProfile: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -65,7 +66,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const { logActivity } = useActivity();
   const queryClient = useQueryClient();
   
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: ['profile', session?.user?.id],
     queryFn: async () => {
         if (!session?.user?.id) return null;
@@ -88,7 +89,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [commentBank, setCommentBankState] = useState<string[]>([]);
   const [savedSubjects, setSavedSubjectsState] = useState<string[]>(DEFAULT_DBE_SUBJECTS);
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
-  const [onboardingCompleted, setOnboardingCompletedState] = useState<boolean>(false);
+  const [onboardingCompleted, setOnboardingCompletedState] = useState<boolean>(true); // Default to true while loading to prevent flashes
 
   const bootstrapProfile = useCallback(async () => {
     if (!session?.user) return;
@@ -104,6 +105,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
         const newProfile = {
             id: session.user.id,
             contact_email: session.user.email,
+            onboarding_completed: false, // New users start with onboarding
             updated_at: new Date().toISOString()
         };
         
@@ -130,7 +132,14 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
         if (Array.isArray(profile.comment_bank)) setCommentBankState(profile.comment_bank);
         if (Array.isArray(profile.subjects) && profile.subjects.length > 0) setSavedSubjectsState(profile.subjects);
         if (Array.isArray(profile.grades)) setSavedGradesState(profile.grades);
-        if (profile.onboarding_completed !== undefined && profile.onboarding_completed !== null) setOnboardingCompletedState(profile.onboarding_completed);
+        
+        // Important: if onboarding_completed is null/undefined in DB, it's an existing user who never did onboarding
+        // Default to true for them
+        if (profile.onboarding_completed !== undefined && profile.onboarding_completed !== null) {
+            setOnboardingCompletedState(profile.onboarding_completed);
+        } else {
+            setOnboardingCompletedState(true);
+        }
     }
   }, [profile]);
 
@@ -287,7 +296,8 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
       savedGrades, addGrade, removeGrade,
       onboardingCompleted, setOnboardingCompleted,
       updateProfileSettings,
-      hasProfile: !!profile
+      hasProfile: !!profile,
+      isLoadingProfile: isProfileLoading
     }}>
       {children}
     </SettingsContext.Provider>

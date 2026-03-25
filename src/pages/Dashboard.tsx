@@ -22,20 +22,20 @@ const Dashboard = () => {
     classesByGrade 
   } = useDashboardData();
 
-  const { onboardingCompleted, setOnboardingCompleted } = useSettings();
+  const { onboardingCompleted, setOnboardingCompleted, isLoadingProfile } = useSettings();
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [isTimeout, setIsTimeout] = useState(false);
 
   // Safety fallback: If database loading takes longer than 4 seconds, force resolve to prevent infinite loading
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (loading) {
+    if (loading || isLoadingProfile) {
       timer = setTimeout(() => setIsTimeout(true), 4000);
     }
     return () => clearTimeout(timer);
-  }, [loading]);
+  }, [loading, isLoadingProfile]);
 
-  if (loading && !isTimeout) {
+  if ((loading || isLoadingProfile) && !isTimeout) {
     return (
       <div className="space-y-6 w-full p-2 animate-in fade-in duration-500">
         <div className="space-y-2">
