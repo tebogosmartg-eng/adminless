@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +20,13 @@ import {
   Camera,
   FileText,
   Book,
-  BarChart3
+  BarChart3,
+  Calculator,
+  Zap,
+  Mic,
+  ArrowRight,
+  Keyboard,
+  MoreHorizontal
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSettings } from "@/context/SettingsContext";
@@ -26,18 +34,25 @@ import { useAcademic } from "@/context/AcademicContext";
 import { Badge } from "@/components/ui/badge";
 
 export function HelpDialog() {
+  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
   const { atRiskThreshold, gradingScheme } = useSettings();
   const { activeYear, activeTerm } = useAcademic();
 
+  const handleNavigate = (path: string) => {
+    setIsOpen(false);
+    navigate(path);
+  };
+
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon" title="Help & Documentation" className="text-muted-foreground hover:bg-muted">
           <HelpCircle className="h-5 w-5" />
           <span className="sr-only">Help</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl h-[85vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 overflow-hidden">
         <div className="p-6 pb-4 border-b bg-muted/30">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
@@ -45,7 +60,7 @@ export function HelpDialog() {
               AdminLess Help Center
             </DialogTitle>
             <DialogDescription>
-              Personalized guides for your current configuration.
+              Actionable guides, shortcuts, and tips to speed up your admin.
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -53,8 +68,8 @@ export function HelpDialog() {
         <Tabs defaultValue="basics" className="flex-1 flex flex-col overflow-hidden">
           <div className="px-6 py-2 bg-muted/10 border-b">
             <TabsList className="grid w-full grid-cols-4 h-9">
-              <TabsTrigger value="basics" className="text-xs">Basics</TabsTrigger>
-              <TabsTrigger value="marking" className="text-xs">Marking</TabsTrigger>
+              <TabsTrigger value="basics" className="text-xs">Workflow Basics</TabsTrigger>
+              <TabsTrigger value="marking" className="text-xs">Speed Marking</TabsTrigger>
               <TabsTrigger value="ai" className="text-xs">AI Tools</TabsTrigger>
               <TabsTrigger value="compliance" className="text-xs">Compliance</TabsTrigger>
             </TabsList>
@@ -63,47 +78,88 @@ export function HelpDialog() {
           <ScrollArea className="flex-1">
             <div className="p-6">
               <TabsContent value="basics" className="space-y-6 mt-0">
-                <section className="bg-primary/5 p-4 rounded-lg border border-primary/10">
-                   <h4 className="text-xs font-bold uppercase text-primary mb-2 flex items-center gap-2">
-                      <BadgeCheck className="h-3 w-3" /> Current Active Session
-                   </h4>
-                   <p className="text-sm font-medium">
-                      You are currently working in <strong>{activeYear?.name || "No Year Selected"}</strong> during <strong>{activeTerm?.name || "No Term Selected"}</strong>.
-                   </p>
-                   <p className="text-[11px] text-muted-foreground mt-1">
-                      All new marks, attendance, and notes will be saved into this specific context.
-                   </p>
+                <section className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                   <div>
+                       <h4 className="text-sm font-bold uppercase text-primary mb-1 flex items-center gap-2">
+                          <BadgeCheck className="h-4 w-4" /> Current Active Session
+                       </h4>
+                       <p className="text-sm font-medium">
+                          Working in: <strong>{activeYear?.name || "No Year"}</strong> — <strong>{activeTerm?.name || "No Term"}</strong>
+                       </p>
+                       <p className="text-xs text-muted-foreground mt-1">
+                          All data you capture is securely saved to this specific term.
+                       </p>
+                   </div>
+                   <Button variant="outline" size="sm" onClick={() => handleNavigate('/settings')}>
+                       Change Context <ArrowRight className="ml-2 h-3 w-3" />
+                   </Button>
                 </section>
 
-                <section>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-primary/10 rounded-full"><Settings className="h-5 w-5 text-primary" /></div>
-                    <h3 className="font-bold text-lg">Academic Context</h3>
+                <section className="grid sm:grid-cols-2 gap-6">
+                  <div className="space-y-3 p-4 border rounded-xl bg-card">
+                    <h3 className="font-bold flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-blue-500" /> Structure Overview
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      AdminLess uses strict scoping to prevent data mixing:
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+                      <li><strong>Years:</strong> High-level containers (e.g., 2024).</li>
+                      <li><strong>Terms:</strong> Break the year into 4 periods. Finalising a term locks its data.</li>
+                      <li><strong>Classes:</strong> Rosters that belong to a specific term. Use "Roll Forward" to copy them to the next term.</li>
+                    </ul>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    AdminLess uses strict scoping. This means you will only see data (classes, tasks, alerts) belonging to the year and term selected in the top bar.
-                  </p>
-                  <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
-                    <li><strong>Global Search:</strong> Press <kbd className="px-1.5 py-0.5 rounded border bg-muted text-[10px] font-mono">Cmd + K</kbd> to find any learner, even those in different classes.</li>
-                    <li><strong>Archiving:</strong> Use the "Archive" button on a class card to hide it from your dashboard without losing historical data.</li>
-                  </ul>
+
+                  <div className="space-y-3 p-4 border rounded-xl bg-card">
+                    <h3 className="font-bold flex items-center gap-2">
+                        <Keyboard className="h-4 w-4 text-purple-500" /> Quick Navigation
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Stop clicking around. Use global search to jump straight to any learner's profile across all your classes.
+                    </p>
+                    <div className="p-3 bg-muted/30 rounded-lg flex items-center justify-between border">
+                        <span className="text-sm font-medium">Global Search</span>
+                        <kbd className="px-2 py-1 bg-background border rounded-md shadow-sm font-mono text-xs font-bold">Cmd/Ctrl + K</kbd>
+                    </div>
+                  </div>
                 </section>
               </TabsContent>
 
               <TabsContent value="marking" className="space-y-6 mt-0">
-                <section>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-full"><Layers className="h-5 w-5 text-purple-600" /></div>
-                    <h3 className="font-bold text-lg">Your Grading Rules</h3>
+                <section className="space-y-4">
+                  <h3 className="font-bold text-lg border-b pb-2">Marking Speed Hacks</h3>
+                  <div className="grid sm:grid-cols-3 gap-4">
+                      <div className="p-4 rounded-xl border bg-card space-y-2">
+                          <Calculator className="h-6 w-6 text-blue-500" />
+                          <h4 className="font-bold text-sm">Smart Fractions</h4>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                              Don't calculate percentages yourself. Type <kbd className="px-1 py-0.5 border rounded bg-muted">15/20</kbd> into any mark cell, hit Enter, and AdminLess instantly converts it to <span className="font-bold text-foreground">75%</span>.
+                          </p>
+                      </div>
+                      <div className="p-4 rounded-xl border bg-card space-y-2">
+                          <Zap className="h-6 w-6 text-amber-500" />
+                          <h4 className="font-bold text-sm">Rapid Entry Mode</h4>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                              Click the <MoreHorizontal className="inline h-3 w-3" /> on any assessment column header and choose <strong>Rapid Entry</strong> to enter marks one-by-one with full screen focus.
+                          </p>
+                      </div>
+                      <div className="p-4 rounded-xl border bg-card space-y-2">
+                          <Mic className="h-6 w-6 text-red-500" />
+                          <h4 className="font-bold text-sm">Voice Dictation</h4>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                              Sort your physical scripts, click <strong>Voice Entry</strong>, and simply read out "John Doe 85" to record marks hands-free.
+                          </p>
+                      </div>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Based on your current <strong>Grading Scheme</strong> settings, the system will apply the following symbols:
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                </section>
+
+                <section className="pt-4">
+                  <h3 className="font-bold text-sm mb-3 text-muted-foreground uppercase tracking-widest">Active Grading Symbols</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
                     {gradingScheme.sort((a,b) => b.min - a.min).map(g => (
-                        <div key={g.id} className="p-2 border rounded bg-muted/20 text-center">
+                        <div key={g.id} className="p-2 border rounded-lg bg-card text-center shadow-sm">
                             <Badge variant="outline" className={g.badgeColor}>{g.symbol}</Badge>
-                            <p className="text-[10px] mt-1 font-bold">{g.min}% - {g.max}%</p>
+                            <p className="text-[10px] mt-1.5 font-bold text-muted-foreground">{g.min}% - {g.max}%</p>
                         </div>
                     ))}
                   </div>
@@ -112,68 +168,99 @@ export function HelpDialog() {
 
               <TabsContent value="ai" className="space-y-6 mt-0">
                 <section>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                      <Sparkles className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <h3 className="font-bold text-lg">AI Tools & Automation</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    AdminLess includes several assistive AI tools to help reduce your administrative burden. These tools are always under your control.
+                  <p className="text-sm text-muted-foreground mb-6 max-w-2xl">
+                    AdminLess uses Ethical AI to automate repetitive tasks. You remain in complete control—all AI outputs are drafts awaiting your final approval.
                   </p>
                   
                   <div className="grid gap-4 sm:grid-cols-2">
-                    {/* Card 1: Scan Marksheet */}
-                    <div className="p-4 border rounded-xl bg-card hover:border-primary/30 transition-colors">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Camera className="h-4 w-4 text-primary" />
-                        <h4 className="font-bold text-sm">Scan Marksheet</h4>
+                    <div className="p-5 border rounded-xl bg-card hover:border-primary/40 transition-all flex flex-col">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-primary/10 rounded-lg"><Camera className="h-5 w-5 text-primary" /></div>
+                        <h4 className="font-bold">Scan Marksheets</h4>
                       </div>
-                      <p className="text-xs text-muted-foreground">Upload photos of handwritten class lists to automatically create your digital roster.</p>
+                      <p className="text-xs text-muted-foreground mb-4 flex-1">
+                        Take a photo of a handwritten class list or register. The AI will extract the names and instantly build your digital roster.
+                      </p>
+                      <Button variant="secondary" size="sm" className="w-full font-bold" onClick={() => handleNavigate('/scan')}>
+                        Go to Scanner
+                      </Button>
                     </div>
 
-                    {/* Card 2: AI Mark Extraction */}
-                    <div className="p-4 border rounded-xl bg-card hover:border-primary/30 transition-colors">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="h-4 w-4 text-purple-500" />
-                        <h4 className="font-bold text-sm">AI Mark Extraction</h4>
+                    <div className="p-5 border rounded-xl bg-card hover:border-primary/40 transition-all flex flex-col">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-purple-100 rounded-lg"><FileText className="h-5 w-5 text-purple-600" /></div>
+                        <h4 className="font-bold">Automated Extraction</h4>
                       </div>
-                      <p className="text-xs text-muted-foreground">Extract marks question-by-question from scanned student scripts directly into your marksheet.</p>
+                      <p className="text-xs text-muted-foreground mb-4 flex-1">
+                        Upload photos of marked student scripts. The AI extracts question-by-question scores and populates your grid automatically.
+                      </p>
+                      <Button variant="secondary" size="sm" className="w-full font-bold" onClick={() => handleNavigate('/scan')}>
+                        Try Extraction
+                      </Button>
                     </div>
 
-                    {/* Card 3: Teacher File Builder */}
-                    <div className="p-4 border rounded-xl bg-card hover:border-primary/30 transition-colors">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Book className="h-4 w-4 text-green-500" />
-                        <h4 className="font-bold text-sm">Teacher File Builder</h4>
+                    <div className="p-5 border rounded-xl bg-card hover:border-primary/40 transition-all flex flex-col">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-amber-100 rounded-lg"><BarChart3 className="h-5 w-5 text-amber-600" /></div>
+                        <h4 className="font-bold">Diagnostic Insights</h4>
                       </div>
-                      <p className="text-xs text-muted-foreground">Automatically assemble your academic data into a formal portfolio ready for moderation.</p>
+                      <p className="text-xs text-muted-foreground mb-4 flex-1">
+                        Generate DBE-compliant diagnostic reports. The AI spots class-wide weaknesses and suggests pedagogical interventions.
+                      </p>
+                      <Button variant="secondary" size="sm" className="w-full font-bold" onClick={() => handleNavigate('/classes')}>
+                        Open a Class to Analyze
+                      </Button>
                     </div>
 
-                    {/* Card 4: Analytics Generator */}
-                    <div className="p-4 border rounded-xl bg-card hover:border-primary/30 transition-colors">
-                      <div className="flex items-center gap-2 mb-2">
-                        <BarChart3 className="h-4 w-4 text-amber-500" />
-                        <h4 className="font-bold text-sm">Analytics Generator</h4>
+                    <div className="p-5 border rounded-xl bg-card hover:border-primary/40 transition-all flex flex-col">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-green-100 rounded-lg"><Book className="h-5 w-5 text-green-600" /></div>
+                        <h4 className="font-bold">Teacher File Builder</h4>
                       </div>
-                      <p className="text-xs text-muted-foreground">Generate deep insights, identify at-risk learners, and get intervention strategies automatically.</p>
+                      <p className="text-xs text-muted-foreground mb-4 flex-1">
+                        Let the system assemble your ATP, marksheets, moderation samples, and evidence into a single printable PDF portfolio.
+                      </p>
+                      <Button variant="secondary" size="sm" className="w-full font-bold" onClick={() => handleNavigate('/teacher-file')}>
+                        View Teacher File
+                      </Button>
                     </div>
                   </div>
                 </section>
               </TabsContent>
 
               <TabsContent value="compliance" className="space-y-6 mt-0">
-                <section className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-lg border border-amber-200 dark:border-amber-900/30">
-                  <h4 className="text-xs font-bold uppercase text-amber-700 dark:text-amber-500 mb-2 flex items-center gap-2">
-                    <AlertCircle className="h-3 w-3" /> Current At-Risk Rule
-                  </h4>
-                  <p className="text-sm">
-                    Learners scoring below <strong>{atRiskThreshold}%</strong> are currently flagged for intervention.
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    You can adjust this threshold in <strong>Settings {'>'} School Profile</strong>.
-                  </p>
-                </section>
+                <div className="grid md:grid-cols-2 gap-6">
+                    <section className="bg-amber-50 dark:bg-amber-900/10 p-5 rounded-xl border border-amber-200 dark:border-amber-900/30 flex flex-col">
+                    <h4 className="font-bold uppercase text-amber-700 dark:text-amber-500 mb-3 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" /> At-Risk Identification
+                    </h4>
+                    <p className="text-sm text-amber-900/80 dark:text-amber-200/80 mb-4 flex-1">
+                        Learners scoring below <strong>{atRiskThreshold}%</strong> are automatically flagged in red across all dashboards and reports for required intervention.
+                    </p>
+                    <Button variant="outline" size="sm" className="bg-white/50 w-fit" onClick={() => handleNavigate('/settings')}>
+                        Adjust Threshold
+                    </Button>
+                    </section>
+
+                    <section className="bg-blue-50 dark:bg-blue-900/10 p-5 rounded-xl border border-blue-200 dark:border-blue-900/30 flex flex-col">
+                    <h4 className="font-bold uppercase text-blue-700 dark:text-blue-500 mb-3 flex items-center gap-2">
+                        <FileText className="h-4 w-4" /> SA-SAMS Integration
+                    </h4>
+                    <p className="text-sm text-blue-900/80 dark:text-blue-200/80 mb-4 flex-1">
+                        You can only export SA-SAMS aligned CSVs once a term is officially <strong>Finalised</strong>. This prevents draft marks from polluting official systems.
+                    </p>
+                    <Button variant="outline" size="sm" className="bg-white/50 w-fit" onClick={() => handleNavigate('/settings')}>
+                        Go to Term Finalisation
+                    </Button>
+                    </section>
+                </div>
+
+                <div className="p-5 border rounded-xl bg-card">
+                    <h4 className="font-bold mb-2">Moderation Samples</h4>
+                    <p className="text-sm text-muted-foreground">
+                        When preparing for HOD moderation, open the <strong>Evidence</strong> tab in any class. AdminLess can automatically select a statistically sound 10% sample (High, Medium, Low performers) for you to upload scripts against.
+                    </p>
+                </div>
               </TabsContent>
             </div>
           </ScrollArea>
