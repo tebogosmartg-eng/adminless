@@ -53,7 +53,7 @@ export function HelpDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 overflow-hidden">
-        <div className="p-6 pb-4 border-b bg-muted/30">
+        <div className="p-6 pb-4 border-b bg-muted/30 shrink-0">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
               <HelpCircle className="h-6 w-6 text-primary" />
@@ -66,17 +66,17 @@ export function HelpDialog() {
         </div>
         
         <Tabs defaultValue="basics" className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-6 py-2 bg-muted/10 border-b">
-            <TabsList className="grid w-full grid-cols-4 h-9">
-              <TabsTrigger value="basics" className="text-xs">Workflow Basics</TabsTrigger>
-              <TabsTrigger value="marking" className="text-xs">Speed Marking</TabsTrigger>
-              <TabsTrigger value="ai" className="text-xs">AI Tools</TabsTrigger>
-              <TabsTrigger value="compliance" className="text-xs">Compliance</TabsTrigger>
+          <div className="px-2 sm:px-6 py-2 bg-muted/10 border-b shrink-0">
+            <TabsList className="flex w-full h-auto overflow-x-auto no-scrollbar justify-start sm:justify-center flex-nowrap p-1 bg-muted">
+              <TabsTrigger value="basics" className="text-xs whitespace-nowrap flex-none sm:flex-1 px-4 py-1.5">Workflow Basics</TabsTrigger>
+              <TabsTrigger value="marking" className="text-xs whitespace-nowrap flex-none sm:flex-1 px-4 py-1.5">Speed Marking</TabsTrigger>
+              <TabsTrigger value="ai" className="text-xs whitespace-nowrap flex-none sm:flex-1 px-4 py-1.5">AI Tools</TabsTrigger>
+              <TabsTrigger value="compliance" className="text-xs whitespace-nowrap flex-none sm:flex-1 px-4 py-1.5">Compliance</TabsTrigger>
             </TabsList>
           </div>
           
           <ScrollArea className="flex-1">
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <TabsContent value="basics" className="space-y-6 mt-0">
                 <section className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                    <div>
@@ -90,7 +90,7 @@ export function HelpDialog() {
                           All data you capture is securely saved to this specific term.
                        </p>
                    </div>
-                   <Button variant="outline" size="sm" onClick={() => handleNavigate('/settings')}>
+                   <Button variant="outline" size="sm" onClick={() => handleNavigate('/settings')} className="w-full sm:w-auto">
                        Change Context <ArrowRight className="ml-2 h-3 w-3" />
                    </Button>
                 </section>
@@ -237,7 +237,7 @@ export function HelpDialog() {
                     <p className="text-sm text-amber-900/80 dark:text-amber-200/80 mb-4 flex-1">
                         Learners scoring below <strong>{atRiskThreshold}%</strong> are automatically flagged in red across all dashboards and reports for required intervention.
                     </p>
-                    <Button variant="outline" size="sm" className="bg-white/50 w-fit" onClick={() => handleNavigate('/settings')}>
+                    <Button variant="outline" size="sm" className="bg-white/50 w-full sm:w-fit" onClick={() => handleNavigate('/settings')}>
                         Adjust Threshold
                     </Button>
                     </section>
@@ -249,7 +249,7 @@ export function HelpDialog() {
                     <p className="text-sm text-blue-900/80 dark:text-blue-200/80 mb-4 flex-1">
                         You can only export SA-SAMS aligned CSVs once a term is officially <strong>Finalised</strong>. This prevents draft marks from polluting official systems.
                     </p>
-                    <Button variant="outline" size="sm" className="bg-white/50 w-fit" onClick={() => handleNavigate('/settings')}>
+                    <Button variant="outline" size="sm" className="bg-white/50 w-full sm:w-fit" onClick={() => handleNavigate('/settings')}>
                         Go to Term Finalisation
                     </Button>
                     </section>
@@ -265,9 +265,9 @@ export function HelpDialog() {
             </div>
           </ScrollArea>
           
-          <div className="p-4 bg-muted/20 border-t flex justify-between items-center text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+          <div className="p-4 bg-muted/20 border-t flex justify-between items-center text-[10px] uppercase tracking-widest font-bold text-muted-foreground shrink-0">
             <span>AdminLess Intelligence Engine</span>
-            <span>Live System Data Connected</span>
+            <span className="hidden sm:inline">Live System Data Connected</span>
           </div>
         </Tabs>
       </DialogContent>
