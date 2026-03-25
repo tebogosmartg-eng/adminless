@@ -32,7 +32,16 @@ import { SystemThemeManager } from "./components/SystemThemeManager";
 import { ScopeDiagnostics } from "./components/ScopeDiagnostics";
 import { DataMigrationGuard } from "./components/DataMigrationGuard";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const ProtectedRoute = ({ children, session }: { children: React.ReactNode; session: Session | null }) => {
   if (!session) {
