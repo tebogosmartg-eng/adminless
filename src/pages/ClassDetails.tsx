@@ -43,7 +43,7 @@ const ClassDetails = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
-  const { assessments, activeTerm, activeYear, marks, loading: academicLoading } = useAcademic();
+  const { assessments, activeTerm, activeYear, marks, loading: academicLoading, refreshAssessments } = useAcademic();
   const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo } = useSettings();
   const { currentPeriod } = useCurrentPeriod();
   
@@ -66,6 +66,13 @@ const ClassDetails = () => {
   if (!activeTerm) {
       return <div className="p-8 text-center text-muted-foreground">Academic term not selected. Please select a term in the header.</div>;
   }
+
+  // Ensure assessments are loaded for the current term
+  useEffect(() => {
+      if (classId && activeTerm?.id) {
+          refreshAssessments(classId, activeTerm.id);
+      }
+  }, [classId, activeTerm?.id, refreshAssessments]);
 
   const isLocked = !!activeTerm?.closed || !!classInfo?.is_finalised;
 
