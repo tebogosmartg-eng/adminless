@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/db';
-import { Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAcademicAverages } from '@/hooks/useAcademicAverages';
 
 export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) => {
-  const [isSyncing, setIsSyncing] = useState(false);
   const queryClient = useQueryClient();
   const { recalculateAllActiveAverages } = useAcademicAverages();
 
@@ -18,8 +16,6 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
     const syncData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-
-      if (isMounted) setIsSyncing(true);
 
       // 0. Background Maintenance (Run silently on first load / login)
       try {
@@ -148,8 +144,6 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
       
       // 3. Ensure active queries update seamlessly 
       await queryClient.invalidateQueries();
-
-      if (isMounted) setIsSyncing(false);
     };
 
     syncData();
@@ -159,15 +153,5 @@ export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) 
     };
   }, [queryClient, recalculateAllActiveAverages]);
 
-  return (
-    <>
-      {children}
-      {isSyncing && (
-        <div className="fixed bottom-4 right-4 z-[9999] flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-full shadow-xl text-xs font-bold animate-in slide-in-from-bottom-5 no-print pointer-events-none">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Syncing Workspace...</span>
-        </div>
-      )}
-    </>
-  );
+  return <>{children}</>;
 };
