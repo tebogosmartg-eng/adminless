@@ -53,20 +53,6 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
       delete payload.originalIndex;
     }
 
-    if (table === 'attendance') {
-      delete payload.term_id;
-    }
-
-    if (table === 'todos') {
-      delete payload.year_id;
-      delete payload.term_id;
-    }
-
-    if (table === 'learner_notes') {
-      delete payload.year_id;
-      delete payload.term_id;
-    }
-
     if (table === 'timetable') {
       delete payload.year_id;
       delete payload.notes;
