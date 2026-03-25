@@ -200,18 +200,19 @@ export const importDemoData = async () => {
     await db.attendance.bulkPut(attendance);
     await db.todos.bulkPut(todos);
     await db.learner_notes.bulkPut(learnerNotes);
-
-    await queueAction('academic_years', 'upsert', year);
-    await queueAction('terms', 'upsert', terms);
-    await queueAction('classes', 'upsert', classes);
-    await queueAction('learners', 'upsert', allLearners);
-    await queueAction('assessments', 'upsert', assessments);
-    await queueAction('assessment_marks', 'upsert', marks);
-    await queueAction('timetable', 'upsert', timetable);
-    await queueAction('attendance', 'upsert', attendance);
-    await queueAction('todos', 'upsert', todos);
-    await queueAction('learner_notes', 'upsert', learnerNotes);
   });
+  
+  // 12. Remote Sync
+  await queueAction('academic_years', 'upsert', year);
+  await queueAction('terms', 'upsert', terms);
+  await queueAction('classes', 'upsert', classes);
+  await queueAction('learners', 'upsert', allLearners);
+  await queueAction('assessments', 'upsert', assessments);
+  await queueAction('assessment_marks', 'upsert', marks);
+  await queueAction('timetable', 'upsert', timetable);
+  await queueAction('attendance', 'upsert', attendance);
+  await queueAction('todos', 'upsert', todos);
+  await queueAction('learner_notes', 'upsert', learnerNotes);
 
   return { yearId, activeTermId };
 };

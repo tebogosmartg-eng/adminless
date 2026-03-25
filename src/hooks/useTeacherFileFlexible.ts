@@ -58,14 +58,15 @@ export const useTeacherFileFlexible = (classId: string, termId: string) => {
         { template_id: templateId, title: "Interventions", type: 'interventions', sort_order: 6, config: {} }
       ];
 
+      const sectionsWithIds = defaultSections.map(s => ({ ...s, id: crypto.randomUUID() }));
+
       await db.transaction('rw', [db.teacherfile_templates, db.teacherfile_template_sections], async () => {
         await db.teacherfile_templates.add(newTemplate);
-        await queueAction('teacherfile_templates', 'create', newTemplate);
-
-        const sectionsWithIds = defaultSections.map(s => ({ ...s, id: crypto.randomUUID() }));
         await db.teacherfile_template_sections.bulkAdd(sectionsWithIds as any);
-        await queueAction('teacherfile_template_sections', 'create', sectionsWithIds);
       });
+      
+      await queueAction('teacherfile_templates', 'create', newTemplate);
+      await queueAction('teacherfile_template_sections', 'create', sectionsWithIds);
 
       showSuccess("Default template initialized.");
     } catch (e) {

@@ -26,6 +26,9 @@ export const useAcademicMigration = (
         const targetTerm = await db.terms.get(targetTermId);
         if (!sourceTerm || !targetTerm) throw new Error("Invalid term context.");
 
+        const classesToQueue: any[] = [];
+        const learnersToQueue: any[] = [];
+
         await db.transaction('rw', [db.classes, db.learners], async () => {
             for (const sClass of preparedClasses) {
                 const newClassId = crypto.randomUUID();
@@ -42,7 +45,7 @@ export const useAcademicMigration = (
                     created_at: new Date().toISOString()
                 };
                 await db.classes.add(newClass);
-                await queueAction('classes', 'create', newClass);
+                classesToQueue.push(newClass);
 
                 const newLearners = sClass.learners.map((l: any) => ({
                     id: crypto.randomUUID(),
@@ -53,10 +56,17 @@ export const useAcademicMigration = (
                 }));
                 if (newLearners.length > 0) {
                     await db.learners.bulkAdd(newLearners as any);
-                    await queueAction('learners', 'create', newLearners);
+                    learnersToQueue.push(...newLearners);
                 }
             }
         });
+
+        for (const cls of classesToQueue) {
+            await queueAction('classes', 'create', cls);
+        }
+        if (learnersToQueue.length > 0) {
+            await queueAction('learners', 'create', learnersToQueue);
+        }
 
         const auditLog = `[AUDIT: ROLL_FORWARD] Source: ${sourceTerm.name} Target: ${targetTerm.name} (${preparedClasses.length} Rosters)`;
         await logActivity(auditLog, yearId, targetTermId);
