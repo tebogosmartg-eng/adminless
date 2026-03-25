@@ -97,47 +97,48 @@ export const AcademicYearSettings = () => {
     <div className="grid gap-6 md:grid-cols-1">
       <Card className="border shadow-sm">
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="space-y-1">
                 <CardTitle>Term Progression Control</CardTitle>
                 <CardDescription>Strict academic sequence. Finalise your current term to unlock the next period.</CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
                 {activeYear && !activeYear.closed && (
                     <>
-                        <Button variant="ghost" size="sm" onClick={handleDeleteYear} className="text-muted-foreground hover:text-destructive">
-                            <Trash2 className="h-4 w-4 mr-2" /> Delete Cycle
+                        <Button variant="ghost" size="sm" onClick={handleDeleteYear} className="flex-1 sm:flex-none text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Delete Cycle</span>
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={() => { if(allTermsClosed && isWeightValid) closeYear(activeYear.id); }} disabled={!allTermsClosed || !isWeightValid}>
+                        <Button variant="destructive" size="sm" onClick={() => { if(allTermsClosed && isWeightValid) closeYear(activeYear.id); }} disabled={!allTermsClosed || !isWeightValid} className="flex-1 sm:flex-none">
                             <Archive className="mr-2 h-4 w-4" /> Close Year
                         </Button>
                     </>
                 )}
-                {activeYear?.closed && <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 px-3 py-1"><Lock className="h-3 w-3 mr-2" /> Year Finalized</Badge>}
+                {activeYear?.closed && <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 px-3 py-1 w-full md:w-auto justify-center"><Lock className="h-3 w-3 mr-2" /> Year Finalized</Badge>}
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-             <div className="space-y-1.5">
+          <div className="flex flex-col sm:flex-row gap-6 sm:gap-4">
+             <div className="space-y-1.5 w-full sm:w-auto">
                 <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Active Academic Cycle</label>
                 <Select value={activeYear?.id} onValueChange={(val) => setActiveYear(years.find(y => y.id === val) || null)}>
-                    <SelectTrigger className="w-[240px]"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                    <SelectTrigger className="w-full sm:w-[240px]"><SelectValue placeholder="Select Year" /></SelectTrigger>
                     <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name} {y.closed ? "(Finalized)" : ""}</SelectItem>)}</SelectContent>
                 </Select>
              </div>
-             <div className="space-y-1.5 ml-auto">
+             <div className="space-y-1.5 w-full sm:w-auto sm:ml-auto">
                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Initialise New Year</label>
                  <div className="flex gap-2">
-                    <Input placeholder="e.g. 2026" value={newYearName} onChange={(e) => setNewYearName(e.target.value)} className="w-[120px]" />
-                    <Button onClick={handleCreateYear} variant="secondary"><Plus className="mr-2 h-4 w-4" /> Initialise</Button>
+                    <Input placeholder="e.g. 2026" value={newYearName} onChange={(e) => setNewYearName(e.target.value)} className="flex-1 sm:w-[120px]" />
+                    <Button onClick={handleCreateYear} variant="secondary" className="shrink-0"><Plus className="mr-2 h-4 w-4" /> Initialise</Button>
                  </div>
              </div>
           </div>
           
           {activeYear && (
              <div className="border rounded-lg mt-6 overflow-hidden bg-white dark:bg-card">
-                <Table>
+                <div className="overflow-x-auto w-full">
+                <Table className="min-w-[600px]">
                     <TableHeader>
                         <TableRow className="bg-muted/30">
                             <TableHead className="font-bold">Term / Progression</TableHead>
@@ -198,9 +199,10 @@ export const AcademicYearSettings = () => {
                         })}
                     </TableBody>
                 </Table>
+                </div>
                 
                 <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border-t border-amber-100 dark:border-amber-900/30 flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                     <div className="space-y-1">
                         <p className="text-sm font-bold text-amber-800 dark:text-amber-400">Progression Rules</p>
                         <ul className="text-xs text-amber-700/80 dark:text-amber-500 list-disc pl-4 space-y-1">
