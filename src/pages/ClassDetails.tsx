@@ -62,8 +62,11 @@ const ClassDetails = () => {
     return <div className="p-8 text-center text-muted-foreground">Class not found.</div>;
   }
 
-  // ... rest of the component logic remains the same
-  const isCurrentlyTeaching = currentPeriod?.class_id === classId;
+  // Guard: Ensure activeTerm is available
+  if (!activeTerm) {
+      return <div className="p-8 text-center text-muted-foreground">Academic term not selected. Please select a term in the header.</div>;
+  }
+
   const isLocked = !!activeTerm?.closed || !!classInfo?.is_finalised;
 
   const [diagOpen, setDiagOpen] = useState(false);

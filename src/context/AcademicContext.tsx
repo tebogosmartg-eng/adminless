@@ -79,7 +79,9 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           const { data } = await supabase.from('assessments').select('*').eq('user_id', session.user.id);
           return data || [];
       }
+      // Ensure we have a valid termId before querying
       if (!currentClassFilter?.classId || !currentClassFilter?.termId) return [];
+      
       const { data } = await supabase.from('assessments')
         .select('*')
         .eq('class_id', currentClassFilter.classId)
@@ -179,7 +181,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [session?.user?.id, updateLearnerActiveAverages, queryClient]);
 
   const refreshAssessments = useCallback(async (c: string, t?: string) => {
-    const targetTermId = t || activeTerm?.id || '';
+    const targetTermId = t || activeTerm?.id;
     if (targetTermId) {
         setCurrentClassFilter({ classId: c, termId: targetTermId });
     }
