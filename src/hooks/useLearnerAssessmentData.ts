@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '@/db';
+import { supabase } from '@/integrations/supabase/client';
 import { AssessmentResult } from '@/lib/types';
 
 export { type AssessmentResult };
@@ -18,11 +18,12 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
       setLoading(true);
       try {
         // 1. Get all marks for this learner
-        const marks = await db.assessment_marks
-            .where('learner_id')
-            .equals(learnerId)
-            .toArray();
+        const { data: marks, error: marksError } = await supabase
+            .from('assessment_marks')
+            .select('*')
+            .eq('learner_id', learnerId);
 
+        if (marksError) throw marksError;
         if (!marks || marks.length === 0) {
             setResults([]);
             setLoading(false);
@@ -32,30 +33,36 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
         const assessmentIds = marks.map(m => m.assessment_id);
 
         // 2. Get Assessments details
-        const assessments = await db.assessments
-            .where('id')
-            .anyOf(assessmentIds)
-            .toArray();
+        const { data: assessments, error: assError } = await supabase
+            .from('assessments')
+            .select('*')
+            .in('id', assessmentIds);
+        
+        if (assError) throw assError;
 
         // 3. Get Term details
-        const termIds = [...new Set(assessments.map(a => a.term_id))];
-        const terms = await db.terms
-            .where('id')
-            .anyOf(termIds)
-            .toArray();
-        const termMap = new Map(terms.map(t => [t.id, t.name]));
+        const termIds = [...new Set(assessments?.map(a => a.term_id) || [])];
+        const { data: terms, error: termsError } = await supabase
+            .from('terms')
+            .select('*')
+            .in('id', termIds);
+        
+        if (termsError) throw termsError;
+        const termMap = new Map(terms?.map(t => [t.id, t.name]) || []);
 
         // NEW: Calculate Class Averages
         // Fetch all marks for these assessments (not just for this learner)
-        const allMarksForAssessments = await db.assessment_marks
-            .where('assessment_id')
-            .anyOf(assessmentIds)
-            .toArray();
+        const { data: allMarksForAssessments, error: allMarksError } = await supabase
+            .from('assessment_marks')
+            .select('*')
+            .in('assessment_id', assessmentIds);
+        
+        if (allMarksError) throw allMarksError;
 
         const assessmentAverages = new Map<string, number>();
         
-        assessments.forEach(ass => {
-            const marksForAss = allMarksForAssessments.filter(m => m.assessment_id === ass.id && m.score !== null);
+        assessments?.forEach(ass => {
+            const marksForAss = allMarksForAssessments?.filter(m => m.assessment_id === ass.id && m.score !== null) || [];
             if (marksForAss.length > 0) {
                 const totalScore = marksForAss.reduce((sum, m) => sum + Number(m.score), 0);
                 const avgScore = totalScore / marksForAss.length;
@@ -66,7 +73,7 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
 
         // 4. Format data
         const formatted: AssessmentResult[] = marks.map((m) => {
-          const ass = assessments.find(a => a.id === m.assessment_id);
+          const ass = assessments?.find(a => a.id === m.assessment_id);
           
           if (!ass) return null;
 
@@ -83,8 +90,8 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
             max: ass.max_mark,
             weight: ass.weight,
             percentage: percentage ? parseFloat(percentage.toFixed(1)) : null,
-            classAverage: assessmentAverages.get(ass.id) !== undefined 
-                ? parseFloat(assessmentAverages.get(ass.id)!.toFixed(1)) 
+            classAverage: assessmentAverages.get(ass.id) !== undefined
+                ? parseFloat(assessmentAverages.get(ass.id)!.toFixed(1))
                 : null
           };
         }).filter(item => item !== null) as AssessmentResult[];
