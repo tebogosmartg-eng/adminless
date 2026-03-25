@@ -37,16 +37,14 @@ export const importDemoData = async () => {
 
   const activeTermId = terms[2].id; // Term 3 is the active one
 
-  // 3. Create Classes
+  // 3. Create Classes - strict DB schema to prevent 400 errors
   const classes = [
-    { id: crypto.randomUUID(), subject: "Mathematics", grade: "Grade 10", className: "10A" },
-    { id: crypto.randomUUID(), subject: "Physical Sciences", grade: "Grade 11", className: "11C" },
-    { id: crypto.randomUUID(), subject: "Life Sciences", grade: "Grade 10", className: "10B" }
+    { id: crypto.randomUUID(), subject: "Mathematics", grade: "Grade 10", class_name: "10A" },
+    { id: crypto.randomUUID(), subject: "Physical Sciences", grade: "Grade 11", class_name: "11C" },
+    { id: crypto.randomUUID(), subject: "Life Sciences", grade: "Grade 10", class_name: "10B" }
   ].map(c => ({
     ...c,
     user_id: user.id,
-    year_id: yearId,
-    term_id: activeTermId,
     archived: false,
     notes: "Demo class created for testing.",
     created_at: new Date().toISOString()
@@ -140,7 +138,7 @@ export const importDemoData = async () => {
               day,
               period: p,
               subject: cls.subject,
-              class_name: cls.className,
+              class_name: cls.class_name,
               class_id: cls.id
           });
       });
@@ -192,7 +190,7 @@ export const importDemoData = async () => {
   ], async () => {
     await db.academic_years.put(year);
     await db.terms.bulkPut(terms);
-    await db.classes.bulkPut(classes.map(c => ({ ...c, class_name: c.className })));
+    await db.classes.bulkPut(classes);
     await db.learners.bulkPut(allLearners);
     await db.assessments.bulkPut(assessments);
     await db.assessment_marks.bulkPut(marks);
