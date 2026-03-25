@@ -94,15 +94,15 @@ export const AcademicYearSettings = () => {
   const nextOpenTerm = terms.find(t => !t.is_finalised);
 
   return (
-    <div className="grid gap-6 md:grid-cols-1">
-      <Card className="border shadow-sm">
+    <div className="grid gap-6 w-full min-w-0">
+      <Card className="border shadow-sm w-full min-w-0 overflow-hidden">
         <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="space-y-1">
-                <CardTitle>Term Progression Control</CardTitle>
-                <CardDescription>Strict academic sequence. Finalise your current term to unlock the next period.</CardDescription>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full min-w-0">
+            <div className="space-y-1 flex-1 min-w-0">
+                <CardTitle className="truncate">Term Progression Control</CardTitle>
+                <CardDescription className="break-words">Strict academic sequence. Finalise your current term to unlock the next period.</CardDescription>
             </div>
-            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <div className="flex flex-wrap gap-2 w-full md:w-auto shrink-0">
                 {activeYear && !activeYear.closed && (
                     <>
                         <Button variant="ghost" size="sm" onClick={handleDeleteYear} className="flex-1 sm:flex-none text-muted-foreground hover:text-destructive">
@@ -117,95 +117,95 @@ export const AcademicYearSettings = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-6 sm:gap-4">
-             <div className="space-y-1.5 w-full sm:w-auto">
-                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Active Academic Cycle</label>
+        <CardContent className="space-y-4 w-full min-w-0">
+          <div className="flex flex-col sm:flex-row gap-6 sm:gap-4 w-full min-w-0">
+             <div className="space-y-1.5 w-full sm:w-auto flex-1 min-w-0">
+                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block truncate">Active Academic Cycle</label>
                 <Select value={activeYear?.id} onValueChange={(val) => setActiveYear(years.find(y => y.id === val) || null)}>
                     <SelectTrigger className="w-full sm:w-[240px]"><SelectValue placeholder="Select Year" /></SelectTrigger>
                     <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name} {y.closed ? "(Finalized)" : ""}</SelectItem>)}</SelectContent>
                 </Select>
              </div>
-             <div className="space-y-1.5 w-full sm:w-auto sm:ml-auto">
-                 <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Initialise New Year</label>
-                 <div className="flex gap-2">
-                    <Input placeholder="e.g. 2026" value={newYearName} onChange={(e) => setNewYearName(e.target.value)} className="flex-1 sm:w-[120px]" />
-                    <Button onClick={handleCreateYear} variant="secondary" className="shrink-0"><Plus className="mr-2 h-4 w-4" /> Initialise</Button>
+             <div className="space-y-1.5 w-full sm:w-auto sm:ml-auto shrink-0">
+                 <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block truncate">Initialise New Year</label>
+                 <div className="flex flex-col sm:flex-row gap-2 w-full">
+                    <Input placeholder="e.g. 2026" value={newYearName} onChange={(e) => setNewYearName(e.target.value)} className="w-full sm:w-[120px]" />
+                    <Button onClick={handleCreateYear} variant="secondary" className="w-full sm:w-auto shrink-0"><Plus className="mr-2 h-4 w-4" /> Initialise</Button>
                  </div>
              </div>
           </div>
           
           {activeYear && (
-             <div className="border rounded-lg mt-6 overflow-hidden bg-white dark:bg-card">
-                <div className="overflow-x-auto w-full">
-                <Table className="min-w-[600px]">
-                    <TableHeader>
-                        <TableRow className="bg-muted/30">
-                            <TableHead className="font-bold">Term / Progression</TableHead>
-                            <TableHead className="font-bold">Status</TableHead>
-                            <TableHead className="text-right font-bold">Migration Gate</TableHead>
-                            <TableHead className="text-right font-bold">Control Action</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {[...terms].sort((a,b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((term, idx, arr) => {
-                            const isPrevFinalised = idx === 0 || arr[idx-1].is_finalised;
-                            const isUnlocked = isPrevFinalised;
-                            
-                            return (
-                                <TableRow key={term.id} className={cn("hover:bg-muted/10 transition-colors", !term.is_finalised && isUnlocked && "bg-primary/[0.02]")}>
-                                    <TableCell className="font-bold">
-                                        <div className="flex items-center gap-2">
-                                            {term.name}
-                                            {!isUnlocked && <Lock className="h-3 w-3 opacity-30" />}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {term.is_finalised ? (
-                                            <Badge variant="secondary" className="gap-1.5"><CheckCircle2 className="h-3 w-3 text-green-600" /> Finalised (Locked)</Badge>
-                                        ) : isUnlocked ? (
-                                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Open (Current)</Badge>
-                                        ) : (
-                                            <Badge variant="outline" className="text-muted-foreground opacity-50">Locked</Badge>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        {term.is_finalised && nextOpenTerm ? (
-                                            <Button variant="outline" size="sm" onClick={() => initiateRollForward(term.id)} className="h-8 gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
-                                                <ArrowRightCircle className="h-3 w-3" />
-                                                Roll Forward
-                                            </Button>
-                                        ) : null}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <Button 
-                                            variant={term.is_finalised ? "ghost" : "outline"} 
-                                            size="sm" 
-                                            disabled={validating || !!activeYear.closed || !isUnlocked} 
-                                            onClick={() => handleTermAction(term.id, term.is_finalised)} 
-                                            className={cn("h-8 min-w-[100px]", !term.is_finalised && isUnlocked && "border-primary text-primary hover:bg-primary/5")}
-                                        >
-                                            {validating && selectedTermId === term.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : term.is_finalised ? (
-                                                <><Unlock className="h-3.5 w-3.5 mr-2 opacity-50" /> Re-open</>
-                                            ) : (
-                                                <><Lock className="h-3.5 w-3.5 mr-2 opacity-50" /> Finalise</>
-                                            )}
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </Table>
+             <div className="border rounded-lg mt-6 bg-white dark:bg-card w-full min-w-0 shadow-sm overflow-hidden flex flex-col">
+                <div className="overflow-x-auto w-full max-w-[calc(100vw-2.5rem)] md:max-w-full">
+                  <Table className="min-w-[650px] w-full">
+                      <TableHeader>
+                          <TableRow className="bg-muted/30">
+                              <TableHead className="font-bold">Term / Progression</TableHead>
+                              <TableHead className="font-bold">Status</TableHead>
+                              <TableHead className="text-right font-bold">Migration Gate</TableHead>
+                              <TableHead className="text-right font-bold">Control Action</TableHead>
+                          </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                          {[...terms].sort((a,b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((term, idx, arr) => {
+                              const isPrevFinalised = idx === 0 || arr[idx-1].is_finalised;
+                              const isUnlocked = isPrevFinalised;
+                              
+                              return (
+                                  <TableRow key={term.id} className={cn("hover:bg-muted/10 transition-colors", !term.is_finalised && isUnlocked && "bg-primary/[0.02]")}>
+                                      <TableCell className="font-bold">
+                                          <div className="flex items-center gap-2">
+                                              {term.name}
+                                              {!isUnlocked && <Lock className="h-3 w-3 opacity-30" />}
+                                          </div>
+                                      </TableCell>
+                                      <TableCell>
+                                          {term.is_finalised ? (
+                                              <Badge variant="secondary" className="gap-1.5"><CheckCircle2 className="h-3 w-3 text-green-600" /> Finalised (Locked)</Badge>
+                                          ) : isUnlocked ? (
+                                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Open (Current)</Badge>
+                                          ) : (
+                                              <Badge variant="outline" className="text-muted-foreground opacity-50">Locked</Badge>
+                                          )}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                          {term.is_finalised && nextOpenTerm ? (
+                                              <Button variant="outline" size="sm" onClick={() => initiateRollForward(term.id)} className="h-8 gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
+                                                  <ArrowRightCircle className="h-3 w-3" />
+                                                  Roll Forward
+                                              </Button>
+                                          ) : null}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                          <Button 
+                                              variant={term.is_finalised ? "ghost" : "outline"} 
+                                              size="sm" 
+                                              disabled={validating || !!activeYear.closed || !isUnlocked} 
+                                              onClick={() => handleTermAction(term.id, term.is_finalised)} 
+                                              className={cn("h-8 min-w-[100px]", !term.is_finalised && isUnlocked && "border-primary text-primary hover:bg-primary/5")}
+                                          >
+                                              {validating && selectedTermId === term.id ? (
+                                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                              ) : term.is_finalised ? (
+                                                  <><Unlock className="h-3.5 w-3.5 mr-2 opacity-50" /> Re-open</>
+                                              ) : (
+                                                  <><Lock className="h-3.5 w-3.5 mr-2 opacity-50" /> Finalise</>
+                                              )}
+                                          </Button>
+                                      </TableCell>
+                                  </TableRow>
+                              );
+                          })}
+                      </TableBody>
+                  </Table>
                 </div>
                 
-                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border-t border-amber-100 dark:border-amber-900/30 flex items-start gap-3">
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border-t border-amber-100 dark:border-amber-900/30 flex items-start gap-3 w-full min-w-0 shrink-0">
                     <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1 min-w-0">
                         <p className="text-sm font-bold text-amber-800 dark:text-amber-400">Progression Rules</p>
-                        <ul className="text-xs text-amber-700/80 dark:text-amber-500 list-disc pl-4 space-y-1">
+                        <ul className="text-xs text-amber-700/80 dark:text-amber-500 list-disc pl-4 space-y-1 break-words whitespace-normal pr-2">
                             <li>You must finalise a term before the next one becomes available for data entry.</li>
                             <li>Finalising a term locks all assessments, marks, and attendance records as an official record.</li>
                             <li>A finalised term can only be re-opened if no subsequent terms have been finalised yet.</li>
