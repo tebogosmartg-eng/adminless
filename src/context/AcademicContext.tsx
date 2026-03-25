@@ -4,13 +4,11 @@ import { createContext, useContext, useState, ReactNode, useCallback, useMemo, u
 import { Session } from '@supabase/supabase-js';
 import { AcademicYear, Term, Assessment, AssessmentMark } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
-import { db } from '@/db';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { queueAction } from '@/services/sync';
+import { supabase } from '@/integrations/supabase/client';
 import { useAcademicSelection } from '@/hooks/useAcademicSelection';
 import { useAcademicMigration } from '@/hooks/useAcademicMigration';
 import { useAcademicAverages } from '@/hooks/useAcademicAverages';
-import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface AcademicContextType {
   years: AcademicYear[];
@@ -44,63 +42,91 @@ const AcademicContext = createContext<AcademicContextType | undefined>(undefined
 export const AcademicProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const [diagnosticMode, setDiagnosticMode] = useState(false);
   const [currentClassFilter, setCurrentClassFilter] = useState<{classId: string, termId: string} | null>(null);
+  const queryClient = useQueryClient();
 
-  const years = useLiveQuery(
-    () => session?.user.id 
-      ? db.academic_years.where('user_id').equals(session.user.id).reverse().sortBy('name') 
-      : [],
-    [session?.user.id]
-  ) || [];
+  const { data: years = [], isLoading: loadingYears } = useQuery({
+    queryKey: ['academic_years', session?.user?.id],
+    queryFn: async () => {
+      if (!session?.user?.id) return [];
+      const { data, error } = await supabase.from('academic_years').select('*').eq('user_id', session.user.id).order('name', { ascending: false });
+      if (error) throw error;
+      return data as AcademicYear[];
+    },
+    enabled: !!session?.user?.id
+  });
 
-  const allTerms = useLiveQuery(
-    () => session?.user.id 
-      ? db.terms.where('user_id').equals(session.user.id).toArray() 
-      : [],
-    [session?.user.id]
-  ) || [];
+  const { data: allTerms = [], isLoading: loadingTerms } = useQuery({
+    queryKey: ['terms', session?.user?.id],
+    queryFn: async () => {
+      if (!session?.user?.id) return [];
+      const { data, error } = await supabase.from('terms').select('*').eq('user_id', session.user.id);
+      if (error) throw error;
+      return data as Term[];
+    },
+    enabled: !!session?.user?.id
+  });
   
   const { activeYear, activeTerm, setActiveYear, setActiveTerm } = useAcademicSelection(years, allTerms);
 
   const terms = useMemo(() => {
     const list = diagnosticMode ? allTerms : (activeYear ? allTerms.filter(t => t.year_id === activeYear.id) : []);
-    // Ensure terms are ALWAYS returned in sequence 1, 2, 3, 4
     return [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   }, [allTerms, activeYear?.id, diagnosticMode]);
 
-  const assessments = useLiveQuery(async () => {
-      if (!session?.user.id) return [];
-      if (diagnosticMode) return db.assessments.where('user_id').equals(session.user.id).toArray();
+  const { data: assessments = [], isLoading: loadingAss } = useQuery({
+    queryKey: ['assessments', session?.user?.id, currentClassFilter?.classId, currentClassFilter?.termId, diagnosticMode, activeYear?.id],
+    queryFn: async () => {
+      if (!session?.user?.id) return [];
+      if (diagnosticMode) {
+          const { data } = await supabase.from('assessments').select('*').eq('user_id', session.user.id);
+          return data || [];
+      }
       if (!currentClassFilter || !activeYear) return [];
-      return db.assessments
-        .where('[class_id+term_id]')
-        .equals([currentClassFilter.classId, currentClassFilter.termId])
-        .and(a => a.user_id === session.user.id)
-        .toArray();
-  }, [currentClassFilter, diagnosticMode, session?.user.id, activeYear?.id]) || [];
+      const { data } = await supabase.from('assessments')
+        .select('*')
+        .eq('class_id', currentClassFilter.classId)
+        .eq('term_id', currentClassFilter.termId)
+        .eq('user_id', session.user.id);
+      return data || [];
+    },
+    enabled: !!session?.user?.id && (diagnosticMode || !!currentClassFilter)
+  });
 
-  const marks = useLiveQuery(async () => {
-      if (!session?.user.id) return [];
-      if (diagnosticMode) return db.assessment_marks.where('user_id').equals(session.user.id).toArray();
+  const { data: marks = [] } = useQuery({
+    queryKey: ['assessment_marks', session?.user?.id, assessments.map((a: any) => a.id).join(',')],
+    queryFn: async () => {
+      if (!session?.user?.id) return [];
+      if (diagnosticMode) {
+          const { data } = await supabase.from('assessment_marks').select('*').eq('user_id', session.user.id);
+          return data || [];
+      }
       if (assessments.length === 0) return [];
-      const assIds = assessments.map(a => a.id);
-      return db.assessment_marks
-        .where('assessment_id')
-        .anyOf(assIds)
-        .and(m => m.user_id === session.user.id)
-        .toArray();
-  }, [assessments, diagnosticMode, session?.user.id]) || [];
+      const assIds = assessments.map((a: any) => a.id);
+      
+      // Batch fetch marks if many assessments
+      const chunkSize = 100;
+      let allData: any[] = [];
+      for (let i = 0; i < assIds.length; i += chunkSize) {
+          const chunk = assIds.slice(i, i + chunkSize);
+          const { data } = await supabase.from('assessment_marks')
+            .select('*')
+            .in('assessment_id', chunk)
+            .eq('user_id', session.user.id);
+          if (data) allData = [...allData, ...data];
+      }
+      return allData;
+    },
+    enabled: !!session?.user?.id && (diagnosticMode || assessments.length > 0)
+  });
 
   const { updateLearnerActiveAverages, recalculateAllActiveAverages, runDataVacuum } = useAcademicAverages();
   
   const logInternalActivity = useCallback(async (message: string, yearId?: string, termId?: string) => {
-    if (!session?.user.id) return;
+    if (!session?.user?.id) return;
     const targetYearId = yearId || activeYear?.id;
     const targetTermId = termId || activeTerm?.id;
     
-    if (!targetYearId || !targetTermId) {
-        console.error("[Scoping] Activity log blocked: missing year or term context.");
-        return;
-    }
+    if (!targetYearId || !targetTermId) return;
 
     const newActivity = {
       id: crypto.randomUUID(),
@@ -110,92 +136,23 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       message,
       timestamp: new Date().toISOString(),
     };
-    await db.activities.add(newActivity);
-    await queueAction('activities', 'create', newActivity);
-  }, [session?.user.id, activeYear?.id, activeTerm?.id]);
+    await supabase.from('activities').insert(newActivity);
+    queryClient.invalidateQueries({ queryKey: ['activities'] });
+  }, [session?.user?.id, activeYear?.id, activeTerm?.id, queryClient]);
 
   const { rollForwardClasses: doRollForward } = useAcademicMigration(
-    session?.user.id, 
+    session?.user?.id, 
     logInternalActivity
   );
 
-  useEffect(() => {
-    const runSilentMigration = async () => {
-      if (!activeYear || !session?.user.id) return;
-      
-      const term1 = terms.find(t => t.name.includes("Term 1")) || terms[0];
-      if (!term1) return;
-
-      const tables = [
-        'classes', 'assessments', 'activities', 'todos', 
-        'learner_notes', 'evidence', 'attendance',
-        'teacher_file_annotations', 'teacher_file_attachments'
-      ];
-      let totalMigrated = 0;
-
-      try {
-        await db.transaction('rw', [
-          db.classes, db.assessments, db.activities, db.todos, 
-          db.learner_notes, db.evidence, db.attendance,
-          db.teacher_file_annotations, db.teacher_file_attachments,
-          db.sync_queue, db.learners
-        ], async () => {
-          for (const table of tables) {
-            // @ts-ignore
-            const all = await db[table].toArray();
-            
-            const legacy = all.filter((i: any) => {
-              const needsYear = !['attendance'].includes(table);
-              const hasYear = needsYear ? !!i.year_id : true;
-              const hasTerm = !!i.term_id;
-              return (!hasYear || !hasTerm) && (i.user_id === session.user.id || !i.user_id);
-            });
-
-            if (legacy.length > 0) {
-              const updates = legacy.map((item: any) => {
-                const newItem = { ...item };
-                if (!['attendance'].includes(table)) {
-                  newItem.year_id = activeYear.id;
-                  // For teacher file annotations/attachments, legacy field might be academic_year_id
-                  if (table.startsWith('teacher_file_')) newItem.academic_year_id = activeYear.id;
-                }
-                newItem.term_id = term1.id;
-                if (!newItem.user_id) newItem.user_id = session.user.id;
-                
-                if (table === 'classes' && newItem.class_name && !newItem.className) {
-                  newItem.className = newItem.class_name;
-                  delete newItem.class_name;
-                }
-                return newItem;
-              });
-
-              // @ts-ignore
-              await db[table].bulkPut(updates);
-              await queueAction(table, 'upsert', updates);
-              totalMigrated += legacy.length;
-            }
-          }
-        });
-
-        if (totalMigrated > 0) {
-          console.log(`%c[AdminLess] Auto-Migration: Scoped ${totalMigrated} records to ${term1.name}`, "color: #16a34a; font-weight: bold;");
-          await recalculateAllActiveAverages(true);
-        }
-      } catch (e) {
-        console.error("[AdminLess] Background scoping migration failed:", e);
-      }
-    };
-
-    runSilentMigration();
-  }, [activeYear?.id, terms, session?.user.id, recalculateAllActiveAverages]);
-
   const createYear = useCallback(async (name: string) => {
-    if (!session?.user.id) return;
+    if (!session?.user?.id) return;
     const yearId = crypto.randomUUID();
     const yearData = { id: yearId, name, user_id: session.user.id, closed: false };
-    await db.academic_years.add(yearData);
-    await queueAction('academic_years', 'create', yearData);
-    const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName, idx) => ({
+    
+    await supabase.from('academic_years').insert(yearData);
+    
+    const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName) => ({
       id: crypto.randomUUID(), 
       year_id: yearId, 
       name: tName, 
@@ -203,103 +160,67 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       closed: false,
       is_finalised: false,
       weight: 25, 
-      start_date: null, 
-      end_date: null
     }));
-    await db.terms.bulkAdd(termsToCreate as any);
-    await queueAction('terms', 'create', termsToCreate);
+    await supabase.from('terms').insert(termsToCreate);
+    
+    await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
+    await queryClient.invalidateQueries({ queryKey: ['terms'] });
     showSuccess(`Academic Year ${name} initialized.`);
-  }, [session?.user.id]);
+  }, [session?.user?.id, queryClient]);
 
   const deleteYear = useCallback(async (id: string) => {
-    const yearTerms = await db.terms.where('year_id').equals(id).toArray();
-    await db.transaction('rw', [db.academic_years, db.terms, db.sync_queue], async () => {
-        await db.terms.where('year_id').equals(id).delete();
-        await db.academic_years.delete(id);
-        for (const t of yearTerms) await queueAction('terms', 'delete', { id: t.id });
-        await queueAction('academic_years', 'delete', { id });
-    });
+    await supabase.from('terms').delete().eq('year_id', id);
+    await supabase.from('academic_years').delete().eq('id', id);
+    await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
+    await queryClient.invalidateQueries({ queryKey: ['terms'] });
     showSuccess("Academic Year removed.");
-  }, []);
+  }, [queryClient]);
 
   const updateTerm = useCallback(async (term: Term) => {
-    await db.terms.put(term);
-    await queueAction('terms', 'update', term);
+    await supabase.from('terms').update(term).eq('id', term.id);
+    await queryClient.invalidateQueries({ queryKey: ['terms'] });
     recalculateAllActiveAverages(true);
-  }, [recalculateAllActiveAverages]);
+  }, [recalculateAllActiveAverages, queryClient]);
 
   const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
-    if (!assessment.term_id) {
-        showError("Assessment creation blocked: Term context required.");
-        throw new Error("Missing term scope");
-    }
-
-    const currentTerm = allTerms.find(t => t.id === assessment.term_id);
-    if (currentTerm?.is_finalised) {
-        showError("Action Blocked: Cannot add assessments to a finalised term.");
-        throw new Error("Finalised term");
-    }
+    if (!assessment.term_id) throw new Error("Missing term scope");
 
     const id = crypto.randomUUID();
-    const data = { ...assessment, id, user_id: session?.user.id || '' };
-    await db.assessments.add(data);
-    await queueAction('assessments', 'create', data);
+    const data = { ...assessment, id, user_id: session?.user?.id || '' };
+    await supabase.from('assessments').insert(data);
+    await queryClient.invalidateQueries({ queryKey: ['assessments'] });
     return id;
-  }, [session?.user.id, allTerms]);
+  }, [session?.user?.id, queryClient]);
 
   const updateAssessment = useCallback(async (a: Assessment) => {
-    if (!a.term_id) {
-        showError("Assessment update blocked: Record missing term scope.");
-        return;
-    }
-    const currentTerm = allTerms.find(t => t.id === a.term_id);
-    if (currentTerm?.is_finalised) {
-        showError("Action Blocked: Cannot modify assessments in a finalised term.");
-        return;
-    }
-    await db.assessments.put(a);
-    await queueAction('assessments', 'update', a);
-  }, [allTerms]);
+    await supabase.from('assessments').update(a).eq('id', a.id);
+    await queryClient.invalidateQueries({ queryKey: ['assessments'] });
+  }, [queryClient]);
 
   const deleteAssessment = useCallback(async (id: string) => {
-    const ass = await db.assessments.get(id);
-    if (!ass?.term_id) {
-        showError("Assessment deletion blocked: Scope missing.");
-        return;
-    }
-    const currentTerm = allTerms.find(t => t.id === ass?.term_id);
-    if (currentTerm?.is_finalised) {
-        showError("Action Blocked: Cannot delete assessments in a finalised term.");
-        return;
-    }
-    await db.assessment_marks.where('assessment_id').equals(id).delete(); 
-    await db.assessments.delete(id);
-    await queueAction('assessments', 'delete', { id });
-  }, [allTerms]);
+    await supabase.from('assessment_marks').delete().eq('assessment_id', id); 
+    await supabase.from('assessments').delete().eq('id', id);
+    await queryClient.invalidateQueries({ queryKey: ['assessments'] });
+    await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
+  }, [queryClient]);
 
   const updateMarks = useCallback(async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
-    if (!session?.user.id || updates.length === 0) return;
+    if (!session?.user?.id || updates.length === 0) return;
     
-    const firstAss = await db.assessments.get(updates[0].assessment_id);
-    if (!firstAss?.term_id) {
-        showError("Mark entry blocked: Assessment has no term scope.");
-        return;
-    }
-
-    const currentTerm = allTerms.find(t => t.id === firstAss?.term_id);
-    if (currentTerm?.is_finalised) {
-        showError("Action Blocked: Data in a finalised term is read-only.");
-        return;
-    }
-
     const toUpsert = await Promise.all(updates.map(async (u) => {
-        const existing = await db.assessment_marks.where('[assessment_id+learner_id]').equals([u.assessment_id, u.learner_id]).first();
+        const { data: existing } = await supabase.from('assessment_marks')
+            .select('id')
+            .eq('assessment_id', u.assessment_id)
+            .eq('learner_id', u.learner_id)
+            .single();
+            
         return { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id } as AssessmentMark;
     }));
-    await db.assessment_marks.bulkPut(toUpsert);
-    await queueAction('assessment_marks', 'upsert', toUpsert);
+    
+    await supabase.from('assessment_marks').upsert(toUpsert);
+    await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
     await updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
-  }, [session?.user.id, updateLearnerActiveAverages, allTerms]);
+  }, [session?.user?.id, updateLearnerActiveAverages, queryClient]);
 
   const refreshAssessments = useCallback(async (c: string, t?: string) => {
     const targetTermId = t || activeTerm?.id || '';
@@ -310,21 +231,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [activeTerm?.id]);
 
   const toggleTermStatus = useCallback(async (termId: string, finalised: boolean) => {
-    await db.terms.update(termId, { is_finalised: finalised, closed: finalised });
-    await queueAction('terms', 'update', { id: termId, is_finalised: finalised, closed: finalised });
+    await supabase.from('terms').update({ is_finalised: finalised, closed: finalised }).eq('id', termId);
+    await queryClient.invalidateQueries({ queryKey: ['terms'] });
     
     if (finalised) {
         logInternalActivity(`Finalised term: ${allTerms.find(t => t.id === termId)?.name}`);
     }
-    
     showSuccess(`Term ${finalised ? 'finalised and locked' : 're-activated'}.`);
-  }, [allTerms, logInternalActivity]);
+  }, [allTerms, logInternalActivity, queryClient]);
 
   const closeYear = useCallback(async (id: string) => {
-    await db.academic_years.update(id, { closed: true });
-    await queueAction('academic_years', 'update', { id, closed: true });
+    await supabase.from('academic_years').update({ closed: true }).eq('id', id);
+    await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
     showSuccess("Year cycle finalized.");
-  }, []);
+  }, [queryClient]);
 
   const rollForwardClasses = useCallback((s: string, t: string, d: any[]) => 
     doRollForward(activeYear?.id || '', s, t, d, setActiveTerm), 
@@ -332,7 +252,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const value = useMemo(() => ({
     years, terms, assessments, marks, 
-    loading: !years || !session?.user.id, 
+    loading: loadingYears || loadingTerms || !session?.user?.id, 
     activeYear, activeTerm, setActiveYear, setActiveTerm, 
     createYear, deleteYear, updateTerm,
     createAssessment, updateAssessment, deleteAssessment,
@@ -344,7 +264,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm, 
     createAssessment, updateAssessment, deleteAssessment, updateMarks, 
     refreshAssessments, toggleTermStatus, closeYear, recalculateAllActiveAverages, 
-    runDataVacuum, rollForwardClasses, diagnosticMode, session?.user.id
+    runDataVacuum, rollForwardClasses, diagnosticMode, session?.user?.id, loadingYears, loadingTerms
   ]);
 
   return (

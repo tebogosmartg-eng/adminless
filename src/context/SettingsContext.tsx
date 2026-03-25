@@ -3,10 +3,8 @@ import { defaultGradingScheme } from '@/utils/grading';
 import { GradeSymbol } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { Session } from '@supabase/supabase-js';
-import { db } from '@/db';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { queueAction } from '@/services/sync';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface SettingsContextType {
   gradingScheme: GradeSymbol[];
@@ -65,11 +63,18 @@ const DEFAULT_DBE_SUBJECTS = [
 
 export const SettingsProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
+  const queryClient = useQueryClient();
   
-  const profile = useLiveQuery(
-    () => session?.user.id ? db.profiles.get(session.user.id) : undefined,
-    [session?.user.id]
-  );
+  const { data: profile } = useQuery({
+    queryKey: ['profile', session?.user?.id],
+    queryFn: async () => {
+        if (!session?.user?.id) return null;
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+        if (error && error.code !== 'PGRST116') throw error; // ignore not found
+        return data;
+    },
+    enabled: !!session?.user?.id
+  });
 
   const [gradingScheme, setGradingSchemeState] = useState<GradeSymbol[]>(defaultGradingScheme);
   const [schoolName, setSchoolNameState] = useState<string>("My School");
@@ -85,9 +90,6 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
   const [onboardingCompleted, setOnboardingCompletedState] = useState<boolean>(false);
 
-  /**
-   * BOOTSTRAP GUARD: Ensures the remote profile row exists.
-   */
   const bootstrapProfile = useCallback(async () => {
     if (!session?.user) return;
     
@@ -105,14 +107,10 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
             updated_at: new Date().toISOString()
         };
         
-        const { error: insertError } = await supabase.from('profiles').insert(newProfile);
-        if (insertError) console.error("[Bootstrap] Profile creation failed:", insertError.message);
-        else {
-            // Add to local DB as well
-            await db.profiles.put(newProfile);
-        }
+        await supabase.from('profiles').insert(newProfile);
+        queryClient.invalidateQueries({ queryKey: ['profile'] });
     }
-  }, [session?.user]);
+  }, [session?.user, queryClient]);
 
   useEffect(() => {
     if (session?.user) bootstrapProfile();
@@ -138,10 +136,9 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   const updateProfile = async (updates: any) => {
     if (!session?.user.id) return;
-    const current = await db.profiles.get(session.user.id) || { id: session.user.id };
-    const updated = { ...current, ...updates, updated_at: new Date().toISOString() };
-    await db.profiles.put(updated);
-    await queueAction('profiles', 'upsert', updated);
+    const { error } = await supabase.from('profiles').upsert({ id: session.user.id, ...updates, updated_at: new Date().toISOString() });
+    if (error) console.error("Failed to update profile", error);
+    queryClient.invalidateQueries({ queryKey: ['profile'] });
   };
 
   const updateProfileSettings = async (updates: {

@@ -1,12 +1,11 @@
-import { createContext, useContext, ReactNode, useRef, useEffect } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
 import { ClassInfo, Learner } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { Session } from '@supabase/supabase-js';
 import { showError, showSuccess } from '@/utils/toast';
-import { db } from '@/db';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { queueAction } from '@/services/sync';
 import { useAcademic } from './AcademicContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface ClassesContextType {
   classes: ClassInfo[];
@@ -27,48 +26,52 @@ const ClassesContext = createContext<ClassesContextType | undefined>(undefined);
 export const ClassesProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const { logActivity } = useActivity();
   const { activeYear, activeTerm, diagnosticMode } = useAcademic();
-  const fetchCount = useRef(0);
+  const queryClient = useQueryClient();
 
-  const rawClasses = useLiveQuery(async () => {
-    if (!session?.user.id) return [];
-    
-    fetchCount.current++;
-    
-    const userClasses = await db.classes
-        .where('user_id')
-        .equals(session.user.id)
-        .toArray();
-    
-    if (!diagnosticMode && (!activeYear || !activeTerm)) {
-        return undefined; 
-    }
+  const { data: classes = [], isLoading: loading } = useQuery({
+    queryKey: ['classes', session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode],
+    queryFn: async () => {
+      if (!session?.user.id) return [];
+      
+      let query = supabase.from('classes').select('*').eq('user_id', session.user.id);
+      
+      if (!diagnosticMode && (!activeYear || !activeTerm)) {
+          return []; 
+      }
 
-    const visibleClasses = userClasses.filter(c => {
-        if (diagnosticMode) return true;
-        return c.year_id === activeYear?.id && c.term_id === activeTerm?.id;
-    });
+      if (!diagnosticMode && activeYear && activeTerm) {
+          query = query.eq('year_id', activeYear.id).eq('term_id', activeTerm.id);
+      }
 
-    if (visibleClasses.length === 0) return [];
+      const { data: classesData, error: classesError } = await query;
+      if (classesError) throw classesError;
+      if (!classesData || classesData.length === 0) return [];
 
-    const classIds = visibleClasses.map(c => c.id);
-    const allLearners = await db.learners.where('class_id').anyOf(classIds).toArray();
+      const classIds = classesData.map(c => c.id);
+      
+      // Fetch learners for these classes in a single query
+      const { data: learnersData, error: learnersError } = await supabase
+        .from('learners')
+        .select('*')
+        .in('class_id', classIds);
+        
+      if (learnersError) throw learnersError;
 
-    return visibleClasses.map(c => ({
-        id: c.id,
-        year_id: c.year_id,
-        term_id: c.term_id,
-        grade: c.grade,
-        subject: c.subject,
-        className: c.className || (c as any).class_name || "Untitled Class",
-        archived: !!c.archived,
-        notes: c.notes || '',
-        is_finalised: !!c.is_finalised,
-        learners: allLearners.filter(l => l.class_id === c.id)
-    })) as ClassInfo[];
-  }, [session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode]);
-
-  const loading = rawClasses === undefined;
-  const classes = rawClasses || [];
+      return classesData.map(c => ({
+          id: c.id,
+          year_id: c.year_id,
+          term_id: c.term_id,
+          grade: c.grade,
+          subject: c.subject,
+          className: c.class_name || c.className || "Untitled Class",
+          archived: !!c.archived,
+          notes: c.notes || '',
+          is_finalised: !!c.is_finalised,
+          learners: (learnersData || []).filter(l => l.class_id === c.id)
+      })) as ClassInfo[];
+    },
+    enabled: !!session?.user.id && (diagnosticMode || (!!activeYear && !!activeTerm))
+  });
 
   const addClass = async (newClass: ClassInfo) => {
     if (!session?.user.id || !activeYear || !activeTerm) {
@@ -84,30 +87,27 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         term_id: activeTerm.id,
         grade: newClass.grade,
         subject: newClass.subject,
-        className: newClass.className, 
+        class_name: newClass.className, 
         archived: false,
         is_finalised: false,
-        notes: newClass.notes || '',
-        created_at: new Date().toISOString()
+        notes: newClass.notes || ''
       };
 
-      await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
-        await db.classes.add(classData);
-        await queueAction('classes', 'create', classData);
+      const { error: cErr } = await supabase.from('classes').insert(classData);
+      if (cErr) throw cErr;
 
-        if (newClass.learners.length > 0) {
+      if (newClass.learners.length > 0) {
           const learnersWithIds = newClass.learners.map(l => ({
               ...l,
               id: l.id || crypto.randomUUID(),
               class_id: newClass.id,
               user_id: session.user.id
           }));
+          const { error: lErr } = await supabase.from('learners').insert(learnersWithIds);
+          if (lErr) throw lErr;
+      }
 
-          await db.learners.bulkAdd(learnersWithIds as any);
-          await queueAction('learners', 'create', learnersWithIds);
-        }
-      });
-
+      await queryClient.invalidateQueries({ queryKey: ['classes'] });
       logActivity(`Created class: "${newClass.className}" for ${activeTerm.name}`);
     } catch (e) {
       console.error(e);
@@ -118,34 +118,36 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const updateLearners = async (classId: string, updatedLearners: Learner[]) => {
     if (!session?.user.id) return;
     try {
-        await db.transaction('rw', [db.learners, db.sync_queue], async () => {
-            const currentDbLearners = await db.learners.where('class_id').equals(classId).toArray();
-            const newIds = new Set();
-            const toUpsert = [];
+        const { data: currentDbLearners } = await supabase.from('learners').select('id').eq('class_id', classId);
+        const currentIds = (currentDbLearners || []).map(l => l.id);
+        
+        const newIds = new Set();
+        const toUpsert = [];
 
-            for (const l of updatedLearners) {
-                const id = l.id || crypto.randomUUID();
-                newIds.add(id);
-                toUpsert.push({
-                    id,
-                    class_id: classId,
-                    user_id: session.user.id,
-                    name: l.name,
-                    mark: l.mark,
-                    comment: l.comment,
-                    gender: l.gender || null
-                });
-            }
+        for (const l of updatedLearners) {
+            const id = l.id || crypto.randomUUID();
+            newIds.add(id);
+            toUpsert.push({
+                id,
+                class_id: classId,
+                user_id: session.user.id,
+                name: l.name,
+                mark: l.mark,
+                comment: l.comment,
+                gender: l.gender || null
+            });
+        }
 
-            const toDelete = currentDbLearners.filter(l => !newIds.has(l.id)).map(l => l.id!);
-            if (toDelete.length > 0) await db.learners.bulkDelete(toDelete);
-            await db.learners.bulkPut(toUpsert as any);
+        const toDelete = currentIds.filter(id => !newIds.has(id));
+        
+        if (toDelete.length > 0) {
+            await supabase.from('learners').delete().in('id', toDelete);
+        }
+        if (toUpsert.length > 0) {
+            await supabase.from('learners').upsert(toUpsert);
+        }
 
-            if (toUpsert.length > 0) await queueAction('learners', 'upsert', toUpsert);
-            if (toDelete.length > 0) {
-                for (const id of toDelete) await queueAction('learners', 'delete', { id });
-            }
-        });
+        await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
         console.error(e);
         showError("Failed to update roster.");
@@ -154,8 +156,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const renameLearner = async (learnerId: string, newName: string) => {
     try {
-        await db.learners.update(learnerId, { name: newName });
-        await queueAction('learners', 'update', { id: learnerId, name: newName });
+        await supabase.from('learners').update({ name: newName }).eq('id', learnerId);
+        await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
         showError("Failed to rename learner.");
     }
@@ -166,10 +168,10 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         const updates: any = {};
         if (details.grade) updates.grade = details.grade;
         if (details.subject) updates.subject = details.subject;
-        if (details.className) updates.className = details.className;
+        if (details.className) updates.class_name = details.className;
 
-        await db.classes.update(classId, updates);
-        await queueAction('classes', 'update', { ...updates, id: classId });
+        await supabase.from('classes').update(updates).eq('id', classId);
+        await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
         showError("Update failed.");
     }
@@ -177,8 +179,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const updateClassNotes = async (classId: string, notes: string) => {
     try {
-        await db.classes.update(classId, { notes });
-        await queueAction('classes', 'update', { id: classId, notes });
+        await supabase.from('classes').update({ notes }).eq('id', classId);
+        await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
         showError("Failed to save notes.");
     }
@@ -186,8 +188,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const finalizeClassTerm = async (classId: string) => {
     try {
-        await db.classes.update(classId, { is_finalised: true });
-        await queueAction('classes', 'update', { id: classId, is_finalised: true });
+        await supabase.from('classes').update({ is_finalised: true }).eq('id', classId);
+        await queryClient.invalidateQueries({ queryKey: ['classes'] });
         showSuccess("Class finalised successfully.");
         logActivity(`Finalised class term data.`);
     } catch (e) {
@@ -197,11 +199,9 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const deleteClass = async (classId: string) => {
     try {
-        await db.transaction('rw', [db.classes, db.learners, db.sync_queue], async () => {
-            await db.learners.where('class_id').equals(classId).delete();
-            await db.classes.delete(classId);
-            await queueAction('classes', 'delete', { id: classId });
-        });
+        await supabase.from('learners').delete().eq('class_id', classId);
+        await supabase.from('classes').delete().eq('id', classId);
+        await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
         showError("Failed to delete class.");
     }
@@ -209,8 +209,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const toggleClassArchive = async (classId: string, archived: boolean) => {
     try {
-        await db.classes.update(classId, { archived });
-        await queueAction('classes', 'update', { id: classId, archived });
+        await supabase.from('classes').update({ archived }).eq('id', classId);
+        await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
         showError("Status update failed.");
     }
