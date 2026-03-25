@@ -23,13 +23,13 @@ const MobileSidebar = () => {
             Navigate through Dashboard, Classes, Teacher File, and Settings.
           </SheetDescription>
         </div>
-        <div className="flex h-24 items-center border-b px-6 gap-3">
-          <img 
-            src={icon} 
-            alt="AdminLess Icon" 
-            className="h-16 w-auto object-contain" 
+        <div className="flex h-24 items-center border-b px-4 gap-2 sm:gap-3 flex-shrink-0 min-w-0 overflow-hidden">
+          <img
+            src={icon}
+            alt="AdminLess Icon"
+            className="h-12 sm:h-16 w-auto object-contain flex-shrink-0"
           />
-          <h1 className="text-2xl font-bold">AdminLess</h1>
+          <h1 className="text-xl sm:text-2xl font-bold truncate">AdminLess</h1>
         </div>
         <nav className="grid gap-2 text-lg font-medium p-4">
           <NavLinks onClick={() => setOpen(false)} />

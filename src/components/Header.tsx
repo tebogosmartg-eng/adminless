@@ -68,13 +68,13 @@ const Header = () => {
   const sortedTerms = [...terms].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-3 md:px-8 no-print shadow-sm z-30 transition-all duration-300 text-foreground border-border">
-      <div className="flex items-center gap-2 md:hidden">
+    <header className="flex h-auto min-h-16 flex-wrap items-center justify-between border-b bg-background px-3 py-2 md:py-0 md:px-8 no-print shadow-sm z-30 transition-all duration-300 text-foreground border-border gap-y-2">
+      <div className="flex items-center gap-2 md:hidden flex-shrink-0">
         <MobileSidebar />
       </div>
       
-      <div className="flex-1 flex justify-start md:justify-start items-center gap-2 md:gap-4 pl-2 md:pl-0 min-w-0">
-        <div className="relative group flex-1 md:flex-none">
+      <div className="flex-1 flex flex-wrap justify-start md:justify-start items-center gap-2 md:gap-4 pl-2 md:pl-0 min-w-0">
+        <div className="relative group flex-1 md:flex-none min-w-[120px]">
             <Button 
             variant="outline" 
             className="h-9 w-full md:w-64 justify-start text-xs text-muted-foreground bg-muted/40 hover:bg-muted/60 border-border group-hover:border-primary transition-all px-2 md:px-4"
@@ -100,14 +100,14 @@ const Header = () => {
             </div>
         )}
 
-        <div className="hidden sm:flex xl:flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 max-w-full overflow-hidden">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-9 px-2 md:px-3 gap-1 md:gap-2 font-normal text-muted-foreground hover:bg-muted relative">
-                  <CalendarDays className="h-4 w-4" />
-                  <span className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-foreground hidden md:inline-block">{activeYear?.name || "Year"}</span>
-                  <span className="text-[10px] md:text-xs font-medium text-foreground/70">{activeTerm?.name || "Term"}</span>
-                  <ChevronDown className="h-3 w-3 opacity-60" />
+                <Button variant="ghost" className="h-9 px-1.5 sm:px-2 md:px-3 gap-1 md:gap-2 font-normal text-muted-foreground hover:bg-muted relative flex-shrink-0 min-w-0">
+                  <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-foreground hidden sm:inline-block truncate max-w-[60px] md:max-w-[100px]">{activeYear?.name || "Year"}</span>
+                  <span className="text-[10px] md:text-xs font-medium text-foreground/70 truncate max-w-[60px] md:max-w-[80px]">{activeTerm?.name || "Term"}</span>
+                  <ChevronDown className="h-3 w-3 opacity-60 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64">
@@ -181,17 +181,17 @@ const Header = () => {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
         <HelpDialog />
         <div className="hidden sm:block"><ThemeToggle /></div>
         
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 md:gap-3 pl-1 sm:pl-2 border-l border-border ml-1 hover:bg-muted transition-colors p-1 rounded-md outline-none">
-                    <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-foreground/90">
+                <button className="flex items-center gap-2 md:gap-3 pl-1 sm:pl-2 border-l border-border ml-1 hover:bg-muted transition-colors p-1 rounded-md outline-none max-w-[150px]">
+                    <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-foreground/90 truncate">
                         {teacherName || "Teacher"}
                     </span>
-                    <Avatar className="h-7 w-7 md:h-8 md:w-8 ring-2 ring-border">
+                    <Avatar className="h-7 w-7 md:h-8 md:w-8 ring-2 ring-border flex-shrink-0">
                         <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">{initials}</AvatarFallback>
                     </Avatar>
                 </button>

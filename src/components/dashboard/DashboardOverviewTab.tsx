@@ -112,9 +112,9 @@ export const DashboardOverviewTab = ({
                 <CardContent className="pt-0 px-4 pb-3">
                     <div className="grid gap-1.5">
                         {activeClasses.slice(0, 4).map(c => (
-                            <Button key={c.id} variant="outline" className="justify-start text-[11px] font-medium h-7" asChild>
-                                <Link to={`/classes/${c.id}`}>
-                                    {c.className} • {c.subject}
+                            <Button key={c.id} variant="outline" className="justify-start text-[11px] font-medium h-7 w-full overflow-hidden" asChild>
+                                <Link to={`/classes/${c.id}`} className="truncate block w-full text-left">
+                                    <span className="truncate">{c.className} • {c.subject}</span>
                                 </Link>
                             </Button>
                         ))}

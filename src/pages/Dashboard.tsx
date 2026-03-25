@@ -79,15 +79,15 @@ const Dashboard = () => {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4 w-full">
-        <TabsList className="bg-muted/50 p-1 border h-auto min-h-9 flex flex-wrap w-full sm:w-auto">
-          <TabsTrigger value="overview" className="flex items-center gap-2 px-4 h-8 text-xs flex-1 sm:flex-none">
-            <BarChart3 className="h-3.5 w-3.5" /> Overview
+        <TabsList className="bg-muted/50 p-1 border h-auto min-h-10 flex flex-wrap w-full sm:w-auto gap-1">
+          <TabsTrigger value="overview" className="flex items-center justify-center gap-2 px-3 py-1.5 h-auto text-xs flex-1 sm:flex-none whitespace-nowrap">
+            <BarChart3 className="h-3.5 w-3.5 flex-shrink-0" /> <span className="truncate">Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="subjects" className="flex items-center gap-2 px-4 h-8 text-xs flex-1 sm:flex-none">
-            <LayoutGrid className="h-3.5 w-3.5" /> By Subject
+          <TabsTrigger value="subjects" className="flex items-center justify-center gap-2 px-3 py-1.5 h-auto text-xs flex-1 sm:flex-none whitespace-nowrap">
+            <LayoutGrid className="h-3.5 w-3.5 flex-shrink-0" /> <span className="truncate">By Subject</span>
           </TabsTrigger>
-          <TabsTrigger value="grades" className="flex items-center gap-2 px-4 h-8 text-xs flex-1 sm:flex-none">
-            <GraduationCap className="h-3.5 w-3.5" /> By Grade
+          <TabsTrigger value="grades" className="flex items-center justify-center gap-2 px-3 py-1.5 h-auto text-xs flex-1 sm:flex-none whitespace-nowrap">
+            <GraduationCap className="h-3.5 w-3.5 flex-shrink-0" /> <span className="truncate">By Grade</span>
           </TabsTrigger>
         </TabsList>
 
