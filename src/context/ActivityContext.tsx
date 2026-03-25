@@ -17,22 +17,20 @@ export const ActivityProvider = ({ children, session }: { children: ReactNode; s
   const queryClient = useQueryClient();
 
   const { data: activities = [] } = useQuery({
-    queryKey: ['activities', session?.user?.id, activeTerm?.id],
+    queryKey: ['activities', session?.user?.id],
     queryFn: async () => {
       if (!session?.user?.id) return [];
       
-      let query = supabase.from('activities')
+      const { data, error } = await supabase.from('activities')
           .select('*')
           .eq('user_id', session.user.id)
           .order('timestamp', { ascending: false })
           .limit(20);
       
-      if (activeTerm) {
-        query = query.or(`term_id.eq.${activeTerm.id},term_id.is.null`);
+      if (error) {
+        console.warn('Failed to load activities', error);
+        return [];
       }
-      
-      const { data, error } = await query;
-      if (error) throw error;
       return data as Activity[];
     },
     enabled: !!session?.user?.id

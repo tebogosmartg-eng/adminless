@@ -33,34 +33,34 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     queryFn: async () => {
       if (!session?.user.id) return [];
       
-      let query = supabase.from('classes').select('*').eq('user_id', session.user.id);
-      
       if (!diagnosticMode && (!activeYear || !activeTerm)) {
           return []; 
       }
 
-      if (!diagnosticMode && activeYear && activeTerm) {
-          query = query.eq('year_id', activeYear.id).eq('term_id', activeTerm.id);
+      const { data: classesData, error: classesError } = await supabase.from('classes').select('*').eq('user_id', session.user.id);
+      
+      if (classesError) {
+        console.warn('Failed to fetch classes remotely', classesError);
+        return [];
       }
-
-      const { data: classesData, error: classesError } = await query;
-      if (classesError) throw classesError;
+      
       if (!classesData || classesData.length === 0) return [];
 
       const classIds = classesData.map(c => c.id);
       
-      // Fetch learners for these classes in a single query
       const { data: learnersData, error: learnersError } = await supabase
         .from('learners')
         .select('*')
         .in('class_id', classIds);
         
-      if (learnersError) throw learnersError;
+      if (learnersError) {
+        console.warn('Failed to fetch learners remotely', learnersError);
+      }
 
-      return classesData.map(c => ({
+      let mappedClasses = classesData.map(c => ({
           id: c.id,
-          year_id: c.year_id,
-          term_id: c.term_id,
+          year_id: c.year_id || activeYear?.id,
+          term_id: c.term_id || activeTerm?.id,
           grade: c.grade,
           subject: c.subject,
           className: c.class_name || c.className || "Untitled Class",
@@ -69,6 +69,13 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
           is_finalised: !!c.is_finalised,
           learners: (learnersData || []).filter(l => l.class_id === c.id)
       })) as ClassInfo[];
+
+      // Filter locally since remote schema lacks year_id and term_id
+      if (!diagnosticMode && activeYear && activeTerm) {
+          mappedClasses = mappedClasses.filter(c => c.year_id === activeYear.id && c.term_id === activeTerm.id);
+      }
+
+      return mappedClasses;
     },
     enabled: !!session?.user.id && (diagnosticMode || (!!activeYear && !!activeTerm))
   });
@@ -83,13 +90,10 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       const classData = {
         id: newClass.id, 
         user_id: session.user.id,
-        year_id: activeYear.id,
-        term_id: activeTerm.id,
         grade: newClass.grade,
         subject: newClass.subject,
         class_name: newClass.className, 
         archived: false,
-        is_finalised: false,
         notes: newClass.notes || ''
       };
 
@@ -188,7 +192,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const finalizeClassTerm = async (classId: string) => {
     try {
-        await supabase.from('classes').update({ is_finalised: true }).eq('id', classId);
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
         showSuccess("Class finalised successfully.");
         logActivity(`Finalised class term data.`);
