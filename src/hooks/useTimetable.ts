@@ -1,25 +1,36 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/db';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TimetableEntry } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
-import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
 import { useAcademic } from '@/context/AcademicContext';
 
 export const useTimetable = () => {
   const { activeYear } = useAcademic();
-  
-  // Scoped Query: routines typically change per year
-  const timetable = useLiveQuery(
-    async () => {
-      if (!activeYear?.id) return [];
-      return await db.timetable.where('year_id').equals(activeYear.id).toArray();
+  const queryClient = useQueryClient();
+
+  const { data: timetable = [] } = useQuery({
+    queryKey: ['timetable', activeYear?.id],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      
+      // Direct Supabase call (omitting the non-existent year_id column filter)
+      const { data, error } = await supabase
+        .from('timetable')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error("Timetable fetch error", error);
+        return [];
+      }
+      
+      return data as TimetableEntry[];
     },
-    [activeYear?.id]
-  ) || [];
+    enabled: !!activeYear?.id
+  });
 
   const updateEntry = async (entry: Partial<TimetableEntry> & { day: string; period: number }) => {
-    // VALIDATION: Prevent insertion without year scope
     if (!activeYear?.id) {
         showError("Schedule update blocked: No active year cycle selected.");
         return;
@@ -31,10 +42,9 @@ export const useTimetable = () => {
 
       const existing = timetable.find(t => t.day === entry.day && t.period === entry.period);
       
-      const payload: TimetableEntry = {
+      const payload: any = {
         id: existing?.id || crypto.randomUUID(),
         user_id: user.id,
-        year_id: activeYear.id, // Automatic scoping
         day: entry.day,
         period: entry.period,
         subject: entry.subject || '',
@@ -45,8 +55,10 @@ export const useTimetable = () => {
         notes: entry.notes !== undefined ? entry.notes : (existing?.notes || '')
       };
 
-      await db.timetable.put(payload);
-      await queueAction('timetable', 'upsert', payload);
+      const { error } = await supabase.from('timetable').upsert(payload);
+      if (error) throw error;
+      
+      await queryClient.invalidateQueries({ queryKey: ['timetable'] });
     } catch (e) {
       console.error(e);
       showError("Failed to update routine entry.");
@@ -57,8 +69,9 @@ export const useTimetable = () => {
     try {
       const existing = timetable.find(t => t.day === day && t.period === period);
       if (existing) {
-        await db.timetable.delete(existing.id);
-        await queueAction('timetable', 'delete', { id: existing.id });
+        const { error } = await supabase.from('timetable').delete().eq('id', existing.id);
+        if (error) throw error;
+        await queryClient.invalidateQueries({ queryKey: ['timetable'] });
       }
     } catch (e) {
       showError("Failed to clear entry.");

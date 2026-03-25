@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { db } from '@/db';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface ValidationError {
   type: 'weight' | 'marks' | 'evidence' | 'sample';
@@ -16,57 +16,45 @@ export const useTermValidation = () => {
     const errors: ValidationError[] = [];
 
     try {
-      const assessments = await db.assessments
-        .where('term_id')
-        .equals(termId)
-        .toArray();
-
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data: assessments } = await supabase.from('assessments').select('*').eq('term_id', termId);
       if (!assessments || assessments.length === 0) {
         setValidating(false);
         return { isValid: true, errors: [] };
       }
 
-      const classGroups: { [classId: string]: typeof assessments } = {};
+      const classGroups: { [classId: string]: any[] } = {};
       assessments.forEach(ass => {
         if (!classGroups[ass.class_id]) classGroups[ass.class_id] = [];
         classGroups[ass.class_id].push(ass);
       });
 
-      // Get all evidence for this term
-      const termEvidence = await db.evidence.where('term_id').equals(termId).toArray();
+      const { data: termEvidence } = await supabase.from('evidence').select('*').eq('term_id', termId);
+      const { data: classesData } = await supabase.from('classes').select('*').eq('user_id', user?.id);
 
       for (const classId in classGroups) {
         const classAss = classGroups[classId];
-        const classInfo = await db.classes.get(classId);
+        const classInfo = (classesData || []).find(c => c.id === classId);
         
-        const className = classInfo?.className || "Unknown Class";
+        const className = classInfo?.class_name || classInfo?.className || "Unknown Class";
         const subject = classInfo?.subject || "Unknown Subject";
 
-        // 1. Weight Validation
         const totalWeight = classAss.reduce((sum, a) => sum + Number(a.weight), 0);
         if (totalWeight !== 100) {
-          errors.push({
-            type: 'weight',
-            className,
-            subject,
-            details: `Total weighting is ${totalWeight}% (must be 100%).`
-          });
+          errors.push({ type: 'weight', className, subject, details: `Total weighting is ${totalWeight}% (must be 100%).` });
         }
 
-        // 2. Marks Validation
-        const learners = await db.learners.where('class_id').equals(classId).toArray();
-        if (learners.length > 0) {
+        const { data: learners } = await supabase.from('learners').select('id').eq('class_id', classId);
+        
+        if (learners && learners.length > 0) {
             const assessmentIds = classAss.map(a => a.id);
-            const marks = await db.assessment_marks
-              .where('assessment_id')
-              .anyOf(assessmentIds)
-              .toArray();
+            const { data: marks } = await supabase.from('assessment_marks').select('assessment_id, learner_id, score').in('assessment_id', assessmentIds);
 
             let missingCount = 0;
             classAss.forEach(ass => {
               learners.forEach((l) => {
-                if (!l.id) return;
-                const markEntry = marks.find(m => m.assessment_id === ass.id && m.learner_id === l.id);
+                const markEntry = (marks || []).find(m => m.assessment_id === ass.id && m.learner_id === l.id);
                 if (!markEntry || markEntry.score === null || markEntry.score === undefined) {
                   missingCount++;
                 }
@@ -74,32 +62,18 @@ export const useTermValidation = () => {
             });
 
             if (missingCount > 0) {
-              errors.push({
-                type: 'marks',
-                className,
-                subject,
-                details: `${missingCount} marks are missing across ${classAss.length} assessments.`
-              });
+              errors.push({ type: 'marks', className, subject, details: `${missingCount} marks are missing across ${classAss.length} assessments.` });
             }
 
-            // 3. Advanced Audit Logic: 10% Moderation Sample
-            const classEvidence = termEvidence.filter(e => e.class_id === classId);
+            const classEvidence = (termEvidence || []).filter(e => e.class_id === classId);
             const scriptEvidence = classEvidence.filter(e => e.category === 'script');
-            
-            // Required sample size is 10% of learners (min 1)
             const requiredCount = Math.max(1, Math.ceil(learners.length * 0.1));
             
             if (scriptEvidence.length < requiredCount) {
-                errors.push({
-                    type: 'sample',
-                    className,
-                    subject,
-                    details: `Moderation failure: Uploaded ${scriptEvidence.length} scripts, but ${requiredCount} are required for audit (10% of class).`
-                });
+                errors.push({ type: 'sample', className, subject, details: `Moderation failure: Uploaded ${scriptEvidence.length} scripts, but ${requiredCount} are required for audit (10% of class).` });
             }
         }
       }
-
     } catch (error) {
       console.error("Validation error:", error);
       errors.push({ type: 'weight', className: 'System', subject: 'Error', details: 'Failed to run validation check locally.' });

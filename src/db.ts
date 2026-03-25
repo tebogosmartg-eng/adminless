@@ -5,7 +5,6 @@ class QueryShim {
 
   where(field: string | any) {
     if (typeof field === 'object' && field !== null) {
-        // Clean undefined values to prevent Supabase 400 errors
         const cleanObj: any = {};
         for (const k in field) {
             if (field[k] !== undefined) cleanObj[k] = field[k];
@@ -48,22 +47,37 @@ class QueryShim {
   async toArray() {
     let query: any = supabase.from(this.tableName).select('*');
     
-    // Apply basic Supabase filters where possible
     const jsFilters = [];
     for (const f of this.filters) {
         if (f.type === 'eq') {
             if (f.val === undefined) {
-                return []; // Safe bailout to prevent 400 Bad Request
+                return []; 
             }
+
+            // >>> PREVENT 400 ERRORS ON MISSING COLUMNS <<<
+            if (this.tableName === 'classes' && (f.field === 'term_id' || f.field === 'year_id')) {
+                continue; 
+            }
+            if (this.tableName === 'timetable' && f.field === 'year_id') {
+                continue; 
+            }
+
             if (f.field.includes('+')) {
-                // handle compound index ['class_id+term_id'].equals([c, t])
                 const keys = f.field.replace(/[\[\]]/g, '').split('+');
                 let hasUndefined = false;
+                
                 keys.forEach((k: string, i: number) => {
                     if (f.val[i] === undefined) hasUndefined = true;
-                    else query = query.eq(k, f.val[i]);
                 });
-                if (hasUndefined) return []; // Safe bailout
+                if (hasUndefined) return [];
+                
+                keys.forEach((k: string, i: number) => {
+                    // Shield compound keys from throwing 400 errors
+                    if (this.tableName === 'classes' && (k === 'term_id' || k === 'year_id')) {
+                        return; 
+                    }
+                    query = query.eq(k, f.val[i]);
+                });
             } else {
                 query = query.eq(f.field, f.val);
             }
@@ -71,7 +85,7 @@ class QueryShim {
              if (f.val && f.val.length > 0) {
                  query = query.in(f.field, f.val);
              } else {
-                 return []; // empty IN clause returns empty
+                 return []; 
              }
         } else if (f.type === 'match') {
              if (!f.val || Object.keys(f.val).length === 0) continue;
@@ -109,7 +123,7 @@ class QueryShim {
 
   async first() {
       const results = await this.limit(1).toArray();
-      return results[0] || null; // Return null instead of undefined
+      return results[0] || null;
   }
 }
 
