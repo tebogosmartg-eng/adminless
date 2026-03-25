@@ -1,155 +1,146 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { migrateAllData, MigrationProgress } from '@/services/migration';
-import { Progress } from '@/components/ui/progress';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle2, Loader2, Database } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { db } from '@/db';
+import { CloudDownload, Loader2, Database } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 export const DataMigrationGuard = ({ children }: { children: React.ReactNode }) => {
-  const [isMigrationRequired, setIsMigrationRequired] = useState<boolean | null>(null);
-  const [migrationState, setMigrationState] = useState<MigrationProgress>({
-    currentTable: 'Checking status...',
-    completedTables: [],
-    totalTables: 0,
-    progress: 0,
-    status: 'idle'
-  });
-
-  const checkMigrationStatus = useCallback(async () => {
-    const isComplete = localStorage.getItem('sma_migration_v2_complete') === 'true';
-    const isOnlineOnly = localStorage.getItem('sma_online_only_mode') === 'true';
-    
-    if (isComplete && isOnlineOnly) {
-      setIsMigrationRequired(false);
-      return;
-    }
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      // Not logged in, no migration possible/needed yet
-      setIsMigrationRequired(false);
-      return;
-    }
-
-    // Determine if migration is needed by checking Dexie data
-    // (This part is a bit tricky, but for simplicity we'll assume migration is needed once per user)
-    setIsMigrationRequired(true);
-  }, []);
+  const [isSyncing, setIsSyncing] = useState(true);
+  const [syncStatus, setSyncStatus] = useState("Initializing...");
+  const queryClient = useQueryClient();
 
   useEffect(() => {
-    checkMigrationStatus();
-  }, [checkMigrationStatus]);
+    let isMounted = true;
+    
+    const syncData = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (isMounted) setIsSyncing(false);
+        return;
+      }
 
-  const startMigration = async () => {
-    setMigrationState(prev => ({ ...prev, status: 'migrating' }));
-    await migrateAllData((progress) => {
-      setMigrationState(progress);
-    });
-  };
+      if (isMounted) setSyncStatus("Clearing cache...");
+      // 1. Clear React Query cache to ensure fresh data fetch
+      queryClient.clear();
 
-  const handleFinish = () => {
-    setIsMigrationRequired(false);
-  };
+      const tables = [
+        'academic_years', 'terms', 'classes', 'learners',
+        'assessments', 'assessment_marks', 'activities', 'todos',
+        'attendance', 'timetable', 'learner_notes', 'evidence',
+        'rubrics', 'lesson_logs', 'curriculum_topics', 'diagnostics',
+        'teacher_file_annotations', 'teacher_file_attachments',
+        'moderation_samples', 'scan_jobs', 'teacherfile_templates',
+        'teacherfile_template_sections', 'teacherfile_entries',
+        'teacherfile_entry_attachments', 'review_snapshots', 'remediation_tasks', 'scan_history'
+      ];
 
-  if (isMigrationRequired === null) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+      try {
+        if (isMounted) setSyncStatus("Pushing local offline changes to cloud...");
+        
+        // 2. Push local data first to prevent data loss if you had unsynced local data
+        for (const table of tables) {
+          if (!(db as any)[table]) continue;
+          const localData = await (db as any)[table].toArray();
+          
+          if (localData.length > 0) {
+            for (let i = 0; i < localData.length; i += 50) {
+                const chunk = localData.slice(i, i + 50).map((item: any) => {
+                    const payload = { ...item };
+                    delete payload.sync_status;
+                    
+                    // Map fields correctly for Supabase
+                    if (table === 'classes' && payload.className !== undefined) {
+                        payload.class_name = payload.className;
+                        delete payload.className;
+                    }
+                    if (table === 'assessments') {
+                        if (payload.max !== undefined) {
+                            payload.max_mark = payload.max;
+                            delete payload.max;
+                        }
+                        if (payload.termId && !payload.term_id) {
+                            payload.term_id = payload.termId;
+                        }
+                        delete payload.termId;
+                    }
+                    
+                    // Enforce user_id for RLS safety
+                    if (!payload.user_id && table !== 'profiles' && table !== 'teacherfile_template_sections' && table !== 'teacherfile_entry_attachments') {
+                        payload.user_id = session.user.id;
+                    }
+                    return payload;
+                });
+                
+                const { error: upsertError } = await supabase.from(table).upsert(chunk, { onConflict: 'id' });
+                if (upsertError) {
+                    console.warn(`[Sync] Failed to push ${table}`, upsertError);
+                }
+            }
+          }
+        }
 
-  if (isMigrationRequired) {
+        if (isMounted) setSyncStatus("Pulling latest data from cloud...");
+        
+        // 3. Pull remote data down and overwrite Dexie
+        // Supabase RLS policies naturally handle the user_id filtering for us via select('*')
+        for (const table of tables) {
+          if (!(db as any)[table]) continue;
+          
+          const { data, error } = await supabase.from(table).select('*');
+          
+          if (!error && data) {
+            await (db as any)[table].clear();
+            if (data.length > 0) {
+                const mappedData = data.map((item: any) => {
+                    const localItem = { ...item };
+                    if (table === 'classes' && item.class_name !== undefined) {
+                        localItem.className = item.class_name;
+                    }
+                    return localItem;
+                });
+                await (db as any)[table].bulkPut(mappedData);
+            }
+          }
+        }
+        
+        if (isMounted) setSyncStatus("Finalizing...");
+        // 4. Ensure all active queries rerun with the freshly synced data
+        await queryClient.invalidateQueries();
+
+      } catch (err) {
+        console.error("[Sync] Error syncing data:", err);
+      } finally {
+        if (isMounted) setIsSyncing(false);
+      }
+    };
+
+    syncData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [queryClient]);
+
+  if (isSyncing) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 overflow-y-auto">
-        <Card className="w-full max-w-xl shadow-2xl animate-in fade-in zoom-in duration-300">
+        <Card className="w-full max-w-xl shadow-2xl animate-in fade-in zoom-in duration-300 border-primary/20">
           <CardHeader className="text-center">
             <div className="mx-auto w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4">
-              <Database className="w-6 h-6" />
+              <CloudDownload className="w-6 h-6 animate-bounce" />
             </div>
-            <CardTitle className="text-2xl font-bold">Data Stability Update</CardTitle>
+            <CardTitle className="text-2xl font-bold">Workspace Sync</CardTitle>
             <CardDescription className="text-slate-500 mt-2">
-              We're upgrading your experience to a more stable architecture.
-              Please wait while we migrate your offline data to the cloud.
+              Ensuring your data is identical across all devices.
             </CardDescription>
           </CardHeader>
-          
-          <CardContent className="space-y-6">
-            {migrationState.status === 'idle' && (
-              <div className="text-center py-6">
-                <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-                  This migration ensures that all your classes, assessments, and marks are safely stored in Supabase. 
-                  Once complete, the app will operate in real-time online mode for better stability.
-                </p>
-                <Button onClick={startMigration} className="w-full h-12 text-lg font-medium shadow-lg hover:shadow-xl transition-all">
-                  Start Migration Now
-                </Button>
-              </div>
-            )}
-
-            {migrationState.status === 'migrating' && (
-              <div className="space-y-4">
-                <div className="flex justify-between text-sm font-medium">
-                  <span className="text-slate-600">Migrating {migrationState.currentTable}...</span>
-                  <span className="text-primary">{migrationState.progress}%</span>
-                </div>
-                <Progress value={migrationState.progress} className="h-3" />
-                <div className="grid grid-cols-2 gap-2 mt-4 text-xs text-slate-400">
-                  {migrationState.completedTables.slice(-4).map((table, i) => (
-                    <div key={i} className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-md border border-slate-100">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span className="truncate">{table}</span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-amber-600 font-medium text-center animate-pulse">
-                  Please do not close your browser or refresh the page.
-                </p>
-              </div>
-            )}
-
-            {migrationState.status === 'completed' && (
-              <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500">
-                <Alert className="bg-emerald-50 border-emerald-200">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  <AlertTitle className="text-emerald-800 font-semibold">Success!</AlertTitle>
-                  <AlertDescription className="text-emerald-700">
-                    All your data has been successfully migrated to the cloud.
-                  </AlertDescription>
-                </Alert>
-                <p className="text-sm text-slate-600 leading-relaxed text-center px-4">
-                  Migration complete. You are now running on the new stable online architecture.
-                </p>
-              </div>
-            )}
-
-            {migrationState.status === 'error' && (
-              <div className="space-y-4">
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Migration Error</AlertTitle>
-                  <AlertDescription>
-                    {migrationState.error}
-                  </AlertDescription>
-                </Alert>
-                <Button onClick={startMigration} variant="outline" className="w-full border-red-200 hover:bg-red-50 text-red-600">
-                  Try Again
-                </Button>
-              </div>
-            )}
+          <CardContent className="space-y-6 flex flex-col items-center pb-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm font-medium text-slate-700 animate-pulse">{syncStatus}</p>
           </CardContent>
-
-          <CardFooter>
-            {migrationState.status === 'completed' && (
-              <Button onClick={handleFinish} className="w-full h-11 text-base font-semibold bg-emerald-600 hover:bg-emerald-700 shadow-md">
-                Launch Stable App
-              </Button>
-            )}
-          </CardFooter>
         </Card>
       </div>
     );
