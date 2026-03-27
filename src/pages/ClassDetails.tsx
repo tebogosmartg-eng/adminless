@@ -176,20 +176,20 @@ const ClassDetails = () => {
 
       <Tabs defaultValue="assessments" className="w-full max-w-full">
         <TabsList className="flex items-center justify-start w-full h-auto min-h-12 bg-muted/50 border p-1 overflow-x-auto no-scrollbar gap-1 rounded-xl flex-nowrap">
-          <TabsTrigger value="assessments" className="flex-none h-10 px-4 sm:px-6 rounded-lg font-bold text-xs sm:text-sm">Assessments</TabsTrigger>
-          <TabsTrigger value="capture" className="flex-none h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
+          <TabsTrigger value="assessments" className="flex-none shrink-0 h-10 px-4 sm:px-6 rounded-lg font-bold text-xs sm:text-sm">Assessments</TabsTrigger>
+          <TabsTrigger value="capture" className="flex-none shrink-0 h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
             <Camera className="h-3.5 w-3.5" /> Capture
           </TabsTrigger>
-          <TabsTrigger value="insights" className="flex-none h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
+          <TabsTrigger value="insights" className="flex-none shrink-0 h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
             <BarChart3 className="h-3.5 w-3.5" /> Insights
           </TabsTrigger>
-          <TabsTrigger value="evidence" className="flex-none h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
+          <TabsTrigger value="evidence" className="flex-none shrink-0 h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
             <ShieldCheck className="h-3.5 w-3.5" /> Evidence
           </TabsTrigger>
-          <TabsTrigger value="reports" className="flex-none h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
+          <TabsTrigger value="reports" className="flex-none shrink-0 h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
             <FileDown className="h-3.5 w-3.5" /> Reports
           </TabsTrigger>
-          <TabsTrigger value="attendance" className="flex-none h-10 px-4 sm:px-6 rounded-lg font-bold text-xs sm:text-sm">Register</TabsTrigger>
+          <TabsTrigger value="attendance" className="flex-none shrink-0 h-10 px-4 sm:px-6 rounded-lg font-bold text-xs sm:text-sm">Register</TabsTrigger>
         </TabsList>
         
         <TabsContent value="assessments" className="mt-4">

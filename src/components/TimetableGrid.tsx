@@ -45,8 +45,8 @@ export const TimetableGrid = ({ isDocumentMode = false }: TimetableGridProps) =>
     timetable.find(t => t.day === day && t.period === period);
 
   return (
-    <div className={cn("overflow-hidden print-avoid-break", isDocumentMode ? "bg-white border-slate-200 border rounded-xl text-slate-900" : "bg-card text-card-foreground border border-border rounded-xl shadow-sm")}>
-      <Table className="table-fixed w-full border-collapse">
+    <div className={cn("overflow-x-auto w-full print-avoid-break", isDocumentMode ? "bg-white border-slate-200 border rounded-xl text-slate-900" : "bg-card text-card-foreground border border-border rounded-xl shadow-sm")}>
+      <Table className="table-fixed min-w-[600px] w-full border-collapse">
         <TableHeader>
           <TableRow className={cn("border-b", isDocumentMode ? "bg-slate-50 border-slate-200" : "bg-muted/50 border-border")}>
             <TableHead className={cn("w-16 text-center font-black text-[9px] uppercase tracking-widest border-r", isDocumentMode ? "text-slate-800 border-slate-200" : "text-muted-foreground border-border")}>Per</TableHead>

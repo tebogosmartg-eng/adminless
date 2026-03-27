@@ -13,8 +13,8 @@ export const TeacherFileLayout = ({ children, pageNumber, className }: TeacherFi
   return (
     <div className={cn(
         "relative mx-auto bg-white shadow-2xl mb-12 print:shadow-none print:mb-0 transition-all duration-500",
-        "w-full max-w-[210mm] min-h-[297mm]", 
-        "p-[20mm] flex flex-col",
+        "w-full max-w-[210mm] min-h-auto sm:min-h-[297mm]", 
+        "p-4 sm:p-8 md:p-[20mm] flex flex-col",
         className
     )}>
       <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4 mb-8">
@@ -27,7 +27,7 @@ export const TeacherFileLayout = ({ children, pageNumber, className }: TeacherFi
         </div>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 overflow-x-hidden">
         {children}
       </div>
 

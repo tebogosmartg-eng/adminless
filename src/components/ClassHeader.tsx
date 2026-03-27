@@ -40,8 +40,8 @@ export const ClassHeader = ({
   const isLocked = isTermClosed || classInfo.is_finalised;
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-card text-card-foreground p-4 md:p-6 rounded-lg border border-border shadow-sm transition-all duration-300">
-      <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto overflow-hidden">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-card text-card-foreground p-4 md:p-6 rounded-lg border border-border shadow-sm transition-all duration-300">
+      <div className="flex items-center gap-3 md:gap-4 w-full lg:w-auto overflow-hidden">
         <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 md:h-10 md:w-10 hover:bg-muted shrink-0">
           <ArrowLeft className="h-4 w-4 md:h-5 w-5" />
         </Button>
@@ -67,7 +67,7 @@ export const ClassHeader = ({
         </div>
       </div>
 
-      <div className="flex items-center w-full md:w-auto gap-2 pt-2 md:pt-0 border-t md:border-none border-border mt-2 md:mt-0">
+      <div className="flex flex-wrap items-center w-full lg:w-auto gap-2 pt-2 lg:pt-0 border-t lg:border-none border-border mt-2 lg:mt-0">
         {!isLocked && (
             <Button onClick={onSave} className="flex-1 sm:flex-none px-4 md:px-5 shadow-sm active:scale-95 transition-transform text-sm h-9 md:h-10">
                 <Save className="mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />

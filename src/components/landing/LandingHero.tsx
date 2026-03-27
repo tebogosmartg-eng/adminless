@@ -15,7 +15,7 @@ export const LandingHero = () => {
   };
 
   return (
-    <section className="flex flex-col items-center justify-center pt-20 pb-24 md:pt-32 md:pb-40 relative overflow-hidden">
+    <section className="flex flex-col items-center justify-center pt-20 pb-24 md:pt-32 md:pb-40 relative overflow-hidden px-2 sm:px-0">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-6xl h-full -z-10 opacity-40">
           <div className="absolute top-10 left-0 w-[40rem] h-[40rem] bg-blue-50/50 dark:bg-blue-900/10 rounded-full blur-[100px] animate-pulse-slow" />
           <div className="absolute bottom-10 right-0 w-[35rem] h-[35rem] bg-indigo-50/50 dark:bg-indigo-900/10 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '1s' }} />
@@ -38,7 +38,7 @@ export const LandingHero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-5xl md:text-7xl font-black tracking-tight mb-8 text-slate-900 dark:text-white leading-[1.05]"
+          className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight mb-8 text-slate-900 dark:text-white leading-[1.05]"
         >
           Less admin.<br />
           <span className="text-blue-600 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">More teaching.</span>
@@ -48,7 +48,7 @@ export const LandingHero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-xl md:text-2xl text-slate-600 dark:text-slate-400 mb-12 leading-relaxed max-w-2xl mx-auto font-medium"
+          className="text-lg sm:text-xl md:text-2xl text-slate-600 dark:text-slate-400 mb-12 leading-relaxed max-w-2xl mx-auto font-medium"
         >
           AdminLess helps teachers manage marks, classes, and reports without the paperwork stress — while staying aligned with SA-SAMS.
         </motion.p>
@@ -78,7 +78,7 @@ export const LandingHero = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.6 }}
-          className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"
+          className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-8 gap-y-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400"
         >
           <div className="flex items-center gap-2">
               <CheckCircle2 className="h-3.5 w-3.5 text-blue-500/70" /> Built for real classrooms
