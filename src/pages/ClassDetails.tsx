@@ -32,13 +32,14 @@ import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { generateSASAMSExport } from "@/utils/sasams";
 import { checkClassTermIntegrity } from "@/utils/integrity";
 import { showError } from "@/utils/toast";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 import Scan from "@/pages/Scan";
 import EvidenceAudit from "@/pages/EvidenceAudit";
 import ScanAudit from "@/pages/ScanAudit";
 import Reports from "@/pages/Reports";
 
-const ClassDetails = () => {
+const ClassDetailsContent = () => {
   const { classId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -268,6 +269,23 @@ const ClassDetails = () => {
       />
     </div>
   );
+};
+
+const ClassDetails = () => {
+  const { user, authReady } = useAuthGuard();
+
+  if (!authReady || !user) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <ClassDetailsContent />;
 };
 
 export default ClassDetails;

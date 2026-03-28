@@ -7,12 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateClassDialog } from "@/components/CreateClassDialog";
 import { EditClassDialog } from "@/components/dialogs/EditClassDialog";
 import { DeleteClassDialog } from "@/components/dialogs/DeleteClassDialog";
-import { Search, Filter, X, Archive, ArrowLeft, Users } from "lucide-react";
+import { Search, Filter, X, Archive, ArrowLeft, Users, Loader2 } from "lucide-react";
 import { useClassesLogic } from "@/hooks/useClassesLogic";
 import { ClassCard } from "@/components/ClassCard";
 import { cn } from "@/lib/utils";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
-const Classes = () => {
+const ClassesContent = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const highlightId = location.state?.highlightId;
@@ -175,6 +176,23 @@ const Classes = () => {
       <DeleteClassDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} classInfo={selectedClass} />
     </div>
   );
+};
+
+const Classes = () => {
+  const { user, authReady } = useAuthGuard();
+
+  if (!authReady || !user) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <ClassesContent />;
 };
 
 export default Classes;

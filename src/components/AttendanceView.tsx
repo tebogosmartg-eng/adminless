@@ -13,6 +13,7 @@ import { useAttendance } from '@/hooks/useAttendance';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MonthlyAttendanceGrid } from './MonthlyAttendanceGrid';
 import { useAcademic } from '@/context/AcademicContext';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
 interface AttendanceViewProps {
   classId: string;
@@ -28,7 +29,7 @@ interface StatusButtonProps {
   disabled?: boolean;
 }
 
-export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
+const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
   const { activeTerm } = useAcademic();
   const isLocked = !!activeTerm?.closed;
 
@@ -253,4 +254,21 @@ export const AttendanceView = ({ classId, learners }: AttendanceViewProps) => {
       </Tabs>
     </div>
   );
+};
+
+export const AttendanceView = (props: AttendanceViewProps) => {
+  const { user, authReady } = useAuthGuard();
+
+  if (!authReady || !user) {
+    return (
+      <div className="flex h-[400px] w-full items-center justify-center animate-in fade-in duration-500">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <AttendanceViewContent {...props} />;
 };

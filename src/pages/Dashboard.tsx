@@ -7,12 +7,13 @@ import { GlobalAddNoteDialog } from '@/components/dialogs/GlobalAddNoteDialog';
 import { useSettings } from '@/context/SettingsContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
 // Lazy load heavy dashboard views to improve initial TTI (Time to Interactive)
 const DashboardOverviewTab = lazy(() => import('@/components/dashboard/DashboardOverviewTab').then(m => ({ default: m.DashboardOverviewTab })));
 const DashboardGroupedView = lazy(() => import('@/components/dashboard/DashboardGroupedView').then(m => ({ default: m.DashboardGroupedView })));
 
-const Dashboard = () => {
+const DashboardContent = () => {
   const { loading } = useClasses();
   const { 
     classes,
@@ -125,6 +126,23 @@ const Dashboard = () => {
       />
     </div>
   );
+};
+
+const Dashboard = () => {
+  const { user, authReady } = useAuthGuard();
+
+  if (!authReady || !user) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <DashboardContent />;
 };
 
 export default Dashboard;

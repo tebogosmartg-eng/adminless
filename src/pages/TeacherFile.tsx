@@ -5,11 +5,12 @@ import { useAcademic } from '@/context/AcademicContext';
 import { useClasses } from '@/context/ClassesContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Book, LayoutDashboard, Printer, Layers } from 'lucide-react';
+import { Book, LayoutDashboard, Printer, Layers, Loader2 } from 'lucide-react';
 import { TeacherFileView } from '@/components/teacher-file/TeacherFileView';
 import { Button } from '@/components/ui/button';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
-export default function TeacherFile() {
+const TeacherFileContent = () => {
   const { years, terms, activeYear, setActiveYear, activeTerm, setActiveTerm } = useAcademic();
   const { classes } = useClasses();
   const [selectedClassId, setSelectedClassId] = useState<string>("");
@@ -116,4 +117,21 @@ export default function TeacherFile() {
       )}
     </div>
   );
+}
+
+export default function TeacherFile() {
+  const { user, authReady } = useAuthGuard();
+
+  if (!authReady || !user) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <TeacherFileContent />;
 }
