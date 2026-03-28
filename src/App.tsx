@@ -99,7 +99,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" storageKey="adminless-theme">
+      <ThemeProvider attribute="class" defaultTheme="light" storageKey="adminless-theme">
         <TooltipProvider>
           <SystemThemeManager />
           <Toaster />
