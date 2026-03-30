@@ -67,9 +67,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const { activeYear, activeTerm, setActiveYear, setActiveTerm } = useAcademicSelection(years, allTerms);
 
   const terms = useMemo(() => {
+    if (!session?.user?.id) return [];
     const list = diagnosticMode ? allTerms : (activeYear ? allTerms.filter(t => t.year_id === activeYear.id) : []);
     return [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-  }, [allTerms, activeYear?.id, diagnosticMode]);
+  }, [allTerms, activeYear?.id, diagnosticMode, session?.user?.id]);
 
   const { data: assessments = [], isLoading: loadingAss } = useQuery({
     queryKey: ['assessments', session?.user?.id, currentClassFilter?.classId, currentClassFilter?.termId, activeTerm?.id, diagnosticMode],
