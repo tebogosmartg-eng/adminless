@@ -70,7 +70,7 @@ export const QuestionBuilder = ({
   const labelCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     questions.forEach(q => {
-        const lbl = q.question_number.trim().toLowerCase();
+        const lbl = (q.question_number || '').trim().toLowerCase();
         if (lbl) counts[lbl] = (counts[lbl] || 0) + 1;
     });
     return counts;
@@ -130,9 +130,9 @@ export const QuestionBuilder = ({
           </TableHeader>
           <TableBody>
             {questions.map((q, idx) => {
-              const lblStr = q.question_number.trim().toLowerCase();
+              const lblStr = (q.question_number || '').trim().toLowerCase();
               const isDuplicate = lblStr && labelCounts[lblStr] > 1;
-              const isMissingLabel = !q.question_number.trim();
+              const isMissingLabel = !(q.question_number || '').trim();
               const isInvalidMark = !q.max_mark || isNaN(q.max_mark) || q.max_mark <= 0;
               const hasError = isDuplicate || isMissingLabel || isInvalidMark;
 
@@ -150,7 +150,7 @@ export const QuestionBuilder = ({
                         <TooltipTrigger asChild>
                           <div className="relative">
                             <Input 
-                              value={q.question_number} 
+                              value={q.question_number || ""} 
                               onChange={(e) => updateQuestion(idx, { question_number: e.target.value })}
                               disabled={disabled}
                               className={cn("h-8 text-xs font-bold", (isDuplicate || isMissingLabel) && "border-red-500 focus-visible:ring-red-500 pr-6")}
@@ -180,7 +180,7 @@ export const QuestionBuilder = ({
                   </TableCell>
                   <TableCell className="p-2 align-top">
                     <Input 
-                        value={q.skill_description} 
+                        value={q.skill_description || ""} 
                         onChange={(e) => updateQuestion(idx, { skill_description: e.target.value })}
                         disabled={disabled}
                         className="h-8 text-xs"
