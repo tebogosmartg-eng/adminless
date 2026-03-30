@@ -11,13 +11,13 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
   useEffect(() => {
     if (!learnerId) {
       setLoading(false);
+      setResults([]);
       return;
     }
 
     const fetchData = async () => {
       setLoading(true);
       try {
-        // 1. Get all marks for this learner
         const { data: marks, error: marksError } = await supabase
             .from('assessment_marks')
             .select('*')
@@ -32,7 +32,6 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
 
         const assessmentIds = marks.map(m => m.assessment_id);
 
-        // 2. Get Assessments details
         const { data: assessments, error: assError } = await supabase
             .from('assessments')
             .select('*')
@@ -40,7 +39,6 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
         
         if (assError) throw assError;
 
-        // 3. Get Term details
         const termIds = [...new Set(assessments?.map(a => a.term_id) || [])];
         const { data: terms, error: termsError } = await supabase
             .from('terms')
@@ -50,8 +48,6 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
         if (termsError) throw termsError;
         const termMap = new Map(terms?.map(t => [t.id, t.name]) || []);
 
-        // NEW: Calculate Class Averages
-        // Fetch all marks for these assessments (not just for this learner)
         const { data: allMarksForAssessments, error: allMarksError } = await supabase
             .from('assessment_marks')
             .select('*')
@@ -71,7 +67,6 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
             }
         });
 
-        // 4. Format data
         const formatted: AssessmentResult[] = marks.map((m) => {
           const ass = assessments?.find(a => a.id === m.assessment_id);
           
@@ -96,10 +91,8 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
           };
         }).filter(item => item !== null) as AssessmentResult[];
 
-        // Sort chronologically by date
         formatted.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-        // 5. Calculate Previous Performance Level (Running Average)
         let runningSum = 0;
         let runningCount = 0;
 
@@ -121,7 +114,6 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
                 }
             }
 
-            // Add current item to the running total for the next loop iteration
             if (item.percentage !== null) {
                 runningSum += item.percentage;
                 runningCount++;

@@ -18,7 +18,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   const formattedDate = format(date, 'yyyy-MM-dd');
 
   const liveAttendance = useLiveQuery(
-    () => (classId && activeTerm)
+    () => (classId && activeTerm?.id)
         ? db.attendance
             .where('class_id')
             .equals(classId)
@@ -45,7 +45,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   }, [liveAttendance]);
 
   const handleStatusChange = (learnerId: string, status: AttendanceStatus) => {
-    if (!learnerId || !activeTerm) {
+    if (!learnerId || !activeTerm?.id) {
       showError("Action blocked: Active term context required.");
       return;
     }
@@ -58,14 +58,14 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
           status, 
           date: formattedDate, 
           class_id: classId,
-          term_id: activeTerm.id // Automatic scoping
+          term_id: activeTerm.id
       }
     }));
     setHasChanges(true);
   };
 
   const handleMarkAll = (status: AttendanceStatus) => {
-    if (!activeTerm) {
+    if (!activeTerm?.id) {
         showError("Action blocked: Active term context required.");
         return;
     }
@@ -78,7 +78,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
             status, 
             date: formattedDate, 
             class_id: classId,
-            term_id: activeTerm.id // Automatic scoping
+            term_id: activeTerm.id
         };
       }
     });
@@ -87,8 +87,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   };
 
   const saveAttendance = async () => {
-    // VALIDATION: Prevent insertion without term scope
-    if (!activeTerm) {
+    if (!activeTerm?.id) {
         showError("Save blocked: Academic context required.");
         return;
     }
@@ -99,7 +98,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
 
         const recordsToSave = Object.values(attendanceData).map(r => ({
             ...r,
-            term_id: activeTerm.id, // Enforce scope
+            term_id: activeTerm.id,
             user_id: user.id
         }));
 
@@ -118,7 +117,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   };
 
   const handleExportReport = async (type: 'csv' | 'pdf') => {
-    if (!activeTerm) return;
+    if (!activeTerm?.id) return;
     setIsExporting(true);
     try {
       const start = startOfMonth(date);

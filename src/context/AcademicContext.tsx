@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { AcademicYear, Term, Assessment, AssessmentMark } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
@@ -59,7 +59,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       if (!session?.user?.id) return [];
       const { data, error } = await supabase.from('terms').select('*').eq('user_id', session.user.id);
       if (error) throw error;
-      // Remap the missing schema property locally for the UI based on standard 'closed' status
       return data.map(t => ({ ...t, is_finalised: !!t.closed })) as Term[];
     },
     enabled: !!session?.user?.id
@@ -130,7 +129,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const createYear = useCallback(async (name: string) => {
     if (!session?.user?.id) return;
     const yearId = crypto.randomUUID();
-    // Using upsert instead of insert
     await supabase.from('academic_years').upsert({ id: yearId, name, user_id: session.user.id, closed: false });
     const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName) => ({
       id: crypto.randomUUID(), year_id: yearId, name: tName, user_id: session.user.id, closed: false, weight: 25, 
@@ -149,7 +147,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const updateTerm = useCallback(async (term: Term) => {
     const payload = { ...term };
-    delete (payload as any).is_finalised; // Local UI logic only
+    delete (payload as any).is_finalised;
     await supabase.from('terms').upsert(payload);
     queryClient.invalidateQueries({ queryKey: ['terms'] });
   }, [queryClient]);
