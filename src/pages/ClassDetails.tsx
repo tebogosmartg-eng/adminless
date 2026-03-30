@@ -28,11 +28,9 @@ import {
   Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
-import { generateSASAMSExport } from "@/utils/sasams";
-import { checkClassTermIntegrity } from "@/utils/integrity";
 import { showError } from "@/utils/toast";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { generateSASAMSExport } from "@/utils/sasams";
 
 import Scan from "@/pages/Scan";
 import EvidenceAudit from "@/pages/EvidenceAudit";
@@ -41,12 +39,10 @@ import Reports from "@/pages/Reports";
 
 const ClassDetailsContent = () => {
   const { classId } = useParams();
-  const location = useLocation();
   const navigate = useNavigate();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
   const { assessments, activeTerm, activeYear, marks, loading: academicLoading, refreshAssessments } = useAcademic();
   const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo } = useSettings();
-  const { currentPeriod } = useCurrentPeriod();
   
   const classInfo = classes.find((c) => c.id === classId);
   const isLocked = !!activeTerm?.closed || !!classInfo?.is_finalised;
@@ -98,7 +94,6 @@ const ClassDetailsContent = () => {
       marks
   );
 
-  // Ensure assessments are loaded for the current term
   useEffect(() => {
       if (classId && activeTerm?.id) {
           refreshAssessments(classId, activeTerm.id);
@@ -122,22 +117,12 @@ const ClassDetailsContent = () => {
           return;
       }
       
-      const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm.id);
-      const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
-
-      const integrity = checkClassTermIntegrity(termAssessments, learners, termMarks);
-      if (!integrity.isValid) {
-          showError(`Export Blocked: ${integrity.errors[0]}`);
-          return;
-      }
-
       generateSASAMSExport(
           learners, classInfo.className, classInfo.grade, classInfo.subject, 
           activeTerm.name, activeYear.name, teacherName, schoolCode
       );
   };
 
-  // Guard: Wait for academic context
   if (classesLoading || academicLoading) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
@@ -150,7 +135,6 @@ const ClassDetailsContent = () => {
     return <div className="p-8 text-center text-muted-foreground">Class not found.</div>;
   }
 
-  // Guard: Ensure activeTerm is available
   if (!activeTerm) {
       return <div className="p-8 text-center text-muted-foreground">Academic term not selected. Please select a term in the header.</div>;
   }

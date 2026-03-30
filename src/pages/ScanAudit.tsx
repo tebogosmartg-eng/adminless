@@ -1,27 +1,21 @@
-"use client";
-
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { 
     History, 
     Search, 
     ExternalLink, 
     FileSearch, 
     ShieldCheck, 
-    Download, 
-    Lock, 
-    CheckCircle2, 
     Loader2, 
-    Calendar,
-    Users,
     ClipboardList,
-    FileText
+    FileText,
+    Users
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getSignedFileUrl } from '@/services/storage';
@@ -29,8 +23,9 @@ import { showError } from '@/utils/toast';
 import { ScanHistory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
-const ScanAudit = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
+const ScanAuditContent = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
   const [search, setSearch] = useState("");
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
 
@@ -51,8 +46,8 @@ const ScanAudit = ({ embedded = false, defaultClassId }: { embedded?: boolean, d
         db.terms.where('id').anyOf(termIds).toArray()
     ]);
 
-    const classMap = new Map(classes.map(c => [c.id, c.className]));
-    const termMap = new Map(terms.map(t => [t.id, t.name]));
+    const classMap = new Map(classes.map(c => [c.id, (c as any).className]));
+    const termMap = new Map(terms.map(t => [t.id, (t as any).name]));
 
     return logs.map(l => ({
         ...l,
@@ -204,7 +199,7 @@ const ScanAudit = ({ embedded = false, defaultClassId }: { embedded?: boolean, d
                             onClick={() => handleViewFile(item)} 
                             disabled={loadingFileId === item.id}
                         >
-                            {loadingFileId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                            {loadingFileId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
                             Original File
                         </Button>
                       ) : (
@@ -220,6 +215,23 @@ const ScanAudit = ({ embedded = false, defaultClassId }: { embedded?: boolean, d
       </Card>
     </div>
   );
+};
+
+const ScanAudit = () => {
+  const { user, authReady } = useAuthGuard();
+
+  if (!authReady || !user) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <ScanAuditContent />;
 };
 
 export default ScanAudit;

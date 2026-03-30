@@ -41,7 +41,6 @@ const ClassesContent = () => {
 
   return (
     <div className="space-y-6 w-full">
-      {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
@@ -63,7 +62,6 @@ const ClassesContent = () => {
         </div>
       </div>
 
-      {/* Primary Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
             <TabsList className="bg-muted/50 border p-1 h-auto min-h-10 flex flex-wrap w-full md:w-auto">
@@ -71,7 +69,6 @@ const ClassesContent = () => {
                 <TabsTrigger value="archived" className="px-6 h-8 flex-1 md:flex-none">Archived</TabsTrigger>
             </TabsList>
 
-            {/* Integrated Filter Ribbon */}
             <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
                 <div className="relative w-full sm:w-64">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

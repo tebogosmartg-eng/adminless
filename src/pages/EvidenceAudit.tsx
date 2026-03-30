@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
@@ -10,12 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { ShieldCheck, FileText, Image as ImageIcon, Search, ExternalLink, Filter, Calendar, Download, Lock, CheckCircle2, AlertTriangle, Loader2, FileSearch } from 'lucide-react';
+import { ShieldCheck, FileText, Image as ImageIcon, Search, ExternalLink, Filter, Calendar, Download, Lock, CheckCircle2, AlertTriangle, Loader2, FileSearch, FileWarning } from 'lucide-react';
 import { format } from 'date-fns';
 import { getSignedFileUrl } from '@/services/storage';
 import { showSuccess, showError } from '@/utils/toast';
-import { Evidence, Term, ClassInfo, Learner, ModerationSample } from '@/lib/types';
+import { Evidence, Term, ClassInfo, Learner } from '@/lib/types';
 import { useAcademic } from '@/context/AcademicContext';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
 interface EvidenceWithContext extends Evidence {
   className: string;
@@ -26,7 +25,7 @@ interface EvidenceWithContext extends Evidence {
   isModerationSample: boolean;
 }
 
-const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
+const EvidenceAuditContent = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
   const { activeTerm } = useAcademic();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -57,11 +56,10 @@ const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolea
         db.terms.where('id').anyOf(termIds).toArray()
     ]);
 
-    const classMap = new Map<string, any>(activeClasses.map(c => [c.id, c]));
-    const learnerMap = new Map<string, Learner>(learners.map(l => [l.id!, l]));
-    const termMap = new Map<string, Term>(termDetails.map(t => [t.id, t]));
+    const classMap = new Map(activeClasses.map(c => [c.id, c as ClassInfo]));
+    const learnerMap = new Map(learners.map(l => [l.id!, l as Learner]));
+    const termMap = new Map(termDetails.map(t => [t.id, t as Term]));
 
-    // Sample Map for quick lookup: classId -> Set of learnerIds
     const sampleMap = new Map<string, Set<string>>();
     samples.forEach(s => {
         sampleMap.set(s.class_id, new Set(s.learner_ids));
@@ -76,21 +74,22 @@ const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolea
 
         return {
             ...e,
-            className: cls?.className || "Deleted Class",
-            subject: cls?.subject || "",
-            learnerName: learner?.name || "Class Level",
-            termName: term?.name || "General",
-            isLocked: term?.closed || false,
+            className: (cls as any)?.className || "Deleted Class",
+            subject: (cls as any)?.subject || "",
+            learnerName: (learner as any)?.name || "Class Level",
+            termName: (term as any)?.name || "General",
+            isLocked: (term as any)?.closed || false,
             isModerationSample: isModSample
         } as EvidenceWithContext;
     });
 
     const gradeStats: Record<string, { total: number; withEvidence: number }> = {};
     activeClasses.forEach(c => {
-        if (!gradeStats[c.grade]) gradeStats[c.grade] = { total: 0, withEvidence: 0 };
-        gradeStats[c.grade].total++;
+        const grade = (c as any).grade;
+        if (!gradeStats[grade]) gradeStats[grade] = { total: 0, withEvidence: 0 };
+        gradeStats[grade].total++;
         if (evidence.some(e => e.class_id === c.id)) {
-            gradeStats[c.grade].withEvidence++;
+            gradeStats[grade].withEvidence++;
         }
     });
 
@@ -141,6 +140,9 @@ const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolea
           <div>
               <h1 className="text-3xl font-bold tracking-tight">Evidence Audit</h1>
               <p className="text-muted-foreground text-sm">Professional moderation trail management.</p>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-100 text-xs font-bold uppercase tracking-widest">
+              <ShieldCheck className="h-3.5 w-3.5" /> Immutable Records
           </div>
         </div>
       )}
@@ -267,10 +269,7 @@ const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolea
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-muted rounded-md group-hover:bg-primary/10 transition-colors">
-                          {item.category === 'script' ? <FileText className="h-4 w-4 text-blue-500" /> : 
-                           item.category === 'moderation' ? <ShieldCheck className="h-4 w-4 text-green-600" /> : 
-                           item.category === 'photo' ? <ImageIcon className="h-4 w-4 text-purple-500" /> : 
-                           <FileText className="h-4 w-4 text-gray-500" />}
+                          {getIcon(item.category)}
                         </div>
                         <div className="flex flex-col min-w-0">
                             <span className="font-medium text-sm truncate max-w-[200px]" title={item.file_name}>{item.file_name}</span>
@@ -315,6 +314,23 @@ const EvidenceAudit = ({ embedded = false, defaultClassId }: { embedded?: boolea
       </Card>
     </div>
   );
+};
+
+const EvidenceAudit = () => {
+  const { user, authReady } = useAuthGuard();
+
+  if (!authReady || !user) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <EvidenceAuditContent />;
 };
 
 export default EvidenceAudit;

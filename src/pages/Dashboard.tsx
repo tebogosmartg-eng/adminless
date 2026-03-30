@@ -9,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 
-// Lazy load heavy dashboard views to improve initial TTI (Time to Interactive)
 const DashboardOverviewTab = lazy(() => import('@/components/dashboard/DashboardOverviewTab').then(m => ({ default: m.DashboardOverviewTab })));
 const DashboardGroupedView = lazy(() => import('@/components/dashboard/DashboardGroupedView').then(m => ({ default: m.DashboardGroupedView })));
 
@@ -27,7 +26,6 @@ const DashboardContent = () => {
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [isTimeout, setIsTimeout] = useState(false);
 
-  // Safety fallback: If database loading takes longer than 4 seconds, force resolve to prevent infinite loading
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (loading || isLoadingProfile) {
@@ -63,7 +61,6 @@ const DashboardContent = () => {
     );
   }
 
-  // Intercept the dashboard entirely if onboarding is not completed
   if (!onboardingCompleted) {
     return (
       <div className="flex min-h-[calc(100vh-6rem)] w-full items-center justify-center p-4 animate-in fade-in duration-500">

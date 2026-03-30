@@ -11,20 +11,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileDown, FileSpreadsheet, Lock, ChevronRight, Download, GraduationCap, LayoutGrid } from 'lucide-react';
+import { Loader2, FileDown, FileSpreadsheet, LayoutGrid, GraduationCap } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { SchoolProfile, generateTermSummaryPDF, generateYearSummaryPDF } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
-import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { generateSASAMSExport } from '@/utils/sasams';
 import { cn } from '@/lib/utils';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
-const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
+const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
   const { classes } = useClasses();
   const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   const { terms, years, activeYear, activeTerm, assessments, marks } = useAcademic();
-  const { isReadyForFinalization, missingRequired } = useSetupStatus();
 
   const profile: SchoolProfile = { 
     name: schoolName, 
@@ -79,7 +78,6 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
   }, [selectedGrade, selectedSubject, selectedTermId, setReportData, setYearData, defaultClassId]);
 
   const selectedTerm = useMemo(() => terms.find(t => t.id === selectedTermId), [terms, selectedTermId]);
-  const isTermClosed = !!selectedTerm?.closed;
 
   const isContextComplete = selectedYearId && selectedTermId && selectedGrade !== 'all' && selectedSubject !== 'all' && selectedClassId !== 'all';
 
@@ -141,7 +139,6 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
   const handleExportYearPDF = () => {
       if (!yearData || !selectedYearId) return;
       const yearName = years.find(y => y.id === selectedYearId)?.name || "Year";
-      // Ensure terms are listed in sequence for the report
       const termNames = terms
         .filter(t => t.year_id === selectedYearId)
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
@@ -175,7 +172,6 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
     showSuccess("SASAMS CSV exported.");
   };
 
-  // Helper to get strictly sequenced terms for selectors
   const sequencedTerms = useMemo(() => {
     return [...terms]
       .filter(t => t.year_id === selectedYearId)
@@ -206,7 +202,7 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
                       </CardHeader>
                       <CardContent className="space-y-4">
                           <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-muted-foreground">Year / Term</label>
+                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Year / Term</label>
                               <div className="flex flex-col sm:flex-row gap-2">
                                   <Select value={selectedYearId} onValueChange={setSelectedYearId}>
                                       <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Year" /></SelectTrigger>
@@ -219,7 +215,7 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
                               </div>
                           </div>
                           <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-muted-foreground">Grade / Subject</label>
+                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Grade / Subject</label>
                               <div className="flex flex-col sm:flex-row gap-2">
                                   <Select value={selectedGrade} onValueChange={setSelectedGrade}>
                                       <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Grade" /></SelectTrigger>
@@ -232,7 +228,7 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
                               </div>
                           </div>
                           <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-muted-foreground">Specific Class</label>
+                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Specific Class</label>
                               <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={selectedSubject === 'all' || selectedGrade === 'all'}>
                                   <SelectTrigger className="h-10"><SelectValue placeholder="Choose Class..." /></SelectTrigger>
                                   <SelectContent>{availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}</SelectContent>
@@ -249,7 +245,7 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
                 )}
 
                 <Card className={`${embedded ? 'md:col-span-4' : 'md:col-span-3'} min-h-[600px] flex flex-col border-none shadow-sm overflow-hidden w-full`}>
-                    <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b bg-muted/5 gap-4">
+                    <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-muted/5 border-b gap-4">
                         <CardTitle className="text-lg">Class Results Summary</CardTitle>
                         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                             {embedded && (
@@ -259,7 +255,6 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
                             )}
                             {termData && isContextComplete && (
                                 <>
-                                    <Button variant="outline" size="sm" onClick={handleSASAMSExportAction} className={cn("h-8 gap-2 flex-1 sm:flex-none", isTermClosed ? "border-primary text-primary" : "opacity-50")}><Download className="h-3.5 w-3.5" /> SA-SAMS</Button>
                                     <Button variant="outline" size="sm" onClick={handleExportTermCSV} className="h-8 gap-2 flex-1 sm:flex-none"><FileSpreadsheet className="h-3.5 w-3.5 text-green-600"/> CSV</Button>
                                     <Button variant="outline" size="sm" onClick={handleExportTermPDF} className="h-8 gap-2 flex-1 sm:flex-none"><FileDown className="h-3.5 w-3.5 text-blue-600"/> PDF</Button>
                                 </>
@@ -417,6 +412,23 @@ const Reports = ({ embedded = false, defaultClassId }: { embedded?: boolean, def
       </Tabs>
     </div>
   );
+};
+
+const Reports = () => {
+  const { user, authReady } = useAuthGuard();
+
+  if (!authReady || !user) {
+    return (
+      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <ReportsContent />;
 };
 
 export default Reports;

@@ -13,8 +13,6 @@ export const useAuthGuard = () => {
 
     const checkAuth = async () => {
       try {
-        // getUser() makes a network request to verify the token is valid on the server
-        // This prevents local storage stale token issues in production
         const { data: { user }, error } = await supabase.auth.getUser();
         if (isMounted) {
           setUser(user);
@@ -31,8 +29,9 @@ export const useAuthGuard = () => {
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted && session?.user) {
-        setUser(session.user);
+      if (isMounted) {
+        setUser(session?.user || null);
+        setAuthReady(true);
       }
     });
 

@@ -15,11 +15,9 @@ const TeacherFileContent = () => {
   const { classes } = useClasses();
   const [selectedClassId, setSelectedClassId] = useState<string>("");
 
-  // Only show classes that belong to the active term
   const termClasses = classes.filter(c => c.term_id === activeTerm?.id && !c.archived);
 
   useEffect(() => {
-      // Auto-select class if available, or reset when changing terms
       if (termClasses.length > 0) {
           if (selectedClassId !== 'all' && !termClasses.find(c => c.id === selectedClassId)) {
               setSelectedClassId(termClasses[0].id);
@@ -119,7 +117,7 @@ const TeacherFileContent = () => {
   );
 }
 
-export default function TeacherFile() {
+const TeacherFile = () => {
   const { user, authReady } = useAuthGuard();
 
   if (!authReady || !user) {
@@ -135,3 +133,5 @@ export default function TeacherFile() {
 
   return <TeacherFileContent />;
 }
+
+export default TeacherFile;
