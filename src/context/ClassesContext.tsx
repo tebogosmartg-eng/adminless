@@ -3,7 +3,7 @@ import { ClassInfo, Learner } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { Session } from '@supabase/supabase-js';
 import { showError, showSuccess } from '@/utils/toast';
-import { useAcademic } from './AcademicContext';
+import { useAcademic } from '@/context/AcademicContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -33,55 +33,46 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     queryFn: async () => {
       if (!session?.user.id) return [];
       
-      if (!diagnosticMode && (!activeYear || !activeTerm)) {
-          return []; 
+      if (!diagnosticMode && (!activeYear || !activeTerm)) return []; 
+
+      try {
+          const { data: classesData, error: classesError } = await supabase.from('classes').select('*').eq('user_id', session.user.id);
+          if (classesError) throw classesError;
+          
+          if (!classesData || classesData.length === 0) return [];
+
+          const classIds = classesData.map(c => c.id);
+          const { data: learnersData, error: learnersError } = await supabase.from('learners').select('*').in('class_id', classIds);
+          if (learnersError) throw learnersError;
+
+          let mappedClasses = classesData.map(c => ({
+              id: c.id,
+              year_id: c.year_id || activeYear?.id,
+              term_id: c.term_id || activeTerm?.id,
+              grade: c.grade,
+              subject: c.subject,
+              className: c.class_name || c.className || "Untitled Class",
+              archived: !!c.archived,
+              notes: c.notes || '',
+              is_finalised: !!c.is_finalised,
+              learners: (learnersData || []).filter(l => l.class_id === c.id)
+          })) as ClassInfo[];
+
+          if (!diagnosticMode && activeYear && activeTerm) {
+              mappedClasses = mappedClasses.filter(c => c.year_id === activeYear.id && c.term_id === activeTerm.id);
+          }
+          return mappedClasses;
+      } catch (error) {
+          console.error("AdminLess error: Failed to fetch classes", error);
+          return [];
       }
-
-      const { data: classesData, error: classesError } = await supabase.from('classes').select('*').eq('user_id', session.user.id);
-      
-      if (classesError) {
-        console.warn('Failed to fetch classes remotely', classesError);
-        return [];
-      }
-      
-      if (!classesData || classesData.length === 0) return [];
-
-      const classIds = classesData.map(c => c.id);
-      
-      const { data: learnersData, error: learnersError } = await supabase
-        .from('learners')
-        .select('*')
-        .in('class_id', classIds);
-        
-      if (learnersError) {
-        console.warn('Failed to fetch learners remotely', learnersError);
-      }
-
-      let mappedClasses = classesData.map(c => ({
-          id: c.id,
-          year_id: c.year_id || activeYear?.id,
-          term_id: c.term_id || activeTerm?.id,
-          grade: c.grade,
-          subject: c.subject,
-          className: c.class_name || c.className || "Untitled Class",
-          archived: !!c.archived,
-          notes: c.notes || '',
-          is_finalised: !!c.is_finalised,
-          learners: (learnersData || []).filter(l => l.class_id === c.id)
-      })) as ClassInfo[];
-
-      if (!diagnosticMode && activeYear && activeTerm) {
-          mappedClasses = mappedClasses.filter(c => c.year_id === activeYear.id && c.term_id === activeTerm.id);
-      }
-
-      return mappedClasses;
     },
     enabled: !!session?.user.id && (diagnosticMode || (!!activeYear && !!activeTerm))
   });
 
   const addClass = async (newClass: ClassInfo) => {
     if (!session?.user.id || !activeYear || !activeTerm) {
-        showError("Academic context not loaded. Please select a Year and Term.");
+        showError("Academic context not loaded.");
         return;
     }
 
@@ -110,9 +101,9 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       }
 
       await queryClient.invalidateQueries({ queryKey: ['classes'] });
-      logActivity(`Created class: "${newClass.className}" for ${activeTerm.name}`);
+      logActivity(`Created class: "${newClass.className}"`);
     } catch (e) {
-      console.error(e);
+      console.error("AdminLess error:", e);
       showError("Failed to create class.");
     }
   };
@@ -129,34 +120,28 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         for (const l of updatedLearners) {
             const id = l.id || crypto.randomUUID();
             newIds.add(id);
-            toUpsert.push({
-                id,
-                class_id: classId,
-                name: l.name
-            });
+            toUpsert.push({ id, class_id: classId, name: l.name });
         }
 
         const toDelete = currentIds.filter(id => !newIds.has(id));
         
-        if (toDelete.length > 0) {
-            await supabase.from('learners').delete().in('id', toDelete);
-        }
-        if (toUpsert.length > 0) {
-            await supabase.from('learners').upsert(toUpsert);
-        }
+        if (toDelete.length > 0) await supabase.from('learners').delete().in('id', toDelete);
+        if (toUpsert.length > 0) await supabase.from('learners').upsert(toUpsert);
 
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
-        console.error(e);
+        console.error("AdminLess error:", e);
         showError("Failed to update roster.");
     }
   };
 
   const renameLearner = async (learnerId: string, newName: string) => {
     try {
-        await supabase.from('learners').update({ name: newName }).eq('id', learnerId);
+        const { error } = await supabase.from('learners').update({ name: newName }).eq('id', learnerId);
+        if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
+        console.error("AdminLess error:", e);
         showError("Failed to rename learner.");
     }
   };
@@ -168,28 +153,35 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         if (details.subject) updates.subject = details.subject;
         if (details.className) updates.class_name = details.className;
 
-        await supabase.from('classes').update(updates).eq('id', classId);
+        const { error } = await supabase.from('classes').update(updates).eq('id', classId);
+        if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
+        console.error("AdminLess error:", e);
         showError("Update failed.");
     }
   };
 
   const updateClassNotes = async (classId: string, notes: string) => {
     try {
-        await supabase.from('classes').update({ notes }).eq('id', classId);
+        const { error } = await supabase.from('classes').update({ notes }).eq('id', classId);
+        if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
+        console.error("AdminLess error:", e);
         showError("Failed to save notes.");
     }
   };
 
   const finalizeClassTerm = async (classId: string) => {
     try {
+        const { error } = await supabase.from('classes').update({ is_finalised: true }).eq('id', classId);
+        if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
         showSuccess("Class finalised successfully.");
         logActivity(`Finalised class term data.`);
     } catch (e) {
+        console.error("AdminLess error:", e);
         showError("Failed to finalize class.");
     }
   };
@@ -197,18 +189,22 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const deleteClass = async (classId: string) => {
     try {
         await supabase.from('learners').delete().eq('class_id', classId);
-        await supabase.from('classes').delete().eq('id', classId);
+        const { error } = await supabase.from('classes').delete().eq('id', classId);
+        if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
+        console.error("AdminLess error:", e);
         showError("Failed to delete class.");
     }
   };
 
   const toggleClassArchive = async (classId: string, archived: boolean) => {
     try {
-        await supabase.from('classes').update({ archived }).eq('id', classId);
+        const { error } = await supabase.from('classes').update({ archived }).eq('id', classId);
+        if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e) {
+        console.error("AdminLess error:", e);
         showError("Status update failed.");
     }
   };
