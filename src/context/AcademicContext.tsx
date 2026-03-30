@@ -101,7 +101,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           }
           
           const termId = currentClassFilter?.termId || activeTerm?.id;
-          if (!currentClassFilter?.classId || !termId) return [];
+          if (!currentClassFilter?.classId || !termId || termId === 'undefined') return [];
           
           const { data, error } = await supabase.from('assessments')
             .select(selectStr)
@@ -116,7 +116,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           return [];
       }
     },
-    // STABILITY FIX: Block execution if context or required filters are missing
+    // STABILITY FIX: Block execution until session and academic context are fully resolved
     enabled: !!session?.user?.id && (diagnosticMode || (isContextReady && !!currentClassFilter?.classId))
   });
 
@@ -315,10 +315,15 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (!session?.user?.id || updates.length === 0) return;
     try {
         const toUpsert = await Promise.all(updates.map(async (u) => {
-            const { data: existing } = await supabase.from('assessment_marks').select('id').eq('assessment_id', u.assessment_id).eq('learner_id', u.learner_id).single();
+            const { data: existing } = await supabase.from('assessment_marks')
+              .select('id')
+              .eq('assessment_id', u.assessment_id)
+              .eq('learner_id', u.learner_id)
+              .maybeSingle(); // FIX: maybeSingle prevents 406 when no record exists
+
             const cleaned = { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id };
-            delete cleaned.question_marks;
-            delete cleaned.rubric_selections;
+            delete (cleaned as any).question_marks;
+            delete (cleaned as any).rubric_selections;
             return cleaned as AssessmentMark;
         }));
 
@@ -335,7 +340,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const refreshAssessments = useCallback(async (c: string, t?: string) => {
     const targetTermId = t || activeTerm?.id || '';
-    if (targetTermId) {
+    if (targetTermId && targetTermId !== 'undefined') {
         setCurrentClassFilter({ classId: c, termId: targetTermId });
     }
   }, [activeTerm?.id]);

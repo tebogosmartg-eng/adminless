@@ -55,7 +55,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   // STABILISATION: Sync assessments only when essential dependencies change
   useEffect(() => {
-    if (activeTerm?.id && classInfo.id) {
+    if (activeTerm?.id && classInfo.id && activeTerm.id !== 'undefined') {
         refreshAssessments(classInfo.id, activeTerm.id);
         setNewAss(prev => {
             if (prev.termId === activeTerm.id) return prev;
@@ -191,7 +191,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const handleAddAssessment = useCallback(async () => {
       const targetTermId = newAss.termId || activeTerm?.id;
-      if (!targetTermId) {
+      if (!targetTermId || targetTermId === 'undefined') {
           showError("Target term missing.");
           setIsAddOpen(false);
           return;

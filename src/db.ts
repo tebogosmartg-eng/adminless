@@ -7,7 +7,7 @@ class QueryShim {
     if (typeof field === 'object' && field !== null) {
         const cleanObj: any = {};
         for (const k in field) {
-            if (field[k] !== undefined) cleanObj[k] = field[k];
+            if (field[k] !== undefined && field[k] !== 'undefined') cleanObj[k] = field[k];
         }
         const newFilters = [...this.filters, { type: 'match', value: cleanObj }];
         return new QueryShim(this.tableName, newFilters, this.orderField, this.isReverse, this.limitCount);
@@ -47,12 +47,20 @@ class QueryShim {
   async toArray() {
     // STABILITY FIX: Strict check for undefined filter values before query execution
     for (const f of this.filters) {
-        if (f.type === 'eq' && (f.val === undefined || f.val === null)) {
+        if (f.type === 'eq' && (f.val === undefined || f.val === null || f.val === 'undefined')) {
             console.warn(`[QueryShim] Blocked query on ${this.tableName}: filter '${f.field}' is missing a value.`);
             return [];
         }
         if (f.type === 'in' && (!f.val || f.val.length === 0)) {
             return [];
+        }
+        if (f.type === 'match') {
+            for (const key in f.value) {
+                if (f.value[key] === undefined || f.value[key] === null || f.value[key] === 'undefined') {
+                    console.warn(`[QueryShim] Blocked query on ${this.tableName}: match filter '${key}' is missing a value.`);
+                    return [];
+                }
+            }
         }
     }
 
@@ -67,7 +75,7 @@ class QueryShim {
                 let hasUndefined = false;
                 
                 keys.forEach((k: string, i: number) => {
-                    if (f.val[i] === undefined || f.val[i] === null) hasUndefined = true;
+                    if (f.val[i] === undefined || f.val[i] === null || f.val[i] === 'undefined') hasUndefined = true;
                 });
                 
                 if (hasUndefined) return [];
@@ -150,7 +158,7 @@ class TableShim {
   }
 
   async get(id: string) {
-      if (!id) return null;
+      if (!id || id === 'undefined') return null;
       const q: any = new QueryShim(this.name).where('id');
       const res = await q.equals(id).first();
       return res;
@@ -209,13 +217,13 @@ class TableShim {
   }
 
   async update(id: string, updates: any) {
-      if (!id) return;
+      if (!id || id === 'undefined') return;
       const { error } = await supabase.from(this.name).update(updates).eq('id', id);
       if (error) throw error;
   }
 
   async delete(id: string) {
-      if (!id) return;
+      if (!id || id === 'undefined') return;
       const { error } = await supabase.from(this.name).delete().eq('id', id);
       if (error) throw error;
   }
