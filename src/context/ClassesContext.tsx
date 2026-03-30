@@ -28,12 +28,16 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const { activeYear, activeTerm, diagnosticMode } = useAcademic();
   const queryClient = useQueryClient();
 
+  // STABILITY FIX: Global guard for context readiness
+  const isReady = !!activeYear?.id && !!activeTerm?.id;
+
   const { data: classes = [], isLoading: loading } = useQuery({
     queryKey: ['classes', session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode],
     queryFn: async () => {
       if (!session?.user.id) return [];
       
-      if (!diagnosticMode && (!activeYear || !activeTerm)) return []; 
+      // Strict execution guard
+      if (!diagnosticMode && !isReady) return []; 
 
       try {
           const { data: classesData, error: classesError } = await supabase.from('classes').select('*').eq('user_id', session.user.id);
@@ -67,7 +71,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
           return [];
       }
     },
-    enabled: !!session?.user.id && (diagnosticMode || (!!activeYear && !!activeTerm))
+    // STABILITY FIX: Block execution until session and academic context are fully resolved
+    enabled: !!session?.user.id && (diagnosticMode || isReady)
   });
 
   const addClass = async (newClass: ClassInfo) => {

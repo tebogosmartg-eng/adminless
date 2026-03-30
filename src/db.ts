@@ -45,50 +45,53 @@ class QueryShim {
   }
 
   async toArray() {
+    // STABILITY FIX: Strict check for undefined filter values before query execution
+    for (const f of this.filters) {
+        if (f.type === 'eq' && (f.val === undefined || f.val === null)) {
+            console.warn(`[QueryShim] Blocked query on ${this.tableName}: filter '${f.field}' is missing a value.`);
+            return [];
+        }
+        if (f.type === 'in' && (!f.val || f.val.length === 0)) {
+            return [];
+        }
+    }
+
     let query: any = supabase.from(this.tableName).select('*');
     
     const jsFilters = [];
     for (const f of this.filters) {
         if (f.type === 'eq') {
-            if (f.val === undefined) {
-                return []; 
-            }
-
-            // >>> PREVENT 400 ERRORS ON MISSING COLUMNS <<<
-            if (this.tableName === 'classes' && (f.field === 'term_id' || f.field === 'year_id')) {
-                continue; 
-            }
-            if (this.tableName === 'timetable' && f.field === 'year_id') {
-                continue; 
-            }
-
+            // Re-check for compound keys
             if (f.field.includes('+')) {
                 const keys = f.field.replace(/[\[\]]/g, '').split('+');
                 let hasUndefined = false;
                 
                 keys.forEach((k: string, i: number) => {
-                    if (f.val[i] === undefined) hasUndefined = true;
+                    if (f.val[i] === undefined || f.val[i] === null) hasUndefined = true;
                 });
+                
                 if (hasUndefined) return [];
                 
                 keys.forEach((k: string, i: number) => {
-                    // Shield compound keys from throwing 400 errors
+                    // Shield specific columns that may not exist in the cloud schema yet
                     if (this.tableName === 'classes' && (k === 'term_id' || k === 'year_id')) {
                         return; 
                     }
                     query = query.eq(k, f.val[i]);
                 });
             } else {
+                // Shield specific columns that may not exist in the cloud schema yet
+                if (this.tableName === 'classes' && (f.field === 'term_id' || f.field === 'year_id')) {
+                    continue; 
+                }
+                if (this.tableName === 'timetable' && f.field === 'year_id') {
+                    continue; 
+                }
                 query = query.eq(f.field, f.val);
             }
         } else if (f.type === 'in') {
-             if (f.val && f.val.length > 0) {
-                 query = query.in(f.field, f.val);
-             } else {
-                 return []; 
-             }
+             query = query.in(f.field, f.val);
         } else if (f.type === 'match') {
-             if (!f.val || Object.keys(f.val).length === 0) continue;
              query = query.match(f.val);
         } else if (f.type === 'js_filter') {
              jsFilters.push(f.fn);

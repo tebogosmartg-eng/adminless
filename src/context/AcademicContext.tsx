@@ -84,12 +84,14 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     return [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   }, [allTerms, activeYear?.id, diagnosticMode, session?.user?.id]);
 
+  // STABILITY FIX: Define a global readiness flag
+  const isContextReady = !!activeYear?.id && !!activeTerm?.id;
+
   const { data: assessments = [], isLoading: loadingAss } = useQuery({
     queryKey: ['assessments', session?.user?.id, currentClassFilter?.classId, currentClassFilter?.termId, activeTerm?.id, diagnosticMode],
     queryFn: async () => {
       if (!session?.user?.id) return [];
       try {
-          // Join assessment_marks instead of non-existent assessment_questions
           const selectStr = '*, assessment_marks(*)';
           
           if (diagnosticMode) {
@@ -97,6 +99,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
               if (error) throw error;
               return (data || []).map(a => ({ ...a, questions: a.assessment_marks }));
           }
+          
           const termId = currentClassFilter?.termId || activeTerm?.id;
           if (!currentClassFilter?.classId || !termId) return [];
           
@@ -113,7 +116,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           return [];
       }
     },
-    enabled: !!session?.user?.id && (diagnosticMode || (!!currentClassFilter?.classId && !!(currentClassFilter?.termId || activeTerm?.id)))
+    // STABILITY FIX: Block execution if context or required filters are missing
+    enabled: !!session?.user?.id && (diagnosticMode || (isContextReady && !!currentClassFilter?.classId))
   });
 
   const { data: marks = [] } = useQuery({
@@ -133,6 +137,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           return [];
       }
     },
+    // STABILITY FIX: Dependent on assessments which are already guarded
     enabled: !!session?.user?.id && assessments.length > 0
   });
 
@@ -218,37 +223,24 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       return;
     }
 
-    console.log("[AcademicContext] Initializing FAT creation:", assessment.title);
-
     try {
         const id = crypto.randomUUID();
         const { questions, ...headerData } = assessment;
         
-        // Prepare main assessment record
         const payload = { 
             ...headerData, 
             id, 
             user_id: session.user.id,
-            academic_year_id: activeYear.id // Critical for year-based scoping
+            academic_year_id: activeYear.id
         };
 
-        console.log("Step 1: Creating assessment header");
-        // 1. Insert the header
         const { error: headerError } = await supabase.from('assessments').insert(payload);
-        if (headerError) {
-          console.error("[AcademicContext] FAT Header Error:", headerError);
-          throw new Error("Unable to save assessment header.");
-        }
-        console.log("Step 2: Assessment header created", id);
+        if (headerError) throw headerError;
 
-        // 2. Insert questions if present - using assessment_marks as requested
         if (questions && questions.length > 0) {
-            console.log("Step 3: Saving questions to assessment_marks");
             const questionPayloads = questions.map(q => ({
                 assessment_id: id,
                 user_id: session.user.id,
-                // These columns might not exist in assessment_marks, 
-                // but following specific instruction to replace table reference.
                 question_number: q.question_number,
                 skill_description: q.skill_description,
                 topic: q.topic,
@@ -257,36 +249,27 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             }));
 
             const { error: qError } = await supabase.from('assessment_marks').insert(questionPayloads);
-            if (qError) {
-                console.error("[AcademicContext] FAT Questions Error:", qError);
-                showError("Assessment created but detail storage failed.");
-            } else {
-                console.log("Step 4: Questions saved successfully");
-            }
+            if (qError) showError("Assessment created but detail storage failed.");
         }
 
         await queryClient.invalidateQueries({ queryKey: ['assessments'] });
         showSuccess(`Assessment "${assessment.title}" recorded.`);
-        console.log("Step 5: FAT saved successfully and cache invalidated");
         return id;
     } catch (e: any) {
-        console.error("[AcademicContext] Critical FAT Save Failure:", e);
-        showError(e.message || "Failed to record assessment.");
+        console.error("FAT Save Failure:", e);
+        showError("Failed to record assessment.");
     }
   }, [session?.user?.id, activeYear, queryClient]);
 
   const updateAssessment = useCallback(async (a: Assessment) => {
     try {
         const { questions, ...headerData } = a;
-        
-        // 1. Update header
         const { error: headerError } = await supabase.from('assessments').upsert({
             ...headerData,
             user_id: session?.user?.id
         });
         if (headerError) throw headerError;
 
-        // 2. Refresh questions - using assessment_marks as requested
         if (questions) {
             await supabase.from('assessment_marks').delete().eq('assessment_id', a.id);
             if (questions.length > 0) {
@@ -315,7 +298,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (!confirm("Delete this assessment? This will permanently remove all marks and data.")) return;
 
     try {
-        // Remove from assessment_marks as requested
         await supabase.from('assessment_marks').delete().eq('assessment_id', id); 
         const { error: aErr } = await supabase.from('assessments').delete().eq('id', id);
         if (aErr) throw aErr;
