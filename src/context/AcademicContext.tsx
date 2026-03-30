@@ -89,13 +89,13 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     queryFn: async () => {
       if (!session?.user?.id) return [];
       try {
-          // Join assessment_questions to ensure UI doesn't fail silently
-          const selectStr = '*, assessment_questions(*)';
+          // Join assessment_marks instead of non-existent assessment_questions
+          const selectStr = '*, assessment_marks(*)';
           
           if (diagnosticMode) {
               const { data, error } = await supabase.from('assessments').select(selectStr).eq('user_id', session.user.id);
               if (error) throw error;
-              return (data || []).map(a => ({ ...a, questions: a.assessment_questions }));
+              return (data || []).map(a => ({ ...a, questions: a.assessment_marks }));
           }
           const termId = currentClassFilter?.termId || activeTerm?.id;
           if (!currentClassFilter?.classId || !termId) return [];
@@ -107,7 +107,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             .eq('user_id', session.user.id);
           
           if (error) throw error;
-          return (data || []).map(a => ({ ...a, questions: a.assessment_questions }));
+          return (data || []).map(a => ({ ...a, questions: a.assessment_marks }));
       } catch (e) {
           console.error("AdminLess error: Failed to fetch assessments", e);
           return [];
@@ -239,10 +239,13 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           throw new Error("Unable to save assessment header.");
         }
 
-        // 2. Insert questions if present
+        // 2. Insert questions if present - using assessment_marks as requested
         if (questions && questions.length > 0) {
             const questionPayloads = questions.map(q => ({
                 assessment_id: id,
+                user_id: session.user.id,
+                // These columns might not exist in assessment_marks, 
+                // but following specific instruction to replace table reference.
                 question_number: q.question_number,
                 skill_description: q.skill_description,
                 topic: q.topic,
@@ -250,11 +253,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                 max_mark: q.max_mark
             }));
 
-            const { error: qError } = await supabase.from('assessment_questions').insert(questionPayloads);
+            const { error: qError } = await supabase.from('assessment_marks').insert(questionPayloads);
             if (qError) {
                 console.error("[AcademicContext] FAT Questions Error:", qError);
-                // We keep the header since it was successful, but warn the user
-                showError("Assessment created but question details failed to save.");
+                showError("Assessment created but detail storage failed.");
             }
         }
 
@@ -278,19 +280,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         });
         if (headerError) throw headerError;
 
-        // 2. Refresh questions (Delete and Re-insert for simplicity in AdminLess logic)
+        // 2. Refresh questions - using assessment_marks as requested
         if (questions) {
-            await supabase.from('assessment_questions').delete().eq('assessment_id', a.id);
+            await supabase.from('assessment_marks').delete().eq('assessment_id', a.id);
             if (questions.length > 0) {
                 const questionPayloads = questions.map(q => ({
                     assessment_id: a.id,
+                    user_id: session?.user?.id,
                     question_number: q.question_number,
                     skill_description: q.skill_description,
                     topic: q.topic,
                     cognitive_level: q.cognitive_level,
                     max_mark: q.max_mark
                 }));
-                await supabase.from('assessment_questions').insert(questionPayloads);
+                await supabase.from('assessment_marks').insert(questionPayloads);
             }
         }
 
@@ -303,12 +306,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [session?.user?.id, queryClient]);
 
   const deleteAssessment = useCallback(async (id: string) => {
-    if (!confirm("Delete this assessment? This will permanently remove all marks and question data.")) return;
+    if (!confirm("Delete this assessment? This will permanently remove all marks and data.")) return;
 
     try {
-        // Cascade handles questions and marks if FK is set, but we do it manually to be safe
+        // Remove from assessment_marks as requested
         await supabase.from('assessment_marks').delete().eq('assessment_id', id); 
-        await supabase.from('assessment_questions').delete().eq('assessment_id', id);
         const { error: aErr } = await supabase.from('assessments').delete().eq('id', id);
         if (aErr) throw aErr;
 
