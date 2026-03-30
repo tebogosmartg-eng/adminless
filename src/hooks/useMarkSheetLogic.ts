@@ -191,22 +191,41 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
 
   const handleAddAssessment = useCallback(async () => {
       const targetTermId = newAss.termId || activeTerm?.id;
-      if (!targetTermId) return showError("Target term missing.");
+      if (!targetTermId) {
+          showError("Target term missing.");
+          setIsAddOpen(false);
+          return;
+      }
       
-      // Explicitly construct payload to avoid leaking 'max' or other UI state
-      await createAssessment({ 
-          title: newAss.title,
-          type: newAss.type,
-          date: newAss.date || new Date().toISOString(),
-          class_id: classInfo.id, 
-          term_id: targetTermId, 
-          max_mark: Number(newAss.max), 
-          weight: Number(newAss.weight), 
-          rubric_id: newAss.rubricId === 'none' ? null : (newAss.rubricId || null),
-          questions: newAss.questions
-      });
-      setIsAddOpen(false);
-  }, [newAss, activeTerm?.id, classInfo.id, createAssessment]);
+      try {
+          // Explicitly construct payload to avoid leaking 'max' or other UI state
+          await createAssessment({ 
+              title: newAss.title,
+              type: newAss.type,
+              date: newAss.date || new Date().toISOString(),
+              class_id: classInfo.id, 
+              term_id: targetTermId, 
+              max_mark: Number(newAss.max), 
+              weight: Number(newAss.weight), 
+              rubric_id: newAss.rubricId === 'none' ? null : (newAss.rubricId || null),
+              questions: newAss.questions
+          });
+          
+          // Reset the form on success
+          setNewAss({ 
+              title: "", 
+              type: "Test", 
+              max: 50, 
+              weight: 10, 
+              date: "", 
+              rubricId: "", 
+              termId: activeTerm?.id || "", 
+              questions: [] 
+          });
+      } finally {
+          setIsAddOpen(false);
+      }
+  }, [newAss, activeTerm, classInfo.id, createAssessment]);
 
   const actions = useMemo(() => ({
       setViewTermId: handleTermChange, 
