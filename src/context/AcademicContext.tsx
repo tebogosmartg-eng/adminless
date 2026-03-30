@@ -21,7 +21,7 @@ interface AcademicContextType {
   createYear: (name: string) => Promise<void>;
   deleteYear: (yearId: string) => Promise<void>;
   updateTerm: (term: Term) => Promise<void>;
-  createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<string>;
+  createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<string | undefined>;
   updateAssessment: (assessment: Assessment) => Promise<void>;
   deleteAssessment: (id: string) => Promise<void>;
   updateMarks: (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => Promise<void>;
@@ -46,9 +46,14 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     queryKey: ['academic_years', session?.user?.id],
     queryFn: async () => {
       if (!session?.user?.id) return [];
-      const { data, error } = await supabase.from('academic_years').select('*').eq('user_id', session.user.id).order('name', { ascending: false });
-      if (error) throw error;
-      return data as AcademicYear[];
+      try {
+          const { data, error } = await supabase.from('academic_years').select('*').eq('user_id', session.user.id).order('name', { ascending: false });
+          if (error) throw error;
+          return data as AcademicYear[];
+      } catch (e) {
+          console.error("AdminLess error: Failed to fetch academic years", e);
+          return [];
+      }
     },
     enabled: !!session?.user?.id
   });
@@ -57,9 +62,14 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     queryKey: ['terms', session?.user?.id],
     queryFn: async () => {
       if (!session?.user?.id) return [];
-      const { data, error } = await supabase.from('terms').select('*').eq('user_id', session.user.id);
-      if (error) throw error;
-      return data.map(t => ({ ...t, is_finalised: !!t.closed })) as Term[];
+      try {
+          const { data, error } = await supabase.from('terms').select('*').eq('user_id', session.user.id);
+          if (error) throw error;
+          return data.map(t => ({ ...t, is_finalised: !!t.closed })) as Term[];
+      } catch (e) {
+          console.error("AdminLess error: Failed to fetch terms", e);
+          return [];
+      }
     },
     enabled: !!session?.user?.id
   });
@@ -76,19 +86,26 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     queryKey: ['assessments', session?.user?.id, currentClassFilter?.classId, currentClassFilter?.termId, activeTerm?.id, diagnosticMode],
     queryFn: async () => {
       if (!session?.user?.id) return [];
-      if (diagnosticMode) {
-          const { data } = await supabase.from('assessments').select('*').eq('user_id', session.user.id);
+      try {
+          if (diagnosticMode) {
+              const { data, error } = await supabase.from('assessments').select('*').eq('user_id', session.user.id);
+              if (error) throw error;
+              return data || [];
+          }
+          const termId = currentClassFilter?.termId || activeTerm?.id;
+          if (!currentClassFilter?.classId || !termId) return [];
+          
+          const { data, error } = await supabase.from('assessments')
+            .select('*')
+            .eq('class_id', currentClassFilter.classId)
+            .eq('term_id', termId)
+            .eq('user_id', session.user.id);
+          if (error) throw error;
           return data || [];
+      } catch (e) {
+          console.error("AdminLess error: Failed to fetch assessments", e);
+          return [];
       }
-      const termId = currentClassFilter?.termId || activeTerm?.id;
-      if (!currentClassFilter?.classId || !termId) return [];
-      
-      const { data } = await supabase.from('assessments')
-        .select('*')
-        .eq('class_id', currentClassFilter.classId)
-        .eq('term_id', termId)
-        .eq('user_id', session.user.id);
-      return data || [];
     },
     enabled: !!session?.user?.id && (diagnosticMode || (!!currentClassFilter?.classId && !!(currentClassFilter?.termId || activeTerm?.id)))
   });
@@ -97,12 +114,18 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     queryKey: ['assessment_marks', session?.user?.id, assessments.map((a: any) => a.id).join(',')],
     queryFn: async () => {
       if (!session?.user?.id || assessments.length === 0) return [];
-      const assIds = assessments.map((a: any) => a.id);
-      const { data } = await supabase.from('assessment_marks')
-        .select('*')
-        .in('assessment_id', assIds)
-        .eq('user_id', session.user.id);
-      return data || [];
+      try {
+          const assIds = assessments.map((a: any) => a.id);
+          const { data, error } = await supabase.from('assessment_marks')
+            .select('*')
+            .in('assessment_id', assIds)
+            .eq('user_id', session.user.id);
+          if (error) throw error;
+          return data || [];
+      } catch (e) {
+          console.error("AdminLess error: Failed to fetch marks", e);
+          return [];
+      }
     },
     enabled: !!session?.user?.id && assessments.length > 0
   });
@@ -111,87 +134,149 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   
   const logInternalActivity = useCallback(async (message: string, yearId?: string, termId?: string) => {
     if (!session?.user?.id) return;
-    const targetYearId = yearId || activeYear?.id;
-    const targetTermId = termId || activeTerm?.id;
-    if (!targetYearId || !targetTermId) return;
-    await supabase.from('activities').upsert({
-      id: crypto.randomUUID(),
-      user_id: session.user.id,
-      year_id: targetYearId,
-      term_id: targetTermId,
-      message,
-      timestamp: new Date().toISOString(),
-    });
-    queryClient.invalidateQueries({ queryKey: ['activities'] });
+    try {
+        const targetYearId = yearId || activeYear?.id;
+        const targetTermId = termId || activeTerm?.id;
+        if (!targetYearId || !targetTermId) return;
+        
+        const { error } = await supabase.from('activities').upsert({
+          id: crypto.randomUUID(),
+          user_id: session.user.id,
+          year_id: targetYearId,
+          term_id: targetTermId,
+          message,
+          timestamp: new Date().toISOString(),
+        });
+        if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ['activities'] });
+    } catch (e) {
+        console.error("AdminLess error: Failed to log activity", e);
+    }
   }, [session?.user?.id, activeYear?.id, activeTerm?.id, queryClient]);
 
   const { rollForwardClasses: doRollForward } = useAcademicMigration(session?.user?.id, logInternalActivity);
 
   const createYear = useCallback(async (name: string) => {
     if (!session?.user?.id) return;
-    const yearId = crypto.randomUUID();
-    await supabase.from('academic_years').upsert({ id: yearId, name, user_id: session.user.id, closed: false });
-    const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName) => ({
-      id: crypto.randomUUID(), year_id: yearId, name: tName, user_id: session.user.id, closed: false, weight: 25, 
-    }));
-    await supabase.from('terms').upsert(termsToCreate);
-    queryClient.invalidateQueries({ queryKey: ['academic_years'] });
-    queryClient.invalidateQueries({ queryKey: ['terms'] });
+    try {
+        const yearId = crypto.randomUUID();
+        const { error: yearError } = await supabase.from('academic_years').upsert({ id: yearId, name, user_id: session.user.id, closed: false });
+        if (yearError) throw yearError;
+
+        const termsToCreate = ['Term 1', 'Term 2', 'Term 3', 'Term 4'].map((tName) => ({
+          id: crypto.randomUUID(), year_id: yearId, name: tName, user_id: session.user.id, closed: false, weight: 25, 
+        }));
+        const { error: termError } = await supabase.from('terms').upsert(termsToCreate);
+        if (termError) throw termError;
+
+        await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
+        await queryClient.invalidateQueries({ queryKey: ['terms'] });
+    } catch (e) {
+        console.error("AdminLess error: Failed to create year", e);
+        showError("Failed to initialize academic year.");
+    }
   }, [session?.user?.id, queryClient]);
 
   const deleteYear = useCallback(async (id: string) => {
-    await supabase.from('terms').delete().eq('year_id', id);
-    await supabase.from('academic_years').delete().eq('id', id);
-    queryClient.invalidateQueries({ queryKey: ['academic_years'] });
-    queryClient.invalidateQueries({ queryKey: ['terms'] });
+    try {
+        const { error: tErr } = await supabase.from('terms').delete().eq('year_id', id);
+        if (tErr) throw tErr;
+        const { error: yErr } = await supabase.from('academic_years').delete().eq('id', id);
+        if (yErr) throw yErr;
+
+        await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
+        await queryClient.invalidateQueries({ queryKey: ['terms'] });
+        showSuccess("Academic year deleted.");
+    } catch (e) {
+        console.error("AdminLess error: Failed to delete year", e);
+        showError("Failed to delete academic year. Make sure it is empty.");
+    }
   }, [queryClient]);
 
   const updateTerm = useCallback(async (term: Term) => {
-    const payload = { ...term };
-    delete (payload as any).is_finalised;
-    await supabase.from('terms').upsert(payload);
-    queryClient.invalidateQueries({ queryKey: ['terms'] });
+    try {
+        const payload = { ...term };
+        delete (payload as any).is_finalised;
+        const { error } = await supabase.from('terms').upsert(payload);
+        if (error) throw error;
+        await queryClient.invalidateQueries({ queryKey: ['terms'] });
+    } catch (e) {
+        console.error("AdminLess error: Failed to update term", e);
+        showError("Failed to update term settings.");
+    }
   }, [queryClient]);
 
   const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
-    const id = crypto.randomUUID();
-    const payload: any = { ...assessment, id, user_id: session?.user?.id || '' };
-    delete payload.questions;
-    delete payload.rubric_id;
-    delete payload.task_slot_key;
-    await supabase.from('assessments').upsert(payload);
-    queryClient.invalidateQueries({ queryKey: ['assessments'] });
-    return id;
+    try {
+        const id = crypto.randomUUID();
+        const payload: any = { ...assessment, id, user_id: session?.user?.id || '' };
+        delete payload.questions;
+        delete payload.rubric_id;
+        delete payload.task_slot_key;
+
+        const { error } = await supabase.from('assessments').upsert(payload);
+        if (error) throw error;
+
+        await queryClient.invalidateQueries({ queryKey: ['assessments'] });
+        return id;
+    } catch (e) {
+        console.error("AdminLess error: Failed to create assessment", e);
+        showError("Failed to create assessment.");
+    }
   }, [session?.user?.id, queryClient]);
 
   const updateAssessment = useCallback(async (a: Assessment) => {
-    const payload: any = { ...a };
-    delete payload.questions;
-    delete payload.rubric_id;
-    delete payload.task_slot_key;
-    await supabase.from('assessments').upsert(payload);
-    queryClient.invalidateQueries({ queryKey: ['assessments'] });
+    try {
+        const payload: any = { ...a };
+        delete payload.questions;
+        delete payload.rubric_id;
+        delete payload.task_slot_key;
+
+        const { error } = await supabase.from('assessments').upsert(payload);
+        if (error) throw error;
+
+        await queryClient.invalidateQueries({ queryKey: ['assessments'] });
+    } catch (e) {
+        console.error("AdminLess error: Failed to update assessment", e);
+        showError("Failed to update assessment.");
+    }
   }, [queryClient]);
 
   const deleteAssessment = useCallback(async (id: string) => {
-    await supabase.from('assessment_marks').delete().eq('assessment_id', id); 
-    await supabase.from('assessments').delete().eq('id', id);
-    queryClient.invalidateQueries({ queryKey: ['assessments'] });
-    queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
+    try {
+        const { error: mErr } = await supabase.from('assessment_marks').delete().eq('assessment_id', id); 
+        if (mErr) throw mErr;
+        const { error: aErr } = await supabase.from('assessments').delete().eq('id', id);
+        if (aErr) throw aErr;
+
+        await queryClient.invalidateQueries({ queryKey: ['assessments'] });
+        await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
+    } catch (e) {
+        console.error("AdminLess error: Failed to delete assessment", e);
+        showError("Failed to delete assessment.");
+    }
   }, [queryClient]);
 
   const updateMarks = useCallback(async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
     if (!session?.user?.id || updates.length === 0) return;
-    const toUpsert = await Promise.all(updates.map(async (u) => {
-        const { data: existing } = await supabase.from('assessment_marks').select('id').eq('assessment_id', u.assessment_id).eq('learner_id', u.learner_id).single();
-        const cleaned = { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id };
-        delete cleaned.question_marks;
-        delete cleaned.rubric_selections;
-        return cleaned as AssessmentMark;
-    }));
-    await supabase.from('assessment_marks').upsert(toUpsert);
-    queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
-    updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
+    try {
+        const toUpsert = await Promise.all(updates.map(async (u) => {
+            const { data: existing } = await supabase.from('assessment_marks').select('id').eq('assessment_id', u.assessment_id).eq('learner_id', u.learner_id).single();
+            const cleaned = { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id };
+            delete cleaned.question_marks;
+            delete cleaned.rubric_selections;
+            return cleaned as AssessmentMark;
+        }));
+
+        const { error } = await supabase.from('assessment_marks').upsert(toUpsert);
+        if (error) throw error;
+
+        await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
+        updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
+    } catch (e) {
+        console.error("AdminLess error: Failed to update marks", e);
+        showError("Failed to update marks. Please check your connection.");
+    }
   }, [session?.user?.id, updateLearnerActiveAverages, queryClient]);
 
   const refreshAssessments = useCallback(async (c: string, t?: string) => {
@@ -202,18 +287,35 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [activeTerm?.id]);
 
   const toggleTermStatus = useCallback(async (termId: string, finalised: boolean) => {
-    await supabase.from('terms').update({ closed: finalised }).eq('id', termId);
-    queryClient.invalidateQueries({ queryKey: ['terms'] });
+    try {
+        const { error } = await supabase.from('terms').update({ closed: finalised }).eq('id', termId);
+        if (error) throw error;
+        await queryClient.invalidateQueries({ queryKey: ['terms'] });
+    } catch (e) {
+        console.error("AdminLess error: Failed to toggle term status", e);
+        showError("Failed to update term status.");
+    }
   }, [queryClient]);
 
   const closeYear = useCallback(async (id: string) => {
-    await supabase.from('academic_years').update({ closed: true }).eq('id', id);
-    queryClient.invalidateQueries({ queryKey: ['academic_years'] });
+    try {
+        const { error } = await supabase.from('academic_years').update({ closed: true }).eq('id', id);
+        if (error) throw error;
+        await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
+    } catch (e) {
+        console.error("AdminLess error: Failed to close year", e);
+        showError("Failed to finalise academic year.");
+    }
   }, [queryClient]);
 
-  const rollForwardClasses = useCallback((s: string, t: string, d: any[]) => 
-    doRollForward(activeYear?.id || '', s, t, d, setActiveTerm), 
-  [doRollForward, activeYear?.id, setActiveTerm]);
+  const rollForwardClasses = useCallback(async (s: string, t: string, d: any[]) => {
+      try {
+          await doRollForward(activeYear?.id || '', s, t, d, setActiveTerm);
+      } catch (e) {
+          console.error("AdminLess error: Roll forward failed", e);
+          showError("Failed to roll forward classes.");
+      }
+  }, [doRollForward, activeYear?.id, setActiveTerm]);
 
   const value = useMemo(() => ({
     years, terms, assessments, marks, 

@@ -11,20 +11,22 @@ export const useTimetable = () => {
   const { data: timetable = [] } = useQuery({
     queryKey: ['timetable', activeYear?.id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from('timetable')
-        .select('*')
-        .eq('user_id', user.id);
-        
-      if (error) {
-        console.error("Timetable fetch error", error);
-        return [];
+      try {
+          const { data: { user }, error: authErr } = await supabase.auth.getUser();
+          if (authErr || !user) return [];
+          
+          const { data, error } = await supabase
+            .from('timetable')
+            .select('*')
+            .eq('user_id', user.id);
+            
+          if (error) throw error;
+          
+          return data as TimetableEntry[];
+      } catch (e) {
+          console.error("AdminLess error: Timetable fetch error", e);
+          return [];
       }
-      
-      return data as TimetableEntry[];
     },
     enabled: !!activeYear?.id
   });
@@ -36,8 +38,8 @@ export const useTimetable = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !user) throw new Error("Authentication failed");
 
       const existing = timetable.find(t => t.day === entry.day && t.period === entry.period);
       
@@ -53,15 +55,12 @@ export const useTimetable = () => {
         end_time: entry.end_time || '',
       };
 
-      // Supabase Schema lacks 'year_id' and 'notes' on 'timetable' 
-      // ensuring they are completely stripped out to prevent 400 Bad Request
-      
       const { error } = await supabase.from('timetable').upsert(payload);
       if (error) throw error;
       
       await queryClient.invalidateQueries({ queryKey: ['timetable'] });
     } catch (e) {
-      console.error(e);
+      console.error("AdminLess error: Failed to update timetable entry", e);
       showError("Failed to update routine entry.");
     }
   };
@@ -75,6 +74,7 @@ export const useTimetable = () => {
         await queryClient.invalidateQueries({ queryKey: ['timetable'] });
       }
     } catch (e) {
+      console.error("AdminLess error: Failed to clear timetable entry", e);
       showError("Failed to clear entry.");
     }
   };
