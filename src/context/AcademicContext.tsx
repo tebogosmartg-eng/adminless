@@ -1,6 +1,8 @@
+"use client";
+
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { AcademicYear, Term, Assessment, AssessmentMark } from '@/lib/types';
+import { AcademicYear, Term, Assessment, AssessmentMark, AssessmentQuestion } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAcademicSelection } from '@/hooks/useAcademicSelection';
@@ -87,21 +89,25 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     queryFn: async () => {
       if (!session?.user?.id) return [];
       try {
+          // Join assessment_questions to ensure UI doesn't fail silently
+          const selectStr = '*, assessment_questions(*)';
+          
           if (diagnosticMode) {
-              const { data, error } = await supabase.from('assessments').select('*').eq('user_id', session.user.id);
+              const { data, error } = await supabase.from('assessments').select(selectStr).eq('user_id', session.user.id);
               if (error) throw error;
-              return data || [];
+              return (data || []).map(a => ({ ...a, questions: a.assessment_questions }));
           }
           const termId = currentClassFilter?.termId || activeTerm?.id;
           if (!currentClassFilter?.classId || !termId) return [];
           
           const { data, error } = await supabase.from('assessments')
-            .select('*')
+            .select(selectStr)
             .eq('class_id', currentClassFilter.classId)
             .eq('term_id', termId)
             .eq('user_id', session.user.id);
+          
           if (error) throw error;
-          return data || [];
+          return (data || []).map(a => ({ ...a, questions: a.assessment_questions }));
       } catch (e) {
           console.error("AdminLess error: Failed to fetch assessments", e);
           return [];
@@ -207,50 +213,108 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [queryClient]);
 
   const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
+    if (!session?.user?.id || !activeYear) {
+      showError("Session context lost. Please refresh.");
+      return;
+    }
+
+    console.log("[AcademicContext] Initializing FAT creation:", assessment.title);
+
     try {
         const id = crypto.randomUUID();
-        const payload: any = { ...assessment, id, user_id: session?.user?.id || '' };
-        delete payload.questions;
-        delete payload.rubric_id;
-        delete payload.task_slot_key;
+        const { questions, ...headerData } = assessment;
+        
+        // Prepare main assessment record
+        const payload = { 
+            ...headerData, 
+            id, 
+            user_id: session.user.id,
+            academic_year_id: activeYear.id // Critical for year-based scoping
+        };
 
-        const { error } = await supabase.from('assessments').upsert(payload);
-        if (error) throw error;
+        // 1. Insert the header
+        const { error: headerError } = await supabase.from('assessments').insert(payload);
+        if (headerError) {
+          console.error("[AcademicContext] FAT Header Error:", headerError);
+          throw new Error("Unable to save assessment header.");
+        }
+
+        // 2. Insert questions if present
+        if (questions && questions.length > 0) {
+            const questionPayloads = questions.map(q => ({
+                assessment_id: id,
+                question_number: q.question_number,
+                skill_description: q.skill_description,
+                topic: q.topic,
+                cognitive_level: q.cognitive_level,
+                max_mark: q.max_mark
+            }));
+
+            const { error: qError } = await supabase.from('assessment_questions').insert(questionPayloads);
+            if (qError) {
+                console.error("[AcademicContext] FAT Questions Error:", qError);
+                // We keep the header since it was successful, but warn the user
+                showError("Assessment created but question details failed to save.");
+            }
+        }
 
         await queryClient.invalidateQueries({ queryKey: ['assessments'] });
+        showSuccess(`Assessment "${assessment.title}" recorded.`);
         return id;
-    } catch (e) {
-        console.error("AdminLess error: Failed to create assessment", e);
-        showError("Failed to create assessment.");
+    } catch (e: any) {
+        console.error("AdminLess error: Critical FAT Save Failure:", e);
+        showError(e.message || "Failed to record assessment.");
     }
-  }, [session?.user?.id, queryClient]);
+  }, [session?.user?.id, activeYear, queryClient]);
 
   const updateAssessment = useCallback(async (a: Assessment) => {
     try {
-        const payload: any = { ...a };
-        delete payload.questions;
-        delete payload.rubric_id;
-        delete payload.task_slot_key;
+        const { questions, ...headerData } = a;
+        
+        // 1. Update header
+        const { error: headerError } = await supabase.from('assessments').upsert({
+            ...headerData,
+            user_id: session?.user?.id
+        });
+        if (headerError) throw headerError;
 
-        const { error } = await supabase.from('assessments').upsert(payload);
-        if (error) throw error;
+        // 2. Refresh questions (Delete and Re-insert for simplicity in AdminLess logic)
+        if (questions) {
+            await supabase.from('assessment_questions').delete().eq('assessment_id', a.id);
+            if (questions.length > 0) {
+                const questionPayloads = questions.map(q => ({
+                    assessment_id: a.id,
+                    question_number: q.question_number,
+                    skill_description: q.skill_description,
+                    topic: q.topic,
+                    cognitive_level: q.cognitive_level,
+                    max_mark: q.max_mark
+                }));
+                await supabase.from('assessment_questions').insert(questionPayloads);
+            }
+        }
 
         await queryClient.invalidateQueries({ queryKey: ['assessments'] });
+        showSuccess("Assessment settings updated.");
     } catch (e) {
         console.error("AdminLess error: Failed to update assessment", e);
         showError("Failed to update assessment.");
     }
-  }, [queryClient]);
+  }, [session?.user?.id, queryClient]);
 
   const deleteAssessment = useCallback(async (id: string) => {
+    if (!confirm("Delete this assessment? This will permanently remove all marks and question data.")) return;
+
     try {
-        const { error: mErr } = await supabase.from('assessment_marks').delete().eq('assessment_id', id); 
-        if (mErr) throw mErr;
+        // Cascade handles questions and marks if FK is set, but we do it manually to be safe
+        await supabase.from('assessment_marks').delete().eq('assessment_id', id); 
+        await supabase.from('assessment_questions').delete().eq('assessment_id', id);
         const { error: aErr } = await supabase.from('assessments').delete().eq('id', id);
         if (aErr) throw aErr;
 
         await queryClient.invalidateQueries({ queryKey: ['assessments'] });
         await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
+        showSuccess("Assessment deleted.");
     } catch (e) {
         console.error("AdminLess error: Failed to delete assessment", e);
         showError("Failed to delete assessment.");

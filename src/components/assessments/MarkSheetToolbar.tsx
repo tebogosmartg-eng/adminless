@@ -62,9 +62,9 @@ export const MarkSheetToolbar = ({
 
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isReuseOpen, setIsReuseOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const { progress, missingRequired } = useSetupStatus();
   
-  // Fetch historical topics prioritized by this class's subject and grade
   const topicSuggestions = useTopicSuggestions(classInfo?.subject, classInfo?.grade);
 
   const handleRubricSelect = (val: string) => {
@@ -73,7 +73,7 @@ export const MarkSheetToolbar = ({
           ...newAss, 
           rubricId: val,
           max: rubric ? rubric.total_points : newAss.max,
-          questions: [] // Rubrics and questions are mutually exclusive for now
+          questions: [] 
       });
   };
 
@@ -98,7 +98,17 @@ export const MarkSheetToolbar = ({
     setNewAss({ ...newAss, questions: updatedQuestions, max: totalMax || newAss.max, rubricId: "none" });
   };
 
+  const onRecordClick = async () => {
+      setIsRecording(true);
+      try {
+          await handleAddAssessment();
+      } finally {
+          setIsRecording(false);
+      }
+  };
+
   const targetTermName = terms.find(t => t.id === (newAss.termId || activeTerm?.id))?.name;
+  const isFormValid = newAss.title?.trim() && newAss.max > 0 && newAss.weight >= 0;
 
   return (
     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b pb-4">
@@ -282,14 +292,14 @@ export const MarkSheetToolbar = ({
                           <Input 
                               type="number" 
                               value={newAss.max} 
-                              onChange={e => setNewAss({ ...newAss, max: parseInt(e.target.value) })} 
+                              onChange={e => setNewAss({ ...newAss, max: parseInt(e.target.value) || 0 })} 
                               className="col-span-3 h-9"
                               disabled={!!newAss.rubricId && newAss.rubricId !== 'none' || (newAss.questions && newAss.questions.length > 0)}
                           />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
                           <Label className="text-right text-xs">Weighting %</Label>
-                          <Input type="number" value={newAss.weight} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) })} className="col-span-3 h-9" />
+                          <Input type="number" value={newAss.weight} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) || 0 })} className="col-span-3 h-9" />
                       </div>
                   </div>
 
@@ -304,7 +314,13 @@ export const MarkSheetToolbar = ({
                       />
                   </div>
 
-                  <Button onClick={handleAddAssessment} className="w-full font-bold h-12">Record Assessment</Button>
+                  <Button onClick={onRecordClick} disabled={isRecording || !isFormValid} className="w-full font-bold h-12 shadow-lg">
+                      {isRecording ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Recording Assessment...</>
+                      ) : (
+                          "Record Assessment"
+                      )}
+                  </Button>
                 </div>
             </ScrollArea>
           </DialogContent>
