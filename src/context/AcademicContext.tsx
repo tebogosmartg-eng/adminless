@@ -232,15 +232,18 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             academic_year_id: activeYear.id // Critical for year-based scoping
         };
 
+        console.log("Step 1: Creating assessment header");
         // 1. Insert the header
         const { error: headerError } = await supabase.from('assessments').insert(payload);
         if (headerError) {
           console.error("[AcademicContext] FAT Header Error:", headerError);
           throw new Error("Unable to save assessment header.");
         }
+        console.log("Step 2: Assessment header created", id);
 
         // 2. Insert questions if present - using assessment_marks as requested
         if (questions && questions.length > 0) {
+            console.log("Step 3: Saving questions to assessment_marks");
             const questionPayloads = questions.map(q => ({
                 assessment_id: id,
                 user_id: session.user.id,
@@ -257,14 +260,17 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             if (qError) {
                 console.error("[AcademicContext] FAT Questions Error:", qError);
                 showError("Assessment created but detail storage failed.");
+            } else {
+                console.log("Step 4: Questions saved successfully");
             }
         }
 
         await queryClient.invalidateQueries({ queryKey: ['assessments'] });
         showSuccess(`Assessment "${assessment.title}" recorded.`);
+        console.log("Step 5: FAT saved successfully and cache invalidated");
         return id;
     } catch (e: any) {
-        console.error("AdminLess error: Critical FAT Save Failure:", e);
+        console.error("[AcademicContext] Critical FAT Save Failure:", e);
         showError(e.message || "Failed to record assessment.");
     }
   }, [session?.user?.id, activeYear, queryClient]);
