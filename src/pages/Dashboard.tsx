@@ -5,9 +5,9 @@ import { BarChart3, LayoutGrid, GraduationCap, Loader2 } from 'lucide-react';
 import { useClasses } from '@/context/ClassesContext';
 import { GlobalAddNoteDialog } from '@/components/dialogs/GlobalAddNoteDialog';
 import { useSettings } from '@/context/SettingsContext';
-import { Skeleton } from '@/components/ui/skeleton';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
 const DashboardOverviewTab = lazy(() => import('@/components/dashboard/DashboardOverviewTab').then(m => ({ default: m.DashboardOverviewTab })));
 const DashboardGroupedView = lazy(() => import('@/components/dashboard/DashboardGroupedView').then(m => ({ default: m.DashboardGroupedView })));
@@ -24,41 +24,9 @@ const DashboardContent = () => {
 
   const { onboardingCompleted, setOnboardingCompleted, isLoadingProfile } = useSettings();
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
-  const [isTimeout, setIsTimeout] = useState(false);
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (loading || isLoadingProfile) {
-      timer = setTimeout(() => setIsTimeout(true), 4000);
-    }
-    return () => clearTimeout(timer);
-  }, [loading, isLoadingProfile]);
-
-  if ((loading || isLoadingProfile) && !isTimeout) {
-    return (
-      <div className="space-y-6 w-full p-2 animate-in fade-in duration-500">
-        <div className="space-y-2">
-            <Skeleton className="h-10 w-48" />
-            <Skeleton className="h-4 w-64" />
-        </div>
-        <div className="flex gap-2">
-            <Skeleton className="h-10 w-24 rounded-md" />
-            <Skeleton className="h-10 w-24 rounded-md" />
-            <Skeleton className="h-10 w-24 rounded-md" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
-            <div className="lg:col-span-2 space-y-4">
-                <Skeleton className="h-[200px] w-full rounded-xl" />
-                <Skeleton className="h-[300px] w-full rounded-xl" />
-            </div>
-            <div className="space-y-4">
-                <Skeleton className="h-[150px] w-full rounded-xl" />
-                <Skeleton className="h-[150px] w-full rounded-xl" />
-                <Skeleton className="h-[200px] w-full rounded-xl" />
-            </div>
-        </div>
-      </div>
-    );
+  if (loading || isLoadingProfile) {
+    return <LoadingScreen />;
   }
 
   if (!onboardingCompleted) {
@@ -89,7 +57,7 @@ const DashboardContent = () => {
           </TabsTrigger>
         </TabsList>
 
-        <Suspense fallback={<div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/40" /></div>}>
+        <Suspense fallback={<LoadingScreen />}>
           <TabsContent value="overview" className="mt-0">
             <DashboardOverviewTab 
               activeClasses={activeClasses}
@@ -128,16 +96,8 @@ const DashboardContent = () => {
 const Dashboard = () => {
   const { user, authReady } = useAuthGuard();
 
-  if (!authReady || !user) {
-    return (
-      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
-        </div>
-      </div>
-    );
-  }
+  if (!authReady) return <LoadingScreen />;
+  if (!user) return null;
 
   return <DashboardContent />;
 };

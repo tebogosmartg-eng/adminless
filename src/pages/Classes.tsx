@@ -7,11 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateClassDialog } from "@/components/CreateClassDialog";
 import { EditClassDialog } from "@/components/dialogs/EditClassDialog";
 import { DeleteClassDialog } from "@/components/dialogs/DeleteClassDialog";
-import { Search, Filter, X, Archive, ArrowLeft, Users, Loader2 } from "lucide-react";
+import { Search, Filter, X, Archive, ArrowLeft, Users } from "lucide-react";
 import { useClassesLogic } from "@/hooks/useClassesLogic";
 import { ClassCard } from "@/components/ClassCard";
 import { cn } from "@/lib/utils";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { LoadingScreen } from "@/components/ui/LoadingScreen";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const ClassesContent = () => {
   const location = useLocation();
@@ -105,20 +107,10 @@ const ClassesContent = () => {
 
         <TabsContent value="active" className="mt-0 focus-visible:outline-none">
             {activeClasses.length === 0 ? (
-                <Card className="border-dashed border-2 bg-muted/5">
-                    <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <Users className="h-12 w-12 text-muted-foreground opacity-20 mb-4" />
-                        <h3 className="text-lg font-semibold">No Active Classes</h3>
-                        <p className="text-muted-foreground text-sm max-w-xs mt-1">
-                            {searchQuery || selectedGrade !== 'all' 
-                                ? "No classes match your current filters. Try adjusting your search." 
-                                : "You haven't created any classes for this term yet."}
-                        </p>
-                        {hasActiveFilters && (
-                            <Button variant="link" onClick={clearFilters} className="mt-2">Clear all filters</Button>
-                        )}
-                    </CardContent>
-                </Card>
+                <EmptyState 
+                    title="No Active Classes" 
+                    description={searchQuery || selectedGrade !== 'all' ? "No classes match your current filters." : "You haven't created any classes for this term yet."}
+                />
             ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {activeClasses.map((classItem, idx) => (
@@ -142,15 +134,11 @@ const ClassesContent = () => {
 
         <TabsContent value="archived" className="mt-0 focus-visible:outline-none">
             {archivedClasses.length === 0 ? (
-                <Card className="border-dashed border-2 bg-muted/5">
-                    <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <Archive className="h-12 w-12 text-muted-foreground opacity-20 mb-4" />
-                        <h3 className="text-lg font-semibold">Empty Archive</h3>
-                        <p className="text-muted-foreground text-sm max-w-xs mt-1">
-                            Classes you archive to declutter your dashboard will appear here.
-                        </p>
-                    </CardContent>
-                </Card>
+                <EmptyState 
+                    title="Empty Archive" 
+                    description="Classes you archive to declutter your dashboard will appear here."
+                    icon={<Archive className="h-12 w-12 opacity-20" />}
+                />
             ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {archivedClasses.map((classItem) => (
@@ -178,16 +166,8 @@ const ClassesContent = () => {
 const Classes = () => {
   const { user, authReady } = useAuthGuard();
 
-  if (!authReady || !user) {
-    return (
-      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
-        </div>
-      </div>
-    );
-  }
+  if (!authReady) return <LoadingScreen />;
+  if (!user) return null;
 
   return <ClassesContent />;
 };
