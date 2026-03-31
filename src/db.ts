@@ -8,7 +8,10 @@ class QueryShim {
     if (typeof field === 'object' && field !== null) {
         const cleanObj: any = {};
         for (const k in field) {
-            if (field[k] !== undefined && field[k] !== 'undefined') cleanObj[k] = field[k];
+            // Filter out invalid values from the match object
+            if (field[k] !== undefined && field[k] !== null && field[k] !== 'undefined' && field[k] !== '') {
+                cleanObj[k] = field[k];
+            }
         }
         const newFilters = [...this.filters, { type: 'match', value: cleanObj }];
         return new QueryShim(this.tableName, newFilters, this.orderField, this.isReverse, this.limitCount);
@@ -46,22 +49,24 @@ class QueryShim {
   }
 
   async toArray() {
-    // STABILITY FIX: Strict check for undefined filter values before query execution
+    const isInvalid = (val: any) => val === undefined || val === null || val === 'undefined' || val === '';
+
+    // STABILITY FIX: Strict check for invalid filter values before query execution
     for (const f of this.filters) {
-        if (f.type === 'eq' && (f.val === undefined || f.val === null || f.val === 'undefined')) {
-            console.warn(`[QueryShim] Blocked query on ${this.tableName}: filter '${f.field}' is missing a value.`);
-            return [];
+        if (f.type === 'eq') {
+            if (Array.isArray(f.val)) {
+                if (f.val.some(isInvalid)) return [];
+            } else if (isInvalid(f.val)) {
+                return [];
+            }
         }
         if (f.type === 'in' && (!f.val || f.val.length === 0)) {
             return [];
         }
         if (f.type === 'match') {
-            for (const key in f.value) {
-                if (f.value[key] === undefined || f.value[key] === null || f.value[key] === 'undefined') {
-                    console.warn(`[QueryShim] Blocked query on ${this.tableName}: match filter '${key}' is missing a value.`);
-                    return [];
-                }
-            }
+            // If the match object is empty after cleaning, we might want to block or allow. 
+            // Usually, an empty match means "all", but in our context it's often a missing filter.
+            if (Object.keys(f.value).length === 0) return [];
         }
     }
 
@@ -70,38 +75,22 @@ class QueryShim {
     const jsFilters = [];
     for (const f of this.filters) {
         if (f.type === 'eq') {
-            // Re-check for compound keys
             if (f.field.includes('+')) {
                 const keys = f.field.replace(/[\[\]]/g, '').split('+');
-                let hasUndefined = false;
-                
-                keys.forEach((k: string, i: number) => {
-                    if (f.val[i] === undefined || f.val[i] === null || f.val[i] === 'undefined') hasUndefined = true;
-                });
-                
-                if (hasUndefined) return [];
-                
                 keys.forEach((k: string, i: number) => {
                     // Shield specific columns that may not exist in the cloud schema yet
-                    if (this.tableName === 'classes' && (k === 'term_id' || k === 'year_id')) {
-                        return; 
-                    }
+                    if (this.tableName === 'classes' && (k === 'term_id' || k === 'year_id')) return; 
                     query = query.eq(k, f.val[i]);
                 });
             } else {
-                // Shield specific columns that may not exist in the cloud schema yet
-                if (this.tableName === 'classes' && (f.field === 'term_id' || f.field === 'year_id')) {
-                    continue; 
-                }
-                if (this.tableName === 'timetable' && f.field === 'year_id') {
-                    continue; 
-                }
+                if (this.tableName === 'classes' && (f.field === 'term_id' || f.field === 'year_id')) continue; 
+                if (this.tableName === 'timetable' && f.field === 'year_id') continue; 
                 query = query.eq(f.field, f.val);
             }
         } else if (f.type === 'in') {
              query = query.in(f.field, f.val);
         } else if (f.type === 'match') {
-             query = query.match(f.val);
+             query = query.match(f.value);
         } else if (f.type === 'js_filter') {
              jsFilters.push(f.fn);
         }

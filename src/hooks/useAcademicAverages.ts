@@ -18,7 +18,7 @@ export const useAcademicAverages = () => {
             if (lErr || !learner) continue;
 
             const { data: classInfo, error: cErr } = await supabase.from('classes').select('*').eq('id', learner.class_id).single();
-            if (cErr || !classInfo) continue;
+            if (cErr || !classInfo || !classInfo.term_id) continue;
 
             const { data: termAssessments, error: aErr } = await supabase.from('assessments')
                 .select('*')
@@ -54,8 +54,6 @@ export const useAcademicAverages = () => {
   const runDataVacuum = useCallback(async () => {
       console.log("[Vacuum] Starting cloud database cleanup...");
       try {
-          // In online-only mode, Supabase foreign keys cascade deletions, 
-          // minimizing the need for manual vacuuming.
           showSuccess(`Vacuum complete. Storage optimized.`);
       } catch (err) {
           console.error("AdminLess error: Critical Vacuum Failure:", err);

@@ -84,7 +84,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     return [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   }, [allTerms, activeYear?.id, diagnosticMode, session?.user?.id]);
 
-  // STABILITY FIX: Define a global readiness flag
   const isContextReady = !!activeYear?.id && !!activeTerm?.id;
 
   const { data: assessments = [], isLoading: loadingAss } = useQuery({
@@ -101,11 +100,14 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           }
           
           const termId = currentClassFilter?.termId || activeTerm?.id;
-          if (!currentClassFilter?.classId || !termId || termId === 'undefined') return [];
+          const classId = currentClassFilter?.classId;
+
+          // STABILITY FIX: Strict guard against invalid IDs
+          if (!classId || classId === 'undefined' || !termId || termId === 'undefined') return [];
           
           const { data, error } = await supabase.from('assessments')
             .select(selectStr)
-            .eq('class_id', currentClassFilter.classId)
+            .eq('class_id', classId)
             .eq('term_id', termId)
             .eq('user_id', session.user.id);
           
@@ -116,7 +118,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           return [];
       }
     },
-    // STABILITY FIX: Block execution until session and academic context are fully resolved
     enabled: !!session?.user?.id && (diagnosticMode || (isContextReady && !!currentClassFilter?.classId))
   });
 
@@ -137,7 +138,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           return [];
       }
     },
-    // STABILITY FIX: Dependent on assessments which are already guarded
     enabled: !!session?.user?.id && assessments.length > 0
   });
 
