@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { uploadEvidenceFile, deleteEvidenceFile } from '@/services/storage';
 import { showSuccess, showError } from '@/utils/toast';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 
 export const useTeacherFileAttachments = (
   yearId: string | undefined, 

@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useClasses } from '@/context/ClassesContext';
 import { LessonLogDialog } from './LessonLogDialog';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 
 export const TimetableWidget = () => {

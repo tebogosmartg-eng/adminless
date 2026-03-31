@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Learner, AttendanceRecord, AttendanceStatus } from '@/lib/types';
 import { db } from '@/db';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { queueAction } from '@/services/sync';
 import { useAcademic } from '@/context/AcademicContext';
 import { useSettings } from '@/context/SettingsContext';

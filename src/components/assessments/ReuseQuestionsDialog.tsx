@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AssessmentQuestion, Assessment, ClassInfo, CognitiveLevel } from '@/lib/types';
 import { Search, Library, ArrowRight, ChevronLeft, LayoutList, CheckSquare } from 'lucide-react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { queryClient } from '@/App';
 
 class QueryShim {
   constructor(public tableName: string, public filters: any[] = [], public orderField?: string, public isReverse?: boolean, public limitCount?: number) {}
@@ -141,6 +142,10 @@ class QueryShim {
 class TableShim {
   constructor(public name: string) {}
 
+  private async invalidate() {
+      await queryClient.invalidateQueries({ queryKey: ['liveQuery'] });
+  }
+
   where(field: string | any) {
     return new QueryShim(this.name).where(field);
   }
@@ -180,6 +185,7 @@ class TableShim {
       }
       
       if (error) throw error;
+      await this.invalidate();
       return item.id;
   }
 
@@ -200,6 +206,7 @@ class TableShim {
       }
       
       if (error) throw error;
+      await this.invalidate();
   }
 
   async put(item: any) {
@@ -210,9 +217,12 @@ class TableShim {
       const options: any = {};
       if (this.name === 'attendance') {
           options.onConflict = 'learner_id,date';
+      } else if (this.name === 'assessment_marks') {
+          options.onConflict = 'assessment_id,learner_id';
       }
       const { error } = await supabase.from(this.name).upsert(item, options);
       if (error) throw error;
+      await this.invalidate();
       return item.id;
   }
 
@@ -220,12 +230,14 @@ class TableShim {
       if (!id || id === 'undefined') return;
       const { error } = await supabase.from(this.name).update(updates).eq('id', id);
       if (error) throw error;
+      await this.invalidate();
   }
 
   async delete(id: string) {
       if (!id || id === 'undefined') return;
       const { error } = await supabase.from(this.name).delete().eq('id', id);
       if (error) throw error;
+      await this.invalidate();
   }
 
   async bulkPut(items: any[]) {
@@ -233,9 +245,12 @@ class TableShim {
       const options: any = {};
       if (this.name === 'attendance') {
           options.onConflict = 'learner_id,date';
+      } else if (this.name === 'assessment_marks') {
+          options.onConflict = 'assessment_id,learner_id';
       }
       const { error } = await supabase.from(this.name).upsert(items, options);
       if (error) throw error;
+      await this.invalidate();
   }
   
   async count() {

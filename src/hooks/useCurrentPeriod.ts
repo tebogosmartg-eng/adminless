@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTimetable } from './useTimetable';
 import { format, isBefore, isAfter, parse } from 'date-fns';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 
 export const useCurrentPeriod = () => {

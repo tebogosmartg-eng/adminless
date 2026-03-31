@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 import { calculateWeightedAverage } from '@/utils/calculations';
 

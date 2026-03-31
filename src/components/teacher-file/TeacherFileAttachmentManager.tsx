@@ -13,7 +13,7 @@ import { TeacherFileAttachment } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { uploadEvidenceFile, deleteEvidenceFile } from '@/services/storage';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 
 interface TeacherFileAttachmentManagerProps {
   yearId: string | undefined;

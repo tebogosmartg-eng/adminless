@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 import { LearnerNote } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';

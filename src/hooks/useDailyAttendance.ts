@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/db';
 import { AttendanceStatus } from '@/lib/types';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { format } from 'date-fns';
 
 interface DailyStats {

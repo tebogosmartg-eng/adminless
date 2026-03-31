@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 import { LessonLog } from '@/lib/types';
 import { useAcademic } from '@/context/AcademicContext';

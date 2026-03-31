@@ -6,7 +6,7 @@ import { Assessment, Learner, AssessmentMark, DiagnosticRow, FullDiagnostic, Ass
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { generateAIDiagnostic } from '@/services/gemini';
 import { buildQuestionDiagnosis } from '@/utils/diagnosticEngine';
 

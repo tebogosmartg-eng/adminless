@@ -5,7 +5,7 @@ import { Learner, ClassInfo, Assessment, Rubric, AssessmentMark } from '@/lib/ty
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
 import { db } from '@/db';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { validateMarkEntry } from '@/utils/integrity';
 
 export const useMarkSheetLogic = (classInfo: ClassInfo) => {

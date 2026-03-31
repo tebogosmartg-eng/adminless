@@ -92,12 +92,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     queryFn: async () => {
       if (!session?.user?.id) return [];
       try {
-          const selectStr = '*, assessment_marks(*)';
+          const selectStr = '*, assessment_questions(*)';
           
           if (diagnosticMode) {
               const { data, error } = await supabase.from('assessments').select(selectStr).eq('user_id', session.user.id);
               if (error) throw error;
-              return (data || []).map(a => ({ ...a, questions: a.assessment_marks }));
+              return (data || []).map(a => ({ ...a, questions: a.assessment_questions }));
           }
           
           const termId = currentClassFilter?.termId || activeTerm?.id;
@@ -110,7 +110,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             .eq('user_id', session.user.id);
           
           if (error) throw error;
-          return (data || []).map(a => ({ ...a, questions: a.assessment_marks }));
+          return (data || []).map(a => ({ ...a, questions: a.assessment_questions }));
       } catch (e) {
           console.error("AdminLess error: Failed to fetch assessments", e);
           return [];
@@ -248,7 +248,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                 max_mark: q.max_mark
             }));
 
-            const { error: qError } = await supabase.from('assessment_marks').insert(questionPayloads);
+            const { error: qError } = await supabase.from('assessment_questions').insert(questionPayloads);
             if (qError) showError("Assessment created but detail storage failed.");
         }
 
@@ -271,7 +271,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         if (headerError) throw headerError;
 
         if (questions) {
-            await supabase.from('assessment_marks').delete().eq('assessment_id', a.id);
+            await supabase.from('assessment_questions').delete().eq('assessment_id', a.id);
             if (questions.length > 0) {
                 const questionPayloads = questions.map(q => ({
                     assessment_id: a.id,
@@ -282,7 +282,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                     cognitive_level: q.cognitive_level,
                     max_mark: q.max_mark
                 }));
-                await supabase.from('assessment_marks').insert(questionPayloads);
+                await supabase.from('assessment_questions').insert(questionPayloads);
             }
         }
 
@@ -314,20 +314,14 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const updateMarks = useCallback(async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
     if (!session?.user?.id || updates.length === 0) return;
     try {
-        const toUpsert = await Promise.all(updates.map(async (u) => {
-            const { data: existing } = await supabase.from('assessment_marks')
-              .select('id')
-              .eq('assessment_id', u.assessment_id)
-              .eq('learner_id', u.learner_id)
-              .maybeSingle(); // FIX: maybeSingle prevents 406 when no record exists
-
-            const cleaned = { ...u, id: existing?.id || crypto.randomUUID(), user_id: session.user.id };
+        const toUpsert = updates.map(u => {
+            const cleaned = { ...u, user_id: session.user.id };
             delete (cleaned as any).question_marks;
             delete (cleaned as any).rubric_selections;
-            return cleaned as AssessmentMark;
-        }));
+            return cleaned;
+        });
 
-        const { error } = await supabase.from('assessment_marks').upsert(toUpsert);
+        const { error } = await supabase.from('assessment_marks').upsert(toUpsert, { onConflict: 'assessment_id,learner_id' });
         if (error) throw error;
 
         await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });

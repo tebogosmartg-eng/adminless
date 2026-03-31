@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 import { useClasses } from '@/context/ClassesContext';
 import { useSettings } from '@/context/SettingsContext';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 
 export type StepStatus = 'not-started' | 'in-progress' | 'completed';

@@ -6,7 +6,7 @@ import { ModerationSample, Learner, AssessmentMark, Assessment } from '@/lib/typ
 import { supabase } from '@/integrations/supabase/client';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 
 export const useModerationSample = (yearId: string, termId: string, classId: string) => {
   const [loading, setLoading] = useState(false);

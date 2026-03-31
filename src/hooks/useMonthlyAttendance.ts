@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { AttendanceStatus } from '@/lib/types';

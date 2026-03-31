@@ -1,6 +1,6 @@
 "use client";
 
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 import { ReviewSnapshot } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
