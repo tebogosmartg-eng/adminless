@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Assessment, Rubric, AssessmentQuestion, CognitiveLevel } from '@/lib/types';
+import { Assessment, Rubric, AssessmentQuestion } from '@/lib/types';
 import { Layers } from 'lucide-react';
 import { BulkQuestionImportDialog } from './BulkQuestionImportDialog';
 import { ReuseQuestionsDialog } from './ReuseQuestionsDialog';
@@ -33,7 +33,6 @@ export const EditAssessmentDialog = ({
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isReuseOpen, setIsReuseOpen] = useState(false);
 
-  // Fetch contextual class info so we can refine suggestions by subject and grade
   const classInfo = useLiveQuery(() => assessment ? db.classes.get(assessment.class_id) : undefined, [assessment?.class_id]);
   const topicSuggestions = useTopicSuggestions(classInfo?.subject, classInfo?.grade);
 
@@ -44,7 +43,7 @@ export const EditAssessmentDialog = ({
   }, [assessment]);
 
   const handleSave = () => {
-    if (formData.title && formData.max_mark !== undefined && formData.weight !== undefined) {
+    if ((formData.title || '').trim() && formData.max_mark !== undefined && formData.weight !== undefined) {
       onSave(formData as Assessment);
     }
   };
@@ -57,7 +56,7 @@ export const EditAssessmentDialog = ({
           ...formData, 
           rubric_id: rubricId,
           max_mark: rubric ? rubric.total_points : formData.max_mark,
-          questions: [] // Rubrics and questions are mutually exclusive
+          questions: [] 
       });
   };
 

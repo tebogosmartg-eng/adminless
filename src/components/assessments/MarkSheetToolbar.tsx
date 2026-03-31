@@ -2,20 +2,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { Switch } from "@/components/ui/switch";
 import { Calendar, Eye, AlertCircle, Search, Settings2, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, ShieldCheck, XCircle, Trash2, ListChecks, Library } from 'lucide-react';
-import { Assessment, Term, AcademicYear, Rubric, ClassInfo, AssessmentQuestion, CognitiveLevel } from '@/lib/types';
+import { Assessment, Term, AcademicYear, Rubric, ClassInfo, AssessmentQuestion } from '@/lib/types';
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { BulkQuestionImportDialog } from "./BulkQuestionImportDialog";
 import { ReuseQuestionsDialog } from "./ReuseQuestionsDialog";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTopicSuggestions } from "@/hooks/useTopicSuggestions";
 import { QuestionBuilder } from "./QuestionBuilder";
 
@@ -108,7 +106,7 @@ export const MarkSheetToolbar = ({
   };
 
   const targetTermName = terms.find(t => t.id === (newAss.termId || activeTerm?.id))?.name;
-  const isFormValid = newAss.title?.trim() && newAss.max > 0 && newAss.weight >= 0;
+  const isFormValid = (newAss.title || '').trim() && newAss.max > 0 && newAss.weight >= 0;
 
   return (
     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b pb-4">
@@ -141,55 +139,12 @@ export const MarkSheetToolbar = ({
                         <span className="text-[10px] font-black uppercase tracking-widest">Setup: {progress}%</span>
                     </div>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                    <div className="space-y-1.5 p-1">
-                        <p className="font-bold text-xs">Term Setup Status</p>
-                        {progress === 100 ? (
-                            <p className="text-[10px]">Your academic context is fully validated and ready for finalisation.</p>
-                        ) : (
-                            <>
-                                <p className="text-[10px] text-muted-foreground">Outstanding requirements:</p>
-                                <div className="space-y-1 mt-1">
-                                    {missingRequired.slice(0, 3).map(s => (
-                                        <div key={s.id} className="flex items-center gap-2 text-[9px] font-medium">
-                                            <XCircle className="h-2.5 w-2.5 text-red-500" /> {s.title}
-                                        </div>
-                                    ))}
-                                    {missingRequired.length > 3 && <p className="text-[9px] italic">+ {missingRequired.length - 3} more</p>}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
-          <div className="flex items-center gap-2 px-3 py-1 bg-muted/40 rounded-full border border-transparent transition-all">
-            {isAutoSaving ? (
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-primary animate-pulse">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Auto-saving...
-                </div>
-            ) : editedMarksCount > 0 ? (
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600">
-                    <AlertCircle className="h-3 w-3" /> Pending changes
-                </div>
-            ) : (
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-green-600">
-                    <CheckCircle2 className="h-3 w-3" /> Saved locally
-                </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider font-bold">
-          <span className={isWeightValid ? "text-green-600" : "text-amber-600"}>
-            Weighting: {currentTotalWeight}%
-          </span>
-          {!isWeightValid && <AlertCircle className="h-3 w-3 text-amber-500" />}
         </div>
       </div>
 
-      <div className="flex flex-1 flex-wrap items-center gap-2 w-full xl:w-auto justify-start sm:justify-end">
+      <div className="flex items-center gap-2 w-full xl:w-auto justify-start sm:justify-end">
         <div className="relative w-full sm:w-48">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -264,7 +219,7 @@ export const MarkSheetToolbar = ({
                   <div className="grid gap-4">
                       <div className="grid grid-cols-4 items-center gap-4">
                           <Label className="text-right text-xs">Task Title</Label>
-                          <Input value={newAss.title} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Investigation 1" />
+                          <Input value={newAss.title || ""} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Investigation 1" />
                       </div>
                       
                       <div className="grid grid-cols-4 items-center gap-4">
@@ -291,7 +246,7 @@ export const MarkSheetToolbar = ({
                           <Label className="text-right text-xs">Total Marks</Label>
                           <Input 
                               type="number" 
-                              value={newAss.max} 
+                              value={newAss.max || ""} 
                               onChange={e => setNewAss({ ...newAss, max: parseInt(e.target.value) || 0 })} 
                               className="col-span-3 h-9"
                               disabled={!!newAss.rubricId && newAss.rubricId !== 'none' || (newAss.questions && newAss.questions.length > 0)}
@@ -299,7 +254,7 @@ export const MarkSheetToolbar = ({
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
                           <Label className="text-right text-xs">Weighting %</Label>
-                          <Input type="number" value={newAss.weight} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) || 0 })} className="col-span-3 h-9" />
+                          <Input type="number" value={newAss.weight || ""} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) || 0 })} className="col-span-3 h-9" />
                       </div>
                   </div>
 
@@ -326,20 +281,6 @@ export const MarkSheetToolbar = ({
           </DialogContent>
         </Dialog>
       </div>
-
-      <BulkQuestionImportDialog 
-        open={isBulkImportOpen}
-        onOpenChange={setIsBulkImportOpen}
-        onImport={handleImportQuestions}
-        existingQuestions={newAss.questions}
-      />
-
-      <ReuseQuestionsDialog
-        open={isReuseOpen}
-        onOpenChange={setIsReuseOpen}
-        onImport={handleImportQuestions}
-        existingQuestionsCount={(newAss.questions || []).length}
-      />
     </div>
   );
 };
