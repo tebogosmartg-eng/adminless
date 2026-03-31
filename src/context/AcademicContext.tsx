@@ -102,7 +102,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           const termId = currentClassFilter?.termId || activeTerm?.id;
           const classId = currentClassFilter?.classId;
 
-          // STABILITY FIX: Strict guard against invalid IDs
           if (!classId || classId === 'undefined' || !termId || termId === 'undefined') return [];
           
           const { data, error } = await supabase.from('assessments')
@@ -227,12 +226,14 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         const id = crypto.randomUUID();
         const { questions, ...headerData } = assessment;
         
+        // Clean payload of any relationship fields that might be present
         const payload = { 
             ...headerData, 
             id, 
             user_id: session.user.id,
             academic_year_id: activeYear.id
         };
+        delete (payload as any).assessment_questions;
 
         const { error: headerError } = await supabase.from('assessments').insert(payload);
         if (headerError) throw headerError;
@@ -264,10 +265,15 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const updateAssessment = useCallback(async (a: Assessment) => {
     try {
         const { questions, ...headerData } = a;
-        const { error: headerError } = await supabase.from('assessments').upsert({
+        
+        // Clean payload of any relationship fields that might be present
+        const payload = {
             ...headerData,
             user_id: session?.user?.id
-        });
+        };
+        delete (payload as any).assessment_questions;
+
+        const { error: headerError } = await supabase.from('assessments').upsert(payload);
         if (headerError) throw headerError;
 
         if (questions) {

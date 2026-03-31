@@ -35,6 +35,7 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
       }
       delete payload.termId;
       delete payload.questions;
+      delete payload.assessment_questions; // Strip relationship field
       delete payload.rubric_id;
       delete payload.task_slot_key;
     }
