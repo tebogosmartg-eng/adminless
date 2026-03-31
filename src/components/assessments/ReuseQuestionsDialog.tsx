@@ -30,7 +30,6 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
 
-  // Fetch all assessments and classes to build the bank
   const allAssessments = useLiveQuery(() => db.assessments.toArray()) || [];
   const allClasses = useLiveQuery(() => db.classes.toArray()) || [];
 
@@ -40,7 +39,6 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
     return map;
   }, [allClasses]);
 
-  // Only show assessments that actually have questions
   const bankAssessments = useMemo(() => {
     return allAssessments
       .filter(a => a.questions && a.questions.length > 0)
@@ -48,9 +46,9 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
         const cls = classMap.get(a.class_id);
         return {
           ...a,
-          subject: cls?.subject || 'Unknown Subject',
-          grade: cls?.grade || 'Unknown Grade',
-          className: cls?.className || 'Unknown Class'
+          subject: (cls?.subject || 'Unknown Subject'),
+          grade: (cls?.grade || 'Unknown Grade'),
+          className: (cls?.className || 'Unknown Class')
         };
       })
       .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -60,9 +58,9 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
     if (!search.trim()) return bankAssessments;
     const lowerSearch = search.toLowerCase();
     return bankAssessments.filter(a => 
-      a.title.toLowerCase().includes(lowerSearch) ||
-      a.subject.toLowerCase().includes(lowerSearch) ||
-      a.grade.toLowerCase().includes(lowerSearch)
+      (a.title || '').toLowerCase().includes(lowerSearch) ||
+      (a.subject || '').toLowerCase().includes(lowerSearch) ||
+      (a.grade || '').toLowerCase().includes(lowerSearch)
     );
   }, [bankAssessments, search]);
 
@@ -70,7 +68,6 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
     return bankAssessments.find(a => a.id === selectedAssessmentId) || null;
   }, [bankAssessments, selectedAssessmentId]);
 
-  // Reset state when dialog opens/closes
   useEffect(() => {
     if (open) {
       setStep('select_assessment');
@@ -81,7 +78,6 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
     }
   }, [open]);
 
-  // Auto-select all questions when moving to step 2
   useEffect(() => {
     if (step === 'select_questions' && selectedAssessment?.questions) {
       setSelectedQuestionIds(new Set(selectedAssessment.questions.map(q => q.id)));
@@ -115,12 +111,11 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
       return;
     }
 
-    // Filter selected questions, map to new UUIDs to avoid conflicts, and preserve order
     const questionsToImport = selectedAssessment.questions
       .filter(q => selectedQuestionIds.has(q.id))
       .map(q => ({
         ...q,
-        id: crypto.randomUUID() // Clone with new ID
+        id: crypto.randomUUID()
       }));
 
     onImport(questionsToImport, importMode);
@@ -156,7 +151,7 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
                     <DialogDescription>
                         {step === 'select_assessment' 
                             ? "Browse your past assessments to reuse existing questions and metadata." 
-                            : `Review and select questions from "${selectedAssessment?.title}".`}
+                            : `Review and select questions from "${selectedAssessment?.title || ''}".`}
                     </DialogDescription>
                 </div>
                 {step === 'select_questions' && (
@@ -206,15 +201,15 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
                                 >
                                     <div className="space-y-1.5 min-w-0 pr-4">
                                         <h4 className="font-bold text-base text-slate-900 dark:text-slate-100 truncate">
-                                            {ass.title}
+                                            {ass.title || "Untitled Assessment"}
                                         </h4>
                                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-medium">
                                             <Badge variant="secondary" className="text-[10px] uppercase font-black px-1.5 h-4">
-                                                {ass.grade}
+                                                {ass.grade || "N/A"}
                                             </Badge>
-                                            <span className="truncate max-w-[150px]">{ass.subject}</span>
+                                            <span className="truncate max-w-[150px]">{ass.subject || "N/A"}</span>
                                             <span>•</span>
-                                            <span>{ass.type}</span>
+                                            <span>{ass.type || "N/A"}</span>
                                         </div>
                                     </div>
                                     <div className="mt-4 sm:mt-0 flex items-center gap-4 shrink-0">
@@ -245,12 +240,13 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
         ) : (
             <div className="flex-1 flex flex-col overflow-hidden bg-muted/5">
                 <div className="p-4 border-b bg-background flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                         <Button variant="outline" size="sm" onClick={() => setStep('select_assessment')} className="h-8 px-2">
                             <ChevronLeft className="h-4 w-4 mr-1" /> Back
                         </Button>
-                        <div className="h-4 w-px bg-border" />
-                        <span className="text-sm font-bold">{selectedQuestionIds.size} of {selectedAssessment?.questions?.length} selected</span>
+                        <Badge variant="secondary" className="text-sm px-3 py-1">
+                            {selectedQuestionIds.size} of {selectedAssessment?.questions?.length || 0} selected
+                        </Badge>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -280,7 +276,7 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
                                     </TableHead>
                                     <TableHead className="w-20 text-[10px] font-black uppercase">Num</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase">Skill / Description</TableHead>
-                                    <TableHead className="w-40 text-[10px] font-black uppercase">Topic</TableHead>
+                                    <TableHead className="w-44 text-[10px] font-black uppercase">Topic</TableHead>
                                     <TableHead className="w-32 text-[10px] font-black uppercase">Cognitive</TableHead>
                                     <TableHead className="w-20 text-[10px] font-black uppercase text-center">Max</TableHead>
                                 </TableRow>
@@ -295,7 +291,7 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
                                         <TableCell className="text-center">
                                             <Checkbox checked={selectedQuestionIds.has(q.id)} />
                                         </TableCell>
-                                        <TableCell className="font-bold text-xs">{q.question_number}</TableCell>
+                                        <TableCell className="font-bold text-xs">{q.question_number || "-"}</TableCell>
                                         <TableCell className="text-sm font-medium">{q.skill_description || "-"}</TableCell>
                                         <TableCell>
                                             {q.topic ? <Badge variant="outline" className="text-[10px] bg-white">{q.topic}</Badge> : "-"}
@@ -307,7 +303,7 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
                                                 </Badge>
                                             ) : "-"}
                                         </TableCell>
-                                        <TableCell className="text-center font-bold text-sm">{q.max_mark}</TableCell>
+                                        <TableCell className="text-center font-bold text-sm">{q.max_mark || 0}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

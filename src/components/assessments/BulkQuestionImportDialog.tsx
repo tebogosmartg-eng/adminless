@@ -42,8 +42,8 @@ const mapCogLevel = (val?: string): CognitiveLevel => {
 };
 
 const processRowValues = (q: any, skill: any, topic: any, cog: any, max: any): ParsedRow => {
-    const qStr = String(q || '').trim();
-    const maxStr = String(max || '').trim();
+    const qStr = (String(q || '')).trim();
+    const maxStr = (String(max || '')).trim();
     const maxNum = parseFloat(maxStr);
     
     const errors = [];
@@ -53,8 +53,8 @@ const processRowValues = (q: any, skill: any, topic: any, cog: any, max: any): P
     return {
         id: crypto.randomUUID(),
         question_number: qStr,
-        skill_description: String(skill || '').trim() || 'Standard Question',
-        topic: normalizeTopic(String(topic || '').trim()), // Automatically normalize on import
+        skill_description: (String(skill || '')).trim() || 'Standard Question',
+        topic: normalizeTopic((String(topic || '')).trim()),
         cognitive_level: mapCogLevel(cog),
         max_mark: maxStr,
         isValid: errors.length === 0,
@@ -76,7 +76,6 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Since we are in an abstracted dialog, we get the global topic dictionary
   const topicSuggestions = useTopicSuggestions();
 
   const reset = () => {
@@ -130,7 +129,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                     delimiter: delimiter,
                     complete: (res2) => {
                         const mappedData = res2.data.map((row: any[]) => {
-                            const qStr = String(row[0] || '').trim();
+                            const qStr = (String(row[0] || '')).trim();
                             let maxStr = '';
                             let skillStr = '';
                             let topicStr = '';
@@ -182,9 +181,9 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
         const updated = { ...r, [field]: value };
         
         const errors = [];
-        if (!updated.question_number.trim()) errors.push("Missing Question Label");
+        if (!(updated.question_number || '').trim()) errors.push("Missing Question Label");
         const maxNum = parseFloat(updated.max_mark);
-        if (!updated.max_mark.trim() || isNaN(maxNum) || maxNum <= 0) errors.push("Invalid Max Mark");
+        if (!(updated.max_mark || '').trim() || isNaN(maxNum) || maxNum <= 0) errors.push("Invalid Max Mark");
         
         updated.isValid = errors.length === 0;
         updated.errors = errors;
@@ -321,7 +320,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                                             <Input 
                                                 value={row.question_number} 
                                                 onChange={(e) => updateRow(row.id, 'question_number', e.target.value)} 
-                                                className={cn("h-8 text-xs font-bold", !row.question_number && "border-red-500 focus-visible:ring-red-500")}
+                                                className={cn("h-8 text-xs font-bold", !(row.question_number || '').trim() && "border-red-500 focus-visible:ring-red-500")}
                                             />
                                         </TableCell>
                                         <TableCell className="p-2">
@@ -358,12 +357,12 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                                             <Input 
                                                 value={row.max_mark} 
                                                 onChange={(e) => updateRow(row.id, 'max_mark', e.target.value)} 
-                                                className={cn("h-8 text-xs text-center font-bold", (!row.max_mark || isNaN(parseFloat(row.max_mark))) && "border-red-500 focus-visible:ring-red-500")}
+                                                className={cn("h-8 text-xs text-center font-bold", (!(row.max_mark || '').trim() || isNaN(parseFloat(row.max_mark))) && "border-red-500 focus-visible:ring-red-500")}
                                             />
                                         </TableCell>
                                         <TableCell className="p-2 text-center">
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeRow(row.id)}>
-                                                <Trash2 className="h-4 w-4" />
+                                                <Trash2 className="h-3.5 w-3.5" />
                                             </Button>
                                         </TableCell>
                                     </TableRow>
@@ -380,7 +379,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                     </div>
                 </ScrollArea>
 
-                <div className="p-6 border-t bg-background flex flex-col sm:flex-row items-center justify-between shrink-0 gap-4">
+                <div className="p-6 border-t bg-background shrink-0 flex justify-between items-center gap-4">
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         {previewData.filter(r => !r.isValid).length > 0 && (
                             <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-200 text-xs font-bold w-full">
