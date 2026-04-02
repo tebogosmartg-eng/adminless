@@ -181,9 +181,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
         await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
         await queryClient.invalidateQueries({ queryKey: ['terms'] });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error: Failed to create year", e);
-        showError("Failed to initialize academic year.");
+        showError("Failed to initialize academic year: " + e.message);
+        throw e;
     }
   }, [session?.user?.id, queryClient]);
 
@@ -197,9 +198,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
         await queryClient.invalidateQueries({ queryKey: ['terms'] });
         showSuccess("Academic year deleted.");
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error: Failed to delete year", e);
         showError("Failed to delete academic year. Make sure it is empty.");
+        throw e;
     }
   }, [queryClient]);
 
@@ -210,9 +212,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         const { error } = await supabase.from('terms').upsert(payload);
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['terms'] });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error: Failed to update term", e);
-        showError("Failed to update term settings.");
+        showError("Failed to update term settings: " + e.message);
+        throw e;
     }
   }, [queryClient]);
 
@@ -226,7 +229,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         const id = crypto.randomUUID();
         const { questions, ...headerData } = assessment;
         
-        // Clean payload of any relationship fields that might be present
         const payload = { 
             ...headerData, 
             id, 
@@ -250,7 +252,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             }));
 
             const { error: qError } = await supabase.from('assessment_questions').insert(questionPayloads);
-            if (qError) showError("Assessment created but detail storage failed.");
+            if (qError) throw qError;
         }
 
         await queryClient.invalidateQueries({ queryKey: ['assessments'] });
@@ -258,7 +260,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         return id;
     } catch (e: any) {
         console.error("FAT Save Failure:", e);
-        showError("Failed to record assessment.");
+        showError("Failed to record assessment: " + e.message);
+        throw e;
     }
   }, [session?.user?.id, activeYear, queryClient]);
 
@@ -266,7 +269,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     try {
         const { questions, ...headerData } = a;
         
-        // Clean payload of any relationship fields that might be present
         const payload = {
             ...headerData,
             user_id: session?.user?.id
@@ -288,15 +290,17 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                     cognitive_level: q.cognitive_level,
                     max_mark: q.max_mark
                 }));
-                await supabase.from('assessment_questions').insert(questionPayloads);
+                const { error: qError } = await supabase.from('assessment_questions').insert(questionPayloads);
+                if (qError) throw qError;
             }
         }
 
         await queryClient.invalidateQueries({ queryKey: ['assessments'] });
         showSuccess("Assessment settings updated.");
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error: Failed to update assessment", e);
-        showError("Failed to update assessment.");
+        showError("Failed to update assessment: " + e.message);
+        throw e;
     }
   }, [session?.user?.id, queryClient]);
 
@@ -311,9 +315,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         await queryClient.invalidateQueries({ queryKey: ['assessments'] });
         await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
         showSuccess("Assessment deleted.");
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error: Failed to delete assessment", e);
-        showError("Failed to delete assessment.");
+        showError("Failed to delete assessment: " + e.message);
+        throw e;
     }
   }, [queryClient]);
 
@@ -322,8 +327,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     try {
         const toUpsert = updates.map(u => {
             const cleaned = { ...u, user_id: session.user.id };
-            delete (cleaned as any).question_marks;
-            delete (cleaned as any).rubric_selections;
             return cleaned;
         });
 
@@ -332,9 +335,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
         await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
         updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error: Failed to update marks", e);
-        showError("Failed to update marks. Please check your connection.");
+        showError("Failed to update marks: " + e.message);
+        throw e;
     }
   }, [session?.user?.id, updateLearnerActiveAverages, queryClient]);
 
@@ -350,9 +354,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         const { error } = await supabase.from('terms').update({ closed: finalised }).eq('id', termId);
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['terms'] });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error: Failed to toggle term status", e);
-        showError("Failed to update term status.");
+        showError("Failed to update term status: " + e.message);
+        throw e;
     }
   }, [queryClient]);
 
@@ -361,18 +366,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         const { error } = await supabase.from('academic_years').update({ closed: true }).eq('id', id);
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error: Failed to close year", e);
-        showError("Failed to finalise academic year.");
+        showError("Failed to finalise academic year: " + e.message);
+        throw e;
     }
   }, [queryClient]);
 
   const rollForwardClasses = useCallback(async (s: string, t: string, d: any[]) => {
       try {
           await doRollForward(activeYear?.id || '', s, t, d, setActiveTerm);
-      } catch (e) {
+      } catch (e: any) {
           console.error("AdminLess error: Roll forward failed", e);
-          showError("Failed to roll forward classes.");
+          showError("Failed to roll forward classes: " + e.message);
+          throw e;
       }
   }, [doRollForward, activeYear?.id, setActiveTerm]);
 

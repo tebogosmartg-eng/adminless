@@ -10,13 +10,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 interface ClassesContextType {
   classes: ClassInfo[];
   loading: boolean;
-  addClass: (classInfo: ClassInfo) => void;
-  updateLearners: (classId: string, updatedLearners: Learner[]) => void;
-  updateClassDetails: (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => void;
-  deleteClass: (classId: string) => void;
-  updateClassLearners: (classId: string, newLearners: Learner[]) => void;
-  toggleClassArchive: (classId: string, archived: boolean) => void;
-  updateClassNotes: (classId: string, notes: string) => void;
+  addClass: (classInfo: ClassInfo) => Promise<void>;
+  updateLearners: (classId: string, updatedLearners: Learner[]) => Promise<void>;
+  updateClassDetails: (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => Promise<void>;
+  deleteClass: (classId: string) => Promise<void>;
+  updateClassLearners: (classId: string, newLearners: Learner[]) => Promise<void>;
+  toggleClassArchive: (classId: string, archived: boolean) => Promise<void>;
+  updateClassNotes: (classId: string, notes: string) => Promise<void>;
   renameLearner: (learnerId: string, newName: string) => Promise<void>;
   finalizeClassTerm: (classId: string) => Promise<void>;
 }
@@ -28,15 +28,12 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const { activeYear, activeTerm, diagnosticMode } = useAcademic();
   const queryClient = useQueryClient();
 
-  // STABILITY FIX: Global guard for context readiness
   const isReady = !!activeYear?.id && !!activeTerm?.id;
 
   const { data: classes = [], isLoading: loading } = useQuery({
     queryKey: ['classes', session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode],
     queryFn: async () => {
       if (!session?.user.id) return [];
-      
-      // Strict execution guard
       if (!diagnosticMode && !isReady) return []; 
 
       try {
@@ -71,7 +68,6 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
           return [];
       }
     },
-    // STABILITY FIX: Block execution until session and academic context are fully resolved
     enabled: !!session?.user.id && (diagnosticMode || isReady)
   });
 
@@ -85,6 +81,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       const classData = {
         id: newClass.id, 
         user_id: session.user.id,
+        year_id: newClass.year_id,
+        term_id: newClass.term_id,
         grade: newClass.grade,
         subject: newClass.subject,
         class_name: newClass.className, 
@@ -92,7 +90,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         notes: newClass.notes || ''
       };
 
-      const { error: cErr } = await supabase.from('classes').upsert(classData);
+      const { error: cErr } = await supabase.from('classes').insert(classData);
       if (cErr) throw cErr;
 
       if (newClass.learners.length > 0) {
@@ -100,26 +98,29 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
               id: l.id || crypto.randomUUID(),
               class_id: newClass.id,
               name: l.name,
-              gender: l.gender,
-              mark: l.mark,
-              comment: l.comment
+              gender: l.gender || null,
+              mark: l.mark || null,
+              comment: l.comment || null
           }));
-          const { error: lErr } = await supabase.from('learners').upsert(learnersWithIds);
+          const { error: lErr } = await supabase.from('learners').insert(learnersWithIds);
           if (lErr) throw lErr;
       }
 
       await queryClient.invalidateQueries({ queryKey: ['classes'] });
       logActivity(`Created class: "${newClass.className}"`);
-    } catch (e) {
+    } catch (e: any) {
       console.error("AdminLess error:", e);
-      showError("Failed to create class.");
+      showError("Failed to create class: " + e.message);
+      throw e;
     }
   };
 
   const updateLearners = async (classId: string, updatedLearners: Learner[]) => {
     if (!session?.user.id) return;
     try {
-        const { data: currentDbLearners } = await supabase.from('learners').select('id').eq('class_id', classId);
+        const { data: currentDbLearners, error: fetchErr } = await supabase.from('learners').select('id').eq('class_id', classId);
+        if (fetchErr) throw fetchErr;
+        
         const currentIds = (currentDbLearners || []).map(l => l.id);
         
         const newIds = new Set();
@@ -132,21 +133,28 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
                 id,
                 class_id: classId,
                 name: l.name,
-                gender: l.gender,
-                mark: l.mark,
-                comment: l.comment
+                gender: l.gender || null,
+                mark: l.mark === "" ? null : l.mark,
+                comment: l.comment || null
             });
         }
 
         const toDelete = currentIds.filter(id => !newIds.has(id));
         
-        if (toDelete.length > 0) await supabase.from('learners').delete().in('id', toDelete);
-        if (toUpsert.length > 0) await supabase.from('learners').upsert(toUpsert);
+        if (toDelete.length > 0) {
+            const { error: delErr } = await supabase.from('learners').delete().in('id', toDelete);
+            if (delErr) throw delErr;
+        }
+        if (toUpsert.length > 0) {
+            const { error: upsertErr } = await supabase.from('learners').upsert(toUpsert);
+            if (upsertErr) throw upsertErr;
+        }
 
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error:", e);
-        showError("Failed to update roster.");
+        showError("Failed to update roster: " + e.message);
+        throw e;
     }
   };
 
@@ -155,9 +163,10 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         const { error } = await supabase.from('learners').update({ name: newName }).eq('id', learnerId);
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error:", e);
-        showError("Failed to rename learner.");
+        showError("Failed to rename learner: " + e.message);
+        throw e;
     }
   };
 
@@ -171,9 +180,10 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         const { error } = await supabase.from('classes').update(updates).eq('id', classId);
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error:", e);
-        showError("Update failed.");
+        showError("Update failed: " + e.message);
+        throw e;
     }
   };
 
@@ -182,9 +192,10 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         const { error } = await supabase.from('classes').update({ notes }).eq('id', classId);
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error:", e);
-        showError("Failed to save notes.");
+        showError("Failed to save notes: " + e.message);
+        throw e;
     }
   };
 
@@ -195,21 +206,24 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
         showSuccess("Class finalised successfully.");
         logActivity(`Finalised class term data.`);
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error:", e);
-        showError("Failed to finalize class.");
+        showError("Failed to finalize class: " + e.message);
+        throw e;
     }
   };
 
   const deleteClass = async (classId: string) => {
     try {
-        await supabase.from('learners').delete().eq('class_id', classId);
-        const { error } = await supabase.from('classes').delete().eq('id', classId);
-        if (error) throw error;
+        const { error: delLearnErr } = await supabase.from('learners').delete().eq('class_id', classId);
+        if (delLearnErr) throw delLearnErr;
+        const { error: delClassErr } = await supabase.from('classes').delete().eq('id', classId);
+        if (delClassErr) throw delClassErr;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error:", e);
-        showError("Failed to delete class.");
+        showError("Failed to delete class: " + e.message);
+        throw e;
     }
   };
 
@@ -218,14 +232,15 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         const { error } = await supabase.from('classes').update({ archived }).eq('id', classId);
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
-    } catch (e) {
+    } catch (e: any) {
         console.error("AdminLess error:", e);
-        showError("Status update failed.");
+        showError("Status update failed: " + e.message);
+        throw e;
     }
   };
 
-  const updateClassLearners = (classId: string, newLearners: Learner[]) => {
-      updateLearners(classId, newLearners);
+  const updateClassLearners = async (classId: string, newLearners: Learner[]) => {
+      await updateLearners(classId, newLearners);
   };
 
   return (

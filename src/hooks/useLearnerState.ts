@@ -1,22 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Learner, ClassInfo } from '@/lib/types';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import confetti from 'canvas-confetti';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useLearnerState = (
   classInfo: ClassInfo | undefined,
-  updateLearnersContext: (classId: string, learners: Learner[]) => void
+  updateLearnersContext: (classId: string, learners: Learner[]) => Promise<void>
 ) => {
   const [learners, setLearners] = useState<Learner[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [prevGradedCount, setPrevGradedCount] = useState(0);
   
-  // Ref to track the last learners array from context that we synced with
   const lastSyncedLearnersRef = useRef<Learner[] | null>(null);
 
   useEffect(() => {
     if (classInfo) {
-      // Only update local state if the learners array reference has changed
       if (classInfo.learners !== lastSyncedLearnersRef.current) {
         setLearners(classInfo.learners);
         lastSyncedLearnersRef.current = classInfo.learners;
@@ -72,24 +71,52 @@ export const useLearnerState = (
     });
   }, []);
   
-  const handleRenameLearner = useCallback((index: number, newName: string) => {
-    setLearners(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], name: newName };
-      return updated;
-    });
-  }, []);
-
-  const handleRemoveLearner = useCallback((index: number) => {
-    if (confirm("Are you sure you want to remove this learner?")) {
-      setLearners(prev => prev.filter((_, i) => i !== index));
+  const handleRenameLearner = useCallback(async (index: number, newName: string) => {
+    const learner = learners[index];
+    if (!learner || !learner.id) return;
+    try {
+      const { error } = await supabase.from('learners').update({ name: newName }).eq('id', learner.id);
+      if (error) throw error;
+      setLearners(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], name: newName };
+        return updated;
+      });
+    } catch (err: any) {
+      showError("Failed to rename learner: " + err.message);
+      throw err;
     }
-  }, []);
+  }, [learners]);
 
-  const handleBatchDelete = useCallback((indices: number[]) => {
-    setLearners(prev => prev.filter((_, i) => !indices.includes(i)));
-    showSuccess(`Deleted ${indices.length} learners.`);
-  }, []);
+  const handleRemoveLearner = useCallback(async (index: number) => {
+    const learner = learners[index];
+    if (!learner || !learner.id) return;
+    if (confirm("Are you sure you want to remove this learner?")) {
+      try {
+        const { error } = await supabase.from('learners').delete().eq('id', learner.id);
+        if (error) throw error;
+        setLearners(prev => prev.filter((_, i) => i !== index));
+        showSuccess("Learner removed.");
+      } catch (err: any) {
+        showError("Failed to remove learner: " + err.message);
+        throw err;
+      }
+    }
+  }, [learners]);
+
+  const handleBatchDelete = useCallback(async (indices: number[]) => {
+    const toDeleteIds = indices.map(i => learners[i]?.id).filter(Boolean) as string[];
+    if (toDeleteIds.length === 0) return;
+    try {
+      const { error } = await supabase.from('learners').delete().in('id', toDeleteIds);
+      if (error) throw error;
+      setLearners(prev => prev.filter((_, i) => !indices.includes(i)));
+      showSuccess(`Deleted ${toDeleteIds.length} learners.`);
+    } catch (e: any) {
+      showError("Failed to delete learners: " + e.message);
+      throw e;
+    }
+  }, [learners]);
 
   const handleBatchComment = useCallback((indices: number[], comment: string) => {
     setLearners(prev => {
@@ -117,18 +144,36 @@ export const useLearnerState = (
     showSuccess(`Cleared marks for ${indices.length} learners.`);
   }, []);
 
-  const handleAddLearners = useCallback((input: string[] | Learner[]) => {
-    let newLearners: Learner[] = [];
+  const handleAddLearners = useCallback(async (input: string[] | Learner[]) => {
+    if (!classInfo?.id) return;
     
+    let newLearners: Learner[] = [];
     if (input.length > 0 && typeof input[0] === 'string') {
-        newLearners = (input as string[]).map(name => ({ name, mark: "" }));
+        newLearners = (input as string[]).map(name => ({ name, mark: "", class_id: classInfo.id }));
     } else {
-        newLearners = input as Learner[];
+        newLearners = (input as Learner[]).map(l => ({ ...l, class_id: classInfo.id }));
     }
     
-    setLearners(prev => [...prev, ...newLearners]);
-    showSuccess(`Added ${newLearners.length} learner(s). Remember to save changes.`);
-  }, []);
+    const learnersWithIds = newLearners.map(l => ({
+      ...l,
+      id: crypto.randomUUID(),
+      gender: l.gender || null,
+      mark: l.mark || null,
+      comment: l.comment || null
+    }));
+
+    try {
+      const { error } = await supabase.from('learners').insert(learnersWithIds);
+      if (error) throw error;
+      
+      setLearners(prev => [...prev, ...learnersWithIds]);
+      showSuccess(`Added ${newLearners.length} learner(s) successfully.`);
+    } catch (e: any) {
+      console.error("Error adding learners:", e);
+      showError("Failed to add learners: " + e.message);
+      throw e;
+    }
+  }, [classInfo?.id]);
 
   const handleClearMarks = useCallback(() => {
     if (confirm("Clear ALL marks and comments? This cannot be undone once saved.")) {
@@ -137,15 +182,28 @@ export const useLearnerState = (
     }
   }, []);
 
-  const handleUpdateLearners = useCallback((updatedLearners: Learner[]) => {
-    setLearners(updatedLearners);
-  }, []);
+  const handleUpdateLearners = useCallback(async (updatedLearners: Learner[]) => {
+    if (!classInfo?.id) return;
+    try {
+      await updateLearnersContext(classInfo.id, updatedLearners);
+      setLearners(updatedLearners);
+      showSuccess("Class roster updated successfully.");
+    } catch (err: any) {
+      showError("Failed to save changes: " + err.message);
+      throw err;
+    }
+  }, [classInfo?.id, updateLearnersContext]);
 
-  const handleSaveChanges = useCallback(() => {
+  const handleSaveChanges = useCallback(async () => {
     if (classInfo?.id) {
-      updateLearnersContext(classInfo.id, learners);
-      showSuccess("Changes have been saved successfully!");
-      setHasUnsavedChanges(false);
+      try {
+        await updateLearnersContext(classInfo.id, learners);
+        showSuccess("Changes have been saved successfully!");
+        setHasUnsavedChanges(false);
+      } catch (err: any) {
+        showError("Failed to save changes: " + err.message);
+        throw err;
+      }
     }
   }, [classInfo?.id, learners, updateLearnersContext]);
 

@@ -40,11 +40,6 @@ export const queueAction = async (table: string, action: 'create' | 'update' | '
       delete payload.task_slot_key;
     }
 
-    if (table === 'assessment_marks') {
-      delete payload.question_marks;
-      delete payload.rubric_selections;
-    }
-
     if (table === 'learners') {
       delete payload.user_id;
       delete payload.className;
