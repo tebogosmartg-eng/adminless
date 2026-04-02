@@ -3,12 +3,13 @@
 import { useClassAnalysis } from '@/hooks/useClassAnalysis';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
 import { Loader2, TrendingUp, Target, BookOpen, AlertCircle, UserCheck, ShieldAlert, Users, User, FileText, CalendarCheck, FileWarning } from 'lucide-react';
 import { Learner } from '@/lib/types';
 import { useSettings } from '@/context/SettingsContext';
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from "@/lib/utils";
 
 interface ClassAnalysisTabProps {
@@ -41,81 +42,140 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
 
   return (
     <div className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      {/* Class Overview Grid - Always Visible */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-        <Card className="shadow-none border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <Users className="h-3.5 w-3.5 text-primary" /> Total Learners
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl lg:text-3xl font-black text-foreground">{totalLearners}</div>
-          </CardContent>
-        </Card>
+      {/* Class Overview Grid - Interactive */}
+      <TooltipProvider delayDuration={100}>
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="shadow-none border bg-card transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-primary/30 group cursor-default">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Users className="h-3.5 w-3.5 text-primary transition-transform duration-300 group-hover:scale-125" /> Total Learners
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl lg:text-3xl font-black text-foreground">{totalLearners}</div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">Total learners currently enrolled in this class roster.</p>
+            </TooltipContent>
+          </Tooltip>
 
-        <Card className="shadow-none border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <User className="h-3.5 w-3.5 text-blue-500" /> Boys
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl lg:text-3xl font-black text-foreground">{maleCount}</div>
-          </CardContent>
-        </Card>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="shadow-none border bg-card transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 group cursor-default">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-blue-500 transition-transform duration-300 group-hover:scale-125" /> Boys
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl lg:text-3xl font-black text-foreground">{maleCount}</div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">Number of male learners recorded.</p>
+            </TooltipContent>
+          </Tooltip>
 
-        <Card className="shadow-none border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <User className="h-3.5 w-3.5 text-pink-500" /> Girls
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-                <div className="text-2xl lg:text-3xl font-black text-foreground">{femaleCount}</div>
-            </div>
-            {unassignedCount > 0 && (
-                <p className="text-[10px] text-muted-foreground mt-1">+{unassignedCount} n/a</p>
-            )}
-          </CardContent>
-        </Card>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="shadow-none border bg-card transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-pink-300 group cursor-default">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-pink-500 transition-transform duration-300 group-hover:scale-125" /> Girls
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-baseline gap-2">
+                      <div className="text-2xl lg:text-3xl font-black text-foreground">{femaleCount}</div>
+                  </div>
+                  {unassignedCount > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-1">+{unassignedCount} unassigned</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">Number of female learners recorded.</p>
+            </TooltipContent>
+          </Tooltip>
 
-        <Card className="shadow-none border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <FileText className="h-3.5 w-3.5 text-purple-500" /> Assessments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl lg:text-3xl font-black text-foreground">{assessmentsCount}</div>
-          </CardContent>
-        </Card>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="shadow-none border bg-card transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-purple-300 group cursor-default">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5 text-purple-500 transition-transform duration-300 group-hover:scale-125" /> Assessments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl lg:text-3xl font-black text-foreground">{assessmentsCount}</div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">Total formal assessment tasks created for this term.</p>
+            </TooltipContent>
+          </Tooltip>
 
-        <Card className="shadow-none border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <CalendarCheck className="h-3.5 w-3.5 text-green-500" /> Attendance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl lg:text-3xl font-black text-foreground">{attendanceRate}%</div>
-          </CardContent>
-        </Card>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="shadow-none border bg-card transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-green-300 group cursor-default">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <CalendarCheck className="h-3.5 w-3.5 text-green-500 transition-transform duration-300 group-hover:scale-125" /> Attendance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl lg:text-3xl font-black text-foreground">{attendanceRate}%</div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">Average attendance rate for this class over the current term.</p>
+            </TooltipContent>
+          </Tooltip>
 
-        <Card className="shadow-none border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <FileWarning className="h-3.5 w-3.5 text-amber-500" /> Missing Marks
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={cn("text-2xl lg:text-3xl font-black", missingMarksCount > 0 ? "text-amber-600" : "text-foreground")}>
-                {missingMarksCount}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className={cn(
+                  "shadow-none border bg-card transition-all duration-300 group cursor-default",
+                  missingMarksCount > 0 
+                    ? "hover:shadow-md hover:-translate-y-1 hover:shadow-amber-500/10 hover:border-amber-300" 
+                    : "hover:shadow-md hover:-translate-y-1 hover:border-primary/20"
+                )}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <FileWarning className={cn(
+                      "h-3.5 w-3.5 transition-transform duration-300 group-hover:scale-125",
+                      missingMarksCount > 0 ? "text-amber-500" : "text-muted-foreground"
+                    )} /> Missing Marks
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className={cn(
+                    "text-2xl lg:text-3xl font-black transition-colors duration-300", 
+                    missingMarksCount > 0 ? "text-amber-600 group-hover:text-amber-500" : "text-foreground"
+                  )}>
+                      {missingMarksCount}
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">
+                {missingMarksCount > 0 
+                  ? `${missingMarksCount} expected marks have not been recorded yet.` 
+                  : "All marks for created assessments are fully captured."}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
 
       {/* Performance Section - Requires Marks */}
       {!analysisData || analysisData.totalAssessments === 0 ? (
@@ -132,7 +192,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
         <>
           {/* Top Pulse Row */}
           <div className="grid gap-4 md:grid-cols-3">
-            <Card className="bg-primary/5 border-primary/20 shadow-none">
+            <Card className="bg-primary/5 border-primary/20 shadow-none hover:shadow-md transition-all duration-300">
               <CardHeader className="pb-2">
                 <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                     <Target className="h-3.5 w-3.5 text-primary" /> Term Average
@@ -144,7 +204,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
               </CardContent>
             </Card>
 
-            <Card className="shadow-none border">
+            <Card className="shadow-none border hover:shadow-md transition-all duration-300">
               <CardHeader className="pb-2">
                 <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                     <BookOpen className="h-3.5 w-3.5 text-blue-500" /> Stability
@@ -159,7 +219,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
               </CardContent>
             </Card>
 
-            <Card className="shadow-none border">
+            <Card className="shadow-none border hover:shadow-md transition-all duration-300">
               <CardHeader className="pb-2">
                 <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                     <ShieldAlert className="h-3.5 w-3.5 text-red-500" /> Pass Rate
@@ -197,7 +257,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
                         height={50}
                       />
                       <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                      <Tooltip 
+                      <RechartsTooltip 
                         contentStyle={{ borderRadius: '8px', fontSize: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         formatter={(val) => [`${val}%`, 'Avg']}
                       />
@@ -228,7 +288,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
                       {analysisData.learnerPerformance.slice(0, 3).map((l, i) => {
                           const details = learners.find(st => st.id === l.learnerId);
                           return (
-                              <div key={i} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+                              <div key={i} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
                                   <div className="flex items-center gap-3">
                                       <div className="h-8 w-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-xs">
                                           #{i+1}
@@ -256,7 +316,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
                       {analysisData.learnerPerformance.filter(l => l.average < atRiskThreshold).slice(0, 4).map((l, i) => {
                           const details = learners.find(st => st.id === l.learnerId);
                           return (
-                              <div key={i} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+                              <div key={i} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
                                   <div className="flex items-center gap-3">
                                       <div className="h-8 w-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center">
                                           <AlertCircle className="h-4 w-4" />
