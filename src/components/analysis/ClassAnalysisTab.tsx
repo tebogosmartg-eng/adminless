@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { Loader2, TrendingUp, Target, BookOpen, AlertCircle, UserCheck, ShieldAlert, Users, User, FileText } from 'lucide-react';
+import { Loader2, TrendingUp, Target, BookOpen, AlertCircle, UserCheck, ShieldAlert, Users, User, FileText, CalendarCheck, FileWarning } from 'lucide-react';
 import { Learner } from '@/lib/types';
 import { useSettings } from '@/context/SettingsContext';
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ interface ClassAnalysisTabProps {
 }
 
 export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTabProps) => {
-  const { analysisData, loading } = useClassAnalysis(classId, termId);
+  const { analysisData, loading } = useClassAnalysis(classId, termId, learners.length);
   const { atRiskThreshold } = useSettings();
 
   if (loading) {
@@ -36,11 +36,13 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
   const femaleCount = learners.filter(l => l.gender === 'Female').length;
   const unassignedCount = totalLearners - maleCount - femaleCount;
   const assessmentsCount = analysisData?.totalAssessments || 0;
+  const attendanceRate = analysisData?.attendanceRate || 0;
+  const missingMarksCount = analysisData?.missingMarksCount || 0;
 
   return (
     <div className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
       {/* Class Overview Grid - Always Visible */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <Card className="shadow-none border bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
@@ -48,7 +50,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-foreground">{totalLearners}</div>
+            <div className="text-2xl lg:text-3xl font-black text-foreground">{totalLearners}</div>
           </CardContent>
         </Card>
 
@@ -59,7 +61,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-foreground">{maleCount}</div>
+            <div className="text-2xl lg:text-3xl font-black text-foreground">{maleCount}</div>
           </CardContent>
         </Card>
 
@@ -71,10 +73,10 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-                <div className="text-3xl font-black text-foreground">{femaleCount}</div>
+                <div className="text-2xl lg:text-3xl font-black text-foreground">{femaleCount}</div>
             </div>
             {unassignedCount > 0 && (
-                <p className="text-[10px] text-muted-foreground mt-1">+{unassignedCount} unassigned</p>
+                <p className="text-[10px] text-muted-foreground mt-1">+{unassignedCount} n/a</p>
             )}
           </CardContent>
         </Card>
@@ -86,7 +88,31 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-foreground">{assessmentsCount}</div>
+            <div className="text-2xl lg:text-3xl font-black text-foreground">{assessmentsCount}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-none border bg-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <CalendarCheck className="h-3.5 w-3.5 text-green-500" /> Attendance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl lg:text-3xl font-black text-foreground">{attendanceRate}%</div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-none border bg-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <FileWarning className="h-3.5 w-3.5 text-amber-500" /> Missing Marks
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={cn("text-2xl lg:text-3xl font-black", missingMarksCount > 0 ? "text-amber-600" : "text-foreground")}>
+                {missingMarksCount}
+            </div>
           </CardContent>
         </Card>
       </div>

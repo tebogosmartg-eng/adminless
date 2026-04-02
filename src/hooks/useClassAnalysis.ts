@@ -5,7 +5,7 @@ import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 import { calculateWeightedAverage } from '@/utils/calculations';
 
-export const useClassAnalysis = (classId: string, termId: string | undefined) => {
+export const useClassAnalysis = (classId: string, termId: string | undefined, learnersCount: number = 0) => {
   // 1. Fetch assessments for this specific class and term
   const assessments = useLiveQuery(
     () => termId ? db.assessments.where('[class_id+term_id]').equals([classId, termId]).toArray() : [],
@@ -22,8 +22,38 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
     [assessments]
   ) || [];
 
+  // 3. Fetch attendance records for this class and term
+  const attendance = useLiveQuery(
+    () => termId ? db.attendance.where('class_id').equals(classId).filter((r: any) => r.term_id === termId).toArray() : [],
+    [classId, termId]
+  ) || [];
+
   const analysisData = useMemo(() => {
-    if (!termId || assessments.length === 0) return null;
+    if (!termId) return null;
+
+    // Calculate attendance rate
+    let attendanceRate = 0;
+    if (attendance.length > 0) {
+        const presentLike = attendance.filter((r: any) => r.status === 'present' || r.status === 'late').length;
+        attendanceRate = Math.round((presentLike / attendance.length) * 100);
+    }
+
+    // Calculate missing marks
+    const expectedMarks = assessments.length * learnersCount;
+    const recordedMarks = marks.filter((m: any) => m.score !== null).length;
+    const missingMarksCount = Math.max(0, expectedMarks - recordedMarks);
+
+    if (assessments.length === 0) {
+        return {
+            assessmentPerformance: [],
+            learnerPerformance: [],
+            classAverage: 0,
+            passRate: 0,
+            totalAssessments: 0,
+            attendanceRate,
+            missingMarksCount
+        };
+    }
 
     // Calculate per-assessment stats
     const assessmentPerformance = assessments.map((ass: any) => {
@@ -64,9 +94,11 @@ export const useClassAnalysis = (classId: string, termId: string | undefined) =>
       learnerPerformance,
       classAverage: classAvg,
       passRate,
-      totalAssessments: assessments.length
+      totalAssessments: assessments.length,
+      attendanceRate,
+      missingMarksCount
     };
-  }, [assessments, marks, termId]);
+  }, [assessments, marks, attendance, termId, learnersCount]);
 
   return { analysisData, loading: !analysisData && assessments.length > 0 };
 };
