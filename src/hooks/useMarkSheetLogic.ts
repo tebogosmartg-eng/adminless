@@ -33,6 +33,11 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const [isCopyOpen, setIsCopyOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   
+  const [qGrid, setQGrid] = useState<{
+    open: boolean;
+    assessmentId: string | null;
+  }>({ open: false, assessmentId: null });
+
   const [rubricMarking, setRubricMarking] = useState<{ 
     open: boolean; 
     rubric: Rubric | null; 
@@ -253,7 +258,17 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       deleteAssessment, 
       refreshAssessments, 
       handleSort: (key: string) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
-      openTool: (type: 'rapid' | 'voice', id: string) => setActiveTool({ type, assessmentId: id, termId: assessments.find(a => a.id === id)?.term_id || null }),
+      openTool: (type: 'rapid' | 'voice', id: string) => {
+          const ass = assessments.find(a => a.id === id);
+          const hasQuestions = ass?.questions && ass.questions.length > 0;
+          
+          if (type === 'rapid' && hasQuestions) {
+              setQGrid({ open: true, assessmentId: id });
+              return;
+          }
+          
+          setActiveTool({ type, assessmentId: id, termId: ass?.term_id || null });
+      },
       closeTool: () => setActiveTool({ type: null, assessmentId: null, termId: null }),
       handleToolUpdate: (idx: number, val: string) => { 
           if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) {
@@ -262,6 +277,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       },
       validateAndCommitMark,
       setRubricMarkingOpen: (open: boolean) => setRubricMarking(prev => ({ ...prev, open })),
+      setQGrid,
       handleBulkColumnUpdate: async (assessmentId: string, value: string) => {
           const updates = classInfo.learners.filter(l => l.id).map(l => ({
               assessment_id: assessmentId,
@@ -336,7 +352,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       isLocked: activeYear?.closed || activeTerm?.closed, 
       filteredLearners: sortedAndFilteredLearners,
       assessments, marks, terms, activeTerm, activeYear,
-      atRiskThreshold, sortConfig, activeTool, 
+      atRiskThreshold, sortConfig, activeTool, qGrid,
       currentTotalWeight: assessments.reduce((acc, a) => acc + (a.weight || 0), 0),
       isWeightValid: assessments.reduce((acc, a) => acc + (a.weight || 0), 0) === 100, 
       isUsingVisibleTotal: recalculateTotal,
