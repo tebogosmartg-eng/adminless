@@ -17,14 +17,43 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   
   const formattedDate = format(date, 'yyyy-MM-dd');
 
+  // Step 2: Split loading into isolated dependencies
+  const [loadingSession, setLoadingSession] = useState(true);
+  const [loadingLearners, setLoadingLearners] = useState(true);
+  const [loadingAttendance, setLoadingAttendance] = useState(true);
+
+  // Step 5: Add Console Debugging
+  useEffect(() => {
+    console.log("Loading session...");
+    if (activeTerm !== undefined) {
+      setLoadingSession(false);
+    }
+  }, [activeTerm]);
+
+  const [safeLearners, setSafeLearners] = useState<Learner[]>([]);
+  
+  useEffect(() => {
+    console.log("Loading learners...");
+    if (learners) {
+      setSafeLearners(learners);
+      setLoadingLearners(false);
+    } else {
+      // Step 4: Safe Fallback
+      setSafeLearners([]);
+    }
+  }, [learners]);
+
   const liveAttendance = useLiveQuery(
-    () => (classId && activeTerm?.id)
-        ? db.attendance
-            .where('class_id')
-            .equals(classId)
-            .filter(r => r.date === formattedDate && r.term_id === activeTerm.id)
-            .toArray()
-        : [],
+    () => {
+        console.log("Loading class...");
+        return (classId && activeTerm?.id)
+            ? db.attendance
+                .where('class_id')
+                .equals(classId)
+                .filter((r: any) => r.date === formattedDate && r.term_id === activeTerm.id)
+                .toArray()
+            : [];
+    },
     [classId, formattedDate, activeTerm?.id]
   );
 
@@ -34,15 +63,31 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
-    if (liveAttendance) {
+    console.log("Loading attendance...");
+    if (liveAttendance !== undefined) {
         const map: Record<string, AttendanceRecord> = {};
-        liveAttendance.forEach(r => {
+        (liveAttendance || []).forEach((r: any) => {
             map[r.learner_id] = r;
         });
         setAttendanceData(map);
         setHasChanges(false);
+        setLoadingAttendance(false);
+    } else {
+        // Step 4: Safe Fallback
+        setAttendanceData({});
     }
   }, [liveAttendance]);
+
+  // Step 3: Add Timeout Safety
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      console.warn("Attendance Register loading timeout reached. Forcing UI render.");
+      setLoadingSession(false);
+      setLoadingLearners(false);
+      setLoadingAttendance(false);
+    }, 3000);
+    return () => clearTimeout(timeout);
+  }, []);
 
   const handleStatusChange = (learnerId: string, status: AttendanceStatus) => {
     if (!learnerId || !activeTerm?.id) {
@@ -70,7 +115,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
         return;
     }
     const newData = { ...attendanceData };
-    learners.forEach(l => {
+    safeLearners.forEach(l => {
       if (l.id) {
         newData[l.id] = { 
             id: attendanceData[l.id]?.id || crypto.randomUUID(),
@@ -128,11 +173,11 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
 
       const data = await db.attendance
         .where('class_id').equals(classId)
-        .filter(r => r.term_id === activeTerm.id && r.date! >= sortedDates[0] && r.date! <= sortedDates[sortedDates.length - 1])
+        .filter((r: any) => r.term_id === activeTerm.id && r.date! >= sortedDates[0] && r.date! <= sortedDates[sortedDates.length - 1])
         .toArray();
 
       const recordMap: Record<string, Record<string, string>> = {}; 
-      data.forEach((record) => {
+      data.forEach((record: any) => {
         if (!recordMap[record.learner_id]) recordMap[record.learner_id] = {};
         recordMap[record.learner_id][record.date!] = record.status;
       });
@@ -140,7 +185,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
       if (type === 'csv') {
         let csv = 'Learner Name,' + allDays.map(d => format(d, 'dd/MM')).join(',') + ',Present,Absent,Late\n';
         
-        learners.forEach(l => {
+        safeLearners.forEach(l => {
           if (!l.id) return;
           const records = recordMap[l.id] || {};
           let row = `"${l.name}"`;
@@ -175,7 +220,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
             phone: contactPhone
         };
 
-        generateAttendancePDF(learners, recordMap, sortedDates, monthName, profile);
+        generateAttendancePDF(safeLearners, recordMap, sortedDates, monthName, profile);
       }
 
       showSuccess("Attendance report generated.");
@@ -189,7 +234,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
 
   const stats = useMemo(() => {
     const counts = { present: 0, absent: 0, late: 0, excused: 0, unmarked: 0 };
-    learners.forEach(l => {
+    safeLearners.forEach(l => {
       if (l.id && attendanceData[l.id]) {
         counts[attendanceData[l.id].status]++;
       } else {
@@ -197,12 +242,16 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
       }
     });
     return counts;
-  }, [learners, attendanceData]);
+  }, [safeLearners, attendanceData]);
+
+  // Combined non-blocking check
+  const isLoading = loadingAttendance || loadingSession || loadingLearners;
 
   return {
     date, setDate,
     attendanceData,
-    loading: !liveAttendance, 
+    safeLearners,
+    loading: isLoading, 
     saving,
     hasChanges,
     isExporting,

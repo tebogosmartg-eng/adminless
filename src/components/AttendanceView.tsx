@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { format, addDays, subDays, isSameDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X, Clock, AlertCircle, Save, Loader2, Download, FileSpreadsheet, FileText, LucideIcon, LayoutGrid, ListChecks, Lock } from 'lucide-react';
 import { Learner, AttendanceStatus } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -36,6 +38,7 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
   const {
     date, setDate,
     attendanceData,
+    safeLearners,
     loading,
     saving,
     hasChanges,
@@ -164,7 +167,27 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
             </CardHeader>
             <CardContent className="p-0 sm:p-6 overflow-hidden">
               {loading ? (
-                <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                <div className="border-t sm:border rounded-md overflow-x-auto w-full p-4 space-y-4">
+                    <div className="flex justify-between border-b pb-2">
+                       <Skeleton className="h-4 w-12" />
+                       <Skeleton className="h-4 w-32" />
+                       <Skeleton className="h-4 w-32" />
+                       <Skeleton className="h-4 w-20" />
+                    </div>
+                    {[1,2,3,4,5].map(i => (
+                       <div key={i} className="flex justify-between items-center py-2">
+                           <Skeleton className="h-4 w-8" />
+                           <Skeleton className="h-4 w-40" />
+                           <div className="flex gap-2">
+                               <Skeleton className="h-8 w-8" />
+                               <Skeleton className="h-8 w-8" />
+                               <Skeleton className="h-8 w-8" />
+                               <Skeleton className="h-8 w-8" />
+                           </div>
+                           <Skeleton className="h-6 w-16" />
+                       </div>
+                    ))}
+                </div>
               ) : (
                 <div className="border-t sm:border rounded-md overflow-x-auto w-full">
                     <Table className="min-w-[500px]">
@@ -177,7 +200,7 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {learners.map((learner, index) => (
+                            {safeLearners.map((learner, index) => (
                                 <TableRow key={learner.id || index}>
                                     <TableCell className="text-muted-foreground pl-4">{index + 1}</TableCell>
                                     <TableCell className="font-medium truncate max-w-[150px]">
@@ -244,7 +267,7 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
               <CardContent className="p-0 sm:p-6 overflow-hidden">
                  <MonthlyAttendanceGrid 
                     classId={classId} 
-                    learners={learners} 
+                    learners={safeLearners} 
                     currentDate={date} 
                     onDayClick={setDate}
                  />
@@ -258,16 +281,29 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
 
 export const AttendanceView = (props: AttendanceViewProps) => {
   const { user, authReady } = useAuthGuard();
+  const [timeoutReached, setTimeoutReached] = useState(false);
 
-  if (!authReady || !user) {
+  useEffect(() => {
+     const timer = setTimeout(() => {
+        console.warn("Auth Guard Timeout Reached.");
+        setTimeoutReached(true);
+     }, 3000);
+     return () => clearTimeout(timer);
+  }, []);
+
+  if (!authReady && !timeoutReached) {
     return (
       <div className="flex h-[400px] w-full items-center justify-center animate-in fade-in duration-500">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
+        <div className="flex flex-col w-full px-8 gap-4">
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-[300px] w-full rounded-xl" />
         </div>
       </div>
     );
+  }
+
+  if (!user && !timeoutReached) {
+      return <div className="text-center py-10">Unauthorized</div>;
   }
 
   return <AttendanceViewContent {...props} />;
