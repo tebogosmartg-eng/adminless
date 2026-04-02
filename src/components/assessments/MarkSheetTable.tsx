@@ -357,7 +357,7 @@ export const MarkSheetTable = ({
                                         "focus:bg-background focus:ring-2 focus:ring-primary focus:z-10",
                                         isLocked && "bg-muted/50 cursor-not-allowed text-muted-foreground",
                                         comment && "font-bold text-primary",
-                                        hasQuestions && "border-amber-400/50 dark:border-amber-400/30",
+                                        hasQuestions && "border-blue-200/30 dark:border-blue-800/30",
                                         isHighRiskCell && "text-red-600 font-bold bg-red-50/20 dark:bg-red-950/20"
                                     )}
                                     value={markValue}

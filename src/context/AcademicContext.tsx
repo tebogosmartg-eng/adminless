@@ -328,11 +328,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         });
 
         const { error } = await supabase.from('assessment_marks').upsert(toUpsert, { onConflict: 'assessment_id,learner_id' });
-        
-        if (error) {
-            console.error("Mark save error:", error);
-            throw error;
-        }
+        if (error) throw error;
 
         await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
         updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));

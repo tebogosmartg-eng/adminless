@@ -34,6 +34,11 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
     learner: Learner | null;
   }>({ open: false, assessmentId: null, learner: null });
 
+  const [qGrid, setQGrid] = useState<{
+    open: boolean;
+    assessmentId: string | null;
+  }>({ open: false, assessmentId: null });
+
   const [qDiagnostic, setQDiagnostic] = useState<{
       open: boolean;
       assessment: Assessment | null;
@@ -63,7 +68,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
   };
 
   const handleOpenQuestionGrid = (assId: string) => {
-    actions.setQGrid({ open: true, assessmentId: assId });
+    setQGrid({ open: true, assessmentId: assId });
   };
 
   const handleQuestionSave = async (score: number, questionMarks: QuestionMark[]) => {
@@ -260,11 +265,11 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
            />
        )}
 
-       {state.qGrid.open && state.qGrid.assessmentId && (
+       {qGrid.open && qGrid.assessmentId && (
            <QuestionGridDialog
-              open={state.qGrid.open}
-              onOpenChange={(open) => actions.setQGrid(prev => ({ ...prev, open }))}
-              assessment={state.assessments.find(a => a.id === state.qGrid.assessmentId)!}
+              open={qGrid.open}
+              onOpenChange={(open) => setQGrid(prev => ({ ...prev, open }))}
+              assessment={state.assessments.find(a => a.id === qGrid.assessmentId)!}
               learners={state.filteredLearners}
               existingMarks={state.marks}
               onSave={handleGridSave}
