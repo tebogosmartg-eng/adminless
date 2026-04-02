@@ -252,18 +252,19 @@ export const MarkSheetTable = ({
                             <DropdownMenuContent align="end" className="w-52">
                             {onOpenTool && (
                                 <>
-                                    <DropdownMenuItem onClick={() => {
-                                        // Smart routing: Rapid Entry -> Grid if questions are defined
-                                        if (ass.questions && ass.questions.length > 0 && onOpenQuestionGrid) {
-                                            onOpenQuestionGrid(ass.id);
-                                        } else {
-                                            onOpenTool('rapid', ass.id);
-                                        }
-                                    }}>
+                                    <DropdownMenuItem onClick={() => onOpenTool('rapid', ass.id)}>
                                         <Zap className="mr-2 h-4 w-4 text-amber-500" /> Rapid Entry
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => onOpenTool('voice', ass.id)}>
                                         <Mic className="mr-2 h-4 w-4 text-blue-500" /> Voice Entry
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                </>
+                            )}
+                            {ass.questions && ass.questions.length > 0 && onOpenQuestionGrid && (
+                                <>
+                                    <DropdownMenuItem onClick={() => onOpenQuestionGrid(ass.id)} className="font-bold text-blue-600">
+                                        <Grid3X3 className="mr-2 h-4 w-4" /> Rapid Grid Entry
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                 </>
@@ -356,7 +357,7 @@ export const MarkSheetTable = ({
                                         "focus:bg-background focus:ring-2 focus:ring-primary focus:z-10",
                                         isLocked && "bg-muted/50 cursor-not-allowed text-muted-foreground",
                                         comment && "font-bold text-primary",
-                                        hasQuestions && markValue !== "" && "border-amber-400 dark:border-amber-600",
+                                        hasQuestions && "border-blue-200/30 dark:border-blue-800/30",
                                         isHighRiskCell && "text-red-600 font-bold bg-red-50/20 dark:bg-red-950/20"
                                     )}
                                     value={markValue}
