@@ -73,13 +73,16 @@ export const useClassAnalysis = (classId: string, termId: string | undefined, le
     // Calculate per-learner analytics
     const learnerIds = [...new Set(marks.map((m: any) => m.learner_id))];
     const learnerPerformance = learnerIds.map((lId: any) => {
+      const hasMarks = marks.some((m: any) => m.learner_id === lId && m.score !== null);
+      if (!hasMarks) return null;
+
       const avg = calculateWeightedAverage(assessments, marks, lId as string);
       
       return {
         learnerId: lId,
         average: avg
       };
-    }).sort((a, b) => b.average - a.average);
+    }).filter(Boolean).sort((a: any, b: any) => b.average - a.average);
 
     const classAvg = learnerPerformance.length > 0 
         ? Math.round(learnerPerformance.reduce((s, l) => s + l.average, 0) / learnerPerformance.length) 

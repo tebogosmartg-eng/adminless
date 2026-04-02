@@ -285,7 +285,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
                       </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 pt-4">
-                      {analysisData.learnerPerformance.slice(0, 3).map((l, i) => {
+                      {analysisData.learnerPerformance.filter(l => l.average >= atRiskThreshold).slice(0, 3).map((l, i) => {
                           const details = learners.find(st => st.id === l.learnerId);
                           return (
                               <div key={i} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
@@ -302,6 +302,11 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
                               </div>
                           );
                       })}
+                      {analysisData.learnerPerformance.filter(l => l.average >= atRiskThreshold).length === 0 && (
+                          <div className="py-10 text-center text-muted-foreground italic text-xs">
+                              No learners are currently meeting the excellence threshold.
+                          </div>
+                      )}
                   </CardContent>
               </Card>
 
