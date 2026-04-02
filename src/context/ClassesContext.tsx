@@ -99,7 +99,10 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
           const learnersWithIds = newClass.learners.map(l => ({
               id: l.id || crypto.randomUUID(),
               class_id: newClass.id,
-              name: l.name
+              name: l.name,
+              gender: l.gender,
+              mark: l.mark,
+              comment: l.comment
           }));
           const { error: lErr } = await supabase.from('learners').upsert(learnersWithIds);
           if (lErr) throw lErr;
@@ -125,7 +128,14 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         for (const l of updatedLearners) {
             const id = l.id || crypto.randomUUID();
             newIds.add(id);
-            toUpsert.push({ id, class_id: classId, name: l.name });
+            toUpsert.push({
+                id,
+                class_id: classId,
+                name: l.name,
+                gender: l.gender,
+                mark: l.mark,
+                comment: l.comment
+            });
         }
 
         const toDelete = currentIds.filter(id => !newIds.has(id));

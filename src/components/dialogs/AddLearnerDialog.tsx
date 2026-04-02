@@ -29,21 +29,22 @@ export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearn
 
     const lines = text.split('\n').filter(line => line.trim() !== '');
     const imported: Learner[] = lines.map(line => {
-      // Basic CSV parsing: Name,Mark or just Name
       const parts = line.split(',');
       const name = parts[0].trim();
       let mark = "";
+      let gender: string | null = null;
       
       if (parts.length > 1) {
-        // If there's a comma, assume second part is mark
-        const possibleMark = parts[1].trim();
-        // Simple check if it looks like a number
-        if (/^[\d./]+$/.test(possibleMark)) {
-            mark = possibleMark;
+        const secondPart = parts[1].trim();
+        // If it's a number, it's a mark. Otherwise, treat as gender.
+        if (/^[\d./]+$/.test(secondPart)) {
+            mark = secondPart;
+        } else {
+            gender = secondPart;
         }
       }
       
-      return { name, mark };
+      return { name, mark, gender };
     });
 
     if (imported.length > 0) {
@@ -182,8 +183,8 @@ export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearn
                       <span className="text-xs font-bold text-blue-800">Extracting Names with AI...</span>
                   </div>
               )}
-              <Textarea 
-                placeholder="Or create manually by typing one name per line...&#10;John Doe&#10;Jane Smith" 
+              <Textarea
+                placeholder="Or create manually by typing one name per line...&#10;John Doe, Male&#10;Jane Smith, Female"
                 className="min-h-[200px] bg-muted/20"
                 value={text}
                 onChange={(e) => setText(e.target.value)}

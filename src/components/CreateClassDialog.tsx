@@ -47,8 +47,13 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
       }
 
       const learnerList = learners.split('\n')
-        .filter(name => name.trim() !== '')
-        .map(name => ({ name: name.trim(), mark: '' }));
+        .filter(line => line.trim() !== '')
+        .map(line => {
+          const parts = line.split(',');
+          const name = parts[0].trim();
+          const gender = parts.length > 1 ? parts[1].trim() : null;
+          return { name, gender, mark: '' };
+        });
 
       onClassCreate({
         id: crypto.randomUUID(),
@@ -236,7 +241,7 @@ export const CreateClassDialog = ({ onClassCreate }: CreateClassDialogProps) => 
                   id="learners"
                   value={learners}
                   onChange={(e) => setLearners(e.target.value)}
-                  placeholder="Or create manually by typing one name per line..."
+                  placeholder="Or create manually by typing one name per line (e.g. John Doe, Male)..."
                   className="w-full min-h-[150px] resize-y bg-muted/20"
                   disabled={isScanning}
                 />
