@@ -357,21 +357,35 @@ export const MarkSheetTable = ({
                                         "focus:bg-background focus:ring-2 focus:ring-primary focus:z-10",
                                         isLocked && "bg-muted/50 cursor-not-allowed text-muted-foreground",
                                         comment && "font-bold text-primary",
-                                        hasQuestions && "cursor-pointer",
+                                        hasQuestions && "border-blue-200/30 dark:border-blue-800/30",
                                         isHighRiskCell && "text-red-600 font-bold bg-red-50/20 dark:bg-red-950/20"
                                     )}
                                     value={markValue}
                                     onFocus={() => setActiveRow(rowIdx)}
-                                    onChange={(e) => !hasQuestions && learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
+                                    onChange={(e) => learner.id && handleMarkChange(ass.id, learner.id, e.target.value)}
                                     onBlur={(e) => {
-                                        if (learner.id && !hasQuestions) handleInputBlur(ass.id, learner.id, e.target.value);
+                                        if (learner.id) handleInputBlur(ass.id, learner.id, e.target.value);
                                         setActiveRow(null);
                                     }}
                                     onKeyDown={(e) => handleGridKeyDown(e, colIdx, rowIdx)}
-                                    onClick={() => hasQuestions && learner.id && onOpenQuestions && onOpenQuestions(ass.id, learner)}
-                                    disabled={!learner.id || !!isLocked || hasQuestions}
+                                    disabled={!learner.id || !!isLocked}
                                     placeholder="-"
                                 />
+                                
+                                {hasQuestions && markValue !== "" && (
+                                    <div className="absolute top-0 right-0">
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="p-0.5">
+                                                    <AlertTriangle className="h-2 w-2 text-amber-500 opacity-70" />
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="text-[10px] p-1">
+                                                Manual override: This assessment has a question breakdown.
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </div>
+                                )}
                                 
                                 {ass.rubric_id && !isLocked && (
                                     <Button 
