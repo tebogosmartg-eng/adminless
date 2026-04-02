@@ -5,6 +5,7 @@ export const showSuccess = (message: string) => {
 };
 
 export const showError = (message: string) => {
+  console.error("[Toast Error]", message);
   toast.error(message);
 };
 
