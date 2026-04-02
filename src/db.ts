@@ -8,7 +8,6 @@ class QueryShim {
     if (typeof field === 'object' && field !== null) {
         const cleanObj: any = {};
         for (const k in field) {
-            // Filter out invalid values from the match object
             if (field[k] !== undefined && field[k] !== null && field[k] !== 'undefined' && field[k] !== '') {
                 cleanObj[k] = field[k];
             }
@@ -51,7 +50,12 @@ class QueryShim {
   async toArray() {
     const isInvalid = (val: any) => val === undefined || val === null || val === 'undefined' || val === '';
 
-    // STABILITY FIX: Strict check for invalid filter values before query execution
+    // Session Guard: Don't query if not authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        return [];
+    }
+
     for (const f of this.filters) {
         if (f.type === 'eq') {
             if (Array.isArray(f.val)) {
@@ -63,10 +67,8 @@ class QueryShim {
         if (f.type === 'in' && (!f.val || f.val.length === 0)) {
             return [];
         }
-        if (f.type === 'match') {
-            // If the match object is empty after cleaning, we might want to block or allow. 
-            // Usually, an empty match means "all", but in our context it's often a missing filter.
-            if (Object.keys(f.value).length === 0) return [];
+        if (f.type === 'match' && Object.keys(f.value).length === 0) {
+            return [];
         }
     }
 
@@ -78,7 +80,6 @@ class QueryShim {
             if (f.field.includes('+')) {
                 const keys = f.field.replace(/[\[\]]/g, '').split('+');
                 keys.forEach((k: string, i: number) => {
-                    // Shield specific columns that may not exist in the cloud schema yet
                     if (this.tableName === 'classes' && (k === 'term_id' || k === 'year_id')) return; 
                     query = query.eq(k, f.val[i]);
                 });
@@ -106,7 +107,13 @@ class QueryShim {
 
     const { data, error } = await query;
     if (error) {
-        console.error(`Error querying ${this.tableName}:`, error);
+        console.error(`[AdminLess DB] Error querying ${this.tableName}:`, {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+            filters: this.filters
+        });
         return [];
     }
 
