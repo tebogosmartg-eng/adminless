@@ -40,6 +40,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
     } else {
       // Step 4: Safe Fallback
       setSafeLearners([]);
+      setLoadingLearners(false);
     }
   }, [learners]);
 
@@ -110,8 +111,9 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   };
 
   const handleMarkAll = (status: AttendanceStatus) => {
-    if (!activeTerm?.id) {
-        showError("Action blocked: Active term context required.");
+    if (!classId || !activeTerm?.id || !safeLearners?.length) {
+        console.warn("Attendance not ready to mark all");
+        showError("Action blocked: Academic context or learners missing.");
         return;
     }
     const newData = { ...attendanceData };
@@ -132,13 +134,19 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
   };
 
   const saveAttendance = async () => {
-    if (!activeTerm?.id) {
-        showError("Save blocked: Academic context required.");
+    if (!classId || !activeTerm?.id || !safeLearners?.length) {
+        console.warn("Attendance not ready to save");
+        showError("Save blocked: Academic context or learners missing.");
         return;
     }
+    
     setSaving(true);
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) {
+             console.error("Attendance auth error", authError);
+             throw authError;
+        }
         if (!user) throw new Error("Authentication session expired.");
 
         const recordsToSave = Object.values(attendanceData).map(r => ({
@@ -147,7 +155,10 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
             user_id: user.id
         }));
 
-        if (recordsToSave.length === 0) return;
+        if (recordsToSave.length === 0) {
+            setSaving(false);
+            return;
+        }
         
         await db.attendance.bulkPut(recordsToSave);
         await queueAction('attendance', 'upsert', recordsToSave);
@@ -155,6 +166,7 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
         setHasChanges(false);
         showSuccess('Attendance saved successfully.');
     } catch (e: any) {
+        console.error("Attendance save error", e);
         showError('Save failed: ' + e.message);
     } finally {
         setSaving(false);

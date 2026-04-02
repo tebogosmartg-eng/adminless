@@ -70,6 +70,8 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
     );
   };
 
+  const isReady = !loading && safeLearners?.length > 0 && classId && activeTerm?.id;
+
   return (
     <div className="space-y-6 w-full">
       {isLocked && (
@@ -111,7 +113,7 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
              
              <div className="flex items-center gap-2 w-full sm:w-auto">
                {!isLocked && (
-                   <Button onClick={saveAttendance} disabled={!hasChanges || saving} size="sm" className="flex-1 sm:flex-none">
+                   <Button onClick={saveAttendance} disabled={!hasChanges || saving || !isReady} size="sm" className="flex-1 sm:flex-none">
                       {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                       <span className="hidden sm:inline">{hasChanges ? "Save Changes" : "Saved"}</span>
                       <span className="sm:hidden">Save</span>
@@ -159,7 +161,7 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
                     </CardDescription>
                   </div>
                   {!isLocked && (
-                    <Button variant="ghost" size="sm" onClick={() => handleMarkAll('present')} className="w-full sm:w-auto shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => handleMarkAll('present')} disabled={!isReady} className="w-full sm:w-auto shrink-0">
                         Mark All Present
                     </Button>
                   )}
