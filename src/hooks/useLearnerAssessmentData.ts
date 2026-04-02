@@ -9,24 +9,24 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
   const [results, setResults] = useState<AssessmentResult[]>([]);
 
   useEffect(() => {
-    if (!learnerId) {
-      setLoading(false);
-      setResults([]);
-      return;
-    }
-
-    const fetchData = async () => {
-      setLoading(true);
+    const fetchLearnerData = async () => {
+      if (!learnerId) {
+        setResults([]);
+        setLoading(false);
+        return;
+      }
+      
       try {
+        setLoading(true);
         const { data: marks, error: marksError } = await supabase
             .from('assessment_marks')
             .select('*')
             .eq('learner_id', learnerId);
 
         if (marksError) throw marksError;
+        
         if (!marks || marks.length === 0) {
             setResults([]);
-            setLoading(false);
             return;
         }
 
@@ -39,7 +39,17 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
         
         if (assError) throw assError;
 
-        const termIds = [...new Set(assessments?.map(a => a.term_id) || [])];
+        if (!assessments || assessments.length === 0) {
+            setResults([]);
+            return;
+        }
+
+        const termIds = [...new Set(assessments.map(a => a.term_id))];
+        if (termIds.length === 0) {
+            setResults([]);
+            return;
+        }
+
         const { data: terms, error: termsError } = await supabase
             .from('terms')
             .select('*')
@@ -126,15 +136,16 @@ export const useLearnerAssessmentData = (learnerId: string | undefined) => {
             };
         });
 
-        setResults(finalResults);
-      } catch (err) {
-        console.error("Error fetching learner assessments:", err);
+        setResults(finalResults || []);
+      } catch (error) {
+        console.error("Learner profile error:", error);
+        setResults([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    fetchLearnerData();
   }, [learnerId]);
 
   return { loading, results };

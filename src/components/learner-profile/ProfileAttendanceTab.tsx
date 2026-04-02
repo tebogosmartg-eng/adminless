@@ -1,8 +1,7 @@
-import { useLiveQuery } from "dexie-react-hooks";
 import { Loader2, Clock, Check, X, AlertCircle } from "lucide-react";
 import { db } from '@/db';
 import { AttendanceStatus } from "@/lib/types";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 interface ProfileAttendanceTabProps {
   learnerId?: string;
@@ -17,16 +16,35 @@ interface AttendanceStats {
 }
 
 export const ProfileAttendanceTab = ({ learnerId }: ProfileAttendanceTabProps) => {
-  
-  const records = useLiveQuery(
-    () => learnerId ? db.attendance.where('learner_id').equals(learnerId).toArray() : [],
-    [learnerId]
-  );
+  const [records, setRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLearnerData = async () => {
+      if (!learnerId) {
+        setRecords([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const data = await db.attendance.where('learner_id').equals(learnerId).toArray();
+        setRecords(data || []);
+      } catch (error) {
+        console.error("Learner profile error:", error);
+        setRecords([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLearnerData();
+  }, [learnerId]);
 
   const stats = useMemo(() => {
     const initial: AttendanceStats = { present: 0, absent: 0, late: 0, excused: 0, total: 0 };
     
-    if (!records) return initial;
+    if (!records || records.length === 0) return initial;
 
     return records.reduce((acc, curr) => {
       const status = curr.status as AttendanceStatus;
@@ -38,11 +56,11 @@ export const ProfileAttendanceTab = ({ learnerId }: ProfileAttendanceTabProps) =
     }, initial);
   }, [records]);
 
-  if (!records) {
+  if (loading) {
     return <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 
-  if (stats.total === 0) {
+  if (!records || stats.total === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground">
         <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />

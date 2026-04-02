@@ -19,7 +19,7 @@ export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
     return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 
-  if (results.length === 0) {
+  if (!results || results.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-10">
         <FileText className="h-12 w-12 mb-3 opacity-20" />
