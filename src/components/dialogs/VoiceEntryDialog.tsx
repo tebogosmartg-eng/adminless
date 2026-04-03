@@ -157,7 +157,7 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[95vw] sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mic className={`h-5 w-5 ${isListening ? 'text-red-500 animate-pulse' : 'text-primary'}`} />
@@ -170,8 +170,8 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
 
         <div className="flex flex-col items-center gap-6 py-4">
           {!isSupported && (
-              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-xs w-full">
-                  <AlertCircle className="h-4 w-4" /> Browser not supported. Using simulation mode.
+              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-[10px] sm:text-xs w-full leading-tight">
+                  <AlertCircle className="h-4 w-4 shrink-0" /> Browser not supported. Using simulation mode.
               </div>
           )}
 
@@ -181,28 +181,28 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
                 : 'bg-muted border-transparent'
           }`} onClick={toggleListening}>
             {isListening ? (
-                <Mic className="h-12 w-12 text-red-500" />
+                <Mic className="h-10 w-10 sm:h-12 sm:w-12 text-red-500" />
             ) : (
-                <MicOff className="h-12 w-12 text-muted-foreground" />
+                <MicOff className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground" />
             )}
           </div>
           
-          <div className="text-center space-y-1">
+          <div className="text-center space-y-1 w-full px-4">
               <Button 
                 onClick={toggleListening} 
                 variant={isListening ? "destructive" : "default"}
-                className="w-48"
+                className="w-full sm:w-48 h-12 sm:h-10 font-bold"
               >
                 {isListening ? "Stop Microphone" : "Start Listening"}
               </Button>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-widest font-bold mt-2">
                   {isListening ? "Listening for commands..." : "Click to begin dictation"}
               </p>
           </div>
 
           <div className="w-full bg-muted/30 rounded-lg p-3 min-h-[4rem] flex flex-col items-center justify-center border border-dashed">
             {transcript ? (
-               <p className="text-sm italic text-foreground text-center">"{transcript}"</p>
+               <p className="text-xs sm:text-sm italic text-foreground text-center px-2">"{transcript}"</p>
             ) : (
                <p className="text-xs text-muted-foreground text-center">
                    Example: "{learners[0]?.name || 'Learner Name'} 75"
@@ -211,26 +211,26 @@ export const VoiceEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
           </div>
 
           <div className="w-full space-y-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   <History className="h-3 w-3" />
                   Recently Captured
               </div>
               <ScrollArea className="h-32 border rounded-md bg-background">
                   {history.length === 0 ? (
-                      <div className="h-full flex items-center justify-center text-xs text-muted-foreground italic">
+                      <div className="h-full flex items-center justify-center text-xs text-muted-foreground italic p-4 text-center">
                           No marks recorded yet...
                       </div>
                   ) : (
                       <div className="p-2 space-y-1">
                           {history.map((item, i) => (
                               <div key={i} className="flex items-center justify-between p-2 rounded bg-muted/20 border-b last:border-0 animate-in slide-in-from-left-2">
-                                  <div className="flex items-center gap-2">
-                                      <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                      <span className="text-sm font-medium">{item.name}</span>
+                                  <div className="flex items-center gap-2 min-w-0 pr-2">
+                                      <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                                      <span className="text-xs sm:text-sm font-medium truncate">{item.name}</span>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                      <Badge variant="secondary" className="font-bold">{item.mark}%</Badge>
-                                      <span className="text-[10px] text-muted-foreground">{item.time}</span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                      <Badge variant="secondary" className="font-bold text-xs h-5 px-1.5">{item.mark}%</Badge>
+                                      <span className="text-[9px] sm:text-[10px] text-muted-foreground hidden sm:inline">{item.time}</span>
                                   </div>
                               </div>
                           ))}

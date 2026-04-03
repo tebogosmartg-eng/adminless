@@ -111,7 +111,7 @@ export const CopyAssessmentsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[95vw] sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Copy Assessment Structure</DialogTitle>
           <DialogDescription>
@@ -123,7 +123,7 @@ export const CopyAssessmentsDialog = ({
           <div className="space-y-2">
             <Label>Source Class</Label>
             <Select value={selectedSourceClassId} onValueChange={handleClassSelect}>
-              <SelectTrigger>
+              <SelectTrigger className="h-10">
                 <SelectValue placeholder="Select a class..." />
               </SelectTrigger>
               <SelectContent>
@@ -138,36 +138,38 @@ export const CopyAssessmentsDialog = ({
 
           {loadingAssessments && (
             <div className="flex justify-center p-4">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground opacity-30" />
             </div>
           )}
 
           {!loadingAssessments && selectedSourceClassId && sourceAssessments.length === 0 && (
-            <div className="text-center p-4 text-sm text-muted-foreground border rounded-md bg-muted/20">
+            <div className="text-center p-4 text-sm text-muted-foreground border border-dashed rounded-md bg-muted/10">
               No assessments found in this class for the selected term.
             </div>
           )}
 
           {!loadingAssessments && sourceAssessments.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2 animate-in fade-in duration-300">
               <Label>Select Assessments</Label>
-              <ScrollArea className="h-[200px] border rounded-md p-2">
+              <ScrollArea className="h-[200px] border rounded-md p-2 bg-muted/5">
                 <div className="space-y-2">
                   {sourceAssessments.map(ass => (
-                    <div key={ass.id} className="flex items-start space-x-2 p-2 hover:bg-muted/50 rounded-sm">
+                    <div key={ass.id} className="flex items-start space-x-3 p-3 bg-background border hover:border-primary/30 rounded-md transition-colors cursor-pointer" onClick={() => handleToggleAssessment(ass.id, !selectedAssessmentIds.includes(ass.id))}>
                       <Checkbox 
                         id={`chk-${ass.id}`} 
                         checked={selectedAssessmentIds.includes(ass.id)}
                         onCheckedChange={(c) => handleToggleAssessment(ass.id, !!c)}
+                        className="mt-0.5"
                       />
-                      <div className="grid gap-1.5 leading-none">
+                      <div className="grid gap-1.5 leading-none flex-1 min-w-0">
                         <label
                           htmlFor={`chk-${ass.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          className="text-sm font-bold leading-none cursor-pointer truncate"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           {ass.title}
                         </label>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
                           {ass.type} • Max: {ass.max_mark} • Weight: {ass.weight}%
                         </p>
                       </div>
@@ -179,9 +181,9 @@ export const CopyAssessmentsDialog = ({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleCopy} disabled={isCopying || selectedAssessmentIds.length === 0}>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto h-10">Cancel</Button>
+          <Button onClick={handleCopy} disabled={isCopying || selectedAssessmentIds.length === 0} className="w-full sm:w-auto h-10 font-bold">
             {isCopying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
             Copy Selected
           </Button>

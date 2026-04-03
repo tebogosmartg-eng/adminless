@@ -71,11 +71,11 @@ export const CurriculumSettings = () => {
         <CardDescription>Define the topics you intend to cover for each subject this term.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
                 <Label className="text-xs uppercase font-bold text-muted-foreground">Subject</Label>
                 <Select value={subject} onValueChange={setSubject}>
-                    <SelectTrigger><SelectValue placeholder="Choose Subject" /></SelectTrigger>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Choose Subject" /></SelectTrigger>
                     <SelectContent>
                         {savedSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
@@ -84,7 +84,7 @@ export const CurriculumSettings = () => {
             <div className="space-y-2">
                 <Label className="text-xs uppercase font-bold text-muted-foreground">Grade</Label>
                 <Select value={grade} onValueChange={setGrade}>
-                    <SelectTrigger><SelectValue placeholder="Choose Grade" /></SelectTrigger>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Choose Grade" /></SelectTrigger>
                     <SelectContent>
                         {savedGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                     </SelectContent>
@@ -94,15 +94,16 @@ export const CurriculumSettings = () => {
 
         {subject && grade && (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                     <Input 
                         placeholder="Add topic title..." 
                         value={newTopic}
                         onChange={(e) => setNewTopic(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddTopic()}
+                        className="h-10"
                     />
-                    <Button onClick={handleAddTopic} disabled={!newTopic.trim()} size="icon">
-                        <Plus className="h-4 w-4" />
+                    <Button onClick={handleAddTopic} disabled={!newTopic.trim()} className="h-10 sm:w-auto w-full">
+                        <Plus className="h-4 w-4 sm:mr-2" /> <span className="sm:hidden">Add Topic</span><span className="hidden sm:inline">Add</span>
                     </Button>
                 </div>
 
@@ -122,10 +123,10 @@ export const CurriculumSettings = () => {
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="h-7 w-7 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+                                        className="h-8 w-8 text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100 hover:text-destructive transition-all"
                                         onClick={() => handleDelete(t.id)}
                                     >
-                                        <Trash2 className="h-3.5 w-3.5" />
+                                        <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </div>
                             ))}

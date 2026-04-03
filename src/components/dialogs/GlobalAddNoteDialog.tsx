@@ -66,17 +66,17 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
 
   return (
     <Dialog open={open} onOpenChange={(val) => { onOpenChange(val); if(!val) reset(); }}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[95vw] sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Add Quick Note</DialogTitle>
           <DialogDescription>Record an observation for any learner.</DialogDescription>
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Class</Label>
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+                <Label className="sm:text-right">Class</Label>
                 <Select value={selectedClassId} onValueChange={(val) => { setSelectedClassId(val); setSelectedLearnerId(""); }}>
-                    <SelectTrigger className="col-span-3">
+                    <SelectTrigger className="sm:col-span-3">
                         <SelectValue placeholder="Filter by Class (Optional)" />
                     </SelectTrigger>
                     <SelectContent>
@@ -88,9 +88,9 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
                 </Select>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Learner</Label>
-                <div className="col-span-3 space-y-2">
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4">
+                <Label className="sm:text-right sm:pt-2">Learner</Label>
+                <div className="sm:col-span-3 space-y-2">
                     {!selectedClass && (
                         <div className="relative">
                             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -117,11 +117,11 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
                 </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Details</Label>
-                <div className="col-span-3 flex gap-2">
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+                <Label className="sm:text-right">Details</Label>
+                <div className="sm:col-span-3 flex gap-2">
                     <Select value={category} onValueChange={(v: any) => setCategory(v)}>
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="flex-1">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -136,26 +136,26 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
                         type="date" 
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-[140px]"
+                        className="w-[130px] sm:w-[140px] shrink-0"
                     />
                 </div>
             </div>
 
-            <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right pt-2">Note</Label>
+            <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-start gap-2 sm:gap-4">
+                <Label className="sm:text-right pt-2">Note</Label>
                 <Textarea 
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    className="col-span-3"
+                    className="sm:col-span-3"
                     placeholder="Enter observation..."
-                    rows={3}
+                    rows={4}
                 />
             </div>
         </div>
 
-        <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={!selectedLearnerId || !content.trim()}>Save Note</Button>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancel</Button>
+            <Button onClick={handleSubmit} disabled={!selectedLearnerId || !content.trim()} className="w-full sm:w-auto">Save Note</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

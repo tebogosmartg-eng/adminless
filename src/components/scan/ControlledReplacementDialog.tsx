@@ -125,56 +125,56 @@ export const ControlledReplacementDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 overflow-hidden">
-        <div className="bg-amber-600 p-6 text-white shrink-0">
+      <DialogContent className="w-[95vw] sm:max-w-4xl h-[95vh] sm:h-[85vh] flex flex-col p-0 overflow-hidden">
+        <div className="bg-amber-600 p-4 sm:p-6 text-white shrink-0">
             <DialogHeader>
                 <div className="flex items-center gap-3 mb-2">
                     <ShieldAlert className="h-6 w-6" />
-                    <DialogTitle className="text-2xl font-bold">Data Conflict Detected</DialogTitle>
+                    <DialogTitle className="text-xl sm:text-2xl font-bold">Data Conflict Detected</DialogTitle>
                 </div>
-                <DialogDescription className="text-amber-50">
+                <DialogDescription className="text-amber-50 text-xs sm:text-sm">
                     This assessment already contains {existingMarks.length} recorded marks. How would you like to handle the incoming scanned data?
                 </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-3 gap-3 mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mt-4 sm:mt-6">
                 <button 
                     onClick={() => setResolutionMode('replace')}
                     className={cn(
-                        "p-3 rounded-xl border-2 text-left transition-all",
+                        "p-2 sm:p-3 rounded-xl border-2 text-left transition-all",
                         resolutionMode === 'replace' ? "bg-white text-amber-700 border-white shadow-lg" : "bg-amber-500/30 border-white/20 text-white hover:bg-amber-500/50"
                     )}
                 >
                     <p className="font-bold text-xs uppercase mb-1">Replace All</p>
-                    <p className="text-[10px] leading-tight opacity-80">Overwrite all existing marks with scanned values.</p>
+                    <p className="text-[10px] leading-tight opacity-80 hidden sm:block">Overwrite all existing marks with scanned values.</p>
                 </button>
                 <button 
                     onClick={() => setResolutionMode('merge')}
                     className={cn(
-                        "p-3 rounded-xl border-2 text-left transition-all",
+                        "p-2 sm:p-3 rounded-xl border-2 text-left transition-all",
                         resolutionMode === 'merge' ? "bg-white text-amber-700 border-white shadow-lg" : "bg-amber-500/30 border-white/20 text-white hover:bg-amber-500/50"
                     )}
                 >
                     <p className="font-bold text-xs uppercase mb-1">Merge Missing</p>
-                    <p className="text-[10px] leading-tight opacity-80">Only fill empty cells. Keep existing marks as they are.</p>
+                    <p className="text-[10px] leading-tight opacity-80 hidden sm:block">Only fill empty cells. Keep existing marks as they are.</p>
                 </button>
                 <button 
                     onClick={() => setResolutionMode('manual')}
                     className={cn(
-                        "p-3 rounded-xl border-2 text-left transition-all",
+                        "p-2 sm:p-3 rounded-xl border-2 text-left transition-all",
                         resolutionMode === 'manual' ? "bg-white text-amber-700 border-white shadow-lg" : "bg-amber-500/30 border-white/20 text-white hover:bg-amber-500/50"
                     )}
                 >
                     <p className="font-bold text-xs uppercase mb-1">Manual Review</p>
-                    <p className="text-[10px] leading-tight opacity-80">Review differences and pick value for each learner.</p>
+                    <p className="text-[10px] leading-tight opacity-80 hidden sm:block">Review differences and pick value for each learner.</p>
                 </button>
             </div>
         </div>
 
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea className="flex-1 p-4 sm:p-6 bg-muted/5">
             {resolutionMode === 'manual' ? (
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b pb-2 gap-2">
                         <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground uppercase tracking-widest">
                             <ArrowLeftRight className="h-4 w-4" /> Comparison Table ({conflicts.length} Conflicts)
                         </div>
@@ -183,44 +183,44 @@ export const ControlledReplacementDialog = ({
                         </div>
                     </div>
 
-                    <div className="border rounded-xl overflow-hidden">
-                        <Table>
+                    <div className="border rounded-xl overflow-x-auto w-full shadow-sm bg-background">
+                        <Table className="min-w-[500px]">
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
                                     <TableHead>Learner</TableHead>
-                                    <TableHead className="text-center w-32">Current DB</TableHead>
-                                    <TableHead className="text-center w-12"></TableHead>
-                                    <TableHead className="text-center w-32">Scanned AI</TableHead>
+                                    <TableHead className="text-center w-24 sm:w-32">Current DB</TableHead>
+                                    <TableHead className="text-center w-8 sm:w-12"></TableHead>
+                                    <TableHead className="text-center w-24 sm:w-32">Scanned AI</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {conflicts.map((c, i) => (
                                     <TableRow key={i} className={cn(c.isDifferent && "bg-amber-50/30")}>
-                                        <TableCell className="font-bold text-sm">
+                                        <TableCell className="font-bold text-xs sm:text-sm">
                                             {c.name}
                                             {c.hasExistingQuestions && (
-                                                <Badge variant="outline" className="ml-2 h-4 text-[8px] uppercase border-amber-200 text-amber-700">Has Questions</Badge>
+                                                <Badge variant="outline" className="ml-2 h-4 text-[8px] uppercase border-amber-200 text-amber-700 hidden sm:inline-flex">Has Questions</Badge>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="text-center p-1 sm:p-2">
                                             <button 
                                                 onClick={() => handleChoice(c.learnerId, 'existing')}
                                                 className={cn(
-                                                    "w-full py-1.5 rounded-lg border font-black text-lg transition-all",
+                                                    "w-full py-1 sm:py-1.5 rounded-lg border font-black text-base sm:text-lg transition-all",
                                                     manualChoices[c.learnerId] === 'existing' ? "bg-amber-600 text-white border-amber-700 shadow-md" : "bg-background hover:bg-muted"
                                                 )}
                                             >
                                                 {c.existingScore}
                                             </button>
                                         </TableCell>
-                                        <TableCell className="text-center">
-                                            <ArrowRight className="h-4 w-4 text-muted-foreground opacity-30 mx-auto" />
+                                        <TableCell className="text-center p-1 sm:p-2">
+                                            <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground opacity-30 mx-auto" />
                                         </TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="text-center p-1 sm:p-2">
                                             <button 
                                                 onClick={() => handleChoice(c.learnerId, 'scanned')}
                                                 className={cn(
-                                                    "w-full py-1.5 rounded-lg border font-black text-lg transition-all",
+                                                    "w-full py-1 sm:py-1.5 rounded-lg border font-black text-base sm:text-lg transition-all",
                                                     (!manualChoices[c.learnerId] || manualChoices[c.learnerId] === 'scanned') ? "bg-primary text-white border-primary shadow-md" : "bg-background hover:bg-muted"
                                                 )}
                                             >
@@ -234,23 +234,23 @@ export const ControlledReplacementDialog = ({
                     </div>
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+                <div className="flex flex-col items-center justify-center py-10 sm:py-20 text-center space-y-4 sm:space-y-6">
                     {resolutionMode === 'replace' ? (
                         <>
-                            <div className="bg-red-100 p-6 rounded-full text-red-600"><AlertCircle className="h-16 w-16" /></div>
+                            <div className="bg-red-100 p-4 sm:p-6 rounded-full text-red-600"><AlertCircle className="h-12 w-12 sm:h-16 sm:w-16" /></div>
                             <div className="space-y-2">
-                                <h3 className="text-xl font-bold">Total Overwrite Selected</h3>
-                                <p className="text-sm text-muted-foreground max-w-sm">
+                                <h3 className="text-lg sm:text-xl font-bold">Total Overwrite Selected</h3>
+                                <p className="text-xs sm:text-sm text-muted-foreground max-w-sm px-4">
                                     All current marks AND question-level detail will be replaced with the scanned results.
                                 </p>
                             </div>
                         </>
                     ) : (
                         <>
-                            <div className="bg-green-100 p-6 rounded-full text-green-600"><CheckCircle2 className="h-16 w-16" /></div>
+                            <div className="bg-green-100 p-4 sm:p-6 rounded-full text-green-600"><CheckCircle2 className="h-12 w-12 sm:h-16 sm:w-16" /></div>
                             <div className="space-y-2">
-                                <h3 className="text-xl font-bold">Merge Selected</h3>
-                                <p className="text-sm text-muted-foreground max-w-sm">
+                                <h3 className="text-lg sm:text-xl font-bold">Merge Selected</h3>
+                                <p className="text-xs sm:text-sm text-muted-foreground max-w-sm px-4">
                                     We will only fill in missing marks. Existing database values (including question details) will be preserved.
                                 </p>
                             </div>
@@ -260,11 +260,11 @@ export const ControlledReplacementDialog = ({
             )}
         </ScrollArea>
 
-        <DialogFooter className="p-6 border-t bg-muted/5">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel Scan</Button>
+        <DialogFooter className="p-4 sm:p-6 border-t bg-muted/5 flex flex-col sm:flex-row gap-2 shrink-0">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full sm:w-auto h-12 sm:h-10">Cancel Scan</Button>
             <Button 
                 onClick={handleConfirmAction} 
-                className="font-black h-12 px-10 bg-amber-600 hover:bg-amber-700"
+                className="font-black h-12 sm:h-12 px-4 sm:px-10 bg-amber-600 hover:bg-amber-700 w-full sm:w-auto"
                 disabled={isProcessing}
             >
                 {isProcessing ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Applying...</> : <><Save className="h-4 w-4 mr-2" /> Confirm & Apply Changes</>}

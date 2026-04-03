@@ -76,12 +76,12 @@ ${insights.recommendations.map(s => `- ${s}`).join('\n')}
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[85vh] flex flex-col p-4 sm:p-6">
         <DialogHeader>
-          <div className="flex items-center justify-between pr-8">
-             <div>
-                <DialogTitle className="flex items-center gap-2 text-xl text-primary">
-                    <Sparkles className="h-6 w-6" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+             <div className="text-left">
+                <DialogTitle className="flex items-center justify-start gap-2 text-xl text-primary">
+                    <Sparkles className="h-5 w-5" />
                     AI Class Analysis
                 </DialogTitle>
                 <DialogDescription>
@@ -89,29 +89,29 @@ ${insights.recommendations.map(s => `- ${s}`).join('\n')}
                 </DialogDescription>
              </div>
              {insights && (
-                 <Button variant="outline" size="sm" onClick={handleDownload}>
+                 <Button variant="outline" size="sm" onClick={handleDownload} className="w-full sm:w-auto shrink-0">
                     <Download className="mr-2 h-4 w-4" /> Save
                  </Button>
              )}
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 pr-2 sm:pr-4 mt-4">
           {!insights ? (
-            <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center">
+            <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center px-4">
               <div className="bg-primary/10 p-4 rounded-full">
-                <Brain className="h-12 w-12 text-primary" />
+                <Brain className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
               </div>
               <div className="space-y-2 max-w-md">
                 <h3 className="font-semibold text-lg">Generate Insights</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Analyze learner performance to identify trends, strengths, and areas for intervention using AI.
                 </p>
               </div>
 
               {!hasMarksCaptured ? (
-                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg flex items-start gap-3 max-w-sm">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg flex items-start gap-3 max-w-sm w-full">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                     <div className="text-left">
                         <p className="text-sm font-bold text-amber-900">Setup Incomplete</p>
                         <p className="text-xs text-amber-800 leading-tight">
@@ -120,12 +120,12 @@ ${insights.recommendations.map(s => `- ${s}`).join('\n')}
                     </div>
                   </div>
               ) : (
-                <div className="flex gap-2 mt-4">
-                    <Button onClick={onGenerate} disabled={isLoading} className="min-w-[140px]">
+                <div className="flex flex-col sm:flex-row gap-2 mt-4 w-full max-w-xs">
+                    <Button onClick={onGenerate} disabled={isLoading} className="w-full sm:min-w-[140px]">
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                         Generate Analysis
                     </Button>
-                    <Button variant="outline" onClick={onSimulate} disabled={isLoading}>
+                    <Button variant="outline" onClick={onSimulate} disabled={isLoading} className="w-full sm:w-auto">
                         Demo Mode
                     </Button>
                 </div>
@@ -134,30 +134,30 @@ ${insights.recommendations.map(s => `- ${s}`).join('\n')}
           ) : (
             <div className="space-y-6 py-2">
               <div className="p-4 bg-muted/40 rounded-lg border relative group">
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(insights.summary, 'Summary')}>
+                <div className="absolute top-2 right-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                   <Button variant="ghost" size="icon" className="h-6 w-6 bg-background/50 backdrop-blur-sm" onClick={() => handleCopy(insights.summary, 'Summary')}>
                       {copiedSection === 'Summary' ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
                    </Button>
                 </div>
                 <h4 className="font-semibold mb-2 flex items-center gap-2">
                   <Brain className="h-4 w-4 text-purple-600" /> Executive Summary
                 </h4>
-                <p className="text-sm leading-relaxed text-muted-foreground">{insights.summary}</p>
+                <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground">{insights.summary}</p>
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-3 relative group">
-                  <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(formatListForCopy(insights.strengths), 'Strengths')}>
+                  <div className="absolute -top-1 right-0 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                     <Button variant="ghost" size="icon" className="h-6 w-6 bg-background/50 backdrop-blur-sm" onClick={() => handleCopy(formatListForCopy(insights.strengths), 'Strengths')}>
                         {copiedSection === 'Strengths' ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
                      </Button>
                   </div>
-                  <h4 className="font-semibold text-sm flex items-center gap-2 text-green-700">
+                  <h4 className="font-semibold text-sm flex items-center gap-2 text-green-700 pr-8">
                     <TrendingUp className="h-4 w-4" /> Key Strengths
                   </h4>
                   <ul className="space-y-2">
                     {insights.strengths.map((item, i) => (
-                      <li key={i} className="text-sm bg-green-50 text-green-900 px-3 py-2 rounded-md border border-green-100">
+                      <li key={i} className="text-xs sm:text-sm bg-green-50 text-green-900 px-3 py-2 rounded-md border border-green-100">
                         {item}
                       </li>
                     ))}
@@ -165,17 +165,17 @@ ${insights.recommendations.map(s => `- ${s}`).join('\n')}
                 </div>
 
                 <div className="space-y-3 relative group">
-                  <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(formatListForCopy(insights.areasForImprovement), 'Areas')}>
+                  <div className="absolute -top-1 right-0 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                     <Button variant="ghost" size="icon" className="h-6 w-6 bg-background/50 backdrop-blur-sm" onClick={() => handleCopy(formatListForCopy(insights.areasForImprovement), 'Areas')}>
                         {copiedSection === 'Areas' ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
                      </Button>
                   </div>
-                  <h4 className="font-semibold text-sm flex items-center gap-2 text-orange-700">
+                  <h4 className="font-semibold text-sm flex items-center gap-2 text-orange-700 pr-8">
                     <AlertTriangle className="h-4 w-4" /> Areas for Improvement
                   </h4>
                   <ul className="space-y-2">
                     {insights.areasForImprovement.map((item, i) => (
-                      <li key={i} className="text-sm bg-orange-50 text-orange-900 px-3 py-2 rounded-md border border-orange-100">
+                      <li key={i} className="text-xs sm:text-sm bg-orange-50 text-orange-900 px-3 py-2 rounded-md border border-orange-100">
                         {item}
                       </li>
                     ))}
@@ -184,12 +184,12 @@ ${insights.recommendations.map(s => `- ${s}`).join('\n')}
               </div>
 
               <div className="space-y-3 relative group">
-                 <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(formatListForCopy(insights.recommendations), 'Recommendations')}>
+                 <div className="absolute -top-1 right-0 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                     <Button variant="ghost" size="icon" className="h-6 w-6 bg-background/50 backdrop-blur-sm" onClick={() => handleCopy(formatListForCopy(insights.recommendations), 'Recommendations')}>
                         {copiedSection === 'Recommendations' ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
                      </Button>
                   </div>
-                <h4 className="font-semibold text-sm flex items-center gap-2 text-blue-700">
+                <h4 className="font-semibold text-sm flex items-center gap-2 text-blue-700 pr-8">
                   <Lightbulb className="h-4 w-4" /> Recommendations & Strategies
                 </h4>
                 <div className="grid gap-2">
@@ -198,7 +198,7 @@ ${insights.recommendations.map(s => `- ${s}`).join('\n')}
                       <div className="mt-0.5 bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
                         {i + 1}
                       </div>
-                      <p className="text-sm text-blue-900">{item}</p>
+                      <p className="text-xs sm:text-sm text-blue-900">{item}</p>
                     </div>
                   ))}
                 </div>

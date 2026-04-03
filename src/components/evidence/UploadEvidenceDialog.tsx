@@ -36,7 +36,7 @@ export const UploadEvidenceDialog = ({ open, onOpenChange, onUpload, isUploading
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-[95vw] sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Attach Evidence</DialogTitle>
           <DialogDescription>
@@ -46,12 +46,12 @@ export const UploadEvidenceDialog = ({ open, onOpenChange, onUpload, isUploading
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
             <Label>Source File</Label>
-            <Input type="file" onChange={handleFileChange} className="h-9 cursor-pointer" />
+            <Input type="file" onChange={handleFileChange} className="h-10 cursor-pointer" />
           </div>
           <div className="space-y-2">
             <Label>Category</Label>
             <Select value={category} onValueChange={(v: any) => setCategory(v)}>
-              <SelectTrigger>
+              <SelectTrigger className="h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -69,12 +69,13 @@ export const UploadEvidenceDialog = ({ open, onOpenChange, onUpload, isUploading
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
+                className="resize-none"
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!file || isUploading}>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto h-10">Cancel</Button>
+          <Button onClick={handleSubmit} disabled={!file || isUploading} className="w-full sm:w-auto h-10 font-bold">
             {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
             Upload & Link
           </Button>

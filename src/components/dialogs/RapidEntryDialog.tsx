@@ -64,7 +64,7 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="w-[95vw] sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Rapid Mark Entry</DialogTitle>
           <DialogDescription>
@@ -84,8 +84,8 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
             </p>
 
             <div className="flex flex-col items-center justify-center space-y-6 py-6">
-                <div className="text-center">
-                    <h3 className="text-2xl font-black text-foreground">{currentLearner?.name || "End of List"}</h3>
+                <div className="text-center px-4 w-full">
+                    <h3 className="text-xl sm:text-2xl font-black text-foreground truncate max-w-[280px] mx-auto">{currentLearner?.name || "End of List"}</h3>
                     <p className="text-xs text-muted-foreground mt-1">Status: {currentLearner?.mark ? "Has Mark" : "Empty"}</p>
                 </div>
                 
@@ -102,18 +102,18 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
                         autoComplete="off"
                     />
                     {currentMark.includes('/') && (
-                        <div className="absolute -right-10 text-primary animate-pulse">
-                            <Calculator className="h-6 w-6" />
+                        <div className="absolute -right-8 text-primary animate-pulse">
+                            <Calculator className="h-5 w-5 sm:h-6 sm:w-6" />
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="flex justify-between items-center pt-2">
-                <Button variant="ghost" size="sm" onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))} disabled={currentIndex === 0}>
+            <div className="flex justify-between items-center pt-2 gap-4">
+                <Button variant="ghost" size="sm" onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))} disabled={currentIndex === 0} className="w-full sm:w-auto h-10">
                     Previous
                 </Button>
-                <Button onClick={handleNext} className="min-w-[120px] font-bold">
+                <Button onClick={handleNext} className="w-full sm:w-auto sm:min-w-[120px] font-bold h-10">
                     {currentIndex === learners.length - 1 ? (
                         <>Finish <Check className="ml-2 h-4 w-4" /></>
                     ) : (

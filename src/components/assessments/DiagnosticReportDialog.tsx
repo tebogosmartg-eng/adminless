@@ -74,18 +74,18 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
-        <div className="p-6 pb-4 border-b bg-muted/20 shrink-0">
+      <DialogContent className="w-[95vw] sm:max-w-4xl h-[95vh] sm:h-[90vh] flex flex-col p-0 overflow-hidden">
+        <div className="p-4 sm:p-6 pb-4 border-b bg-muted/20 shrink-0">
           <DialogHeader>
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                 <div className="space-y-1">
                     <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black">Moderation Tool</Badge>
-                    <DialogTitle className="text-2xl font-bold">Diagnostic Analysis Report</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle className="text-xl sm:text-2xl font-bold">Diagnostic Analysis Report</DialogTitle>
+                    <DialogDescription className="text-xs sm:text-sm">
                         {classInfo.className} • {classInfo.subject} • {term.name}
                     </DialogDescription>
                 </div>
-                <Button onClick={handleExport} disabled={isExporting || !data || !isDataReady} className="font-bold gap-2">
+                <Button onClick={handleExport} disabled={isExporting || !data || !isDataReady} className="w-full sm:w-auto font-bold gap-2">
                     {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                     Export Official PDF
                 </Button>
@@ -93,58 +93,58 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
           </DialogHeader>
         </div>
 
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea className="flex-1 p-4 sm:p-6">
           {!isDataReady ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-6 text-center max-w-md mx-auto">
+              <div className="flex flex-col items-center justify-center py-10 sm:py-20 gap-6 text-center max-w-md mx-auto">
                   <div className="bg-amber-100 p-4 rounded-full">
-                      <ShieldAlert className="h-12 w-12 text-amber-600" />
+                      <ShieldAlert className="h-10 w-10 sm:h-12 sm:w-12 text-amber-600" />
                   </div>
                   <div className="space-y-2">
-                      <h3 className="text-xl font-bold">Diagnostic Blocked</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
+                      <h3 className="text-lg sm:text-xl font-bold">Diagnostic Blocked</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                           A diagnostic report requires high-quality, validated data. Please complete the following setup steps on your Dashboard before generating this report.
                       </p>
                   </div>
                   <div className="w-full space-y-2">
                       {missingRequired.filter(s => s.id <= 8).map(step => (
-                          <div key={step.id} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 text-left">
-                              <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                          <div key={step.id} className="flex items-center gap-3 p-2 sm:p-3 rounded-lg border bg-muted/30 text-left">
+                              <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-500 shrink-0" />
                               <span className="text-xs font-bold">{step.title}</span>
                           </div>
                       ))}
                   </div>
-                  <Button variant="outline" onClick={() => onOpenChange(false)}>Return to Workspace</Button>
+                  <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Return to Workspace</Button>
               </div>
           ) : loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-                <p className="text-sm font-medium text-muted-foreground animate-pulse">Running Diagnostic Algorithms...</p>
+                <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin text-primary opacity-20" />
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground animate-pulse">Running Diagnostic Algorithms...</p>
             </div>
           ) : data ? (
-            <div className="space-y-8 pb-10">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-4 rounded-xl border bg-primary/5 border-primary/10">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Class Average</p>
-                        <div className="text-2xl font-black text-primary">{data.summary.classAverage.toFixed(1)}%</div>
+            <div className="space-y-6 sm:space-y-8 pb-10">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="p-3 sm:p-4 rounded-xl border bg-primary/5 border-primary/10">
+                        <p className="text-[9px] sm:text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Class Average</p>
+                        <div className="text-xl sm:text-2xl font-black text-primary">{data.summary.classAverage.toFixed(1)}%</div>
                     </div>
-                    <div className="p-4 rounded-xl border bg-green-50/50 border-green-100">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Pass Rate</p>
-                        <div className="text-2xl font-black text-green-700">{data.summary.passRate.toFixed(0)}%</div>
+                    <div className="p-3 sm:p-4 rounded-xl border bg-green-50/50 border-green-100">
+                        <p className="text-[9px] sm:text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Pass Rate</p>
+                        <div className="text-xl sm:text-2xl font-black text-green-700">{data.summary.passRate.toFixed(0)}%</div>
                     </div>
-                    <div className="p-4 rounded-xl border bg-muted/30">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Highest Mark</p>
-                        <div className="text-2xl font-black">{data.summary.highestMark.toFixed(0)}%</div>
+                    <div className="p-3 sm:p-4 rounded-xl border bg-muted/30">
+                        <p className="text-[9px] sm:text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Highest Mark</p>
+                        <div className="text-xl sm:text-2xl font-black">{data.summary.highestMark.toFixed(0)}%</div>
                     </div>
-                    <div className="p-4 rounded-xl border bg-amber-50/50 border-amber-100">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Below Threshold</p>
-                        <div className="text-2xl font-black text-amber-700">{data.summary.belowThresholdCount}</div>
+                    <div className="p-3 sm:p-4 rounded-xl border bg-amber-50/50 border-amber-100">
+                        <p className="text-[9px] sm:text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Below Threshold</p>
+                        <div className="text-xl sm:text-2xl font-black text-amber-700">{data.summary.belowThresholdCount}</div>
                     </div>
                 </div>
 
                 {data.comparison.change !== null && (
-                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/10">
-                        {data.comparison.change > 0 ? <ArrowUpRight className="text-green-600 h-5 w-5" /> : data.comparison.change < 0 ? <ArrowDownRight className="text-red-600 h-5 w-5" /> : <Minus className="h-5 w-5" />}
-                        <span className="text-sm font-medium">
+                    <div className="flex items-center gap-2 sm:gap-3 p-3 rounded-lg border bg-muted/10">
+                        {data.comparison.change > 0 ? <ArrowUpRight className="text-green-600 h-4 w-4 sm:h-5 sm:w-5 shrink-0" /> : data.comparison.change < 0 ? <ArrowDownRight className="text-red-600 h-4 w-4 sm:h-5 sm:w-5 shrink-0" /> : <Minus className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />}
+                        <span className="text-xs sm:text-sm font-medium">
                             Performance has {data.comparison.change > 0 ? 'improved' : data.comparison.change < 0 ? 'declined' : 'remained stable'} by 
                             <span className="font-bold mx-1">{Math.abs(data.comparison.change).toFixed(1)}%</span> 
                             since previous term.
@@ -154,7 +154,7 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
 
                 <div className="space-y-3">
                     <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Performance Distribution</h4>
-                    <div className="flex h-10 w-full rounded-lg overflow-hidden border shadow-inner bg-muted/20">
+                    <div className="flex h-8 sm:h-10 w-full rounded-lg overflow-hidden border shadow-inner bg-muted/20">
                         {Object.entries(data.distribution).map(([band, count]) => {
                             const pct = (count / data.summary.totalLearners) * 100;
                             if (count === 0) return null;
@@ -163,12 +163,12 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
                                     key={band} 
                                     style={{ width: `${pct}%` }} 
                                     className={cn(
-                                        "h-full flex items-center justify-center text-[10px] font-black text-white transition-all",
+                                        "h-full flex items-center justify-center text-[9px] sm:text-[10px] font-black text-white transition-all overflow-hidden",
                                         band === "0-29" ? "bg-red-700" : band === "30-39" ? "bg-red-500" : band === "40-49" ? "bg-orange-500" : band === "80-100" ? "bg-green-600" : "bg-blue-600"
                                     )}
                                     title={`${band}%: ${count} learners`}
                                 >
-                                    {count}
+                                    {count > 0 ? count : ""}
                                 </div>
                             );
                         })}
@@ -183,8 +183,8 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
                         <Textarea 
                             value={diagnosticSummary}
                             onChange={(e) => setDiagnosticSummary(e.target.value)}
-                            rows={4}
-                            className="bg-muted/10 text-sm leading-relaxed"
+                            rows={5}
+                            className="bg-muted/10 text-xs sm:text-sm leading-relaxed"
                             placeholder="Interpret the statistics above..."
                         />
                     </div>
@@ -197,7 +197,7 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
                             value={interventionPlan}
                             onChange={(e) => setInterventionPlan(e.target.value)}
                             rows={6}
-                            className="bg-muted/10 text-sm leading-relaxed"
+                            className="bg-muted/10 text-xs sm:text-sm leading-relaxed"
                             placeholder="Describe how you will support learners below threshold..."
                         />
                     </div>
@@ -211,9 +211,12 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
                         {data.atRisk.map((l, i) => (
                             <div key={i} className="flex justify-between items-center p-2 rounded border bg-red-50/20 text-xs">
                                 <span className="font-medium">{l.name}</span>
-                                <Badge variant="outline" className="h-5 text-red-600 border-red-200">{l.mark.toFixed(1)}%</Badge>
+                                <Badge variant="outline" className="h-4 sm:h-5 text-red-600 border-red-200">{l.mark.toFixed(1)}%</Badge>
                             </div>
                         ))}
+                        {data.atRisk.length === 0 && (
+                            <p className="text-xs text-muted-foreground italic col-span-2">No learners are below the configured risk threshold.</p>
+                        )}
                     </div>
                 </div>
             </div>

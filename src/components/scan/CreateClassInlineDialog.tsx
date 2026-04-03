@@ -86,7 +86,7 @@ export const CreateClassInlineDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-[95vw] sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PlusCircle className="h-5 w-5 text-primary" />
@@ -105,9 +105,10 @@ export const CreateClassInlineDialog = ({
               onChange={(e) => setClassName(e.target.value)}
               placeholder="Required"
               autoFocus
+              className="h-10"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="inline-grade">Grade</Label>
               <Input
@@ -116,6 +117,7 @@ export const CreateClassInlineDialog = ({
                 onChange={(e) => setGrade(e.target.value)}
                 list="inline-grades-list"
                 placeholder="Optional"
+                className="h-10"
               />
               <datalist id="inline-grades-list">
                 {savedGrades.map((g) => (
@@ -131,6 +133,7 @@ export const CreateClassInlineDialog = ({
                 onChange={(e) => setSubject(e.target.value)}
                 list="inline-subjects-list"
                 placeholder="Optional"
+                className="h-10"
               />
               <datalist id="inline-subjects-list">
                 {savedSubjects.map((s) => (
@@ -140,11 +143,11 @@ export const CreateClassInlineDialog = ({
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto h-10">
             Cancel
           </Button>
-          <Button type="submit" onClick={handleSubmit}>
+          <Button type="submit" onClick={handleSubmit} className="w-full sm:w-auto h-10 font-bold">
             Create & Select
           </Button>
         </DialogFooter>
