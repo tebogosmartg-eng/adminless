@@ -20,7 +20,7 @@ export const TeacherFileTasks = ({ assessments, rubrics }: TeacherFileTasksProps
             {assessments.map(ass => {
                 const rubric = rubrics.find(r => r.id === ass.rubric_id);
                 return (
-                    <div key={ass.id} className="border border-slate-200 rounded-xl bg-white shadow-none overflow-hidden p-0 space-y-0 print-avoid-break print:border-slate-300">
+                    <div key={ass.id} className="border border-slate-200 rounded-xl bg-white shadow-none overflow-hidden p-0 space-y-0 print-avoid-break print:border-slate-300 w-full max-w-full">
                         <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 print:bg-transparent">
                             <div>
                                 <h5 className="font-black text-sm flex items-center gap-2 text-slate-900">
@@ -31,25 +31,25 @@ export const TeacherFileTasks = ({ assessments, rubrics }: TeacherFileTasksProps
                                     {ass.type}
                                 </p>
                             </div>
-                            <div className="flex gap-4 text-xs font-medium text-slate-700">
-                                <div className="flex flex-col text-right">
+                            <div className="flex flex-wrap gap-4 text-xs font-medium text-slate-700 md:justify-end">
+                                <div className="flex flex-col text-left md:text-right">
                                     <span className="text-[9px] uppercase font-bold text-slate-400">Date</span>
                                     <span>{ass.date ? format(new Date(ass.date), 'dd MMM yyyy') : 'TBA'}</span>
                                 </div>
-                                <div className="flex flex-col text-right">
+                                <div className="flex flex-col text-left md:text-right">
                                     <span className="text-[9px] uppercase font-bold text-slate-400">Total Marks</span>
                                     <span className="font-bold">{ass.max_mark}</span>
                                 </div>
-                                <div className="flex flex-col text-right">
+                                <div className="flex flex-col text-left md:text-right">
                                     <span className="text-[9px] uppercase font-bold text-slate-400">Weighting</span>
                                     <span className="font-bold text-slate-900 print:text-black">{ass.weight}%</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-4">
+                        <div className="p-4 overflow-x-auto w-full">
                             {ass.questions && ass.questions.length > 0 ? (
-                                <div className="border border-slate-200 rounded-lg overflow-hidden print:border-slate-300">
+                                <div className="border border-slate-200 rounded-lg overflow-x-auto print:border-slate-300 min-w-[600px] w-full">
                                     <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-2 print:bg-transparent print:text-black">
                                         <ListChecks className="h-3 w-3 no-print text-slate-400" /> Question Breakdown / Memo Structure
                                     </div>
@@ -84,7 +84,7 @@ export const TeacherFileTasks = ({ assessments, rubrics }: TeacherFileTasksProps
                                     <p className="text-xs font-medium text-slate-700 mb-3 print:text-black">{rubric.criteria.length} criteria defined. (Total: {rubric.total_points} pts)</p>
                                     <div className="grid gap-2">
                                         {rubric.criteria.map((c, i) => (
-                                            <div key={c.id} className="flex justify-between items-center text-xs p-2 bg-white rounded border border-slate-200 print:border-slate-300">
+                                            <div key={c.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs p-3 sm:p-2 bg-white rounded border border-slate-200 print:border-slate-300 gap-1">
                                                 <span className="font-bold text-slate-800">{i+1}. {c.title}</span>
                                                 <span className="text-slate-500 font-medium print:text-black">{c.weight} pts max</span>
                                             </div>

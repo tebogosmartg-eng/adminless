@@ -82,7 +82,7 @@ export const RubricBuilder = ({ onSave }: { onSave?: (rubric: Rubric) => void })
   };
 
   return (
-    <Card className="border-2 border-primary/20">
+    <Card className="border-2 border-primary/20 w-full max-w-full">
       <CardHeader>
         <div className="flex items-center gap-2">
             <Layers className="h-5 w-5 text-primary" />
@@ -101,11 +101,11 @@ export const RubricBuilder = ({ onSave }: { onSave?: (rubric: Rubric) => void })
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                 <ListTodo className="h-4 w-4" /> Criteria
             </h4>
-            <Button variant="outline" size="sm" onClick={addCriterion}>
+            <Button variant="outline" size="sm" onClick={addCriterion} className="w-full sm:w-auto h-9">
                 <Plus className="h-4 w-4 mr-1" /> Add Row
             </Button>
           </div>
@@ -122,8 +122,8 @@ export const RubricBuilder = ({ onSave }: { onSave?: (rubric: Rubric) => void })
                     <Trash2 className="h-4 w-4" />
                 </Button>
                 
-                <div className="grid grid-cols-4 gap-4">
-                    <div className="col-span-3 space-y-1.5">
+                <div className="grid grid-cols-4 sm:grid-cols-4 gap-4 pr-6">
+                    <div className="col-span-4 sm:col-span-3 space-y-1.5">
                         <Label className="text-xs">Criterion Name</Label>
                         <Input 
                             value={c.title} 
@@ -131,7 +131,7 @@ export const RubricBuilder = ({ onSave }: { onSave?: (rubric: Rubric) => void })
                             className="h-8"
                         />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="col-span-4 sm:col-span-1 space-y-1.5">
                         <Label className="text-xs">Max Points</Label>
                         <Input 
                             type="number" 
@@ -149,7 +149,7 @@ export const RubricBuilder = ({ onSave }: { onSave?: (rubric: Rubric) => void })
                         </Badge>
                     ))}
                     <span className="text-[10px] text-muted-foreground self-center italic">
-                        Standard levels (Excellent/Adequate/Poor) applied.
+                        Standard levels applied.
                     </span>
                 </div>
               </div>
@@ -157,7 +157,7 @@ export const RubricBuilder = ({ onSave }: { onSave?: (rubric: Rubric) => void })
           </div>
         </div>
 
-        <Button className="w-full" onClick={handleSave}>
+        <Button className="w-full font-bold h-11" onClick={handleSave}>
           <Save className="mr-2 h-4 w-4" /> Save Rubric Definition
         </Button>
       </CardContent>

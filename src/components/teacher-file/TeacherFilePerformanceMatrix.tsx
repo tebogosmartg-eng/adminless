@@ -21,15 +21,15 @@ interface TeacherFilePerformanceMatrixProps {
 
 export const TeacherFilePerformanceMatrix = ({ classes }: TeacherFilePerformanceMatrixProps) => {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       <div className="flex items-center justify-between">
           <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
               <Target className="h-3 w-3 text-primary" /> Term Performance Matrix
           </h4>
       </div>
 
-      <div className="border rounded-xl bg-white overflow-hidden shadow-sm">
-          <Table>
+      <div className="border rounded-xl bg-white overflow-x-auto w-full shadow-sm">
+          <Table className="min-w-[500px] w-full">
               <TableHeader className="bg-slate-50">
                   <TableRow>
                       <TableHead className="text-[9px] font-black uppercase">Class Context</TableHead>

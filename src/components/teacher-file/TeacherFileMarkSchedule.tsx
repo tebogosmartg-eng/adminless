@@ -20,15 +20,15 @@ export const TeacherFileMarkSchedule = ({ classInfo, assessments, marks, grading
     const learners = classInfo.learners || [];
 
     return (
-        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-none print:overflow-visible print:shadow-none print:border-slate-300">
-            <Table className="table-fixed text-xs print:text-[10px]">
+        <div className="border border-slate-200 rounded-xl overflow-x-auto w-full bg-white shadow-none print:overflow-visible print:shadow-none print:border-slate-300">
+            <Table className="table-fixed text-xs print:text-[10px] min-w-[700px] w-full">
                 <TableHeader className="bg-slate-50">
                     <TableRow>
-                        <TableHead className="w-8 text-center text-[10px] font-black uppercase text-slate-600 print:text-black">#</TableHead>
-                        <TableHead className="w-[200px] font-black text-[10px] uppercase text-slate-600 print:text-black">Learner Name</TableHead>
+                        <TableHead className="w-10 text-center text-[10px] font-black uppercase text-slate-600 print:text-black">#</TableHead>
+                        <TableHead className="w-[180px] sm:w-[200px] font-black text-[10px] uppercase text-slate-600 print:text-black">Learner Name</TableHead>
                         {assessments.map((a: Assessment) => (
-                            <TableHead key={a.id} className="text-center font-black text-[10px] uppercase px-1 text-slate-600 print:text-black">
-                                <span className="truncate block" title={a.title}>{a.title}</span>
+                            <TableHead key={a.id} className="text-center font-black text-[10px] uppercase px-2 text-slate-600 print:text-black min-w-[80px]">
+                                <span className="truncate block max-w-[120px] mx-auto" title={a.title}>{a.title}</span>
                                 <span className="text-[8px] text-slate-400 print:text-slate-600">/{a.max_mark} ({a.weight}%)</span>
                             </TableHead>
                         ))}
@@ -43,7 +43,7 @@ export const TeacherFileMarkSchedule = ({ classInfo, assessments, marks, grading
                         return (
                             <TableRow key={l.id || i} className="hover:bg-slate-50">
                                 <TableCell className="text-center text-[10px] font-mono text-slate-400 print:text-slate-800">{i + 1}</TableCell>
-                                <TableCell className="font-bold truncate text-slate-900 print:text-black">{l.name}</TableCell>
+                                <TableCell className="font-bold truncate text-slate-900 print:text-black max-w-[180px] sm:max-w-[200px]">{l.name}</TableCell>
                                 {assessments.map((a: Assessment) => {
                                     const m = marks.find((mark: any) => mark.assessment_id === a.id && mark.learner_id === l.id);
                                     return <TableCell key={a.id} className="text-center font-medium text-slate-700 print:text-black">{m?.score ?? '-'}</TableCell>

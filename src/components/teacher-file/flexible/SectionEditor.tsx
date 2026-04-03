@@ -66,28 +66,28 @@ export const SectionEditor = ({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between group">
-        <div className="flex items-center gap-4 flex-1">
-            {!isLocked && <GripVertical className="h-4 w-4 text-slate-300 cursor-move opacity-0 group-hover:opacity-100 transition-opacity" />}
+    <div className="space-y-4 w-full max-w-full">
+      <div className="flex items-center justify-between group gap-2">
+        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+            {!isLocked && <GripVertical className="h-4 w-4 text-slate-300 cursor-move opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block shrink-0" />}
             <div className={cn(
-                "p-2.5 rounded-xl border-2 transition-colors",
+                "p-2.5 rounded-xl border-2 transition-colors shrink-0",
                 isExpanded ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-transparent"
             )}>
                 {getSectionIcon()}
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 pr-2">
                 <Input 
                     value={section.title}
                     onChange={e => !isLocked && onUpdateSection(section.id, { title: e.target.value })}
                     disabled={isLocked}
-                    className="h-7 text-lg font-black border-none shadow-none bg-transparent p-0 focus-visible:ring-0 w-full"
+                    className="h-7 text-sm sm:text-lg font-black border-none shadow-none bg-transparent p-0 focus-visible:ring-0 w-full truncate"
                 />
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{section.type}</p>
             </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {!isLocked && (
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => onDeleteSection(section.id)}>
                     <Trash2 className="h-4 w-4" />
@@ -100,7 +100,7 @@ export const SectionEditor = ({
       </div>
 
       {isExpanded && (
-          <div className="pl-14 space-y-4 animate-in slide-in-from-top-2 duration-300">
+          <div className="pl-0 sm:pl-14 space-y-4 animate-in slide-in-from-top-2 duration-300 w-full">
               <div className="grid gap-3">
                   {entries.map(entry => (
                       <EntryCard 
@@ -115,7 +115,7 @@ export const SectionEditor = ({
 
               {isAdding ? (
                   <Card className="border-primary/40 shadow-xl bg-primary/[0.02]">
-                      <CardContent className="p-4 space-y-4">
+                      <CardContent className="p-3 sm:p-4 space-y-4">
                           <Input 
                             placeholder="Entry Title (Optional)" 
                             value={newEntryTitle} 
@@ -129,9 +129,9 @@ export const SectionEditor = ({
                             className="w-full min-h-[100px] text-sm p-4 rounded-xl border bg-white focus:ring-2 focus:ring-primary outline-none resize-none"
                             autoFocus
                           />
-                          <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => setIsAdding(false)}>Cancel</Button>
-                              <Button size="sm" onClick={handleAdd} disabled={!newEntryContent.trim()}>
+                          <div className="flex flex-col sm:flex-row justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => setIsAdding(false)} className="w-full sm:w-auto h-9">Cancel</Button>
+                              <Button size="sm" onClick={handleAdd} disabled={!newEntryContent.trim()} className="w-full sm:w-auto h-9 font-bold">
                                   Create Entry
                               </Button>
                           </div>
@@ -142,7 +142,7 @@ export const SectionEditor = ({
                       <Button 
                         variant="outline" 
                         onClick={() => setIsAdding(true)} 
-                        className="w-full h-10 border-dashed hover:border-primary/40 hover:bg-primary/5 gap-2 group"
+                        className="w-full h-12 border-dashed hover:border-primary/40 hover:bg-primary/5 gap-2 group"
                       >
                           <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
                           <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover:text-primary">Add New Entry to {section.title}</span>
