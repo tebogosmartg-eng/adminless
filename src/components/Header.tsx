@@ -77,12 +77,12 @@ const Header = () => {
         <div className="relative group flex-1 md:flex-none min-w-[120px]">
             <Button 
             variant="outline" 
-            className="h-9 w-full md:w-64 justify-start text-xs text-muted-foreground bg-muted/40 hover:bg-muted/60 border-border group-hover:border-primary transition-all px-2 md:px-4"
+            className="h-10 md:h-9 w-full md:w-64 justify-start text-xs text-muted-foreground bg-muted/40 hover:bg-muted/60 border-border group-hover:border-primary transition-all px-2 md:px-4"
             onClick={triggerSearch}
             >
-            <Search className="md:mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
+            <Search className="md:mr-2 h-4 w-4 md:h-3.5 md:w-3.5 text-muted-foreground/70 shrink-0" />
             <span className="hidden lg:inline-flex">Search learners...</span>
-            <span className="hidden sm:inline-flex lg:hidden">Search...</span>
+            <span className="inline-flex lg:hidden ml-2">Search...</span>
             <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[9px] font-medium text-muted-foreground sm:flex">
                 <span className="text-[10px]">⌘</span>K
             </kbd>
@@ -103,14 +103,14 @@ const Header = () => {
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 max-w-full overflow-hidden">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-9 px-1.5 sm:px-2 md:px-3 gap-1 md:gap-2 font-normal text-muted-foreground hover:bg-muted relative flex-shrink-0 min-w-0">
-                  <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <Button variant="ghost" className="h-10 md:h-9 px-1.5 sm:px-2 md:px-3 gap-1 md:gap-2 font-normal text-muted-foreground hover:bg-muted relative flex-shrink-0 min-w-0">
+                  <CalendarDays className="h-4 w-4 md:h-3.5 md:w-3.5 flex-shrink-0" />
                   <span className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-foreground hidden sm:inline-block truncate max-w-[60px] md:max-w-[100px]">{activeYear?.name || "Year"}</span>
                   <span className="text-[10px] md:text-xs font-medium text-foreground/70 truncate max-w-[60px] md:max-w-[80px]">{activeTerm?.name || "Term"}</span>
                   <ChevronDown className="h-3 w-3 opacity-60 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuContent align="start" className="w-64 max-w-[95vw]">
                 <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Academic Progression</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {sortedTerms.length > 0 ? (
@@ -119,7 +119,6 @@ const Header = () => {
                         const isPrevFinalised = index === 0 || array[index - 1].is_finalised;
                         const isCurrentActive = activeTerm?.id === term.id;
                         
-                        // Strict progression: Only unlocked if previous is finalised or it is the first term
                         const isUnlocked = isPrevFinalised;
                         
                         return (
@@ -151,7 +150,7 @@ const Header = () => {
                                         </div>
                                     </TooltipTrigger>
                                     {!isUnlocked && (
-                                        <TooltipContent side="right">
+                                        <TooltipContent side="right" className="z-50">
                                             <p className="text-xs">Finalise {array[index-1].name} to unlock this term.</p>
                                         </TooltipContent>
                                     )}
@@ -191,7 +190,7 @@ const Header = () => {
                     <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-foreground/90 truncate">
                         {teacherName || "Teacher"}
                     </span>
-                    <Avatar className="h-7 w-7 md:h-8 md:w-8 ring-2 ring-border flex-shrink-0">
+                    <Avatar className="h-8 w-8 ring-2 ring-border flex-shrink-0">
                         <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">{initials}</AvatarFallback>
                     </Avatar>
                 </button>

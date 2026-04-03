@@ -6,7 +6,7 @@ import { SearchCommand } from "./SearchCommand";
 
 const Layout = () => {
   return (
-    <div className="flex min-h-screen w-full bg-muted/40 overflow-hidden">
+    <div className="flex min-h-screen w-full max-w-[100vw] bg-muted/40 overflow-x-hidden">
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0 w-full max-w-full">
         <Header />

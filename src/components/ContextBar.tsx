@@ -38,7 +38,6 @@ export const ContextBar = () => {
   const currentClass = classId ? classes.find(c => c.id === classId) : null;
   const isClassPage = location.pathname.includes('/classes/') && currentClass;
   
-  // Detect if we are in guided setup mode
   const isGuided = location.state?.fromOnboarding;
 
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -70,7 +69,7 @@ export const ContextBar = () => {
 
   return (
     <div className={cn(
-        "border-b px-4 md:px-8 h-10 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider z-20 sticky top-0 md:relative overflow-hidden no-print transition-all duration-500",
+        "border-b px-4 md:px-8 h-auto min-h-10 py-2 flex flex-wrap items-center justify-between text-[10px] font-bold uppercase tracking-wider z-20 sticky top-0 md:relative overflow-hidden no-print transition-all duration-500 gap-y-2",
         isGuided ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-border"
     )}>
       <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
@@ -153,7 +152,7 @@ export const ContextBar = () => {
         )}
       </div>
 
-      <div className="flex items-center gap-3 shrink-0 pl-4">
+      <div className="flex items-center gap-3 shrink-0 md:pl-4">
         <div className={cn("flex items-center gap-2 px-2.5 py-1 rounded-md transition-all cursor-default opacity-80", isGuided ? "bg-white/10 text-white" : "bg-green-50 text-green-700")}>
             <CheckCircle2 className="h-3 w-3" />
             <span className="hidden sm:inline">Cloud Active</span>

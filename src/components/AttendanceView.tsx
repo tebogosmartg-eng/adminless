@@ -57,7 +57,7 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
         variant={isSelected ? "default" : "outline"}
         size="sm"
         className={cn(
-          "h-8 px-2 transition-all",
+          "h-10 sm:h-8 px-2 transition-all",
           isSelected ? colorClass : "hover:bg-muted text-muted-foreground hover:text-foreground",
           !isSelected && "opacity-70 hover:opacity-100"
         )}
@@ -65,7 +65,7 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
         disabled={disabled || !lId}
         title={label}
       >
-        <Icon className="h-4 w-4" />
+        <Icon className="h-5 w-5 sm:h-4 sm:w-4" />
       </Button>
     );
   };
@@ -81,15 +81,15 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
           </div>
       )}
 
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-muted/20 p-4 rounded-lg border w-full">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-muted/20 p-4 rounded-lg border w-full">
         <div className="flex items-center gap-2 w-full md:w-auto">
-            <Button variant="outline" size="icon" onClick={() => setDate(subDays(date, 1))} className="shrink-0">
+            <Button variant="outline" size="icon" onClick={() => setDate(subDays(date, 1))} className="shrink-0 h-10 w-10">
                 <ChevronLeft className="h-4 w-4" />
             </Button>
             
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-full sm:w-[240px] justify-start text-left font-normal flex-1", !date && "text-muted-foreground")}>
+                <Button variant="outline" className={cn("h-10 w-full sm:w-[240px] justify-start text-left font-normal flex-1", !date && "text-muted-foreground")}>
                   <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                   <span className="truncate">{format(date, "dd/MM/yyyy")}</span>
                 </Button>
@@ -99,21 +99,21 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
               </PopoverContent>
             </Popover>
 
-            <Button variant="outline" size="icon" onClick={() => setDate(addDays(date, 1))} disabled={isSameDay(date, new Date())} className="shrink-0">
+            <Button variant="outline" size="icon" onClick={() => setDate(addDays(date, 1))} disabled={isSameDay(date, new Date())} className="shrink-0 h-10 w-10">
                 <ChevronRight className="h-4 w-4" />
             </Button>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 w-full md:w-auto text-sm">
-             <div className="flex flex-wrap items-center gap-3 md:gap-4 mr-2">
-                 <div className="flex items-center gap-1 text-green-600 font-medium"><Check className="h-4 w-4" /> <span className="hidden sm:inline">{stats.present}</span></div>
-                 <div className="flex items-center gap-1 text-red-600 font-medium"><X className="h-4 w-4" /> <span className="hidden sm:inline">{stats.absent}</span></div>
-                 <div className="flex items-center gap-1 text-orange-600 font-medium"><Clock className="h-4 w-4" /> <span className="hidden sm:inline">{stats.late}</span></div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between md:justify-end gap-3 w-full md:w-auto text-sm">
+             <div className="flex items-center justify-between sm:justify-start gap-3 md:gap-4 sm:mr-2 bg-background p-2 rounded-md border sm:border-none sm:bg-transparent">
+                 <div className="flex items-center gap-1.5 text-green-600 font-medium"><Check className="h-4 w-4" /> <span>{stats.present}</span></div>
+                 <div className="flex items-center gap-1.5 text-red-600 font-medium"><X className="h-4 w-4" /> <span>{stats.absent}</span></div>
+                 <div className="flex items-center gap-1.5 text-orange-600 font-medium"><Clock className="h-4 w-4" /> <span>{stats.late}</span></div>
              </div>
              
              <div className="flex items-center gap-2 w-full sm:w-auto">
                {!isLocked && (
-                   <Button onClick={saveAttendance} disabled={!hasChanges || saving || !isReady} size="sm" className="flex-1 sm:flex-none">
+                   <Button onClick={saveAttendance} disabled={!hasChanges || saving || !isReady} size="sm" className="flex-1 sm:flex-none h-10 sm:h-9">
                       {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                       <span className="hidden sm:inline">{hasChanges ? "Save Changes" : "Saved"}</span>
                       <span className="sm:hidden">Save</span>
@@ -122,7 +122,7 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
 
                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                     <Button variant="outline" size="sm" disabled={isExporting} className="flex-1 sm:flex-none">
+                     <Button variant="outline" size="sm" disabled={isExporting} className="flex-1 sm:flex-none h-10 sm:h-9">
                         <Download className="h-4 w-4 sm:mr-2" /> 
                         <span className="hidden sm:inline">Export</span>
                      </Button>
@@ -141,12 +141,12 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
       </div>
 
       <Tabs defaultValue="daily" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
-          <TabsTrigger value="daily" className="flex items-center gap-2">
-            <ListChecks className="h-4 w-4 shrink-0" /> <span className="truncate">Daily Register</span>
+        <TabsList className="flex w-full overflow-x-auto no-scrollbar justify-start sm:justify-center p-1 h-auto min-h-[48px] bg-muted/50 rounded-xl">
+          <TabsTrigger value="daily" className="flex-none shrink-0 flex items-center gap-2 h-10 px-4">
+            <ListChecks className="h-4 w-4 shrink-0" /> <span>Daily Register</span>
           </TabsTrigger>
-          <TabsTrigger value="monthly" className="flex items-center gap-2">
-            <LayoutGrid className="h-4 w-4 shrink-0" /> <span className="truncate">Monthly Grid</span>
+          <TabsTrigger value="monthly" className="flex-none shrink-0 flex items-center gap-2 h-10 px-4">
+            <LayoutGrid className="h-4 w-4 shrink-0" /> <span>Monthly Grid</span>
           </TabsTrigger>
         </TabsList>
 
@@ -161,7 +161,7 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
                     </CardDescription>
                   </div>
                   {!isLocked && (
-                    <Button variant="ghost" size="sm" onClick={() => handleMarkAll('present')} disabled={!isReady} className="w-full sm:w-auto shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => handleMarkAll('present')} disabled={!isReady} className="w-full sm:w-auto shrink-0 h-10 sm:h-9">
                         Mark All Present
                     </Button>
                   )}
@@ -191,26 +191,26 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
                     ))}
                 </div>
               ) : (
-                <div className="border-t sm:border rounded-md overflow-x-auto w-full">
+                <div className="border-t sm:border rounded-md overflow-x-auto w-full no-scrollbar">
                     <Table className="min-w-[500px]">
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px] pl-4">#</TableHead>
-                                <TableHead>Learner Name</TableHead>
+                                <TableHead className="w-[180px] sm:w-[250px] sticky left-0 bg-background z-10 border-r border-border shadow-sm">Learner Name</TableHead>
                                 <TableHead className="text-center w-[200px]">Status</TableHead>
                                 <TableHead className="text-right pr-4">Current State</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {safeLearners.map((learner, index) => (
-                                <TableRow key={learner.id || index}>
+                                <TableRow key={learner.id || index} className="h-14">
                                     <TableCell className="text-muted-foreground pl-4">{index + 1}</TableCell>
-                                    <TableCell className="font-medium truncate max-w-[150px]">
+                                    <TableCell className="font-medium truncate max-w-[150px] sm:max-w-[200px] sticky left-0 bg-background z-10 border-r border-border shadow-sm">
                                       {learner.name}
                                       {!learner.id && <span className="ml-2 text-xs text-red-500">(Unsaved)</span>}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex justify-center gap-1">
+                                        <div className="flex justify-center gap-1.5 sm:gap-1">
                                             <StatusButton lId={learner.id} status="present" icon={Check} colorClass="bg-green-600 hover:bg-green-700" label="Present" disabled={isLocked} />
                                             <StatusButton lId={learner.id} status="absent" icon={X} colorClass="bg-red-600 hover:bg-red-700" label="Absent" disabled={isLocked} />
                                             <StatusButton lId={learner.id} status="late" icon={Clock} colorClass="bg-orange-500 hover:bg-orange-600" label="Late" disabled={isLocked} />
@@ -253,13 +253,13 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
                         </CardDescription>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto shrink-0">
-                        <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => handleExportReport('pdf')} disabled={isExporting}>
-                            {isExporting ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <FileText className="h-3 w-3 sm:mr-2" />}
+                        <Button variant="outline" size="sm" className="flex-1 sm:flex-none h-10 sm:h-9" onClick={() => handleExportReport('pdf')} disabled={isExporting}>
+                            {isExporting ? <Loader2 className="h-4 w-4 animate-spin sm:mr-2" /> : <FileText className="h-4 w-4 sm:mr-2" />}
                             <span className="hidden sm:inline">Export Grid (PDF)</span>
                             <span className="sm:hidden">PDF</span>
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => handleExportReport('csv')} disabled={isExporting}>
-                            <FileSpreadsheet className="h-3 w-3 sm:mr-2" />
+                        <Button variant="outline" size="sm" className="flex-1 sm:flex-none h-10 sm:h-9" onClick={() => handleExportReport('csv')} disabled={isExporting}>
+                            <FileSpreadsheet className="h-4 w-4 sm:mr-2" />
                             <span className="hidden sm:inline">Export CSV</span>
                             <span className="sm:hidden">CSV</span>
                         </Button>

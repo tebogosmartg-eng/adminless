@@ -161,11 +161,11 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-[1200px] h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="w-[95vw] sm:max-w-[95vw] lg:max-w-[1200px] h-[90vh] flex flex-col p-0 overflow-hidden">
         <div className="p-4 sm:p-6 pb-4 border-b bg-muted/20 shrink-0">
           <DialogHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                <div className="space-y-1">
+                <div className="space-y-1 w-full sm:w-auto">
                     <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black">
                             Differentiated Item Analysis
@@ -176,29 +176,31 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                             </Badge>
                         )}
                     </div>
-                    <DialogTitle className="text-xl sm:text-2xl font-bold">{assessment.title}</DialogTitle>
+                    <DialogTitle className="text-xl sm:text-2xl font-bold truncate pr-4">{assessment.title}</DialogTitle>
                     <DialogDescription className="text-xs sm:text-sm">Identify skill-specific barriers and class-wide patterns.</DialogDescription>
                 </div>
-                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                    <Button variant="outline" onClick={handleRunAI} disabled={isGeneratingAI || loading} className="gap-1.5 sm:gap-2 font-bold h-9 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 flex-1 sm:flex-none px-2 sm:px-4 text-[10px] sm:text-sm">
-                        {isGeneratingAI ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <BrainCircuit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button variant="outline" onClick={handleRunAI} disabled={isGeneratingAI || loading} className="gap-1.5 sm:gap-2 font-bold h-10 sm:h-9 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 flex-1 sm:flex-none px-2 sm:px-4 text-xs sm:text-sm w-full">
+                        {isGeneratingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
                         <span className="hidden sm:inline">Run Skill-Aware AI Analysis</span>
                         <span className="sm:hidden">Auto-Analyze</span>
                     </Button>
-                    <Button variant="outline" onClick={handleSave} disabled={isSaving || loading} className="gap-1.5 sm:gap-2 font-bold h-9 flex-1 sm:flex-none px-2 sm:px-4 text-[10px] sm:text-sm">
-                        {isSaving ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                        Save
-                    </Button>
-                    <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-1.5 sm:gap-2 h-9 bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none px-2 sm:px-4 text-[10px] sm:text-sm">
-                        {isExporting ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                        PDF
-                    </Button>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <Button variant="outline" onClick={handleSave} disabled={isSaving || loading} className="gap-1.5 sm:gap-2 font-bold h-10 sm:h-9 flex-1 sm:flex-none px-2 sm:px-4 text-xs sm:text-sm">
+                          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                          Save
+                      </Button>
+                      <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-1.5 sm:gap-2 h-10 sm:h-9 bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none px-2 sm:px-4 text-xs sm:text-sm">
+                          {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                          PDF
+                      </Button>
+                    </div>
                 </div>
             </div>
           </DialogHeader>
         </div>
 
-        <ScrollArea className="flex-1 p-4 sm:p-6">
+        <ScrollArea className="flex-1 p-4 sm:p-6 bg-muted/5">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
@@ -210,7 +212,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     {stats.qStats.map(s => (
                         <div key={s.id} className={cn(
                             "flex flex-col p-3 sm:p-4 rounded-xl border transition-all relative overflow-hidden",
-                            s.isWeak ? "bg-red-50 border-red-100" : "bg-muted/30 border-muted-foreground/10"
+                            s.isWeak ? "bg-red-50 border-red-100" : "bg-card shadow-sm border-border hover:border-primary/20"
                         )}>
                             <div className="flex justify-between items-start mb-2 relative z-10">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Q{s.number}</span>
@@ -227,7 +229,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
 
                 {/* THEMES SECTION */}
                 <div className="grid md:grid-cols-2 gap-6">
-                    <Card className="bg-primary/5 border-primary/20 shadow-none">
+                    <Card className="bg-primary/5 border-primary/20 shadow-sm">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
                                 <LayoutGrid className="h-4 w-4 text-primary" /> Overall Class-Level Themes
@@ -238,7 +240,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                                 <p className="text-xs text-muted-foreground italic">Run AI Analysis to detect patterns.</p>
                             ) : (
                                 themes.map((theme, i) => (
-                                    <div key={i} className="flex gap-2 items-start p-2 bg-background rounded border text-sm font-medium">
+                                    <div key={i} className="flex gap-2 items-start p-2 bg-background rounded border text-sm font-medium shadow-sm">
                                         <div className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
                                         <span>{theme}</span>
                                     </div>
@@ -247,7 +249,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-blue-50/50 border-blue-200 shadow-none">
+                    <Card className="bg-blue-50/50 border-blue-200 shadow-sm">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-blue-700">
                                 <Lightbulb className="h-4 w-4" /> Global Remediation Strategies
@@ -258,7 +260,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                                 <p className="text-xs text-muted-foreground italic text-blue-800/60">No global strategies recorded.</p>
                             ) : (
                                 overallInterventions.map((int, i) => (
-                                    <div key={i} className="flex gap-2 items-start p-2 bg-white rounded border border-blue-100 text-sm text-blue-900">
+                                    <div key={i} className="flex gap-2 items-start p-2 bg-white rounded border border-blue-100 text-sm text-blue-900 shadow-sm">
                                         <Check className="h-4 w-4 text-blue-600 shrink-0" />
                                         <span>{int}</span>
                                     </div>
@@ -274,8 +276,8 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Item-Level Root Cause Analysis</h4>
                     </div>
 
-                    <div className="border rounded-xl overflow-x-auto bg-background shadow-sm w-full">
-                        <Table className="min-w-[800px]">
+                    <div className="border rounded-xl overflow-x-auto bg-background shadow-sm w-full no-scrollbar pb-2">
+                        <Table className="min-w-[800px] table-fixed">
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
                                     <TableHead className="w-[15%] font-black text-[9px] uppercase tracking-widest py-3">Question / Skill</TableHead>
@@ -288,7 +290,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                             <TableBody>
                                 {rows.map((row) => (
                                     <TableRow key={row.id} className="group hover:bg-muted/5 transition-colors align-top">
-                                        <TableCell className="p-3 space-y-2">
+                                        <TableCell className="p-3 space-y-2 border-r">
                                             <Input 
                                                 value={row.question}
                                                 onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
@@ -298,14 +300,14 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                                                 {row.cognitive_level || 'unknown'}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="p-3">
+                                        <TableCell className="p-3 border-r">
                                             <Textarea 
                                                 value={row.performance_summary}
                                                 onChange={(e) => handleUpdateRow(row.id, 'performance_summary', e.target.value)}
                                                 className="border-none shadow-none resize-none bg-transparent min-h-[60px] text-xs p-0 focus-visible:ring-0"
                                             />
                                         </TableCell>
-                                        <TableCell className="p-3 border-l">
+                                        <TableCell className="p-3 border-r">
                                             <Textarea 
                                                 value={row.possible_root_causes.join('\n')}
                                                 onChange={(e) => handleUpdateRow(row.id, 'possible_root_causes', e.target.value.split('\n'))}
@@ -313,7 +315,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                                                 placeholder="Enter skill-based causes..."
                                             />
                                         </TableCell>
-                                        <TableCell className="p-3 border-l">
+                                        <TableCell className="p-3 border-r">
                                             <Textarea 
                                                 value={row.targeted_interventions.join('\n')}
                                                 onChange={(e) => handleUpdateRow(row.id, 'targeted_interventions', e.target.value.split('\n'))}
@@ -321,14 +323,14 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                                                 placeholder="Enter actions..."
                                             />
                                         </TableCell>
-                                        <TableCell className="p-2 text-right">
+                                        <TableCell className="p-2 text-center align-middle">
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
-                                                className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                                                 onClick={() => handleDeleteRow(row.id)}
                                             >
-                                                <Trash2 className="h-3.5 w-3.5" />
+                                                <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
                                     </TableRow>
@@ -338,8 +340,8 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
-                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 h-fit">
+                <div className="grid md:grid-cols-2 gap-4 sm:gap-6 mt-4">
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 h-fit shadow-sm">
                         <Info className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
                         <div className="space-y-1">
                             <p className="text-xs font-bold text-blue-900 uppercase tracking-tight">Precision Diagnostics</p>
@@ -349,7 +351,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         </div>
                     </div>
                     
-                    <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl flex items-start gap-3 h-fit">
+                    <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl flex items-start gap-3 h-fit shadow-sm">
                         <Rocket className="h-5 w-5 text-purple-600 mt-0.5 shrink-0" />
                         <div className="space-y-1">
                             <p className="text-xs font-bold text-purple-900 uppercase tracking-tight">Actionable Insights</p>

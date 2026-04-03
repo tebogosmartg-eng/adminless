@@ -76,12 +76,10 @@ export const MarkSheetTable = ({
   
   const [activeRow, setActiveRow] = useState<number | null>(null);
 
-  // Compute live Risk Flags chronologically
   const highRiskCells = useMemo(() => {
     const riskSet = new Set<string>();
     if (!assessments || assessments.length === 0) return riskSet;
 
-    // Ensure strictly chronological ordering to build historical averages
     const sortedAss = [...assessments].sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
 
     filteredLearners.forEach(learner => {
@@ -96,7 +94,6 @@ export const MarkSheetTable = ({
           if (!isNaN(markNum) && ass.max_mark > 0) {
             const percentage = (markNum / ass.max_mark) * 100;
 
-            // If we have history, check for a > 5% drop into the danger zone
             if (runningCount > 0) {
               const prevAvg = runningSum / runningCount;
               if (percentage < atRiskThreshold && percentage <= prevAvg - 5) {
@@ -104,7 +101,6 @@ export const MarkSheetTable = ({
               }
             }
 
-            // Append to history for the next assessment
             runningSum += percentage;
             runningCount++;
           }
@@ -205,11 +201,11 @@ export const MarkSheetTable = ({
   return (
     <>
       <div className="border border-border bg-card rounded-md overflow-hidden shadow-sm w-full max-w-full">
-        <div className="overflow-x-auto w-full">
-            <Table className="border-collapse table-fixed w-full min-w-max">
+        <div className="overflow-x-auto w-full no-scrollbar pb-2">
+            <Table className="border-collapse table-fixed w-full min-w-[800px]">
             <TableHeader>
                 <TableRow className="hover:bg-transparent border-b border-border h-12">
-                <TableHead className="w-[140px] sm:w-[220px] sticky left-0 bg-muted/90 dark:bg-muted/50 z-20 border-r border-border backdrop-blur-sm">
+                <TableHead className="w-[160px] sm:w-[220px] sticky left-0 bg-muted/90 dark:bg-muted/50 z-20 border-r border-border backdrop-blur-sm">
                     <div 
                         className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors select-none"
                         onClick={() => onSort && onSort('name')}
@@ -318,7 +314,7 @@ export const MarkSheetTable = ({
                     <TableRow 
                       key={learner.id || learner.name} 
                       className={cn(
-                        "group transition-all h-10 border-border",
+                        "group transition-all h-[48px] md:h-10 border-border",
                         isRowFocused ? "bg-primary/5 shadow-inner" : "hover:bg-muted/30"
                       )}
                     >
@@ -330,7 +326,7 @@ export const MarkSheetTable = ({
                     >
                         <div className="flex items-center justify-between px-1">
                         <button 
-                            className="hover:underline text-xs sm:text-sm truncate max-w-[90px] sm:max-w-[160px] text-left text-foreground"
+                            className="hover:underline text-xs sm:text-sm truncate max-w-[120px] sm:max-w-[160px] text-left text-foreground"
                             onClick={() => onViewLearnerProfile && onViewLearnerProfile(learner)}
                         >
                             {learner.name}
@@ -348,7 +344,7 @@ export const MarkSheetTable = ({
                         <TableCell key={ass.id} className="p-0 border-r border-border last:border-r-0 relative min-w-[60px]">
                             <ContextMenu>
                             <ContextMenuTrigger>
-                                <div className="flex items-center justify-center h-10 w-full relative group/cell">
+                                <div className="flex items-center justify-center h-[48px] md:h-10 w-full relative group/cell">
                                 <input
                                     id={`cell-${colIdx}-${rowIdx}`}
                                     className={cn(
@@ -481,7 +477,7 @@ export const MarkSheetTable = ({
       </div>
 
       <Dialog open={noteDialog.open} onOpenChange={(open) => setNoteDialog(prev => ({ ...prev, open }))}>
-        <DialogContent className="sm:max-w-[400px] bg-background text-foreground">
+        <DialogContent className="w-[95vw] sm:max-w-[400px] bg-background text-foreground rounded-lg">
           <DialogHeader>
             <DialogTitle className="text-sm text-foreground">Note for {noteDialog.learnerName}</DialogTitle>
           </DialogHeader>
@@ -495,7 +491,7 @@ export const MarkSheetTable = ({
             />
           </div>
           <DialogFooter>
-            <Button size="sm" onClick={saveNote}>Save Note</Button>
+            <Button size="sm" onClick={saveNote} className="w-full sm:w-auto">Save Note</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

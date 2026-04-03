@@ -179,7 +179,7 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
   }, [terms, selectedYearId]);
 
   return (
-    <div className={`space-y-6 ${embedded ? 'pb-2' : 'pb-10'}`}>
+    <div className={`space-y-6 w-full ${embedded ? 'pb-2' : 'pb-10'}`}>
       {!embedded && (
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
@@ -188,9 +188,9 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
       )}
 
       <Tabs defaultValue="term" className="w-full">
-        <TabsList className="bg-muted/50 p-1 border flex overflow-x-auto w-full h-auto no-scrollbar">
-            <TabsTrigger value="term" className="px-4 sm:px-6 whitespace-nowrap h-9">Term Reports</TabsTrigger>
-            <TabsTrigger value="year" className="px-4 sm:px-6 whitespace-nowrap h-9">Year End Summary</TabsTrigger>
+        <TabsList className="bg-muted/50 p-1 border flex overflow-x-auto w-full h-auto min-h-[48px] no-scrollbar justify-start flex-nowrap rounded-xl">
+            <TabsTrigger value="term" className="px-4 sm:px-6 whitespace-nowrap flex-none shrink-0 h-10">Term Reports</TabsTrigger>
+            <TabsTrigger value="year" className="px-4 sm:px-6 whitespace-nowrap flex-none shrink-0 h-10">Year End Summary</TabsTrigger>
         </TabsList>
 
         <TabsContent value="term" className="space-y-6 mt-6">
@@ -203,26 +203,26 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                       <CardContent className="space-y-4">
                           <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Year / Term</label>
-                              <div className="flex flex-col sm:flex-row gap-2">
+                              <div className="flex flex-col gap-2 w-full">
                                   <Select value={selectedYearId} onValueChange={setSelectedYearId}>
-                                      <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Year" /></SelectTrigger>
+                                      <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Year" /></SelectTrigger>
                                       <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
                                   </Select>
                                   <Select value={selectedTermId} onValueChange={setSelectedTermId}>
-                                      <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Term" /></SelectTrigger>
+                                      <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Term" /></SelectTrigger>
                                       <SelectContent>{sequencedTerms.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                                   </Select>
                               </div>
                           </div>
                           <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Grade / Subject</label>
-                              <div className="flex flex-col sm:flex-row gap-2">
+                              <div className="flex flex-col gap-2 w-full">
                                   <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                                      <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Grade" /></SelectTrigger>
+                                      <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Grade" /></SelectTrigger>
                                       <SelectContent>{uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
                                   </Select>
                                   <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                                      <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Subject" /></SelectTrigger>
+                                      <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Subject" /></SelectTrigger>
                                       <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                                   </Select>
                               </div>
@@ -237,7 +237,7 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                           
                           {integrityReport && <div className="pt-4 border-t"><IntegrityGuard report={integrityReport} /></div>}
 
-                          <Button className="w-full mt-4 h-11 font-bold" onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete}>
+                          <Button className="w-full mt-4 h-12 font-bold" onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete}>
                               {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load Analytical Data"}
                           </Button>
                       </CardContent>
@@ -249,30 +249,30 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                         <CardTitle className="text-lg">Class Results Summary</CardTitle>
                         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                             {embedded && (
-                                <Button onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete} className="font-bold h-8 flex-1 sm:flex-none">
+                                <Button onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete} className="font-bold h-10 sm:h-9 flex-1 sm:flex-none w-full sm:w-auto">
                                     {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load Analytical Data"}
                                 </Button>
                             )}
                             {termData && isContextComplete && (
                                 <>
-                                    <Button variant="outline" size="sm" onClick={handleExportTermCSV} className="h-8 gap-2 flex-1 sm:flex-none"><FileSpreadsheet className="h-3.5 w-3.5 text-green-600"/> CSV</Button>
-                                    <Button variant="outline" size="sm" onClick={handleExportTermPDF} className="h-8 gap-2 flex-1 sm:flex-none"><FileDown className="h-3.5 w-3.5 text-blue-600"/> PDF</Button>
+                                    <Button variant="outline" size="sm" onClick={handleExportTermCSV} className="h-10 sm:h-9 gap-2 flex-1 sm:flex-none"><FileSpreadsheet className="h-4 w-4 text-green-600"/> CSV</Button>
+                                    <Button variant="outline" size="sm" onClick={handleExportTermPDF} className="h-10 sm:h-9 gap-2 flex-1 sm:flex-none"><FileDown className="h-4 w-4 text-blue-600"/> PDF</Button>
                                 </>
                             )}
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1 p-0 overflow-hidden">
                         {termData && isContextComplete ? (
-                            <div className="overflow-x-auto w-full h-full">
-                                <Table className="min-w-[800px] w-full">
+                            <div className="overflow-x-auto w-full h-full no-scrollbar pb-2">
+                                <Table className="min-w-[800px] w-full table-fixed">
                                     <TableHeader className="bg-muted/30">
                                         <TableRow>
-                                            <TableHead className="sticky left-0 bg-muted/90 z-10 border-r">Learner</TableHead>
+                                            <TableHead className="w-[200px] sticky left-0 bg-muted/90 z-10 border-r shadow-sm">Learner</TableHead>
                                             {allAssessmentTitles.map(title => (
-                                                <TableHead key={title} className="text-right whitespace-nowrap">{title}</TableHead>
+                                                <TableHead key={title} className="text-right whitespace-nowrap px-4">{title}</TableHead>
                                             ))}
-                                            <TableHead className="text-right font-bold">Term %</TableHead>
-                                            <TableHead className="text-center">Symbol</TableHead>
+                                            <TableHead className="w-[100px] text-right font-bold border-l">Term %</TableHead>
+                                            <TableHead className="w-[100px] text-center border-l">Symbol</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -282,15 +282,15 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                                               return r.className === cls?.className;
                                           })
                                           .map((r, i) => (
-                                            <TableRow key={i} className="hover:bg-muted/30">
-                                                <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{r.learnerName}</TableCell>
+                                            <TableRow key={i} className="hover:bg-muted/30 h-12 border-b">
+                                                <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] truncate px-4">{r.learnerName}</TableCell>
                                                 {allAssessmentTitles.map(title => (
-                                                    <TableCell key={title} className="text-right text-xs">
+                                                    <TableCell key={title} className="text-right text-sm px-4">
                                                         {r.assessments[title] || "-"}
                                                     </TableCell>
                                                 ))}
-                                                <TableCell className="text-right font-bold text-primary">{r.termAverage}%</TableCell>
-                                                <TableCell className="text-center">
+                                                <TableCell className="text-right font-bold text-primary border-l text-base">{r.termAverage}%</TableCell>
+                                                <TableCell className="text-center border-l">
                                                     {getGradeSymbol(r.termAverage, gradingScheme) && (
                                                         <Badge variant="outline" className={getGradeSymbol(r.termAverage, gradingScheme)?.badgeColor}>
                                                             {getGradeSymbol(r.termAverage, gradingScheme)?.symbol}
@@ -303,7 +303,7 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                                 </Table>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 p-12 text-center">
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 p-12 text-center min-h-[300px]">
                                 <LayoutGrid className="h-16 w-16 opacity-10" />
                                 <div className="space-y-1">
                                     <h3 className="font-semibold text-foreground">Awaiting Generation</h3>
@@ -325,13 +325,13 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                           <div className="space-y-2">
                               <label className="text-xs font-bold uppercase text-muted-foreground">Academic Cycle</label>
                               <Select value={selectedYearId} onValueChange={setSelectedYearId}>
-                                  <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                                  <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Year" /></SelectTrigger>
                                   <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
                               </Select>
                           </div>
                           <div className="space-y-2">
                               <label className="text-xs font-bold uppercase text-muted-foreground">Grade / Subject</label>
-                              <div className="flex flex-col sm:flex-row gap-2">
+                              <div className="flex flex-col gap-2 w-full">
                                   <Select value={selectedGrade} onValueChange={setSelectedGrade}>
                                       <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Grade" /></SelectTrigger>
                                       <SelectContent>{uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
@@ -345,11 +345,11 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                           <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-muted-foreground">Specific Class</label>
                               <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={selectedSubject === 'all' || selectedGrade === 'all'}>
-                                  <SelectTrigger className="h-10"><SelectValue placeholder="Choose Class..." /></SelectTrigger>
+                                  <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Choose Class..." /></SelectTrigger>
                                   <SelectContent>{availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}</SelectContent>
                               </Select>
                           </div>
-                          <Button className="w-full mt-4 h-11 font-bold" onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'}>
+                          <Button className="w-full mt-4 h-12 font-bold" onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'}>
                               {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Consolidate Year Data"}
                           </Button>
                       </CardContent>
@@ -361,45 +361,47 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                         <CardTitle>Year End Consolidation</CardTitle>
                         <div className="flex gap-2 w-full sm:w-auto">
                             {embedded && (
-                                <Button onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'} className="font-bold h-8 flex-1 sm:flex-none">
+                                <Button onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'} className="font-bold h-10 sm:h-9 flex-1 sm:flex-none w-full sm:w-auto">
                                     {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Consolidate Year Data"}
                                 </Button>
                             )}
                             {yearData && selectedClassId !== 'all' && (
-                                 <Button variant="outline" size="sm" onClick={handleExportYearPDF} className="h-8 gap-2 flex-1 sm:flex-none">
-                                    <FileDown className="h-3.5 w-3.5 text-blue-600"/> Export PDF
+                                 <Button variant="outline" size="sm" onClick={handleExportYearPDF} className="h-10 sm:h-9 gap-2 flex-1 sm:flex-none">
+                                    <FileDown className="h-4 w-4 text-blue-600"/> Export PDF
                                  </Button>
                             )}
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1 p-0 overflow-hidden">
                         {yearData && selectedClassId !== 'all' ? (
-                            <div className="overflow-x-auto w-full h-full">
-                                <Table className="min-w-[800px] w-full">
+                            <div className="overflow-x-auto w-full h-full no-scrollbar pb-2">
+                                <Table className="min-w-[800px] w-full table-fixed">
                                     <TableHeader className="bg-muted/30">
                                         <TableRow>
-                                            <TableHead className="sticky left-0 bg-muted/90 z-10 border-r">Learner Name</TableHead>
-                                            {sequencedTerms.map(t => <TableHead key={t.id} className="text-right">{t.name}</TableHead>)}
-                                            <TableHead className="text-right font-bold bg-primary/5">Year Final %</TableHead>
-                                            <TableHead className="text-center bg-primary/5">Status</TableHead>
+                                            <TableHead className="w-[200px] sticky left-0 bg-muted/90 z-10 border-r shadow-sm">Learner Name</TableHead>
+                                            {sequencedTerms.map(t => <TableHead key={t.id} className="text-right px-4">{t.name}</TableHead>)}
+                                            <TableHead className="w-[120px] text-right font-bold bg-primary/5 border-l">Year Final %</TableHead>
+                                            <TableHead className="w-[100px] text-center bg-primary/5 border-l">Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>{yearData.map((r, i) => (
-                                        <TableRow key={i} className="hover:bg-muted/30">
-                                            <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{r.learnerName}</TableCell>
+                                        <TableRow key={i} className="hover:bg-muted/30 h-12 border-b">
+                                            <TableCell className="font-medium sticky left-0 bg-background z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] truncate px-4">{r.learnerName}</TableCell>
                                             {sequencedTerms.map(t => (
-                                                <TableCell key={t.id} className="text-right text-xs">
+                                                <TableCell key={t.id} className="text-right text-sm px-4">
                                                     {r.termMarks[t.name] !== null ? `${r.termMarks[t.name]}%` : "-"}
                                                 </TableCell>
                                             ))}
-                                            <TableCell className="text-right font-bold text-primary bg-primary/[0.02]">{r.finalYearMark}%</TableCell>
-                                            <TableCell className="text-center bg-primary/[0.02]"><Badge variant={r.finalYearMark >= 50 ? "outline" : "destructive"} className={r.finalYearMark >= 50 ? "bg-green-50 text-green-700 border-green-200" : ""}>{r.finalYearMark >= 50 ? "Pass" : "Fail"}</Badge></TableCell>
+                                            <TableCell className="text-right font-bold text-primary bg-primary/[0.02] border-l text-base">{r.finalYearMark}%</TableCell>
+                                            <TableCell className="text-center bg-primary/[0.02] border-l">
+                                                <Badge variant={r.finalYearMark >= 50 ? "outline" : "destructive"} className={r.finalYearMark >= 50 ? "bg-green-50 text-green-700 border-green-200" : ""}>{r.finalYearMark >= 50 ? "Pass" : "Fail"}</Badge>
+                                            </TableCell>
                                         </TableRow>
                                     ))}</TableBody>
                                 </Table>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 p-12 text-center">
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 p-12 text-center min-h-[300px]">
                                 <GraduationCap className="h-16 w-16 opacity-10" />
                                 <h3 className="font-semibold text-foreground">Annual Summary</h3>
                                 <p className="text-xs max-w-xs">{embedded ? "Click Consolidate Year Data to generate the report." : "Consolidate all term marks into a final year-end performance report. Select a specific class to view analytical results."}</p>

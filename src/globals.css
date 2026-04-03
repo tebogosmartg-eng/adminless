@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
 @layer base {
   :root {
     /* DEFAULT: AdminLess - Light Mode (Mid-day) */
@@ -102,10 +112,6 @@
   z-index: 50;
 }
 
-/* ==========================================================================
-   PRINT / EXPORT ENGINE
-   Ensures the Teacher File exports cleanly without UI clutter
-   ========================================================================== */
 @media print {
   @page {
     margin: 1.5cm;
@@ -120,25 +126,21 @@
     display: none !important;
   }
   
-  /* Page break helpers */
   .print-page-break {
     page-break-before: always;
     break-before: page;
   }
   
-  /* We allow tables to span pages, but prevent rows and specific blocks from splitting */
   .print-avoid-break, tr, h1, h2, h3, h4, h5 {
     page-break-inside: avoid;
     break-inside: avoid;
   }
 
-  /* Prevent headings from being stranded at the bottom of a page */
   h1, h2, h3, h4, h5 {
     page-break-after: avoid;
     break-after: avoid;
   }
 
-  /* Force scroll areas to expand fully for printing */
   [data-radix-scroll-area-viewport] {
     overflow: visible !important;
     max-height: none !important;
@@ -148,12 +150,10 @@
     max-height: none !important;
   }
 
-  /* Remove shadows for a cleaner print */
   .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
     box-shadow: none !important;
   }
 
-  /* Hide navigation */
   header, aside {
     display: none !important;
   }

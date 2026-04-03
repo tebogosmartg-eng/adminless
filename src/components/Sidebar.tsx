@@ -3,20 +3,20 @@ import icon from "@/source bucket/ICON.png";
 
 const Sidebar = () => {
   return (
-    <aside className="hidden w-64 flex-shrink-0 border-r bg-background text-foreground md:block transition-colors duration-300">
+    <aside className="hidden w-64 flex-shrink-0 border-r bg-background text-foreground md:block transition-colors duration-300 overflow-y-auto no-scrollbar">
       <div className="flex h-full flex-col">
-        <div className="flex h-24 items-center border-b border-border px-4 gap-2 flex-shrink-0 min-w-0 overflow-hidden">
+        <div className="flex h-16 md:h-24 items-center border-b border-border px-4 gap-2 flex-shrink-0 min-w-0 overflow-hidden">
           <img
             src={icon}
             alt="AdminLess Icon"
-            className="h-12 w-auto object-contain flex-shrink-0"
+            className="h-8 md:h-12 w-auto object-contain flex-shrink-0"
           />
-          <h1 className="text-xl font-bold tracking-tight text-foreground truncate">AdminLess</h1>
+          <h1 className="text-lg md:text-xl font-bold tracking-tight text-foreground truncate">AdminLess</h1>
         </div>
         <nav className="flex-1 space-y-1 p-4">
           <NavLinks />
         </nav>
-        <div className="p-4 border-t border-border text-[10px] text-muted-foreground uppercase tracking-widest text-center">
+        <div className="p-4 border-t border-border text-[10px] text-muted-foreground uppercase tracking-widest text-center shrink-0">
           AdminLess v3.1
         </div>
       </div>

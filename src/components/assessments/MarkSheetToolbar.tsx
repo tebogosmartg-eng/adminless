@@ -109,11 +109,11 @@ export const MarkSheetToolbar = ({
   const isFormValid = (newAss.title || '').trim() && newAss.max > 0 && newAss.weight >= 0;
 
   return (
-    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b pb-4">
+    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b pb-4 w-full">
       <div className="space-y-2 w-full xl:w-auto">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full">
           <Select value={viewTermId || ""} onValueChange={setViewTermId}>
-            <SelectTrigger className="w-full sm:w-[180px] h-9">
+            <SelectTrigger className="w-full sm:w-[180px] h-10 md:h-9">
               <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
               <SelectValue placeholder="Select Term" />
             </SelectTrigger>
@@ -144,12 +144,12 @@ export const MarkSheetToolbar = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 w-full xl:w-auto justify-start sm:justify-end">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto justify-start sm:justify-end">
         <div className="relative w-full sm:w-48">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-3 sm:top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Find learner..."
-            className="pl-8 h-9 text-sm w-full"
+            className="pl-8 h-10 md:h-9 text-sm w-full"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -158,7 +158,7 @@ export const MarkSheetToolbar = ({
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 flex-1 sm:flex-none">
+              <Button variant="outline" size="sm" className="h-10 md:h-9 flex-1 sm:flex-none">
                 <Settings2 className="mr-2 h-4 w-4" /> 
                 <span className="hidden sm:inline">View</span>
               </Button>
@@ -181,7 +181,7 @@ export const MarkSheetToolbar = ({
           {!isLocked && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" className="h-9 bg-primary shadow-sm flex-1 sm:flex-none">
+                <Button size="sm" className="h-10 md:h-9 bg-primary shadow-sm flex-1 sm:flex-none">
                   <Plus className="mr-1 h-4 w-4" /> 
                   <span className="hidden sm:inline">Formal Task</span>
                   <span className="sm:hidden">Task</span>
@@ -204,7 +204,7 @@ export const MarkSheetToolbar = ({
         </div>
 
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[95vh] flex flex-col p-0 overflow-hidden">
+          <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
             <div className="p-6 pb-2 shrink-0">
                 <DialogHeader>
                 <DialogTitle>New Formal Assessment Task (FAT)</DialogTitle>
