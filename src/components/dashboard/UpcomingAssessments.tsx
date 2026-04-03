@@ -59,12 +59,12 @@ export const UpcomingAssessments = () => {
       <CardContent>
         <div className="space-y-4">
           {upcomingList.map((item) => (
-            <div key={item.id} className="flex items-center justify-between">
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-sm">{item.title}</span>
-                <span className="text-xs text-muted-foreground">{item.subject} • {item.className}</span>
+            <div key={item.id} className="flex items-center justify-between gap-2">
+              <div className="flex flex-col gap-1 min-w-0 flex-1">
+                <span className="font-semibold text-sm truncate">{item.title}</span>
+                <span className="text-xs text-muted-foreground truncate">{item.subject} • {item.className}</span>
               </div>
-              <div className="flex flex-col items-end gap-1">
+              <div className="flex flex-col items-end gap-1 shrink-0">
                 <Badge variant={isToday(item.dateObj) ? "destructive" : "outline"}>
                   {isToday(item.dateObj) ? "Today" : format(item.dateObj, "d MMM")}
                 </Badge>
@@ -74,7 +74,7 @@ export const UpcomingAssessments = () => {
           ))}
         </div>
         <div className="mt-4 pt-2 border-t text-center">
-            <Link to="/classes" className="text-xs text-primary hover:underline">
+            <Link to="/classes" className="text-xs text-primary hover:underline h-10 flex items-center justify-center font-medium">
                 View All in Classes
             </Link>
         </div>

@@ -57,12 +57,12 @@ export const PendingActions = ({ classes }: PendingActionsProps) => {
       <CardContent>
         <div className="space-y-2">
           {pendingClasses.slice(0, 3).map((cls) => (
-            <div key={cls.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/40 hover:bg-muted transition-colors text-sm">
-              <div className="flex flex-col">
-                <span className="font-medium">{cls.className}</span>
-                <span className="text-xs text-muted-foreground">{cls.subject}</span>
+            <div key={cls.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/40 hover:bg-muted transition-colors text-sm gap-2">
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="font-medium truncate">{cls.className}</span>
+                <span className="text-xs text-muted-foreground truncate">{cls.subject}</span>
               </div>
-              <Button size="sm" variant="ghost" className="h-8 gap-1 text-primary" asChild>
+              <Button size="sm" variant="ghost" className="h-8 gap-1 text-primary shrink-0" asChild>
                 <Link to={`/classes/${cls.id}`}>
                   Mark <ArrowRight className="h-3 w-3" />
                 </Link>

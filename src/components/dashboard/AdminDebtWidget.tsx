@@ -84,10 +84,10 @@ export const AdminDebtWidget = () => {
                     <CalendarCheck className="h-3 w-3" /> Registers
                 </div>
                 {pendingClasses.slice(0, 2).map(cls => (
-                    <div key={cls.id} className="flex items-center justify-between text-xs bg-background/50 p-1.5 px-2 rounded border border-amber-100/50">
-                        <span className="truncate max-w-[140px] font-semibold">{cls.className}</span>
-                        <Button variant="ghost" size="sm" className="h-6 text-[9px] font-bold uppercase hover:bg-amber-100" asChild>
-                            <Link to={`/classes/${cls.id}`}>Open <ArrowRight className="ml-1 h-2.5 w-2.5" /></Link>
+                    <div key={cls.id} className="flex items-center justify-between text-xs bg-background/50 p-1.5 px-2 rounded border border-amber-100/50 gap-2">
+                        <span className="truncate flex-1 font-semibold min-w-0">{cls.className}</span>
+                        <Button variant="ghost" size="sm" className="h-8 shrink-0 text-[9px] font-bold uppercase hover:bg-amber-100" asChild>
+                            <Link to={`/classes/${cls.id}`}>Mark <ArrowRight className="ml-1 h-2.5 w-2.5" /></Link>
                         </Button>
                     </div>
                 ))}
@@ -100,12 +100,12 @@ export const AdminDebtWidget = () => {
                     <FileEdit className="h-3 w-3" /> Task Entries
                 </div>
                 {missingMarksInfo.slice(0, 2).map((debt, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs bg-background/50 p-1.5 px-2 rounded border border-amber-100/50">
-                        <div className="flex flex-col min-w-0">
-                            <span className="font-semibold truncate max-w-[140px]">{debt.title}</span>
-                            <span className="text-[9px] text-muted-foreground font-medium uppercase">{debt.className} • {debt.count} missing</span>
+                    <div key={idx} className="flex items-center justify-between text-xs bg-background/50 p-1.5 px-2 rounded border border-amber-100/50 gap-2">
+                        <div className="flex flex-col min-w-0 flex-1">
+                            <span className="font-semibold truncate w-full">{debt.title}</span>
+                            <span className="text-[9px] text-muted-foreground font-medium uppercase truncate w-full">{debt.className} • {debt.count} missing</span>
                         </div>
-                        <Button variant="ghost" size="sm" className="h-6 text-[9px] font-bold uppercase hover:bg-amber-100" asChild>
+                        <Button variant="ghost" size="sm" className="h-8 shrink-0 text-[9px] font-bold uppercase hover:bg-amber-100" asChild>
                             <Link to={`/classes/${debt.classId}`}>Mark <ArrowRight className="ml-1 h-2.5 w-2.5" /></Link>
                         </Button>
                     </div>

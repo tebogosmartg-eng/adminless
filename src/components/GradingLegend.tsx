@@ -17,11 +17,11 @@ export const GradingLegend = () => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 text-muted-foreground">
+        <Button variant="ghost" size="sm" className="h-10 sm:h-8 text-muted-foreground">
           <Info className="mr-2 h-4 w-4" /> Grading Key
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="end">
+      <PopoverContent className="w-[95vw] sm:w-80" align="end">
         <div className="grid gap-4">
           <div className="space-y-2">
             <h4 className="font-medium leading-none">Grading Scheme</h4>

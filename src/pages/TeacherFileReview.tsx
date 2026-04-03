@@ -22,7 +22,7 @@ const TeacherFileReviewContent = ({ classId, termId }: { classId: string; termId
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20 w-full overflow-x-hidden">
       <ReviewHeader 
         onBack={() => navigate(-1)}
         activeSnapshotId={state.activeSnapshotId}
@@ -34,27 +34,29 @@ const TeacherFileReviewContent = ({ classId, termId }: { classId: string; termId
         termName={state.activeTerm?.name || ""}
       />
 
-      <div className="container mx-auto py-12 flex flex-col lg:flex-row gap-12 max-w-7xl px-8">
-        <ReviewSidebar 
-          search={state.search}
-          onSearchChange={actions.setSearch}
-          selectedSectionId={state.selectedSectionId}
-          onSectionSelect={actions.setSelectedSectionId}
-          sections={state.sections}
-          portfolioOnly={state.portfolioOnly}
-          onPortfolioOnlyChange={actions.setPortfolioOnly}
-          activeSnapshotId={state.activeSnapshotId}
-          onSnapshotSelect={actions.setActiveSnapshotId}
-          isBuildingSnapshot={state.isBuildingSnapshot}
-          onSetBuildingSnapshot={actions.setIsBuildingSnapshot}
-          snapshotName={state.snapshotName}
-          onSnapshotNameChange={actions.setSnapshotName}
-          onSaveSnapshot={actions.handleSaveSnapshot}
-          snapshots={state.snapshots}
-          onDeleteSnapshot={actions.deleteSnapshot}
-        />
+      <div className="container mx-auto py-6 sm:py-12 flex flex-col lg:flex-row gap-6 sm:gap-12 max-w-7xl px-4 sm:px-8 w-full">
+        <div className="w-full lg:w-72 shrink-0">
+          <ReviewSidebar 
+            search={state.search}
+            onSearchChange={actions.setSearch}
+            selectedSectionId={state.selectedSectionId}
+            onSectionSelect={actions.setSelectedSectionId}
+            sections={state.sections}
+            portfolioOnly={state.portfolioOnly}
+            onPortfolioOnlyChange={actions.setPortfolioOnly}
+            activeSnapshotId={state.activeSnapshotId}
+            onSnapshotSelect={actions.setActiveSnapshotId}
+            isBuildingSnapshot={state.isBuildingSnapshot}
+            onSetBuildingSnapshot={actions.setIsBuildingSnapshot}
+            snapshotName={state.snapshotName}
+            onSnapshotNameChange={actions.setSnapshotName}
+            onSaveSnapshot={actions.handleSaveSnapshot}
+            snapshots={state.snapshots}
+            onDeleteSnapshot={actions.deleteSnapshot}
+          />
+        </div>
 
-        <main className="flex-1">
+        <main className="flex-1 min-w-0 w-full">
             <ReviewDocument 
                 teacherName={state.teacherName}
                 className={state.currentClass?.className || ""}
