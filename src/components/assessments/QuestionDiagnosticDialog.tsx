@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
     Download, 
@@ -27,6 +28,7 @@ import {
 import { Assessment, Learner, DiagnosticRow, FullDiagnostic } from '@/lib/types';
 import { useQuestionAnalysis } from '@/hooks/useQuestionAnalysis';
 import { useSettings } from '@/context/SettingsContext';
+import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { generateQuestionDiagnosticPDF } from '@/utils/pdf/questionDiagnosticReport';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -164,7 +166,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
       <DialogContent className="w-[95vw] sm:max-w-[95vw] lg:max-w-[1200px] h-[90vh] flex flex-col p-0 overflow-hidden">
         <div className="p-4 sm:p-6 pb-4 border-b bg-muted/20 shrink-0">
           <DialogHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pr-6 sm:pr-0">
                 <div className="space-y-1 w-full sm:w-auto">
                     <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black">
@@ -176,7 +178,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                             </Badge>
                         )}
                     </div>
-                    <DialogTitle className="text-xl sm:text-2xl font-bold truncate pr-4">{assessment.title}</DialogTitle>
+                    <DialogTitle className="text-xl sm:text-2xl font-bold truncate">{assessment.title}</DialogTitle>
                     <DialogDescription className="text-xs sm:text-sm">Identify skill-specific barriers and class-wide patterns.</DialogDescription>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -276,7 +278,8 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Item-Level Root Cause Analysis</h4>
                     </div>
 
-                    <div className="border rounded-xl overflow-x-auto bg-background shadow-sm w-full no-scrollbar pb-2">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block border rounded-xl overflow-x-auto bg-background shadow-sm w-full no-scrollbar pb-2">
                         <Table className="min-w-[800px] table-fixed">
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
@@ -337,6 +340,63 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                                 ))}
                             </TableBody>
                         </Table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="block md:hidden space-y-4 w-full">
+                        {rows.map((row) => (
+                            <div key={row.id} className="bg-background border rounded-xl p-4 space-y-4 shadow-sm relative">
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 flex-1">
+                                        <Input 
+                                            value={row.question}
+                                            onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
+                                            className="w-20 font-bold text-sm h-8"
+                                        />
+                                        <Badge className={cn("text-[9px] uppercase font-black px-1.5 h-5 border-none", getCognitiveColor(row.cognitive_level))}>
+                                            {row.cognitive_level || 'unknown'}
+                                        </Badge>
+                                    </div>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                                        onClick={() => handleDeleteRow(row.id)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Result Summary</Label>
+                                    <Textarea 
+                                        value={row.performance_summary}
+                                        onChange={(e) => handleUpdateRow(row.id, 'performance_summary', e.target.value)}
+                                        className="resize-none bg-muted/10 min-h-[60px] text-xs p-2 focus-visible:ring-1 leading-relaxed"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Specific Root Causes</Label>
+                                    <Textarea 
+                                        value={row.possible_root_causes.join('\n')}
+                                        onChange={(e) => handleUpdateRow(row.id, 'possible_root_causes', e.target.value.split('\n'))}
+                                        className="resize-none bg-muted/10 min-h-[80px] text-xs p-2 focus-visible:ring-1 leading-relaxed"
+                                        placeholder="Enter skill-based causes..."
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Targeted Interventions</Label>
+                                    <Textarea 
+                                        value={row.targeted_interventions.join('\n')}
+                                        onChange={(e) => handleUpdateRow(row.id, 'targeted_interventions', e.target.value.split('\n'))}
+                                        className="resize-none bg-blue-50/30 min-h-[80px] text-xs p-2 focus-visible:ring-1 leading-relaxed text-blue-800 dark:text-blue-300 font-medium border-blue-200"
+                                        placeholder="Enter actions..."
+                                    />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
