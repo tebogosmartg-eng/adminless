@@ -64,8 +64,8 @@ export const TeacherFileRecordOfWork = ({ termId, classId }: TeacherFileRecordOf
           <span className="text-[9px] font-bold text-slate-400">{logs.length} entries consolidated</span>
       </div>
 
-      <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-none print:border-slate-300">
-          <Table>
+      <div className="border border-slate-200 rounded-xl bg-white overflow-x-auto w-full no-scrollbar shadow-none print:border-slate-300 print:overflow-visible">
+          <Table className="min-w-[600px] w-full table-fixed">
               <TableHeader className="bg-slate-50">
                   <TableRow>
                       <TableHead className="w-24 text-[9px] font-black uppercase py-2 text-slate-700 print:text-black">Date</TableHead>
@@ -88,7 +88,7 @@ export const TeacherFileRecordOfWork = ({ termId, classId }: TeacherFileRecordOf
                              <Badge variant="outline" className="text-[8px] h-4 font-black border-slate-200 text-slate-700 print:border-slate-400 print:text-black">{log.className}</Badge>
                           </TableCell>
                           <TableCell className="py-2 align-top">
-                             <p className="text-[11px] leading-relaxed text-slate-800 print:text-black" title={log.content}>
+                             <p className="text-[11px] leading-relaxed text-slate-800 print:text-black whitespace-pre-wrap" title={log.content}>
                                 {log.content}
                              </p>
                           </TableCell>

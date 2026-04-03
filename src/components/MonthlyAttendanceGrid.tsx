@@ -59,7 +59,7 @@ export const MonthlyAttendanceGrid = ({ classId, learners, currentDate, onDayCli
   }
 
   return (
-    <div className="border rounded-md overflow-x-auto bg-background">
+    <div className="border rounded-md overflow-x-auto bg-background w-full no-scrollbar max-w-[calc(100vw-2.5rem)] md:max-w-full">
       <Table className="border-collapse table-fixed w-full min-w-[800px]">
         <TableHeader>
           <TableRow className="bg-muted/30">

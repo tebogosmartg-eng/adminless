@@ -59,7 +59,7 @@ export const ReportsResults = ({
        )}
 
        <Card className="h-full flex flex-col min-h-[500px]">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
              <div>
                 <CardTitle>Results Preview</CardTitle>
                 <CardDescription>
@@ -67,11 +67,11 @@ export const ReportsResults = ({
                 </CardDescription>
              </div>
              {aggregatedData && (
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={onExportCSV}>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Button variant="outline" size="sm" onClick={onExportCSV} className="flex-1 sm:flex-none h-10 sm:h-9">
                         <FileSpreadsheet className="mr-2 h-4 w-4" /> CSV
                     </Button>
-                    <Button variant="outline" size="sm" onClick={onExportPDF}>
+                    <Button variant="outline" size="sm" onClick={onExportPDF} className="flex-1 sm:flex-none h-10 sm:h-9">
                         <Download className="mr-2 h-4 w-4" /> PDF
                     </Button>
                 </div>
@@ -79,16 +79,16 @@ export const ReportsResults = ({
           </CardHeader>
           <CardContent className="flex-1 overflow-hidden p-0">
              {aggregatedData ? (
-                <div className="h-full max-h-[600px] overflow-auto border-t">
-                    <Table>
+                <div className="h-full max-h-[600px] overflow-x-auto w-full no-scrollbar border-t">
+                    <Table className="min-w-[600px] w-full table-fixed">
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px]">#</TableHead>
-                                <TableHead>Learner Name</TableHead>
+                                <TableHead className="w-[200px] sticky left-0 bg-muted/90 z-10 border-r">Learner Name</TableHead>
                                 {selectedClassIds.map(id => {
                                     const c = classes.find(cls => cls.id === id);
                                     return (
-                                        <TableHead key={id} className="text-right whitespace-nowrap">
+                                        <TableHead key={id} className="text-right whitespace-nowrap min-w-[120px]">
                                             <div className="flex flex-col">
                                                 <span>{c?.className}</span>
                                                 <span className="text-[10px] text-muted-foreground font-normal">{weights[id]}%</span>
@@ -96,8 +96,8 @@ export const ReportsResults = ({
                                         </TableHead>
                                     )
                                 })}
-                                <TableHead className="text-right font-bold bg-muted/50">Final %</TableHead>
-                                <TableHead className="text-center bg-muted/50">Sym</TableHead>
+                                <TableHead className="text-right font-bold bg-muted/50 w-[100px]">Final %</TableHead>
+                                <TableHead className="text-center bg-muted/50 w-[80px]">Sym</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -106,7 +106,7 @@ export const ReportsResults = ({
                                 return (
                                     <TableRow key={idx}>
                                         <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                                        <TableCell className="font-medium">{learner.name}</TableCell>
+                                        <TableCell className="font-medium sticky left-0 bg-background z-10 border-r">{learner.name}</TableCell>
                                         {selectedClassIds.map(id => (
                                             <TableCell key={id} className="text-right">
                                                 {learner.marks[id] !== null ? learner.marks[id] : <span className="text-muted-foreground">-</span>}
@@ -129,7 +129,7 @@ export const ReportsResults = ({
                     </Table>
                 </div>
              ) : (
-                <div className="flex flex-col items-center justify-center h-[400px] text-muted-foreground">
+                <div className="flex flex-col items-center justify-center h-[400px] text-muted-foreground p-6 text-center">
                     <Filter className="h-12 w-12 mb-4 opacity-20" />
                     <p>Configure settings and click Calculate to view results.</p>
                 </div>

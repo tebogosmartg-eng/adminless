@@ -140,7 +140,7 @@ export const LearnerList = ({
         onBatchClearMarks={executeBatchClearMarks}
       />
       <CardContent className="p-0 sm:p-6">
-        <div className="overflow-x-auto w-full">
+        <div className="overflow-x-auto w-full no-scrollbar max-w-[calc(100vw-2.5rem)] md:max-w-full">
           <Table className="min-w-[600px] w-full">
             <TableHeader>
               <TableRow>

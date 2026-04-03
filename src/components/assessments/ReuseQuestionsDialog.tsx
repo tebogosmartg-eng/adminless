@@ -263,9 +263,9 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
                     </div>
                 </div>
 
-                <ScrollArea className="flex-1 p-4">
-                    <div className="border rounded-xl shadow-sm bg-background overflow-hidden">
-                        <Table>
+                <div className="flex-1 overflow-x-auto w-full no-scrollbar p-4">
+                    <div className="border rounded-xl shadow-sm bg-background overflow-hidden min-w-[700px] w-full">
+                        <Table className="table-fixed w-full">
                             <TableHeader className="bg-slate-50">
                                 <TableRow>
                                     <TableHead className="w-12 text-center">
@@ -275,7 +275,7 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
                                         />
                                     </TableHead>
                                     <TableHead className="w-20 text-[10px] font-black uppercase">Num</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Skill / Description</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase w-48">Skill / Description</TableHead>
                                     <TableHead className="w-44 text-[10px] font-black uppercase">Topic</TableHead>
                                     <TableHead className="w-32 text-[10px] font-black uppercase">Cognitive</TableHead>
                                     <TableHead className="w-20 text-[10px] font-black uppercase text-center">Max</TableHead>
@@ -309,7 +309,7 @@ export const ReuseQuestionsDialog = ({ open, onOpenChange, onImport, existingQue
                             </TableBody>
                         </Table>
                     </div>
-                </ScrollArea>
+                </div>
 
                 <div className="p-6 border-t bg-background shrink-0 flex justify-between items-center gap-4">
                     <p className="text-xs text-muted-foreground hidden sm:block">

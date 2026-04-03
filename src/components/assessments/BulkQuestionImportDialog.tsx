@@ -300,9 +300,9 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                     </div>
                 </div>
                 
-                <ScrollArea className="flex-1 p-4">
-                    <div className="border rounded-xl shadow-sm bg-background overflow-hidden">
-                        <Table>
+                <div className="flex-1 overflow-x-auto w-full no-scrollbar p-4">
+                    <div className="border rounded-xl shadow-sm bg-background overflow-hidden min-w-[800px] w-full">
+                        <Table className="table-fixed w-full">
                             <TableHeader className="bg-slate-50">
                                 <TableRow>
                                     <TableHead className="w-24 text-[10px] font-black uppercase">Q Number</TableHead>
@@ -328,18 +328,19 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                                                 value={row.topic || ""}
                                                 onChange={(val) => updateRow(row.id, 'topic', val)}
                                                 suggestions={topicSuggestions}
+                                                className="w-full"
                                             />
                                         </TableCell>
                                         <TableCell className="p-2">
                                             <Input 
                                                 value={row.skill_description} 
                                                 onChange={(e) => updateRow(row.id, 'skill_description', e.target.value)} 
-                                                className="h-8 text-xs"
+                                                className="h-8 text-xs w-full"
                                             />
                                         </TableCell>
                                         <TableCell className="p-2">
                                             <Select value={row.cognitive_level} onValueChange={(v: any) => updateRow(row.id, 'cognitive_level', v)}>
-                                                <SelectTrigger className="h-8 text-xs">
+                                                <SelectTrigger className="h-8 text-xs w-full">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -357,7 +358,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                                             <Input 
                                                 value={row.max_mark} 
                                                 onChange={(e) => updateRow(row.id, 'max_mark', e.target.value)} 
-                                                className={cn("h-8 text-xs text-center font-bold", (!(row.max_mark || '').trim() || isNaN(parseFloat(row.max_mark))) && "border-red-500 focus-visible:ring-red-500")}
+                                                className={cn("h-8 text-xs text-center font-bold w-full", (!(row.max_mark || '').trim() || isNaN(parseFloat(row.max_mark))) && "border-red-500 focus-visible:ring-red-500")}
                                             />
                                         </TableCell>
                                         <TableCell className="p-2 text-center">
@@ -377,7 +378,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                             </TableBody>
                         </Table>
                     </div>
-                </ScrollArea>
+                </div>
 
                 <div className="p-6 border-t bg-background shrink-0 flex justify-between items-center gap-4">
                     <div className="flex items-center gap-2 w-full sm:w-auto">

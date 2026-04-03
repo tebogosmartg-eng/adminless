@@ -72,8 +72,8 @@ export const GradingSystemSettings = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-             <div className="rounded-md border max-h-[300px] overflow-auto">
-                <Table>
+             <div className="rounded-md border max-h-[300px] overflow-x-auto w-full no-scrollbar">
+                <Table className="min-w-[400px] w-full">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Min</TableHead>
@@ -89,7 +89,7 @@ export const GradingSystemSettings = () => {
                         <TableCell className="p-2">
                           <Input 
                             type="number" 
-                            className="h-8 w-16" 
+                            className="h-8 w-full sm:w-16" 
                             value={grade.min} 
                             onChange={(e) => handleSchemeChange(index, 'min', parseFloat(e.target.value))}
                           />
@@ -97,14 +97,14 @@ export const GradingSystemSettings = () => {
                         <TableCell className="p-2">
                           <Input 
                             type="number" 
-                            className="h-8 w-16" 
+                            className="h-8 w-full sm:w-16" 
                             value={grade.max} 
                             onChange={(e) => handleSchemeChange(index, 'max', parseFloat(e.target.value))}
                           />
                         </TableCell>
                         <TableCell className="p-2">
                           <Input 
-                            className="h-8 w-16" 
+                            className="h-8 w-full sm:w-16" 
                             value={grade.symbol} 
                             onChange={(e) => handleSchemeChange(index, 'symbol', e.target.value)}
                           />
@@ -112,7 +112,7 @@ export const GradingSystemSettings = () => {
                         <TableCell className="p-2">
                            <Input 
                             type="number" 
-                            className="h-8 w-12" 
+                            className="h-8 w-full sm:w-12" 
                             value={grade.level} 
                             onChange={(e) => handleSchemeChange(index, 'level', parseFloat(e.target.value))}
                           />
@@ -127,14 +127,14 @@ export const GradingSystemSettings = () => {
                   </TableBody>
                 </Table>
              </div>
-             <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleAddRow} className="flex-1">
+             <div className="flex flex-col sm:flex-row gap-2">
+                <Button variant="outline" size="sm" onClick={handleAddRow} className="flex-1 h-10 sm:h-9">
                   <Plus className="mr-2 h-4 w-4" /> Add Range
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleResetScheme}>
+                <Button variant="outline" size="sm" onClick={handleResetScheme} className="h-10 sm:h-9">
                   <RotateCcw className="mr-2 h-4 w-4" /> Reset
                 </Button>
-                <Button size="sm" onClick={handleSaveScheme}>
+                <Button size="sm" onClick={handleSaveScheme} className="h-10 sm:h-9 font-bold">
                   <Save className="mr-2 h-4 w-4" /> Save
                 </Button>
              </div>

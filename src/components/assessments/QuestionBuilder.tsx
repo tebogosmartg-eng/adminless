@@ -90,7 +90,7 @@ export const QuestionBuilder = ({
                 size="sm" 
                 onClick={onOpenReuse}
                 disabled={disabled}
-                className="h-8"
+                className="h-8 flex-1 sm:flex-none"
             >
                 <Library className="h-3 w-3 mr-1.5" /> Reuse
             </Button>
@@ -99,7 +99,7 @@ export const QuestionBuilder = ({
                 size="sm" 
                 onClick={onOpenBulk}
                 disabled={disabled}
-                className="h-8"
+                className="h-8 flex-1 sm:flex-none"
             >
                 <FileSpreadsheet className="h-3 w-3 mr-1.5" /> Bulk Import
             </Button>
@@ -108,20 +108,20 @@ export const QuestionBuilder = ({
                 size="sm" 
                 onClick={addQuestion}
                 disabled={disabled}
-                className="h-8"
+                className="h-8 w-full sm:w-auto"
             >
                 <Plus className="h-3 w-3 mr-1.5" /> Add Row
             </Button>
         </div>
       </div>
 
-      <div className="border rounded-xl bg-background shadow-sm overflow-hidden">
-        <Table className="table-fixed">
+      <div className="border rounded-xl bg-background shadow-sm overflow-x-auto w-full no-scrollbar">
+        <Table className="table-fixed min-w-[700px] w-full">
           <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead className="w-12 text-center"></TableHead>
               <TableHead className="w-24 text-[10px] font-black uppercase">Q Label</TableHead>
-              <TableHead className="text-[10px] font-black uppercase">Topic</TableHead>
+              <TableHead className="text-[10px] font-black uppercase w-40">Topic</TableHead>
               <TableHead className="text-[10px] font-black uppercase">Skill / Desc</TableHead>
               <TableHead className="w-32 text-[10px] font-black uppercase">Cog Level</TableHead>
               <TableHead className="w-20 text-[10px] font-black uppercase text-center">Max</TableHead>

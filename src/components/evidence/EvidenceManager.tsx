@@ -113,23 +113,21 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
       )}
 
       <Card className="border-dashed">
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">
-                    Evidence Folder
-                </CardTitle>
-              </div>
-              <CardDescription>
-                {`Digital moderation and evidence repository${targetLearnerName ? ' for ' + targetLearnerName : ''}.`}
-              </CardDescription>
+        <CardHeader className="pb-3 flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">
+                  Evidence Folder
+              </CardTitle>
             </div>
-            <Button size="sm" onClick={() => handleOpenUpload()}>
-              <Plus className="mr-2 h-4 w-4" /> Attach
-            </Button>
+            <CardDescription>
+              {`Digital moderation and evidence repository${targetLearnerName ? ' for ' + targetLearnerName : ''}.`}
+            </CardDescription>
           </div>
+          <Button size="sm" onClick={() => handleOpenUpload()} className="w-full sm:w-auto h-10">
+            <Plus className="mr-2 h-4 w-4" /> Attach
+          </Button>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[300px]">
@@ -146,9 +144,9 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
                       {getIcon(item.category)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
                         <p className="font-medium text-sm truncate">{item.file_name}</p>
-                        <Badge variant="outline" className="text-[9px] uppercase tracking-tighter h-4">
+                        <Badge variant="outline" className="text-[9px] uppercase tracking-tighter h-4 w-fit">
                           {item.category}
                         </Badge>
                       </div>
@@ -157,7 +155,7 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
                         {item.notes && <span className="truncate italic">• {item.notes}</span>}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewFile(item)} disabled={loadingFileId === item.id}>
                          {loadingFileId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                       </Button>
