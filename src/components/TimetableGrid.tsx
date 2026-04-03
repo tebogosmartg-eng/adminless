@@ -45,7 +45,7 @@ export const TimetableGrid = ({ isDocumentMode = false }: TimetableGridProps) =>
     timetable.find(t => t.day === day && t.period === period);
 
   return (
-    <div className={cn("overflow-x-auto w-full print-avoid-break", isDocumentMode ? "bg-white border-slate-200 border rounded-xl text-slate-900" : "bg-card text-card-foreground border border-border rounded-xl shadow-sm")}>
+    <div className={cn("overflow-x-auto w-full max-w-[calc(100vw-2.5rem)] md:max-w-full print-avoid-break no-scrollbar", isDocumentMode ? "bg-white border-slate-200 border rounded-xl text-slate-900" : "bg-card text-card-foreground border border-border rounded-xl shadow-sm")}>
       <Table className="table-fixed min-w-[600px] w-full border-collapse">
         <TableHeader>
           <TableRow className={cn("border-b", isDocumentMode ? "bg-slate-50 border-slate-200" : "bg-muted/50 border-border")}>
@@ -60,7 +60,7 @@ export const TimetableGrid = ({ isDocumentMode = false }: TimetableGridProps) =>
         <TableBody>
           {periods.map(period => (
             <TableRow key={period} className="h-16 border-b border-border last:border-b-0 group">
-              <TableCell className={cn("text-center border-r", isDocumentMode ? "bg-transparent border-slate-200" : "bg-muted/30 border-border")}>
+              <TableCell className={cn("text-center border-r sticky left-0 z-10", isDocumentMode ? "bg-white border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]" : "bg-muted/90 border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] backdrop-blur-sm")}>
                 <span className={cn("font-black text-lg transition-colors", isDocumentMode ? "text-slate-500" : "text-muted-foreground group-hover:text-primary")}>{period}</span>
               </TableCell>
               {DAYS.map(day => {

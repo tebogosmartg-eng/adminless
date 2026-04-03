@@ -23,24 +23,26 @@ export const TermClosureDialog = ({ open, onOpenChange, termName, errors, onConf
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {canClose ? (
-               <Lock className="h-5 w-5 text-green-600" /> 
-            ) : (
-               <AlertTriangle className="h-5 w-5 text-amber-600" />
-            )}
-            {canClose ? `Finalize ${termName}?` : `Closure Blocked: ${termName}`}
-          </DialogTitle>
-          <DialogDescription>
-            {canClose 
-              ? "All setup steps and validation checks passed. Closing this term will lock all marks."
-              : "You cannot finalize this term yet. Please resolve the following requirements."}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <div className="p-6 pb-2 shrink-0">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {canClose ? (
+                 <Lock className="h-5 w-5 text-green-600" /> 
+              ) : (
+                 <AlertTriangle className="h-5 w-5 text-amber-600" />
+              )}
+              {canClose ? `Finalize ${termName}?` : `Closure Blocked: ${termName}`}
+            </DialogTitle>
+            <DialogDescription>
+              {canClose 
+                ? "All setup steps and validation checks passed. Closing this term will lock all marks."
+                : "You cannot finalize this term yet. Please resolve the following requirements."}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <ScrollArea className="max-h-[350px] mt-4 pr-2">
+        <ScrollArea className="flex-1 p-6 pt-0 mt-4 pr-4">
           <div className="space-y-4">
             {/* Checklist Guardrail */}
             {!isReadyForFinalization && (
@@ -51,7 +53,7 @@ export const TermClosureDialog = ({ open, onOpenChange, termName, errors, onConf
                     <div className="grid gap-2">
                         {missingRequired.map(step => (
                             <div key={step.id} className="flex items-center gap-2 p-2 rounded border bg-amber-50/50 border-amber-200 text-xs text-amber-800">
-                                <XCircle className="h-3.5 w-3.5 text-amber-500" />
+                                <XCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                                 <span>{step.title}</span>
                             </div>
                         ))}
@@ -96,13 +98,13 @@ export const TermClosureDialog = ({ open, onOpenChange, termName, errors, onConf
           </div>
         </ScrollArea>
 
-        <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <DialogFooter className="p-6 pt-4 border-t flex flex-col sm:flex-row gap-2 shrink-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancel</Button>
           <Button 
             onClick={onConfirm} 
             disabled={!canClose} 
             variant={canClose ? "default" : "secondary"}
-            className={canClose ? "bg-green-600 hover:bg-green-700 font-bold" : ""}
+            className={cn("w-full sm:w-auto", canClose ? "bg-green-600 hover:bg-green-700 font-bold" : "")}
           >
             {canClose ? "Confirm & Finalize Term" : "Resolve Issues First"}
           </Button>

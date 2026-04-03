@@ -35,7 +35,7 @@ export const ModerationToolsDialog = ({ open, onOpenChange, learners, onUpdateLe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Moderation Tools</DialogTitle>
           <DialogDescription>
@@ -45,13 +45,14 @@ export const ModerationToolsDialog = ({ open, onOpenChange, learners, onUpdateLe
         <div className="space-y-6 py-4">
             <div className="space-y-2">
                 <Label>Global Mark Adjustment (%)</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                     <Input 
                         type="number"
                         value={adjustment}
                         onChange={(e) => setAdjustment(parseFloat(e.target.value))}
+                        className="w-full"
                     />
-                    <Button onClick={handleApply}>Apply</Button>
+                    <Button onClick={handleApply} className="w-full sm:w-auto">Apply</Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
                     Positive values increase marks, negative values decrease them. Marks are capped at 0 and 100.

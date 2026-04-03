@@ -105,10 +105,10 @@ export const AcademicYearSettings = () => {
             <div className="flex flex-wrap gap-2 w-full md:w-auto shrink-0">
                 {activeYear && !activeYear.closed && (
                     <>
-                        <Button variant="ghost" size="sm" onClick={handleDeleteYear} className="flex-1 sm:flex-none text-muted-foreground hover:text-destructive">
+                        <Button variant="ghost" size="sm" onClick={handleDeleteYear} className="flex-1 sm:flex-none text-muted-foreground hover:text-destructive h-10 md:h-9">
                             <Trash2 className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Delete Cycle</span>
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={() => { if(allTermsClosed && isWeightValid) closeYear(activeYear.id); }} disabled={!allTermsClosed || !isWeightValid} className="flex-1 sm:flex-none">
+                        <Button variant="destructive" size="sm" onClick={() => { if(allTermsClosed && isWeightValid) closeYear(activeYear.id); }} disabled={!allTermsClosed || !isWeightValid} className="flex-1 sm:flex-none h-10 md:h-9">
                             <Archive className="mr-2 h-4 w-4" /> Close Year
                         </Button>
                     </>
@@ -122,22 +122,22 @@ export const AcademicYearSettings = () => {
              <div className="space-y-1.5 w-full sm:w-auto flex-1 min-w-0">
                 <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block truncate">Active Academic Cycle</label>
                 <Select value={activeYear?.id} onValueChange={(val) => setActiveYear(years.find(y => y.id === val) || null)}>
-                    <SelectTrigger className="w-full sm:w-[240px]"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                    <SelectTrigger className="w-full sm:w-[240px] h-10"><SelectValue placeholder="Select Year" /></SelectTrigger>
                     <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name} {y.closed ? "(Finalized)" : ""}</SelectItem>)}</SelectContent>
                 </Select>
              </div>
              <div className="space-y-1.5 w-full sm:w-auto sm:ml-auto shrink-0">
                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block truncate">Initialise New Year</label>
                  <div className="flex flex-col sm:flex-row gap-2 w-full">
-                    <Input placeholder="e.g. 2026" value={newYearName} onChange={(e) => setNewYearName(e.target.value)} className="w-full sm:w-[120px]" />
-                    <Button onClick={handleCreateYear} variant="secondary" className="w-full sm:w-auto shrink-0"><Plus className="mr-2 h-4 w-4" /> Initialise</Button>
+                    <Input placeholder="e.g. 2026" value={newYearName} onChange={(e) => setNewYearName(e.target.value)} className="w-full sm:w-[120px] h-10" />
+                    <Button onClick={handleCreateYear} variant="secondary" className="w-full sm:w-auto shrink-0 h-10"><Plus className="mr-2 h-4 w-4" /> Initialise</Button>
                  </div>
              </div>
           </div>
           
           {activeYear && (
              <div className="border rounded-lg mt-6 bg-white dark:bg-card w-full min-w-0 shadow-sm overflow-hidden flex flex-col">
-                <div className="overflow-x-auto w-full max-w-[calc(100vw-2.5rem)] md:max-w-full">
+                <div className="overflow-x-auto w-full max-w-[calc(100vw-2.5rem)] md:max-w-full no-scrollbar">
                   <Table className="min-w-[650px] w-full">
                       <TableHeader>
                           <TableRow className="bg-muted/30">

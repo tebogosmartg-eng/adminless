@@ -142,7 +142,7 @@ export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearn
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
@@ -153,7 +153,7 @@ export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearn
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">
-          <div className="grid grid-cols-2 gap-3 mb-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
               <Button 
                   variant="outline" 
                   type="button" 
@@ -192,9 +192,9 @@ export const AddLearnerDialog = ({ open, onOpenChange, onAddLearners }: AddLearn
               />
           </div>
           
-          <div className="flex justify-end gap-2 mt-2">
-             <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-             <Button onClick={handleAdd} disabled={!text.trim() || isScanning} className="font-bold">Add to Roster</Button>
+          <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
+             <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancel</Button>
+             <Button onClick={handleAdd} disabled={!text.trim() || isScanning} className="w-full sm:w-auto font-bold">Add to Roster</Button>
           </div>
           
           <input 

@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -92,7 +92,7 @@ export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learne
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import Assessment Marks</DialogTitle>
           <DialogDescription>
@@ -121,17 +121,17 @@ export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learne
                 onChange={(e) => setText(e.target.value)}
               />
               <div className="flex items-center gap-2 p-2 bg-blue-50 text-blue-700 text-[10px] rounded border border-blue-100">
-                  <AlertCircle className="h-3.5 w-3.5" />
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                   <span>Format: Learner Name, Score (Raw mark). System will validate against Max Mark.</span>
               </div>
           </div>
           
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleImport} disabled={!selectedAssessmentId || !text.trim()}>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancel</Button>
+            <Button onClick={handleImport} disabled={!selectedAssessmentId || !text.trim()} className="w-full sm:w-auto">
                 <Upload className="mr-2 h-4 w-4" /> Validate & Import
             </Button>
-          </div>
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>

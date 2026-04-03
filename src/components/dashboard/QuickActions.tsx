@@ -22,29 +22,29 @@ export const QuickActions = ({ onAddNote }: QuickActionsProps) => {
            <CreateClassDialog onClassCreate={addClass} />
         </div>
         
-        <Button variant="outline" className="h-14 flex flex-col items-center justify-center gap-1 px-2" asChild>
+        <Button variant="outline" className="h-14 flex flex-col items-center justify-center gap-1 px-2 w-full" asChild>
           <Link to="/classes">
             <Camera className="h-4 w-4 text-primary" />
-            <span className="text-[10px] font-medium">Capture Marks</span>
+            <span className="text-[10px] font-medium text-center leading-tight">Capture Marks</span>
           </Link>
         </Button>
 
-        <Button variant="outline" className="h-14 flex flex-col items-center justify-center gap-1 px-2" onClick={onAddNote}>
+        <Button variant="outline" className="h-14 flex flex-col items-center justify-center gap-1 px-2 w-full" onClick={onAddNote}>
             <StickyNote className="h-4 w-4 text-orange-500" />
-            <span className="text-[10px] font-medium">Quick Note</span>
+            <span className="text-[10px] font-medium text-center leading-tight">Quick Note</span>
         </Button>
         
-        <Button variant="outline" className="h-14 flex flex-col items-center justify-center gap-1 px-2" asChild>
-          <Link to="/classes">
+        <Button variant="outline" className="h-14 flex flex-col items-center justify-center gap-1 px-2 w-full" asChild>
+          <Link to="/reports">
             <Upload className="h-4 w-4 text-green-600" />
-            <span className="text-[10px] font-medium">Class Reports</span>
+            <span className="text-[10px] font-medium text-center leading-tight">Reports</span>
           </Link>
         </Button>
 
-        <Button variant="outline" className="h-14 flex flex-col items-center justify-center gap-1 px-2" asChild>
+        <Button variant="outline" className="h-14 flex flex-col items-center justify-center gap-1 px-2 w-full" asChild>
             <Link to="/settings">
                 <PlusCircle className="h-4 w-4 text-purple-600" />
-                <span className="text-[10px] font-medium">Settings</span>
+                <span className="text-[10px] font-medium text-center leading-tight">Settings</span>
             </Link>
         </Button>
       </CardContent>

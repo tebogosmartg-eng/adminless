@@ -143,15 +143,15 @@ export const TimetableSettings = () => {
   };
 
   return (
-    <Card className="col-span-full border-primary/20 bg-primary/[0.01]">
+    <Card className="col-span-full border-primary/20 bg-primary/[0.01] w-full min-w-0">
       <CardHeader>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="space-y-1">
+            <div className="space-y-1 w-full sm:w-auto">
                 <div className="flex items-center gap-2">
-                    <NotebookPen className="h-5 w-5 text-primary" />
-                    <CardTitle>Routine & Schedule</CardTitle>
+                    <NotebookPen className="h-5 w-5 text-primary shrink-0" />
+                    <CardTitle className="truncate">Routine & Schedule</CardTitle>
                 </div>
-                <CardDescription>Configure your teaching periods and session times.</CardDescription>
+                <CardDescription className="truncate">Configure your teaching periods and session times.</CardDescription>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
                 {numRows > 0 && <Button variant="outline" size="sm" onClick={handleRemoveLastRow} className="flex-1 sm:flex-none"><Trash2 className="h-4 w-4 mr-2" /> Remove Row</Button>}
@@ -159,20 +159,20 @@ export const TimetableSettings = () => {
             </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="w-full min-w-0">
         {numRows === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-xl bg-white dark:bg-card">
+            <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-xl bg-white dark:bg-card mx-2">
                 <div className="p-4 bg-primary/5 rounded-full mb-4"><CalendarDays className="h-10 w-10 text-primary/40" /></div>
                 <h3 className="text-lg font-bold">Your Timetable is Empty</h3>
                 <p className="text-sm text-muted-foreground max-w-xs mb-6">Add your first period to start planning.</p>
                 <Button onClick={() => setNumRows(1)} className="gap-2"><Plus className="h-4 w-4" /> Define Period 1</Button>
             </div>
         ) : (
-            <div className="overflow-x-auto border rounded-xl shadow-sm bg-background">
+            <div className="overflow-x-auto border rounded-xl shadow-sm bg-background w-full no-scrollbar max-w-[calc(100vw-2.5rem)] md:max-w-full">
                 <Table className="table-fixed w-full min-w-[1000px]">
                     <TableHeader>
                         <TableRow className="bg-muted/50 hover:bg-muted/50">
-                            <TableHead className="w-[120px] text-center border-r font-bold text-[10px] uppercase tracking-widest">Session</TableHead>
+                            <TableHead className="w-[120px] text-center border-r font-bold text-[10px] uppercase tracking-widest sticky left-0 z-20 bg-muted/90 backdrop-blur-sm shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Session</TableHead>
                             {DAYS.map(day => (
                                 <TableHead key={day} className="text-center font-bold text-[10px] uppercase tracking-widest relative group/col">
                                     <div className="flex items-center justify-center gap-2">
@@ -208,7 +208,7 @@ export const TimetableSettings = () => {
                             const isRowBreak = DAYS.every(d => getEntry(d, period)?.class_name === "BREAK");
                             return (
                                 <TableRow key={period} className={cn("min-h-[140px] group/row", isRowBreak && "bg-amber-50/30")}>
-                                    <TableCell className="bg-muted/20 border-r p-3">
+                                    <TableCell className="bg-muted/90 backdrop-blur-sm border-r p-3 sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                                         <div className="flex flex-col items-center gap-3">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[10px] font-black text-muted-foreground">P</span>
