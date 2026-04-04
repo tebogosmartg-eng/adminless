@@ -4,7 +4,7 @@ import { Assessment, Learner, AssessmentMark, DiagnosticRow } from '@/lib/types'
 import { QuestionStat } from '@/hooks/useQuestionAnalysis';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { format } from 'date-fns';
-import { t } from '@/lib/useTranslation';
+import { t, translateText } from '@/lib/useTranslation';
 
 export const generateQuestionDiagnosticPDF = (
   assessment: Assessment,
@@ -71,10 +71,10 @@ export const generateQuestionDiagnosticPDF = (
       startY: currentY + 3,
       head: [['Question', 'Summary', 'Possible Root Causes', 'Targeted Interventions']],
       body: diagRows.map(r => [
-          r.question, 
-          r.performance_summary,
-          r.possible_root_causes.filter(c => c.trim()).map(c => `• ${c.trim()}`).join('\n'),
-          r.targeted_interventions.filter(i => i.trim()).map(i => `• ${i.trim()}`).join('\n')
+          r.question,
+          translateText(r.performance_summary, lang),
+          r.possible_root_causes.filter(c => c.trim()).map(c => `• ${translateText(c.trim(), lang)}`).join('\n'),
+          r.targeted_interventions.filter(i => i.trim()).map(i => `• ${translateText(i.trim(), lang)}`).join('\n')
       ]),
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },

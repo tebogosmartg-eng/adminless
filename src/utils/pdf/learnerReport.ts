@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import { Learner, GradeSymbol } from '@/lib/types';
 import { getGradeSymbol } from '../grading';
 import { addHeader, addFooter, SchoolProfile, AttendanceStats } from './base';
-import { t } from '@/lib/useTranslation';
+import { t, translateText } from '@/lib/useTranslation';
 
 const addLearnerReportPage = (
   doc: jsPDF,
@@ -93,8 +93,8 @@ const addLearnerReportPage = (
   doc.setFontSize(11);
   doc.setTextColor(60);
   doc.setFont("helvetica", "italic");
-  const comment = learner.comment || "No comment recorded.";
-  const splitComment = doc.splitTextToSize(comment, pageWidth - (margin * 2));
+  const commentText = learner.comment ? translateText(learner.comment, lang) : translateText("No comment recorded.", lang);
+  const splitComment = doc.splitTextToSize(commentText, pageWidth - (margin * 2));
   doc.text(splitComment, margin, nextSectionY + 10);
 
   const footerY = doc.internal.pageSize.height - 40;

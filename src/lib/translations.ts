@@ -70,7 +70,11 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     weight: "Weight",
     avgPercent: "Avg %",
     highestPercent: "Highest %",
-    lowestPercent: "Lowest %"
+    lowestPercent: "Lowest %",
+    diagnostic_weak_reading: "Weak reading skills identified.",
+    auto_generated_report: "Auto-generated report.",
+    no_interventions_outlined: "No interventions outlined.",
+    no_comment_recorded: "No comment recorded."
   },
   af: {
     learner: "Leerder",
@@ -130,7 +134,11 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     weight: "Gewig",
     avgPercent: "Gem %",
     highestPercent: "Hoogste %",
-    lowestPercent: "Laagste %"
+    lowestPercent: "Laagste %",
+    diagnostic_weak_reading: "Swak leesvaardighede geïdentifiseer.",
+    auto_generated_report: "Outomaties gegenereerde verslag.",
+    no_interventions_outlined: "Geen intervensies uiteengesit nie.",
+    no_comment_recorded: "Geen kommentaar opgeteken nie."
   },
   zu: {
     learner: "Umfundi",
@@ -190,7 +198,11 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     weight: "Isisindo",
     avgPercent: "Amaphesenti A.",
     highestPercent: "Amaphesenti Aphakeme",
-    lowestPercent: "Amaphesenti Aphansi"
+    lowestPercent: "Amaphesenti Aphansi",
+    diagnostic_weak_reading: "Amakhono okufunda abuthakathaka ahlonziwe.",
+    auto_generated_report: "Umbiko ozenzakalelayo.",
+    no_interventions_outlined: "Akukho ukungenelela okuchaziwe.",
+    no_comment_recorded: "Akukho phawu olurekhodiwe."
   },
   xh: {
     learner: "Umfundi",
@@ -250,7 +262,11 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     weight: "Ubunzima",
     avgPercent: "Ipesenti Y.",
     highestPercent: "Ipesenti Ephezulu",
-    lowestPercent: "Ipesenti Ephantsi"
+    lowestPercent: "Ipesenti Ephantsi",
+    diagnostic_weak_reading: "Izakhono zokufunda ezibuthathaka zifunyenwe.",
+    auto_generated_report: "Ingxelo ezenzekelayo.",
+    no_interventions_outlined: "Akukho kungenelela okuchaziweyo.",
+    no_comment_recorded: "Akukho zimvo zibhaliweyo."
   },
   tn: {
     learner: "Moithuti",
@@ -310,7 +326,11 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     weight: "Boima",
     avgPercent: "Phesente P.",
     highestPercent: "Phesente e e kwa Godimo",
-    lowestPercent: "Phesente e e kwa Tlase"
+    lowestPercent: "Phesente e e kwa Tlase",
+    diagnostic_weak_reading: "Mekgwa e bokoa ea ho bala e khethiloe.",
+    auto_generated_report: "Pego e itlhagetseng.",
+    no_interventions_outlined: "Ga go na ditsereganyo tse di thadilweng.",
+    no_comment_recorded: "Ga go na tlhaloso e kwadilweng."
   },
   st: {
     learner: "Moithuti",
@@ -370,6 +390,10 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     weight: "Boima",
     avgPercent: "Phesente A.",
     highestPercent: "Phesente e Phahameng",
-    lowestPercent: "Phesente e Tlase"
+    lowestPercent: "Phesente e Tlase",
+    diagnostic_weak_reading: "Bokgoni bo fokolang ba ho bala bo fumanwe.",
+    auto_generated_report: "Tlaleho e iketsang.",
+    no_interventions_outlined: "Ha ho na mehato e hlalositsweng.",
+    no_comment_recorded: "Ha ho maikutlo a tlalehiloeng."
   }
 };

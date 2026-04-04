@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { DiagnosticData } from '@/hooks/useDiagnosticReportData';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { format } from 'date-fns';
-import { t } from '@/lib/useTranslation';
+import { t, translateText } from '@/lib/useTranslation';
 
 export const generateDiagnosticReportPDF = (
   data: DiagnosticData,
@@ -110,8 +110,8 @@ export const generateDiagnosticReportPDF = (
     return y + 10 + (splitText.length * 5);
   };
 
-  currentY = addTextBox("Diagnostic Analysis & Interpretation", diagnosticSummary || "Auto-generated report.", currentY);
-  currentY = addTextBox("Intervention Plan", interventionPlan || "No interventions outlined.", currentY);
+  currentY = addTextBox("Diagnostic Analysis & Interpretation", translateText(diagnosticSummary || "Auto-generated report.", lang), currentY);
+  currentY = addTextBox("Intervention Plan", translateText(interventionPlan || "No interventions outlined.", lang), currentY);
 
   addSignatures(doc, currentY);
   addFooter(doc);
