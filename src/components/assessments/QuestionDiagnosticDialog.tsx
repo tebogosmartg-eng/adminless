@@ -135,11 +135,11 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
       }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!stats) return;
     setIsExporting(true);
     try {
-        generateQuestionDiagnosticPDF(
+        await generateQuestionDiagnosticPDF(
             assessment,
             learners,
             stats.qStats,

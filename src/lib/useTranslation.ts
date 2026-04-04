@@ -1,4 +1,5 @@
 import { translations, LanguageCode } from './translations';
+import { translateTextWithGemini } from '@/services/gemini';
 
 export const t = (key: string, language: string = 'en'): string => {
   const lang = language as LanguageCode;
@@ -6,7 +7,7 @@ export const t = (key: string, language: string = 'en'): string => {
   return dict[key] || translations['en'][key] || key;
 };
 
-export const translateText = (text: string, language: string = 'en'): string => {
+export const translateText = async (text: string, language: string = 'en'): Promise<string> => {
   if (!text) return text;
   
   const langCode = language as LanguageCode;
@@ -25,6 +26,15 @@ export const translateText = (text: string, language: string = 'en'): string => 
     return langDict[text] || enDict[text] || text;
   }
   
+  // If no static match is found and language is not English, dynamically translate
+  if (language !== 'en') {
+    try {
+      return await translateTextWithGemini(text, language);
+    } catch (e) {
+      console.error("AI Translation fallback failed:", e);
+    }
+  }
+
   // Fallback to the original English text if no translation is found
   return text;
 };

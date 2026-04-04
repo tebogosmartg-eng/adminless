@@ -219,7 +219,7 @@ ${t('lowestMark', lang)}: ${stats.lowestMark}%
     if (!classInfo) return;
     try {
       const attMap = await fetchAttendanceMap();
-      generateBulkLearnerReportsPDF(learners, classInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone, attMap, lang);
+      await generateBulkLearnerReportsPDF(learners, classInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone, attMap, lang);
       showSuccess("Bulk PDF Report generated successfully!");
     } catch (error) {
       console.error(error);

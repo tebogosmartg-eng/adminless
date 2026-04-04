@@ -5,7 +5,7 @@ import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { format } from 'date-fns';
 import { t, translateText } from '@/lib/useTranslation';
 
-export const generateDiagnosticReportPDF = (
+export const generateDiagnosticReportPDF = async (
   data: DiagnosticData,
   classInfo: { className: string; subject: string; grade: string },
   academicContext: { year: string; term: string; isLocked: boolean },
@@ -14,7 +14,7 @@ export const generateDiagnosticReportPDF = (
   interventionPlan: string,
   returnBlob: boolean = false,
   lang: string = 'en'
-): Blob | void => {
+): Promise<Blob | void> => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
@@ -110,8 +110,11 @@ export const generateDiagnosticReportPDF = (
     return y + 10 + (splitText.length * 5);
   };
 
-  currentY = addTextBox("Diagnostic Analysis & Interpretation", translateText(diagnosticSummary || "Auto-generated report.", lang), currentY);
-  currentY = addTextBox("Intervention Plan", translateText(interventionPlan || "No interventions outlined.", lang), currentY);
+  const translatedSummary = await translateText(diagnosticSummary || "Auto-generated report.", lang);
+  const translatedPlan = await translateText(interventionPlan || "No interventions outlined.", lang);
+
+  currentY = addTextBox("Diagnostic Analysis & Interpretation", translatedSummary, currentY);
+  currentY = addTextBox("Intervention Plan", translatedPlan, currentY);
 
   addSignatures(doc, currentY);
   addFooter(doc);

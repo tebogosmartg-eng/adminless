@@ -207,3 +207,8 @@ export const generateBulkComments = async (learners: Learner[], tone: string): P
     const data = await invokeGemini('generate-bulk-comments', { learners, tone });
     return data?.comments || [];
 };
+
+export const translateTextWithGemini = async (text: string, languageCode: string): Promise<string> => {
+    const data = await invokeGemini('translate-text', { text, languageCode });
+    return data?.translatedText || text;
+};

@@ -62,7 +62,7 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
     if (!data || !isDataReady) return;
     setIsExporting(true);
     try {
-        generateDiagnosticReportPDF(
+        await generateDiagnosticReportPDF(
             data,
             { className: classInfo.className, subject: classInfo.subject, grade: classInfo.grade },
             { year: year.name, term: term.name, isLocked: term.closed },

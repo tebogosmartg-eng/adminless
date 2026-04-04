@@ -6,7 +6,7 @@ import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { format } from 'date-fns';
 import { t, translateText } from '@/lib/useTranslation';
 
-export const generateQuestionDiagnosticPDF = (
+export const generateQuestionDiagnosticPDF = async (
   assessment: Assessment,
   learners: Learner[],
   qStats: QuestionStat[],
@@ -67,15 +67,38 @@ export const generateQuestionDiagnosticPDF = (
   doc.setFont("helvetica", "bold");
   doc.text("Deep Root-Cause Analysis & Interventions", margin, currentY);
 
+  const translatedBody = [];
+  for (const r of diagRows) {
+      const summary = await translateText(r.performance_summary, lang);
+      
+      const causes = [];
+      for (const c of r.possible_root_causes) {
+          if (c.trim()) {
+              const tc = await translateText(c.trim(), lang);
+              causes.push(`• ${tc}`);
+          }
+      }
+      
+      const interventions = [];
+      for (const i of r.targeted_interventions) {
+          if (i.trim()) {
+              const ti = await translateText(i.trim(), lang);
+              interventions.push(`• ${ti}`);
+          }
+      }
+      
+      translatedBody.push([
+          r.question,
+          summary,
+          causes.join('\n'),
+          interventions.join('\n')
+      ]);
+  }
+
   autoTable(doc, {
       startY: currentY + 3,
       head: [['Question', 'Summary', 'Possible Root Causes', 'Targeted Interventions']],
-      body: diagRows.map(r => [
-          r.question,
-          translateText(r.performance_summary, lang),
-          r.possible_root_causes.filter(c => c.trim()).map(c => `• ${translateText(c.trim(), lang)}`).join('\n'),
-          r.targeted_interventions.filter(i => i.trim()).map(i => `• ${translateText(i.trim(), lang)}`).join('\n')
-      ]),
+      body: translatedBody,
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
       headStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold' },

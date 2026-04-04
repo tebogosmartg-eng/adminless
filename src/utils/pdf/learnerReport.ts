@@ -4,7 +4,7 @@ import { getGradeSymbol } from '../grading';
 import { addHeader, addFooter, SchoolProfile, AttendanceStats } from './base';
 import { t, translateText } from '@/lib/useTranslation';
 
-const addLearnerReportPage = (
+const addLearnerReportPage = async (
   doc: jsPDF,
   learner: Learner,
   classInfo: { subject: string; grade: string; className: string },
@@ -93,7 +93,7 @@ const addLearnerReportPage = (
   doc.setFontSize(11);
   doc.setTextColor(60);
   doc.setFont("helvetica", "italic");
-  const commentText = learner.comment ? translateText(learner.comment, lang) : translateText("No comment recorded.", lang);
+  const commentText = learner.comment ? await translateText(learner.comment, lang) : await translateText("No comment recorded.", lang);
   const splitComment = doc.splitTextToSize(commentText, pageWidth - (margin * 2));
   doc.text(splitComment, margin, nextSectionY + 10);
 
@@ -108,7 +108,7 @@ const addLearnerReportPage = (
   doc.text(t('parentSignature', lang), pageWidth - margin - 60, footerY + 5);
 };
 
-export const generateLearnerReportPDF = (
+export const generateLearnerReportPDF = async (
   learner: Learner,
   classInfo: { subject: string; grade: string; className: string },
   gradingScheme: GradeSymbol[],
@@ -122,12 +122,12 @@ export const generateLearnerReportPDF = (
 ) => {
   const doc = new jsPDF();
   const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
-  addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile, attendance, lang);
+  await addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile, attendance, lang);
   addFooter(doc);
-  doc.save(`${learner.name.replace(/\s+/g, '_')}_Report.pdf`);
+  doc.save(`${learner.name.replace(/\\s+/g, '_')}_Report.pdf`);
 };
 
-export const generateBulkLearnerReportsPDF = (
+export const generateBulkLearnerReportsPDF = async (
   learners: Learner[],
   classInfo: { subject: string; grade: string; className: string },
   gradingScheme: GradeSymbol[],
@@ -142,11 +142,12 @@ export const generateBulkLearnerReportsPDF = (
   const doc = new jsPDF();
   const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
 
-  learners.forEach((learner, index) => {
+  for (let index = 0; index < learners.length; index++) {
+    const learner = learners[index];
     if (index > 0) doc.addPage();
     const stats = learner.id && attendanceMap ? attendanceMap[learner.id] : undefined;
-    addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile, stats, lang);
-  });
+    await addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile, stats, lang);
+  }
 
   addFooter(doc);
   doc.save(`${classInfo.className}_Term_Reports.pdf`);

@@ -72,7 +72,7 @@ export const LearnerProfileDialog = ({
             rate: attRecords.length > 0 ? Math.round(((attRecords.filter(r => r.status === 'present' || r.status === 'late').length) / attRecords.length) * 100) : 0
         };
 
-        generateLearnerReportPDF(
+        await generateLearnerReportPDF(
             learner,
             { subject: cls.subject, grade: cls.grade, className: cls.className },
             gradingScheme,

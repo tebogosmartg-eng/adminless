@@ -166,6 +166,22 @@ serve(async (req) => {
         if (!extracted || !extracted.learners) throw new Error("AI returned invalid data format");
 
         return new Response(JSON.stringify({ success: true, data: extracted }), { headers: corsHeaders });
+    } else if (action === 'translate-text') {
+        const { text, languageCode } = payload;
+        
+        const prompt = `
+            You are a professional educational translator.
+            Translate the following text into the language represented by the code "${languageCode}".
+            Maintain the professional, academic tone of the original text.
+            Do not add any conversational filler. Only return the translated text.
+            
+            Text to translate:
+            ${text}
+        `;
+
+        const responseText = await callGeminiAPI(prompt, [], apiKey);
+        
+        return new Response(JSON.stringify({ success: true, data: { translatedText: responseText.trim() } }), { headers: corsHeaders });
     }
 
     return new Response(JSON.stringify({ success: true, message: "Action processed" }), { headers: corsHeaders });
