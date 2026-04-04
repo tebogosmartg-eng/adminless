@@ -58,6 +58,29 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
     }
   }, [data, isDataReady]);
 
+  // Cache warming effect
+  useEffect(() => {
+    if (exportLanguage === 'en') return;
+
+    const warmCache = async () => {
+      const { translateTextWithGemini } = await import('@/services/gemini');
+      
+      const textsToTranslate = new Set<string>();
+      if (diagnosticSummary) textsToTranslate.add(diagnosticSummary);
+      if (interventionPlan) textsToTranslate.add(interventionPlan);
+      
+      for (const text of Array.from(textsToTranslate)) {
+        try {
+            await translateTextWithGemini(text, exportLanguage);
+        } catch (e) {
+            // Ignore warming errors
+        }
+      }
+    };
+
+    warmCache();
+  }, [diagnosticSummary, interventionPlan, exportLanguage]);
+
   const handleExport = async () => {
     if (!data || !isDataReady) return;
     setIsExporting(true);

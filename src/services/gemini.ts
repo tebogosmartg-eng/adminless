@@ -209,6 +209,36 @@ export const generateBulkComments = async (learners: Learner[], tone: string): P
 };
 
 export const translateTextWithGemini = async (text: string, languageCode: string): Promise<string> => {
-    const data = await invokeGemini('translate-text', { text, languageCode });
-    return data?.translatedText || text;
+    if (!text || !text.trim() || languageCode === 'en' || !languageCode) return text;
+
+    try {
+        const { data: cached } = await supabase
+            .from('translation_cache')
+            .select('translated_text')
+            .eq('original_text', text)
+            .eq('language_code', languageCode)
+            .maybeSingle();
+
+        if (cached?.translated_text) {
+            return cached.translated_text;
+        }
+
+        const data = await invokeGemini('translate-text', { text, languageCode });
+        const translatedText = data?.translatedText || text;
+
+        if (translatedText && translatedText !== text) {
+            await supabase
+                .from('translation_cache')
+                .upsert({
+                    original_text: text,
+                    language_code: languageCode,
+                    translated_text: translatedText
+                }, { onConflict: 'original_text,language_code' });
+        }
+
+        return translatedText;
+    } catch (error) {
+        console.error("Translation error:", error);
+        return text;
+    }
 };
