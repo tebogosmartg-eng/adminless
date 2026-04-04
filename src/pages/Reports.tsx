@@ -155,7 +155,8 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
           yearName,
           selectedGrade,
           selectedSubject,
-          profile
+          profile,
+          exportLanguage
       );
       showSuccess("Year End PDF generated.");
   };

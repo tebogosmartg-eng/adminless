@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
+import { t } from '@/lib/useTranslation';
 
 export const generateYearSummaryPDF = (
     reportData: any[],
@@ -8,17 +9,18 @@ export const generateYearSummaryPDF = (
     yearName: string,
     grade: string,
     subject: string,
-    profile: SchoolProfile
+    profile: SchoolProfile,
+    lang: string = 'en'
 ) => {
     const doc = new jsPDF('l', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.width;
     const margin = 14;
-    const startY = addHeader(doc, profile, `Year End Performance Summary: ${yearName}`);
+    const startY = addHeader(doc, profile, `Year End ${t('performance', lang)} Summary: ${yearName}`);
     
     // Header Metadata
     doc.setFontSize(10);
     doc.setTextColor(80);
-    doc.text(`Grade: ${grade}  |  Subject: ${subject}`, margin, startY + 5);
+    doc.text(`${t('grade', lang)}: ${grade}  |  ${t('subject', lang)}: ${subject}`, margin, startY + 5);
 
     // Data Mapping
     const tableBody = reportData.map(r => [
@@ -30,13 +32,13 @@ export const generateYearSummaryPDF = (
 
     autoTable(doc, {
         startY: startY + 10,
-        head: [['Learner Name', ...termNames, 'Year Final %', 'Status']],
+        head: [[t('learnerName', lang), ...termNames, 'Year Final %', t('status', lang)]],
         body: tableBody,
         theme: 'grid',
         headStyles: { fillColor: [41, 37, 36], textColor: 255 },
         styles: { fontSize: 9 },
-        columnStyles: { 
-            0: { cellWidth: 60, fontStyle: 'bold' } 
+        columnStyles: {
+            0: { cellWidth: 60, fontStyle: 'bold' }
         },
         didParseCell: (data) => {
             if (data.section === 'body' && data.column.index === termNames.length + 2) {
