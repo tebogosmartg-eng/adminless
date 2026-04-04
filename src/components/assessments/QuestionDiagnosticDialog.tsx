@@ -10,10 +10,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { 
-    Download, 
-    Loader2, 
-    AlertTriangle, 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+    Download,
+    Loader2,
+    AlertTriangle,
     Save,
     CheckCircle2,
     Trash2,
@@ -23,7 +24,8 @@ import {
     Rocket,
     LayoutGrid,
     Lightbulb,
-    Check
+    Check,
+    Globe
 } from 'lucide-react';
 import { Assessment, Learner, DiagnosticRow, FullDiagnostic } from '@/lib/types';
 import { useQuestionAnalysis } from '@/hooks/useQuestionAnalysis';
@@ -32,6 +34,7 @@ import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { generateQuestionDiagnosticPDF } from '@/utils/pdf/questionDiagnosticReport';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
+import { LANGUAGES } from '@/lib/translations';
 
 interface QuestionDiagnosticDialogProps {
   open: boolean;
@@ -52,6 +55,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [exportLanguage, setExportLanguage] = useState("en");
   
   const initializedRef = useRef(false);
 
@@ -141,7 +145,8 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
             stats.qStats,
             stats.rawMarks,
             rows,
-            { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone }
+            { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone },
+            exportLanguage
         );
         showSuccess("Detailed diagnostic report exported.");
     } finally {
@@ -181,7 +186,22 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     <DialogTitle className="text-xl sm:text-2xl font-bold truncate">{assessment.title}</DialogTitle>
                     <DialogDescription className="text-xs sm:text-sm">Identify skill-specific barriers and class-wide patterns.</DialogDescription>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
+                    <div className="w-full sm:w-40 flex items-center gap-2 mr-2">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <Select value={exportLanguage} onValueChange={setExportLanguage}>
+                        <SelectTrigger className="h-9 w-full">
+                          <SelectValue placeholder="Language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LANGUAGES.map((lang) => (
+                            <SelectItem key={lang.code} value={lang.code}>
+                              {lang.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <Button variant="outline" onClick={handleRunAI} disabled={isGeneratingAI || loading} className="gap-1.5 sm:gap-2 font-bold h-10 sm:h-9 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 flex-1 sm:flex-none px-2 sm:px-4 text-xs sm:text-sm w-full">
                         {isGeneratingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
                         <span className="hidden sm:inline">Run Skill-Aware AI Analysis</span>

@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import { Learner, GradeSymbol } from '@/lib/types';
 import { getGradeSymbol } from '../grading';
 import { addHeader, addFooter, SchoolProfile, AttendanceStats } from './base';
+import { t } from '@/lib/useTranslation';
 
 const addLearnerReportPage = (
   doc: jsPDF,
@@ -9,12 +10,13 @@ const addLearnerReportPage = (
   classInfo: { subject: string; grade: string; className: string },
   gradingScheme: GradeSymbol[],
   profile: SchoolProfile,
-  attendance?: AttendanceStats
+  attendance?: AttendanceStats,
+  lang: string = 'en'
 ) => {
   const pageWidth = doc.internal.pageSize.width;
   const margin = 20;
 
-  const startY = addHeader(doc, profile, "Learner Performance Report");
+  const startY = addHeader(doc, profile, t('learnerPerformanceReport', lang));
 
   doc.setDrawColor(220);
   doc.setLineWidth(0.1);
@@ -25,17 +27,17 @@ const addLearnerReportPage = (
   doc.setFont("helvetica", "normal");
   
   const infoY = startY + 10;
-  doc.text("Learner:", margin, infoY);
-  doc.text("Grade:", margin, infoY + 8);
-  doc.text("Class:", margin + 80, infoY + 8);
-  doc.text("Subject:", margin, infoY + 16);
+  doc.text(`${t('learner', lang)}:`, margin, infoY);
+  doc.text(`${t('grade', lang)}:`, margin, infoY + 8);
+  doc.text(`${t('class', lang)}:`, margin + 80, infoY + 8);
+  doc.text(`${t('subject', lang)}:`, margin, infoY + 16);
 
   doc.setTextColor(0);
   doc.setFont("helvetica", "bold");
-  doc.text(learner.name, margin + 20, infoY);
-  doc.text(classInfo.grade, margin + 20, infoY + 8);
+  doc.text(learner.name, margin + 25, infoY);
+  doc.text(classInfo.grade, margin + 25, infoY + 8);
   doc.text(classInfo.className, margin + 95, infoY + 8);
-  doc.text(classInfo.subject, margin + 20, infoY + 16);
+  doc.text(classInfo.subject, margin + 25, infoY + 16);
 
   const resultY = infoY + 30;
   doc.setFillColor(245, 247, 250);
@@ -46,7 +48,7 @@ const addLearnerReportPage = (
   doc.setFontSize(12);
   doc.setTextColor(100);
   doc.setFont("helvetica", "normal");
-  doc.text("Final Mark Achieved", pageWidth / 2, resultY + 12, { align: 'center' });
+  doc.text(t('finalMarkAchieved', lang), pageWidth / 2, resultY + 12, { align: 'center' });
   
   doc.setFontSize(28);
   doc.setTextColor(0);
@@ -57,7 +59,7 @@ const addLearnerReportPage = (
     doc.setFontSize(11);
     doc.setTextColor(80);
     doc.setFont("helvetica", "normal");
-    doc.text(`Symbol: ${symbolObj.symbol}   |   Level: ${symbolObj.level}`, pageWidth / 2, resultY + 34, { align: 'center' });
+    doc.text(`${t('symbol', lang)}: ${symbolObj.symbol}   |   ${t('level', lang)}: ${symbolObj.level}`, pageWidth / 2, resultY + 34, { align: 'center' });
   }
 
   let nextSectionY = resultY + 55;
@@ -66,27 +68,27 @@ const addLearnerReportPage = (
       doc.setFontSize(13);
       doc.setTextColor(40);
       doc.setFont("helvetica", "bold");
-      doc.text("Attendance Overview", margin, nextSectionY);
+      doc.text(t('attendanceOverview', lang), margin, nextSectionY);
       
       const attY = nextSectionY + 10;
       doc.setFontSize(10);
       doc.setTextColor(80);
       doc.setFont("helvetica", "normal");
-      doc.text(`Present: ${attendance.present} / ${attendance.total}`, margin, attY);
-      doc.text(`Absent: ${attendance.absent}`, margin + 60, attY);
-      doc.text(`Late: ${attendance.late}`, margin + 100, attY);
+      doc.text(`${t('present', lang)}: ${attendance.present} / ${attendance.total}`, margin, attY);
+      doc.text(`${t('absent', lang)}: ${attendance.absent}`, margin + 60, attY);
+      doc.text(`${t('late', lang)}: ${attendance.late}`, margin + 100, attY);
       
       const rateColor = attendance.rate >= 90 ? [22, 163, 74] : attendance.rate >= 80 ? [217, 119, 6] : [220, 38, 38];
       doc.setTextColor(rateColor[0], rateColor[1], rateColor[2]);
       doc.setFont("helvetica", "bold");
-      doc.text(`Rate: ${attendance.rate}%`, margin + 140, attY);
+      doc.text(`${t('rate', lang)}: ${attendance.rate}%`, margin + 140, attY);
       nextSectionY += 25;
   }
 
   doc.setFontSize(13);
   doc.setTextColor(40);
   doc.setFont("helvetica", "bold");
-  doc.text("Teacher's Comments", margin, nextSectionY);
+  doc.text(t('teacherComment', lang), margin, nextSectionY);
 
   doc.setFontSize(11);
   doc.setTextColor(60);
@@ -102,8 +104,8 @@ const addLearnerReportPage = (
   doc.setFontSize(9);
   doc.setTextColor(100);
   doc.setFont("helvetica", "normal");
-  doc.text("Teacher Signature", margin, footerY + 5);
-  doc.text("Parent/Guardian Signature", pageWidth - margin - 60, footerY + 5);
+  doc.text(t('teacherSignature', lang), margin, footerY + 5);
+  doc.text(t('parentSignature', lang), pageWidth - margin - 60, footerY + 5);
 };
 
 export const generateLearnerReportPDF = (
@@ -115,11 +117,12 @@ export const generateLearnerReportPDF = (
   schoolLogo: string | null = null,
   contactEmail: string = "",
   contactPhone: string = "",
-  attendance?: AttendanceStats
+  attendance?: AttendanceStats,
+  lang: string = 'en'
 ) => {
   const doc = new jsPDF();
   const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
-  addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile, attendance);
+  addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile, attendance, lang);
   addFooter(doc);
   doc.save(`${learner.name.replace(/\s+/g, '_')}_Report.pdf`);
 };
@@ -133,7 +136,8 @@ export const generateBulkLearnerReportsPDF = (
   schoolLogo: string | null = null,
   contactEmail: string = "",
   contactPhone: string = "",
-  attendanceMap?: Record<string, AttendanceStats>
+  attendanceMap?: Record<string, AttendanceStats>,
+  lang: string = 'en'
 ) => {
   const doc = new jsPDF();
   const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
@@ -141,7 +145,7 @@ export const generateBulkLearnerReportsPDF = (
   learners.forEach((learner, index) => {
     if (index > 0) doc.addPage();
     const stats = learner.id && attendanceMap ? attendanceMap[learner.id] : undefined;
-    addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile, stats);
+    addLearnerReportPage(doc, learner, classInfo, gradingScheme, profile, stats, lang);
   });
 
   addFooter(doc);

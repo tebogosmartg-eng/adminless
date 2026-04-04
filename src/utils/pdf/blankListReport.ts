@@ -2,14 +2,16 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ClassInfo } from '@/lib/types';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
+import { t } from '@/lib/useTranslation';
 
 export const generateBlankClassListPDF = (
   classInfo: ClassInfo,
-  schoolName: string = "My School", 
+  schoolName: string = "My School",
   teacherName: string = "",
   schoolLogo: string | null = null,
   contactEmail: string = "",
-  contactPhone: string = ""
+  contactPhone: string = "",
+  lang: string = 'en'
 ) => {
   const doc = new jsPDF();
   const profile: SchoolProfile = { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone };
@@ -29,7 +31,7 @@ export const generateBlankClassListPDF = (
   doc.text("Task Name:", margin, startY + 16);
   doc.line(margin + 30, startY + 17, margin + 110, startY + 17);
   
-  doc.text("Date:", margin + 120, startY + 16);
+  doc.text(`${t('date', lang)}:`, margin + 120, startY + 16);
   doc.line(margin + 135, startY + 17, margin + 180, startY + 17);
 
   const tableRows = classInfo.learners.map((learner, index) => [
@@ -41,7 +43,7 @@ export const generateBlankClassListPDF = (
 
   autoTable(doc, {
     startY: startY + 25,
-    head: [['#', 'Learner Name', 'Mark / Score', 'Internal Moderation Notes']],
+    head: [['#', t('learnerName', lang), 'Mark / Score', 'Internal Moderation Notes']],
     body: tableRows,
     theme: 'grid',
     headStyles: { fillColor: [245, 245, 245], textColor: 40, fontStyle: 'bold' },

@@ -7,17 +7,19 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { 
-    FileText, 
-    AlertTriangle, 
-    Download, 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+    FileText,
+    AlertTriangle,
+    Download,
     Loader2,
     ArrowUpRight,
     ArrowDownRight,
     Minus,
     ClipboardList,
     ShieldAlert,
-    XCircle
+    XCircle,
+    Globe
 } from 'lucide-react';
 import { ClassInfo, Term, AcademicYear } from '@/lib/types';
 import { useDiagnosticReportData } from '@/hooks/useDiagnosticReportData';
@@ -26,6 +28,7 @@ import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { generateDiagnosticReportPDF } from '@/utils/pdf/diagnosticReport';
 import { showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
+import { LANGUAGES } from '@/lib/translations';
 
 interface DiagnosticReportDialogProps {
   open: boolean;
@@ -43,6 +46,7 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
   const [diagnosticSummary, setDiagnosticSummary] = useState("");
   const [interventionPlan, setInterventionPlan] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [exportLanguage, setExportLanguage] = useState("en");
 
   // Critical Guard: Is the data actually ready for a diagnostic?
   const isDataReady = progress >= 80; // Steps 1-8 must be complete
@@ -64,7 +68,9 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
             { year: year.name, term: term.name, isLocked: term.closed },
             { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone },
             diagnosticSummary,
-            interventionPlan
+            interventionPlan,
+            false,
+            exportLanguage
         );
         showSuccess("Diagnostic report exported to PDF.");
     } finally {
@@ -85,10 +91,27 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
                         {classInfo.className} • {classInfo.subject} • {term.name}
                     </DialogDescription>
                 </div>
-                <Button onClick={handleExport} disabled={isExporting || !data || !isDataReady} className="w-full sm:w-auto font-bold gap-2">
-                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                    Export Official PDF
-                </Button>
+                <div className="flex w-full sm:w-auto items-center gap-2">
+                    <div className="w-40 flex items-center gap-2 mr-2">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <Select value={exportLanguage} onValueChange={setExportLanguage}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LANGUAGES.map((lang) => (
+                            <SelectItem key={lang.code} value={lang.code}>
+                              {lang.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={handleExport} disabled={isExporting || !data || !isDataReady} className="w-full sm:w-auto font-bold gap-2 h-9">
+                        {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        Export Official PDF
+                    </Button>
+                </div>
             </div>
           </DialogHeader>
         </div>

@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { GradeSymbol } from '@/lib/types';
 import { getGradeSymbol } from '../grading';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
+import { t } from '@/lib/useTranslation';
 
 export const generateTermSummaryPDF = (
     reportData: any[],
@@ -12,12 +13,13 @@ export const generateTermSummaryPDF = (
     subject: string,
     gradingScheme: GradeSymbol[],
     profile: SchoolProfile,
-    atRiskThreshold: number = 50
+    atRiskThreshold: number = 50,
+    lang: string = 'en'
 ) => {
     const doc = new jsPDF('l', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.width;
     const margin = 14;
-    const startY = addHeader(doc, profile, `${termName} Performance Summary: ${grade} ${subject}`);
+    const startY = addHeader(doc, profile, `${termName} ${t('performance', lang)} Summary: ${grade} ${subject}`);
     
     const averages = reportData.map(r => r.termAverage).filter(a => a > 0);
     const classAvg = averages.length > 0 ? (averages.reduce((a, b) => a + b, 0) / averages.length).toFixed(1) : "0.0";
@@ -37,7 +39,7 @@ export const generateTermSummaryPDF = (
     doc.text("AGGREGATED PERFORMANCE", margin, startY + 5);
     autoTable(doc, {
         startY: startY + 8,
-        head: [['Total Learners', 'Subject Avg', 'Pass Rate']],
+        head: [[t('totalLearners', lang), `${t('subject', lang)} Avg`, t('passRate', lang)]],
         body: [[reportData.length, `${classAvg}%`, `${passRate}%`]],
         theme: 'grid',
         styles: { fontSize: 9, halign: 'center' },
@@ -45,7 +47,7 @@ export const generateTermSummaryPDF = (
         margin: { left: margin, right: pageWidth - 100 }
     });
 
-    doc.text("DISTRIBUTION", pageWidth / 2, startY + 5);
+    doc.text(t('markDistribution', lang).toUpperCase(), pageWidth / 2, startY + 5);
     autoTable(doc, {
         startY: startY + 8,
         head: [Object.keys(bands)],
@@ -95,7 +97,7 @@ export const generateTermSummaryPDF = (
 
     autoTable(doc, {
         startY: tableY + 3,
-        head: [['Learner', 'Class', ...allAssessmentTitles, 'Average', 'Symbol']],
+        head: [[t('learner', lang), t('class', lang), ...allAssessmentTitles, t('average', lang), t('symbol', lang)]],
         body: tableBody,
         theme: 'grid',
         headStyles: { fillColor: [41, 37, 36], textColor: 255 },

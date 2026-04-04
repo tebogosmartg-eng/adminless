@@ -4,11 +4,12 @@ import { ClassInfo, GradeSymbol, Assessment, AssessmentMark, AcademicYear } from
 import { getGradeSymbol } from '../grading';
 import { calculateWeightedAverage } from '../calculations';
 import { addHeader, addFooter, addSignatures, SchoolProfile, AttendanceStats } from './base';
+import { t } from '@/lib/useTranslation';
 
 export const generateClassPDF = (
-  classInfo: ClassInfo, 
-  gradingScheme: GradeSymbol[], 
-  schoolName: string = "My School", 
+  classInfo: ClassInfo,
+  gradingScheme: GradeSymbol[],
+  schoolName: string = "My School",
   teacherName: string = "",
   schoolLogo: string | null = null,
   contactEmail: string = "",
@@ -19,7 +20,8 @@ export const generateClassPDF = (
   marks: AssessmentMark[] = [],
   activeYear?: AcademicYear | null,
   atRiskThreshold: number = 50,
-  returnBlob: boolean = false
+  returnBlob: boolean = false,
+  lang: string = 'en'
 ): Blob | void => {
   try {
     const doc = new jsPDF('l', 'mm', 'a4');
@@ -27,7 +29,7 @@ export const generateClassPDF = (
     const margin = 14;
     const pageWidth = doc.internal.pageSize.width;
     
-    const title = isDraft ? "Class Marksheet (WORKING DRAFT)" : "Class Marksheet (OFFICIAL RECORD)";
+    const title = isDraft ? `${t('class', lang)} ${t('marksheet', lang)} (WORKING DRAFT)` : `${t('class', lang)} ${t('marksheet', lang)} (OFFICIAL RECORD)`;
     let currentY = addHeader(doc, profile, title);
 
     doc.setDrawColor(230);
@@ -38,9 +40,9 @@ export const generateClassPDF = (
     doc.setTextColor(100);
     doc.setFont("helvetica", "normal");
     doc.text("Year:", margin + 5, currentY + 7);
-    doc.text("Subject:", margin + 45, currentY + 7);
-    doc.text("Grade/Class:", margin + 110, currentY + 7);
-    doc.text("Status:", margin + 180, currentY + 7);
+    doc.text(`${t('subject', lang)}:`, margin + 45, currentY + 7);
+    doc.text(`${t('grade', lang)}/${t('class', lang)}:`, margin + 110, currentY + 7);
+    doc.text(`${t('status', lang)}:`, margin + 180, currentY + 7);
 
     doc.setFontSize(10);
     doc.setTextColor(0);
@@ -76,11 +78,11 @@ export const generateClassPDF = (
 
     doc.setFontSize(11);
     doc.setTextColor(41, 37, 36);
-    doc.text("CLASS PERFORMANCE SUMMARY", margin, currentY);
+    doc.text(t('classSummary', lang).toUpperCase(), margin, currentY);
     
     autoTable(doc, {
         startY: currentY + 3,
-        head: [['Learners', 'Class Avg', 'Highest', 'Lowest', 'Pass Rate']],
+        head: [['Learners', t('classAverage', lang), t('highestMark', lang), t('lowestMark', lang), t('passRate', lang)]],
         body: [[learnerData.length, `${classAvg}%`, `${highest}%`, `${lowest}%`, `${passRate}%`]],
         theme: 'grid',
         styles: { fontSize: 9, halign: 'center' },
@@ -88,7 +90,7 @@ export const generateClassPDF = (
         margin: { left: margin, right: pageWidth - 100 }
     });
 
-    doc.text("MARK DISTRIBUTION", pageWidth / 2, currentY);
+    doc.text(t('markDistribution', lang), pageWidth / 2, currentY);
     autoTable(doc, {
         startY: currentY + 3,
         head: [Object.keys(bands)],
@@ -128,7 +130,7 @@ export const generateClassPDF = (
 
     if (assessments.length > 0) {
         doc.setFontSize(11);
-        doc.text("ASSESSMENT BREAKDOWN", margin, currentY);
+        doc.text(t('assessmentAnalysis', lang), margin, currentY);
         
         const assRows = assessments.map(ass => {
             const assMarks = marks.filter(m => m.assessment_id === ass.id && m.score !== null);
@@ -141,7 +143,7 @@ export const generateClassPDF = (
 
         autoTable(doc, {
             startY: currentY + 3,
-            head: [['Task Title', 'Type', 'Max', 'Weight', 'Avg %', 'High %', 'Low %']],
+            head: [[t('title', lang), t('type', lang), t('maxMark', lang), t('weight', lang), t('avgPercent', lang), t('highestPercent', lang), t('lowestPercent', lang)]],
             body: assRows,
             theme: 'striped',
             styles: { fontSize: 8 },
@@ -152,10 +154,10 @@ export const generateClassPDF = (
 
     doc.text("LEARNER PERFORMANCE DATA", margin, currentY);
 
-    const tableHeaders = ['#', 'Learner Name'];
+    const tableHeaders = ['#', t('learnerName', lang)];
     assessments.forEach(ass => tableHeaders.push(`${ass.title}\n(${ass.max_mark})`));
-    tableHeaders.push('Term %');
-    tableHeaders.push('Level');
+    tableHeaders.push(`${t('term', lang)} %`);
+    tableHeaders.push(t('level', lang));
     if (attendanceMap) tableHeaders.push('Att %');
 
     const tableBody = learnerData.map((learner, index) => {

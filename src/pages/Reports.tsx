@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileDown, FileSpreadsheet, LayoutGrid, GraduationCap } from 'lucide-react';
+import { Loader2, FileDown, FileSpreadsheet, LayoutGrid, GraduationCap, Globe } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { SchoolProfile, generateTermSummaryPDF, generateYearSummaryPDF } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
@@ -19,18 +19,20 @@ import { IntegrityGuard } from '@/components/IntegrityGuard';
 import { generateSASAMSExport } from '@/utils/sasams';
 import { cn } from '@/lib/utils';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { t } from '@/lib/useTranslation';
+import { LANGUAGES } from '@/lib/translations';
 
 const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
   const { classes } = useClasses();
   const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   const { terms, years, activeYear, activeTerm, assessments, marks } = useAcademic();
 
-  const profile: SchoolProfile = { 
-    name: schoolName, 
-    teacher: teacherName, 
-    logo: schoolLogo, 
-    email: contactEmail, 
-    phone: contactPhone 
+  const profile: SchoolProfile = {
+    name: schoolName,
+    teacher: teacherName,
+    logo: schoolLogo,
+    email: contactEmail,
+    phone: contactPhone
   };
 
   const { loading: termLoading, reportData: termData, generateTermReport, allAssessmentTitles, setReportData } = useTermReportData();
@@ -43,6 +45,7 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
   const [selectedGrade, setSelectedGrade] = useState(defaultClass?.grade || "all");
   const [selectedSubject, setSelectedSubject] = useState(defaultClass?.subject || "all");
   const [selectedClassId, setSelectedClassId] = useState(defaultClassId || "all");
+  const [exportLanguage, setExportLanguage] = useState("en");
 
   const uniqueGrades = useMemo(() => Array.from(new Set(classes.map(c => c.grade))).sort(), [classes]);
   const uniqueSubjects = useMemo(() => Array.from(new Set(classes.map(c => c.subject))).sort(), [classes]);
@@ -105,7 +108,7 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
     const targetClassName = classes.find(c => c.id === selectedClassId)?.className || "Class";
     const termName = selectedTerm?.name || "Term";
     const displayData = termData.filter(r => r.className === targetClassName);
-    const header = ["Learner Name", "Class", ...allAssessmentTitles, "Term Average", "Symbol"].join(",");
+    const header = [t('learnerName', exportLanguage), t('class', exportLanguage), ...allAssessmentTitles, t('termAverage', exportLanguage), t('symbol', exportLanguage)].join(",");
     const rows = displayData.map(r => {
         const symbol = getGradeSymbol(r.termAverage, gradingScheme)?.symbol || "-";
         return [`"${r.learnerName}"`,`"${r.className}"`,...allAssessmentTitles.map(title => `"${r.assessments[title] || "-"}"`),r.termAverage,`"${symbol}"`].join(",");
@@ -131,7 +134,9 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
         selectedGrade,
         selectedSubject,
         gradingScheme,
-        profile
+        profile,
+        50,
+        exportLanguage
     );
     showSuccess("PDF generated.");
   };
@@ -247,7 +252,22 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                 <Card className={`${embedded ? 'md:col-span-4' : 'md:col-span-3'} min-h-[600px] flex flex-col border-none shadow-sm overflow-hidden w-full`}>
                     <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-muted/5 border-b gap-4">
                         <CardTitle className="text-lg">Class Results Summary</CardTitle>
-                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
+                            <div className="w-40 flex items-center gap-2 mr-2">
+                              <Globe className="h-4 w-4 text-muted-foreground" />
+                              <Select value={exportLanguage} onValueChange={setExportLanguage}>
+                                <SelectTrigger className="h-9">
+                                  <SelectValue placeholder="Language" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {LANGUAGES.map((lang) => (
+                                    <SelectItem key={lang.code} value={lang.code}>
+                                      {lang.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                             {embedded && (
                                 <Button onClick={handleGenerateTerm} disabled={termLoading || !isContextComplete} className="font-bold h-10 sm:h-9 flex-1 sm:flex-none w-full sm:w-auto">
                                     {termLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load Analytical Data"}

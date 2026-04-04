@@ -4,6 +4,7 @@ import { Assessment, Learner, AssessmentMark, DiagnosticRow } from '@/lib/types'
 import { QuestionStat } from '@/hooks/useQuestionAnalysis';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { format } from 'date-fns';
+import { t } from '@/lib/useTranslation';
 
 export const generateQuestionDiagnosticPDF = (
   assessment: Assessment,
@@ -11,20 +12,21 @@ export const generateQuestionDiagnosticPDF = (
   qStats: QuestionStat[],
   marks: AssessmentMark[],
   diagRows: DiagnosticRow[],
-  profile: SchoolProfile
+  profile: SchoolProfile,
+  lang: string = 'en'
 ) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
 
-  const startY = addHeader(doc, profile, "Assessment Diagnostic & Item Analysis");
+  const startY = addHeader(doc, profile, `${t('assessment', lang)} ${t('diagnosticReport', lang)} & Item Analysis`);
 
   // 1. Meta Details
   doc.setFontSize(10);
   doc.setTextColor(80);
-  doc.text(`Assessment: ${assessment.title}`, margin, startY + 5);
-  doc.text(`Type: ${assessment.type}  |  Total Marks: ${assessment.max_mark}`, margin, startY + 10);
-  doc.text(`Date: ${assessment.date ? format(new Date(assessment.date), 'dd/MM/yyyy') : 'N/A'}`, pageWidth - margin - 40, startY + 5);
+  doc.text(`${t('assessment', lang)}: ${assessment.title}`, margin, startY + 5);
+  doc.text(`${t('type', lang)}: ${assessment.type}  |  ${t('total', lang)}: ${assessment.max_mark}`, margin, startY + 10);
+  doc.text(`${t('date', lang)}: ${assessment.date ? format(new Date(assessment.date), 'dd/MM/yyyy') : 'N/A'}`, pageWidth - margin - 40, startY + 5);
 
   let currentY = startY + 20;
 
@@ -90,18 +92,18 @@ export const generateQuestionDiagnosticPDF = (
   // 4. Class Breakdown (Detailed Grid)
   if (currentY > doc.internal.pageSize.height - 100) {
       doc.addPage();
-      addHeader(doc, profile, "Learner Performance Breakdown");
+      addHeader(doc, profile, `${t('learner', lang)} ${t('performance', lang)} Breakdown`);
       currentY = 45;
   } else {
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("Individual Learner Records", margin, currentY);
+      doc.text(`Individual ${t('learner', lang)} Records`, margin, currentY);
       currentY += 3;
   }
   
-  const headers = ['#', 'Learner Name'];
+  const headers = ['#', t('learnerName', lang)];
   assessment.questions?.forEach(q => headers.push(`Q${q.question_number}`));
-  headers.push('Total');
+  headers.push(t('total', lang));
 
   const body = learners.map((l, i) => {
       const lMark = marks.find(m => m.learner_id === l.id);

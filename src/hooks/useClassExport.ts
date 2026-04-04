@@ -7,6 +7,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { useAcademic } from '@/context/AcademicContext';
 import { db } from '@/db';
 import { calculateWeightedAverage } from '@/utils/calculations';
+import { t } from '@/lib/useTranslation';
 
 export const useClassExport = (
   classInfo: ClassInfo | undefined,
@@ -54,27 +55,27 @@ export const useClassExport = (
     }
   };
 
-  const handleShareSummary = () => {
+  const handleShareSummary = (lang: string = 'en') => {
     if (!classInfo) return;
     const stats = calculateClassStats(learners);
     
     const summary = `
-📊 *Class Summary: ${classInfo.subject}*
+📊 *${t('classSummary', lang)}: ${classInfo.subject}*
 🏫 ${classInfo.grade} - ${classInfo.className}
 
-📈 Average: ${stats.average}%
-✅ Pass Rate: ${stats.passRate}%
-👨‍🎓 Learners: ${stats.totalLearners}
+📈 ${t('average', lang)}: ${stats.average}%
+✅ ${t('passRate', lang)}: ${stats.passRate}%
+👨‍🎓 ${t('totalLearners', lang)}: ${stats.totalLearners}
 
-Top Mark: ${stats.highestMark}%
-Lowest Mark: ${stats.lowestMark}%
+${t('highestMark', lang)}: ${stats.highestMark}%
+${t('lowestMark', lang)}: ${stats.lowestMark}%
     `.trim();
 
     navigator.clipboard.writeText(summary);
     showSuccess("Class summary copied to clipboard!");
   };
 
-  const handleExportCsv = () => {
+  const handleExportCsv = (lang: string = 'en') => {
     if (!classInfo) {
       showError("Could not find class information to export.");
       return;
@@ -85,23 +86,23 @@ Lowest Mark: ${stats.lowestMark}%
     const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
 
     const metadata = [
-        `"Report Type","Marksheet Analytical Export (${isDraft ? 'DRAFT' : 'OFFICIAL RECORD'})"`,
-        `"School","${schoolName}"`,
-        `"Teacher","${teacherName}"`,
-        `"Subject","${classInfo.subject}"`,
-        `"Grade/Class","${classInfo.grade} - ${classInfo.className}"`,
-        `"Term","${activeTerm?.name || 'N/A'}"`,
-        `"Status","${isDraft ? 'Draft / Working Copy' : 'Finalised'}"`,
-        `""` 
+        `"Report Type","${t('marksheetAnalyticalExport', lang)} (${isDraft ? 'DRAFT' : 'OFFICIAL RECORD'})"`,
+        `"${t('school', lang)}","${schoolName}"`,
+        `"${t('teacher', lang)}","${teacherName}"`,
+        `"${t('subject', lang)}","${classInfo.subject}"`,
+        `"${t('grade', lang)}/${t('class', lang)}","${classInfo.grade} - ${classInfo.className}"`,
+        `"${t('term', lang)}","${activeTerm?.name || 'N/A'}"`,
+        `"${t('status', lang)}","${isDraft ? 'Draft / Working Copy' : 'Finalised'}"`,
+        `""`
     ];
 
     const headers = [
-        "Learner Name",
+        t('learnerName', lang),
         ...termAssessments.map(ass => `"${ass.title} (/${ass.max_mark})"`),
-        "Term Percentage",
-        "Symbol",
-        "Level",
-        "Comment"
+        t('termPercentage', lang),
+        t('symbol', lang),
+        t('level', lang),
+        t('comment', lang)
     ].join(",");
 
     const learnerAvgs: number[] = [];
@@ -131,14 +132,14 @@ Lowest Mark: ${stats.lowestMark}%
     
     const analyticsBlock = [
         `""`,
-        `"CLASS ANALYTICS SUMMARY"`,
-        `"Total Learners","${learners.length}"`,
-        `"Class Average","${classAvg}%"`,
-        `"Pass Rate","${passRate}%"`,
-        `"Highest Mark","${learnerAvgs.length > 0 ? Math.max(...learnerAvgs).toFixed(1) : '0'}%"`,
-        `"Lowest Mark","${learnerAvgs.length > 0 ? Math.min(...learnerAvgs).toFixed(1) : '0'}%"`,
+        `"${t('classAnalyticsSummary', lang)}"`,
+        `"${t('totalLearners', lang)}","${learners.length}"`,
+        `"${t('classAverage', lang)}","${classAvg}%"`,
+        `"${t('passRate', lang)}","${passRate}%"`,
+        `"${t('highestMark', lang)}","${learnerAvgs.length > 0 ? Math.max(...learnerAvgs).toFixed(1) : '0'}%"`,
+        `"${t('lowestMark', lang)}","${learnerAvgs.length > 0 ? Math.min(...learnerAvgs).toFixed(1) : '0'}%"`,
         `""`,
-        `"MARK DISTRIBUTION"`,
+        `"${t('markDistribution', lang)}"`,
         `"0-29%","${learnerAvgs.filter(a => a < 30).length}"`,
         `"30-39%","${learnerAvgs.filter(a => a >= 30 && a < 40).length}"`,
         `"40-49%","${learnerAvgs.filter(a => a >= 40 && a < 50).length}"`,
@@ -147,8 +148,8 @@ Lowest Mark: ${stats.lowestMark}%
         `"70-79%","${learnerAvgs.filter(a => a >= 70 && a < 80).length}"`,
         `"80-100%","${learnerAvgs.filter(a => a >= 80).length}"`,
         `""`,
-        `"ASSESSMENT ANALYSIS"`,
-        `"Title","Type","Max Mark","Weight","Avg %","Highest %","Lowest %"`
+        `"${t('assessmentAnalysis', lang)}"`,
+        `"${t('title', lang)}","${t('type', lang)}","${t('maxMark', lang)}","${t('weight', lang)}","${t('avgPercent', lang)}","${t('highestPercent', lang)}","${t('lowestPercent', lang)}"`
     ];
 
     termAssessments.forEach(ass => {
@@ -180,7 +181,7 @@ Lowest Mark: ${stats.lowestMark}%
     }
   };
 
-  const handleExportPdf = async () => {
+  const handleExportPdf = async (lang: string = 'en') => {
     if (!classInfo) return;
     try {
       const attMap = await fetchAttendanceMap();
@@ -190,19 +191,21 @@ Lowest Mark: ${stats.lowestMark}%
       const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
 
       generateClassPDF(
-          exportClassInfo, 
-          gradingScheme, 
-          schoolName, 
-          teacherName, 
-          schoolLogo, 
-          contactEmail, 
-          contactPhone, 
+          exportClassInfo,
+          gradingScheme,
+          schoolName,
+          teacherName,
+          schoolLogo,
+          contactEmail,
+          contactPhone,
           attMap,
           isDraft,
           termAssessments,
           termMarks,
           activeYear,
-          atRiskThreshold
+          atRiskThreshold,
+          false,
+          lang
       );
       
       showSuccess(isDraft ? "Draft PDF generated." : "Official PDF generated.");
@@ -212,11 +215,11 @@ Lowest Mark: ${stats.lowestMark}%
     }
   };
   
-  const handleExportBulkPdf = async () => {
+  const handleExportBulkPdf = async (lang: string = 'en') => {
     if (!classInfo) return;
     try {
       const attMap = await fetchAttendanceMap();
-      generateBulkLearnerReportsPDF(learners, classInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone, attMap);
+      generateBulkLearnerReportsPDF(learners, classInfo, gradingScheme, schoolName, teacherName, schoolLogo, contactEmail, contactPhone, attMap, lang);
       showSuccess("Bulk PDF Report generated successfully!");
     } catch (error) {
       console.error(error);
@@ -224,11 +227,11 @@ Lowest Mark: ${stats.lowestMark}%
     }
   };
 
-  const handleExportBlankPdf = () => {
+  const handleExportBlankPdf = (lang: string = 'en') => {
     if (!classInfo) return;
     try {
       const exportClassInfo = { ...classInfo, learners };
-      generateBlankClassListPDF(exportClassInfo, schoolName, teacherName, schoolLogo, contactEmail, contactPhone);
+      generateBlankClassListPDF(exportClassInfo, schoolName, teacherName, schoolLogo, contactEmail, contactPhone, lang);
       showSuccess("Blank learner list generated!");
     } catch (error) {
       console.error(error);

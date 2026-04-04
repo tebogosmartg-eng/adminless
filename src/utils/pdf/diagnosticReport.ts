@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { DiagnosticData } from '@/hooks/useDiagnosticReportData';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { format } from 'date-fns';
+import { t } from '@/lib/useTranslation';
 
 export const generateDiagnosticReportPDF = (
   data: DiagnosticData,
@@ -11,23 +12,24 @@ export const generateDiagnosticReportPDF = (
   profile: SchoolProfile,
   diagnosticSummary: string,
   interventionPlan: string,
-  returnBlob: boolean = false
+  returnBlob: boolean = false,
+  lang: string = 'en'
 ): Blob | void => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.width;
   const margin = 14;
 
-  const startY = addHeader(doc, profile, "Diagnostic Analysis Report");
+  const startY = addHeader(doc, profile, t('diagnosticReport', lang));
 
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.setFont("helvetica", "normal");
   
   const infoData = [
-    ["Academic Year:", academicContext.year, "Term:", academicContext.term],
-    ["Grade:", classInfo.grade, "Class:", classInfo.className],
-    ["Subject:", classInfo.subject, "Total Learners:", data.summary.totalLearners.toString()],
-    ["Status:", academicContext.isLocked ? "FINALISED" : "DRAFT", "Date:", format(new Date(), 'dd/MM/yyyy')]
+    ["Academic Year:", academicContext.year, `${t('term', lang)}:`, academicContext.term],
+    [`${t('grade', lang)}:`, classInfo.grade, `${t('class', lang)}:`, classInfo.className],
+    [`${t('subject', lang)}:`, classInfo.subject, `${t('totalLearners', lang)}:`, data.summary.totalLearners.toString()],
+    [`${t('status', lang)}:`, academicContext.isLocked ? "FINALISED" : "DRAFT", `${t('date', lang)}:`, format(new Date(), 'dd/MM/yyyy')]
   ];
 
   autoTable(doc, {
@@ -50,7 +52,7 @@ export const generateDiagnosticReportPDF = (
 
   autoTable(doc, {
     startY: currentY + 3,
-    head: [['Class Average', 'Highest Mark', 'Lowest Mark', 'Pass Rate (%)', 'Below Threshold']],
+    head: [[t('classAverage', lang), t('highestMark', lang), t('lowestMark', lang), `${t('passRate', lang)} (%)`, 'Below Threshold']],
     body: [[
       `${data.summary.classAverage.toFixed(1)}%`,
       `${data.summary.highestMark.toFixed(1)}%`,
@@ -79,10 +81,10 @@ export const generateDiagnosticReportPDF = (
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
 
-  doc.text("Assessment Breakdown", margin, currentY);
+  doc.text(t('assessmentAnalysis', lang), margin, currentY);
   autoTable(doc, {
     startY: currentY + 3,
-    head: [['Task Title', 'Type', 'Weight', 'Avg %', 'High %', 'Low %']],
+    head: [[t('title', lang), t('type', lang), t('weight', lang), t('avgPercent', lang), t('highestPercent', lang), t('lowestPercent', lang)]],
     body: data.assessments.map(a => [
       a.title, a.type, `${a.weight}%`, `${a.avg.toFixed(1)}%`, `${a.high.toFixed(1)}%`, `${a.low.toFixed(1)}%`
     ]),
