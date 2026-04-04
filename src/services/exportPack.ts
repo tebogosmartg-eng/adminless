@@ -79,7 +79,7 @@ export const generateAndDownloadExportPack = async (
             }
         } catch(e) {}
 
-        const diagBlob = generateDiagnosticReportPDF(
+        const diagBlob = (await generateDiagnosticReportPDF(
             diagData, 
             { className: classInfo.className, subject: classInfo.subject, grade: classInfo.grade },
             { year: yearInfo.name, term: termInfo.name, isLocked: true },
@@ -87,7 +87,7 @@ export const generateAndDownloadExportPack = async (
             diagData.autoSummary,
             interventionPlan,
             true
-        ) as Blob;
+        )) as Blob;
         folder.file('05_Diagnostic_Summary.pdf', diagBlob);
 
         // 6. SA-SAMS Ready Export
