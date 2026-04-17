@@ -17,6 +17,8 @@ interface ClassReportsTabProps {
   onShare: (lang: string) => void;
   onSasams: () => void;
   onOpenDiagnostic: () => void;
+  onExportExcel: () => void;
+  onExportWord: () => void;
 }
 
 export const ClassReportsTab = ({
@@ -28,7 +30,9 @@ export const ClassReportsTab = ({
   onExportBlankList,
   onShare,
   onSasams,
-  onOpenDiagnostic
+  onOpenDiagnostic,
+  onExportExcel,
+  onExportWord
 }: ClassReportsTabProps) => {
   const [exportLanguage, setExportLanguage] = useState("en");
 
@@ -62,6 +66,12 @@ export const ClassReportsTab = ({
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <Button variant="outline" onClick={() => onExportPdf(exportLanguage)} className="justify-start h-11 text-xs sm:text-sm">
               <FileText className="mr-3 h-4 w-4 text-blue-500 shrink-0" /> Class Marksheet (PDF)
+            </Button>
+            <Button variant="outline" onClick={onExportExcel} className="justify-start h-11 text-xs sm:text-sm">
+              <FileText className="mr-3 h-4 w-4 text-green-600 shrink-0" /> Export to Excel
+            </Button>
+            <Button variant="outline" onClick={onExportWord} className="justify-start h-11 text-xs sm:text-sm">
+              <FileText className="mr-3 h-4 w-4 text-blue-700 shrink-0" /> Export to Word
             </Button>
             <Button variant="outline" onClick={() => onExportCsv(exportLanguage)} className="justify-start h-11 text-xs sm:text-sm">
               <FileText className="mr-3 h-4 w-4 text-slate-500 shrink-0" /> Export Data (CSV)
