@@ -27,7 +27,6 @@ interface MarkSheetProps {
 export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) => {
   const { state, actions } = useMarkSheetLogic(classInfo);
 
-  // Question marking & diagnostic state
   const [qMarking, setQMarking] = useState<{
     open: boolean;
     assessmentId: string | null;
@@ -44,7 +43,6 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
       assessment: Assessment | null;
   }>({ open: false, assessment: null });
 
-  // Use the robust integrity utility for the current context
   const integrityReport = useMemo(() => {
     if (state.assessments.length === 0) return null;
     return checkClassTermIntegrity(state.assessments, classInfo.learners, state.marks);
@@ -71,13 +69,18 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
     setQGrid({ open: true, assessmentId: assId });
   };
 
-  const handleQuestionSave = async (score: number, questionMarks: QuestionMark[]) => {
+  const handleQuestionSave = async (score: number, questionMarks: Record<string, number>) => {
     if (qMarking.assessmentId && qMarking.learner?.id) {
+        const qmArray: QuestionMark[] = Object.entries(questionMarks).map(([question_id, score]) => ({
+            question_id,
+            score
+        }));
+        
         await actions.updateMarks([{
             assessment_id: qMarking.assessmentId,
             learner_id: qMarking.learner.id,
             score,
-            question_marks: questionMarks
+            question_marks: qmArray
         } as any]);
     }
   };
@@ -133,7 +136,6 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
 
   return (
     <div className="space-y-4">
-       {/* Detailed Data Health Status */}
        {integrityReport && (
            <div className="bg-muted/20 border rounded-lg p-4 animate-in fade-in slide-in-from-top-1">
                <div className="flex items-center gap-2 mb-3">

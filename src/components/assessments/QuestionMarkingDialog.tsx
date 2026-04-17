@@ -1,21 +1,21 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Check, ChevronRight, ChevronLeft, Save, ListChecks } from 'lucide-react';
-import { Assessment, Learner, QuestionMark } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
+import { Assessment, Learner } from '@/lib/types';
+import { Save, Loader2 } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
 
 interface QuestionMarkingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   assessment: Assessment;
   learner: Learner;
-  onSave: (score: number, questionMarks: QuestionMark[]) => void;
-  initialMarks?: QuestionMark[];
+  onSave: (score: number, questionMarks: Record<string, number>) => void;
+  initialMarks?: any[];
   onNext?: () => void;
   onPrev?: () => void;
   isLocked?: boolean;
@@ -54,125 +54,43 @@ export const QuestionMarkingDialog = ({
     return parseFloat(total.toFixed(1));
   }, [qMarks]);
 
-  const handleUpdate = (qId: string, val: string) => {
-    if (val !== "" && !/^\d*\.?\d*$/.test(val)) return;
-    setQMarks(prev => ({ ...prev, [qId]: val }));
-  };
-
   const handleSave = () => {
-    const finalMarks: QuestionMark[] = Object.entries(qMarks).map(([qId, val]) => ({
-        question_id: qId,
-        score: val === "" ? null : parseFloat(val)
-    }));
+    const qMarksObj: Record<string, number> = {};
+    Object.entries(qMarks).forEach(([qId, val]) => {
+        if (val !== "") qMarksObj[qId] = parseFloat(val);
+    });
     
-    onSave(currentScore, finalMarks);
+    const payload = { score: currentScore, question_marks: qMarksObj };
+    console.log("Saving marks payload:", payload);
+    
+    onSave(currentScore, qMarksObj);
     if (!onNext) onOpenChange(false);
     else onNext();
   };
 
-  const percentage = Math.round((currentScore / assessment.max_mark) * 100) || 0;
-
-  const getCognitiveColor = (level?: string) => {
-      switch(level) {
-          case 'knowledge': return "bg-slate-100 text-slate-700";
-          case 'comprehension': return "bg-blue-50 text-blue-700";
-          case 'application': return "bg-green-50 text-green-700";
-          case 'analysis': return "bg-purple-50 text-purple-700";
-          case 'evaluation': return "bg-amber-50 text-amber-700";
-          case 'creation': return "bg-red-50 text-red-700";
-          default: return "bg-muted text-muted-foreground";
-      }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl flex flex-col p-0 overflow-hidden h-[80vh]">
-        <div className="bg-primary p-6 text-primary-foreground shrink-0 z-10">
-            <div className="flex justify-between items-start mb-4">
-                <div className="space-y-1">
-                    <Badge variant="secondary" className="bg-white/20 text-white border-none uppercase tracking-widest text-[9px] font-black">Question-Level Entry</Badge>
-                    <DialogTitle className="text-2xl font-bold">{learner.name}</DialogTitle>
-                    <DialogDescription className="text-primary-foreground/80">{assessment.title} • Term Total: {assessment.max_mark}</DialogDescription>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+            <DialogTitle>{learner.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+            {assessment.questions?.map(q => (
+                <div key={q.id} className="flex items-center justify-between">
+                    <Label>{q.question_number}</Label>
+                    <Input 
+                        className="w-20"
+                        value={qMarks[q.id] || ""}
+                        onChange={(e) => setQMarks(prev => ({ ...prev, [q.id]: e.target.value }))}
+                    />
                 </div>
-                <div className="text-right">
-                    <p className="text-[10px] uppercase font-bold opacity-60">Total Score</p>
-                    <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black">{currentScore}</span>
-                        <span className="text-xl opacity-40">/ {assessment.max_mark}</span>
-                    </div>
-                    <Badge className="mt-1 bg-white/20 text-white border-none">{percentage}%</Badge>
-                </div>
-            </div>
-            
-            <div className="flex items-center justify-between pt-2">
-                <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/10" onClick={onPrev} disabled={!onPrev}>
-                        <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/10" onClick={onNext} disabled={!onNext}>
-                        Next <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
-                </div>
-                <Button variant="secondary" size="sm" onClick={handleSave} className="font-bold" disabled={isLocked}>
-                    <Save className="h-4 w-4 mr-2" /> {onNext ? "Save & Next" : "Save Analysis"}
-                </Button>
-            </div>
+            ))}
         </div>
-
-        <div className="flex-1 overflow-y-auto p-6 bg-muted/5 min-h-0">
-            <div className="space-y-4">
-                {assessment.questions?.map((q, idx) => (
-                    <div key={q.id} className="flex items-center gap-4 p-4 bg-background border rounded-xl shadow-sm group hover:border-primary/40 transition-all">
-                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center font-black text-lg text-muted-foreground group-hover:bg-primary/5 group-hover:text-primary transition-colors shrink-0">
-                            {q.question_number}
-                        </div>
-                        <div className="flex-1 space-y-1.5 min-w-0">
-                            <h4 className="font-bold text-sm truncate" title={q.skill_description}>
-                                {q.skill_description || "Standard Question"}
-                            </h4>
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="outline" className="text-[9px] uppercase font-black text-muted-foreground tracking-widest border-muted-foreground/20">
-                                    Max: {q.max_mark}
-                                </Badge>
-                                {q.topic && (
-                                    <Badge variant="outline" className="text-[9px] uppercase font-black tracking-widest border-blue-200 text-blue-700 bg-blue-50/50">
-                                        {q.topic}
-                                    </Badge>
-                                )}
-                                {q.cognitive_level && q.cognitive_level !== 'unknown' && (
-                                    <Badge className={cn("text-[9px] uppercase font-black tracking-widest border-none px-1.5", getCognitiveColor(q.cognitive_level))}>
-                                        {q.cognitive_level}
-                                    </Badge>
-                                )}
-                            </div>
-                        </div>
-                        <div className="w-24 shrink-0">
-                            <Input 
-                                type="text"
-                                inputMode="decimal"
-                                value={qMarks[q.id] || ""}
-                                onChange={(e) => handleUpdate(q.id, e.target.value)}
-                                className={cn(
-                                    "text-center text-lg font-bold h-12 bg-muted/30 focus:bg-background",
-                                    isLocked && "opacity-50 cursor-not-allowed"
-                                )}
-                                placeholder="-"
-                                autoFocus={idx === 0}
-                                disabled={isLocked}
-                            />
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <div className="h-10" />
-        </div>
-
-        <div className="p-4 border-t bg-muted/10 text-center shrink-0 z-10">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-2">
-                <ListChecks className="h-3 w-3" />
-                Data is auto-summed. Totals are synced to the main marksheet.
-            </p>
-        </div>
+        <DialogFooter>
+            <Button onClick={handleSave} disabled={isLocked}>
+                <Save className="mr-2 h-4 w-4" /> Save
+            </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
