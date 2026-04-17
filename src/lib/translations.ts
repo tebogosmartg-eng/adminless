@@ -16,8 +16,7 @@ export const LANGUAGES = [
 
 type TranslationKey = string;
 
-export const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
-  en: {
+const baseTranslations = {
     learner: "Learner",
     learnerName: "Learner Name",
     grade: "Grade",
@@ -80,8 +79,12 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     auto_generated_report: "Auto-generated report.",
     no_interventions_outlined: "No interventions outlined.",
     no_comment_recorded: "No comment recorded."
-  },
+};
+
+export const translations: Record<LanguageCode, Record<TranslationKey, string>> = {
+  en: baseTranslations,
   af: {
+    ...baseTranslations,
     learner: "Leerder",
     learnerName: "Leerdernaam",
     grade: "Graad",
@@ -89,7 +92,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     subject: "Vak",
     average: "Gemiddeld",
     termAverage: "Kwartaal Gemiddeld",
-    assessmentAverage: "Assessering Gemiddeld",
     level: "Vlak",
     assessment: "Assessering",
     comment: "Kommentaar",
@@ -105,7 +107,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     passRate: "Slaagsyfer",
     classAverage: "Klasgemiddeld",
     totalLearners: "Totale Leerders",
-    target: "Teiken",
     status: "Status",
     achieved: "Bereik",
     notAchieved: "Nie Bereik",
@@ -140,12 +141,9 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     avgPercent: "Gem %",
     highestPercent: "Hoogste %",
     lowestPercent: "Laagste %",
-    diagnostic_weak_reading: "Swak leesvaardighede geïdentifiseer.",
-    auto_generated_report: "Outomaties gegenereerde verslag.",
-    no_interventions_outlined: "Geen intervensies uiteengesit nie.",
-    no_comment_recorded: "Geen kommentaar opgeteken nie."
   },
   zu: {
+    ...baseTranslations,
     learner: "Umfundi",
     learnerName: "Igama Lomfundi",
     grade: "Ibanga",
@@ -153,7 +151,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     subject: "Isifundo",
     average: "Isilinganiso",
     termAverage: "Isilinganiso Sethemu",
-    assessmentAverage: "Isilinganiso Sokuhlola",
     level: "Izinga",
     assessment: "Ukuhlola",
     comment: "Amazwana",
@@ -169,7 +166,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     passRate: "Izinga Lokuphasa",
     classAverage: "Isilinganiso Sekilasi",
     totalLearners: "Ingqikithi Yabafundi",
-    target: "Oqondiswe",
     status: "Isimo",
     achieved: "Kuzuziwe",
     notAchieved: "Akuzuziwe",
@@ -204,12 +200,9 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     avgPercent: "Amaphesenti A.",
     highestPercent: "Amaphesenti Aphakeme",
     lowestPercent: "Amaphesenti Aphansi",
-    diagnostic_weak_reading: "Amakhono okufunda abuthakathaka ahlonziwe.",
-    auto_generated_report: "Umbiko ozenzakalelayo.",
-    no_interventions_outlined: "Akukho ukungenelela okuchaziwe.",
-    no_comment_recorded: "Akukho phawu olurekhodiwe."
   },
   xh: {
+    ...baseTranslations,
     learner: "Umfundi",
     learnerName: "Igama Lomfundi",
     grade: "Ibanga",
@@ -217,9 +210,8 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     subject: "Isifundo",
     average: "Umyinge",
     termAverage: "Umyinge weKota",
-    assessmentAverage: "Umyinge woVavanyo",
     level: "Inqanaba",
-    assessment: "Uvavanyo",
+    assessment: "Vavanyo",
     comment: "Uluvo",
     teacherComment: "Izimvo ZikaTitshala",
     term: "Ikota",
@@ -233,7 +225,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     passRate: "Ireyithi yokuphasa",
     classAverage: "Umyinge weKlasi",
     totalLearners: "Lilonke Abafundi",
-    target: "Ithajethi",
     status: "Ubume",
     achieved: "Ifezekisiwe",
     notAchieved: "AyiFezekiswanga",
@@ -268,12 +259,9 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     avgPercent: "Ipesenti Y.",
     highestPercent: "Ipesenti Ephezulu",
     lowestPercent: "Ipesenti Ephantsi",
-    diagnostic_weak_reading: "Izakhono zokufunda ezibuthathaka zifunyenwe.",
-    auto_generated_report: "Ingxelo ezenzekelayo.",
-    no_interventions_outlined: "Akukho kungenelela okuchaziweyo.",
-    no_comment_recorded: "Akukho zimvo zibhaliweyo."
   },
   tn: {
+    ...baseTranslations,
     learner: "Moithuti",
     learnerName: "Leina la Moithuti",
     grade: "Mophato",
@@ -281,7 +269,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     subject: "Sera",
     average: "Palo-gare",
     termAverage: "Palo-gare ya Kotara",
-    assessmentAverage: "Palo-gare ya Tlhatlhobo",
     level: "Seemo",
     assessment: "Tlhatlhobo",
     comment: "Tshwaelo",
@@ -297,7 +284,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     passRate: "Seemo sa go Pasa",
     classAverage: "Palo-gare ya Klelase",
     totalLearners: "Palotgotlhe ya Baithuti",
-    target: "Phatlhaganyo",
     status: "Seemo",
     achieved: "Fitlheletswe",
     notAchieved: "Ga e Fitlheletswe",
@@ -332,12 +318,9 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     avgPercent: "Phesente P.",
     highestPercent: "Phesente e e kwa Godimo",
     lowestPercent: "Phesente e e kwa Tlase",
-    diagnostic_weak_reading: "Mekgwa e bokoa ea ho bala e khethiloe.",
-    auto_generated_report: "Pego e itlhagetseng.",
-    no_interventions_outlined: "Ga go na ditsereganyo tse di thadilweng.",
-    no_comment_recorded: "Ga go na tlhaloso e kwadilweng."
   },
   st: {
+    ...baseTranslations,
     learner: "Moithuti",
     learnerName: "Lebitso la Moithuti",
     grade: "Sehlopha",
@@ -345,7 +328,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     subject: "Thuto",
     average: "Avereji",
     termAverage: "Avereji ya Kotara",
-    assessmentAverage: "Avereji ya Tekolo",
     level: "Boemo",
     assessment: "Tekolo",
     comment: "Maikutlo",
@@ -361,7 +343,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     passRate: "Sekhahla sa ho Pasa",
     classAverage: "Avereji ya Tlelase",
     totalLearners: "Paloyotlhe ya Baithuti",
-    target: "Maikemisetso",
     status: "Boemo",
     achieved: "Fihletswe",
     notAchieved: "Ha e Fihletswe",
@@ -396,12 +377,9 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     avgPercent: "Phesente A.",
     highestPercent: "Phesente e Phahameng",
     lowestPercent: "Phesente e Tlase",
-    diagnostic_weak_reading: "Bokgoni bo fokolang ba ho bala bo fumanwe.",
-    auto_generated_report: "Tlaleho e iketsang.",
-    no_interventions_outlined: "Ha ho na mehato e hlalositsweng.",
-    no_comment_recorded: "Ha ho maikutlo a tlalehiloeng."
   },
   nso: {
+    ...baseTranslations,
     learner: "Moithuti",
     learnerName: "Leina la Moithuti",
     grade: "Mophato",
@@ -409,7 +387,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     subject: "Sera",
     average: "Palo-gare",
     termAverage: "Palo-gare ya Kotara",
-    assessmentAverage: "Palo-gare ya Tlhatlhobo",
     level: "Seemo",
     assessment: "Tlhatlhobo",
     comment: "Tshwaelo",
@@ -425,7 +402,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     passRate: "Seemo sa go Pasa",
     classAverage: "Palo-gare ya Klelase",
     totalLearners: "Palotgotlhe ya Baithuti",
-    target: "Phatlhaganyo",
     status: "Seemo",
     achieved: "Fitlheletswe",
     notAchieved: "Ga e Fitlheletswe",
@@ -460,12 +436,9 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     avgPercent: "Phesente P.",
     highestPercent: "Phesente e e kwa Godimo",
     lowestPercent: "Phesente e e kwa Tlase",
-    diagnostic_weak_reading: "Mekgwa e bokoa ea ho bala e khethiloe.",
-    auto_generated_report: "Pego e itlhagetseng.",
-    no_interventions_outlined: "Ga go na ditsereganyo tse di thadilweng.",
-    no_comment_recorded: "Ga go na tlhaloso e kwadilweng."
   },
   ts: {
+    ...baseTranslations,
     learner: "Mufundi",
     learnerName: "Vito ra Mufundi",
     grade: "Giredi",
@@ -473,7 +446,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     subject: "Sera",
     average: "Avhareji",
     termAverage: "Avhareji ya Kotara",
-    assessmentAverage: "Avhareji ya Tlhatlhobo",
     level: "Xiyimo",
     assessment: "Tlhatlhobo",
     comment: "Mhaka",
@@ -489,7 +461,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     passRate: "Seemo sa go Pasa",
     classAverage: "Avhareji ya Kilas",
     totalLearners: "Palotgotlhe ya Bafundi",
-    target: "Phatlhaganyo",
     status: "Seemo",
     achieved: "Fitlheletswe",
     notAchieved: "Ga e Fitlheletswe",
@@ -524,12 +495,9 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     avgPercent: "Phesente P.",
     highestPercent: "Phesente e e kwa Godimo",
     lowestPercent: "Phesente e e kwa Tlase",
-    diagnostic_weak_reading: "Mekgwa e bokoa ea ho bala e khethiloe.",
-    auto_generated_report: "Pego e itlhagetseng.",
-    no_interventions_outlined: "Ga go na ditsereganyo tse di thadilweng.",
-    no_comment_recorded: "Ga go na tlhaloso e kwadilweng."
   },
   ve: {
+    ...baseTranslations,
     learner: "Mufundi",
     learnerName: "Dzina la Mufundi",
     grade: "Giredi",
@@ -537,7 +505,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     subject: "Sera",
     average: "Avhareji",
     termAverage: "Avhareji ya Kotara",
-    assessmentAverage: "Avhareji ya Tlhatlhobo",
     level: "Xiyimo",
     assessment: "Tlhatlhobo",
     comment: "Mhaka",
@@ -553,7 +520,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     passRate: "Seemo sa go Pasa",
     classAverage: "Avhareji ya Kilas",
     totalLearners: "Palotgotlhe ya Bafundi",
-    target: "Phatlhaganyo",
     status: "Seemo",
     achieved: "Fitlheletswe",
     notAchieved: "Ga e Fitlheletswe",
@@ -588,12 +554,9 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     avgPercent: "Phesente P.",
     highestPercent: "Phesente e e kwa Godimo",
     lowestPercent: "Phesente e e kwa Tlase",
-    diagnostic_weak_reading: "Mekgwa e bokoa ea ho bala e khethiloe.",
-    auto_generated_report: "Pego e itlhagetseng.",
-    no_interventions_outlined: "Ga go na ditsereganyo tse di thadilweng.",
-    no_comment_recorded: "Ga go na tlhaloso e kwadilweng."
   },
   ss: {
+    ...baseTranslations,
     learner: "Umfundi",
     learnerName: "Igama Lomfundi",
     grade: "Ibanga",
@@ -601,7 +564,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     subject: "Isifundo",
     average: "Umyinge",
     termAverage: "Umyinge weKota",
-    assessmentAverage: "Umyinge woVavanyo",
     level: "Inqanaba",
     assessment: "Uvavanyo",
     comment: "Uluvo",
@@ -617,7 +579,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     passRate: "Ireyithi yokuphasa",
     classAverage: "Umyinge weKlasi",
     totalLearners: "Lilonke Abafundi",
-    target: "Ithajethi",
     status: "Ubume",
     achieved: "Ifezekisiwe",
     notAchieved: "AyiFezekiswanga",
@@ -652,12 +613,9 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     avgPercent: "Ipesenti Y.",
     highestPercent: "Ipesenti Ephezulu",
     lowestPercent: "Ipesenti Ephantsi",
-    diagnostic_weak_reading: "Izakhono zokufunda ezibuthathaka zifunyenwe.",
-    auto_generated_report: "Ingxelo ezenzekelayo.",
-    no_interventions_outlined: "Akukho kungenelela okuchaziweyo.",
-    no_comment_recorded: "Akukho zimvo zibhaliweyo."
   },
   nr: {
+    ...baseTranslations,
     learner: "Umfundi",
     learnerName: "Igama Lomfundi",
     grade: "Ibanga",
@@ -665,7 +623,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     subject: "Isifundo",
     average: "Umyinge",
     termAverage: "Umyinge weKota",
-    assessmentAverage: "Umyinge woVavanyo",
     level: "Inqanaba",
     assessment: "Uvavanyo",
     comment: "Uluvo",
@@ -681,7 +638,6 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     passRate: "Ireyithi yokuphasa",
     classAverage: "Umyinge weKlasi",
     totalLearners: "Lilonke Abafundi",
-    target: "Ithajethi",
     status: "Ubume",
     achieved: "Ifezekisiwe",
     notAchieved: "AyiFezekiswanga",
@@ -716,9 +672,5 @@ export const translations: Record<LanguageCode, Record<TranslationKey, string>> 
     avgPercent: "Ipesenti Y.",
     highestPercent: "Ipesenti Ephezulu",
     lowestPercent: "Ipesenti Ephantsi",
-    diagnostic_weak_reading: "Izakhono zokufunda ezibuthathaka zifunyenwe.",
-    auto_generated_report: "Ingxelo ezenzekelayo.",
-    no_interventions_outlined: "Akukho kungenelela okuchaziweyo.",
-    no_comment_recorded: "Akukho zimvo zibhaliweyo."
   }
 };

@@ -97,43 +97,6 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
       }
   }, [open, assessment.id]);
 
-  useEffect(() => {
-    if (exportLanguage === 'en' || !rows.length) return;
-
-    const warmCache = async () => {
-      const { translateTextWithGemini } = await import('@/services/gemini');
-      
-      const textsToTranslate = new Set<string>();
-      
-      rows.forEach(row => {
-        if (row.performance_summary) textsToTranslate.add(row.performance_summary);
-        row.possible_root_causes.forEach(cause => {
-            if (cause) textsToTranslate.add(cause);
-        });
-        row.targeted_interventions.forEach(intervention => {
-            if (intervention) textsToTranslate.add(intervention);
-        });
-      });
-      
-      themes.forEach(theme => {
-          if (theme) textsToTranslate.add(theme);
-      });
-      overallInterventions.forEach(int => {
-          if (int) textsToTranslate.add(int);
-      });
-
-      for (const text of Array.from(textsToTranslate)) {
-        try {
-            await translateTextWithGemini(text, exportLanguage);
-        } catch (e) {
-            // Ignore warming errors
-        }
-      }
-    };
-
-    warmCache();
-  }, [rows, themes, overallInterventions, exportLanguage]);
-
   const handleUpdateRow = (id: string, field: keyof DiagnosticRow, value: any) => {
       setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
   };
