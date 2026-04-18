@@ -21,16 +21,15 @@ import {
     Table as TableIcon,
     BrainCircuit,
     Info,
-    Rocket,
     LayoutGrid,
     Lightbulb,
     Check,
-    Globe
+    Globe,
+    ChevronRight
 } from 'lucide-react';
 import { Assessment, Learner, DiagnosticRow, FullDiagnostic } from '@/lib/types';
 import { useQuestionAnalysis } from '@/hooks/useQuestionAnalysis';
 import { useSettings } from '@/context/SettingsContext';
-import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { generateQuestionDiagnosticPDF } from '@/utils/pdf/questionDiagnosticReport';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -118,12 +117,8 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
   const handleRunAI = async () => {
       setIsGeneratingAI(true);
       try {
-          const classMeta = learners[0]?.class_id ? await (async () => {
-              const cls = await (window as any).db.classes.get(learners[0].class_id);
-              return { subject: cls?.subject, grade: cls?.grade };
-          })() : { subject: "General", grade: "N/A" };
-
-          const fullDiag = await generateAIAnalysis(classMeta.subject, classMeta.grade);
+          // Attempt to get subject/grade context from the first learner's class
+          const fullDiag = await generateAIAnalysis(classSubject, learners[0]?.class_id || "N/A");
           if (fullDiag) {
               setRows(fullDiag.rows);
               setThemes(fullDiag.overall_class_themes);
@@ -168,29 +163,32 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[95vw] lg:max-w-[1200px] h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="w-[98vw] sm:max-w-[95vw] lg:max-w-[1250px] h-[95vh] sm:h-[90vh] flex flex-col p-0 overflow-hidden">
         <div className="p-4 sm:p-6 pb-4 border-b bg-muted/20 shrink-0">
           <DialogHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pr-6 sm:pr-0">
-                <div className="space-y-1 w-full sm:w-auto">
+            <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
+                <div className="space-y-1.5 w-full lg:w-auto">
                     <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black">
+                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-widest text-[9px] font-black h-5">
                             Differentiated Item Analysis
                         </Badge>
                         {stats?.savedDiagnostic && (
-                            <Badge variant="secondary" className="bg-green-100 text-green-700 border-none text-[9px] font-black uppercase">
+                            <Badge variant="secondary" className="bg-green-100 text-green-700 border-none text-[9px] font-black uppercase h-5">
                                 <CheckCircle2 className="h-2.5 w-2.5 mr-1" /> Document Finalized
                             </Badge>
                         )}
                     </div>
-                    <DialogTitle className="text-xl sm:text-2xl font-bold truncate">{assessment.title}</DialogTitle>
-                    <DialogDescription className="text-xs sm:text-sm">Identify skill-specific barriers and class-wide patterns.</DialogDescription>
+                    <DialogTitle className="text-xl sm:text-2xl font-black text-slate-900 leading-tight truncate">{assessment.title}</DialogTitle>
+                    <DialogDescription className="text-xs sm:text-sm font-medium">
+                        Analyze skill-specific barriers for <span className="text-foreground font-bold">{learners.length} learners</span>.
+                    </DialogDescription>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
-                    <div className="w-full sm:w-40 flex items-center gap-2 mr-2">
-                      <Globe className="h-4 w-4 text-muted-foreground" />
+
+                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-stretch sm:items-center">
+                    <div className="flex items-center gap-2 bg-white dark:bg-card px-3 py-1.5 rounded-lg border shadow-sm">
+                      <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
                       <Select value={exportLanguage} onValueChange={setExportLanguage}>
-                        <SelectTrigger className="h-9 w-full">
+                        <SelectTrigger className="h-7 border-none shadow-none focus:ring-0 p-0 w-24 text-xs font-bold">
                           <SelectValue placeholder="Language" />
                         </SelectTrigger>
                         <SelectContent>
@@ -202,19 +200,35 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button variant="outline" onClick={handleRunAI} disabled={isGeneratingAI || loading} className="gap-1.5 sm:gap-2 font-bold h-10 sm:h-9 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 flex-1 sm:flex-none px-2 sm:px-4 text-xs sm:text-sm w-full">
+
+                    <Button 
+                        variant="outline" 
+                        onClick={handleRunAI} 
+                        disabled={isGeneratingAI || loading} 
+                        className="gap-2 font-black h-10 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 px-4 text-xs shadow-sm"
+                    >
                         {isGeneratingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
-                        <span className="hidden sm:inline">Run Skill-Aware AI Analysis</span>
+                        <span className="hidden sm:inline">AI Analysis</span>
                         <span className="sm:hidden">Auto-Analyze</span>
                     </Button>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                      <Button variant="outline" onClick={handleSave} disabled={isSaving || loading} className="gap-1.5 sm:gap-2 font-bold h-10 sm:h-9 flex-1 sm:flex-none px-2 sm:px-4 text-xs sm:text-sm">
+
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={handleSave} 
+                        disabled={isSaving || loading} 
+                        className="flex-1 sm:flex-none gap-2 font-bold h-10 px-4 text-xs"
+                      >
                           {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                           Save
                       </Button>
-                      <Button onClick={handleExport} disabled={isExporting || !stats} className="font-bold gap-1.5 sm:gap-2 h-10 sm:h-9 bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none px-2 sm:px-4 text-xs sm:text-sm">
+                      <Button 
+                        onClick={handleExport} 
+                        disabled={isExporting || !stats} 
+                        className="flex-1 sm:flex-none font-black gap-2 h-10 bg-blue-600 hover:bg-blue-700 text-white px-6 text-xs shadow-lg shadow-blue-500/20"
+                      >
                           {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                          PDF
+                          Export PDF
                       </Button>
                     </div>
                 </div>
@@ -224,46 +238,62 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
 
         <ScrollArea className="flex-1 p-4 sm:p-6 bg-muted/5">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-                <p className="text-sm font-medium text-muted-foreground animate-pulse">Running skill heuristics...</p>
+                <p className="text-sm font-black uppercase tracking-widest text-muted-foreground animate-pulse">Running skill heuristics...</p>
             </div>
           ) : stats ? (
-            <div className="space-y-10 pb-10">
+            <div className="space-y-10 pb-20">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                     {stats.qStats.map(s => (
                         <div key={s.id} className={cn(
-                            "flex flex-col p-3 sm:p-4 rounded-xl border transition-all relative overflow-hidden",
-                            s.isWeak ? "bg-red-50 border-red-100" : "bg-card shadow-sm border-border hover:border-primary/20"
+                            "flex flex-col p-4 rounded-2xl border transition-all relative overflow-hidden group",
+                            s.isWeak ? "bg-red-50 border-red-100" : "bg-white border-border shadow-sm hover:border-primary/30"
                         )}>
-                            <div className="flex justify-between items-start mb-2 relative z-10">
+                            <div className="flex justify-between items-start mb-3">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Q{s.number}</span>
-                                {s.isWeak ? <AlertTriangle className="h-3 w-3 text-red-500" /> : <CheckCircle2 className="h-3 w-3 text-green-600" />}
+                                {s.isWeak ? (
+                                    <Badge variant="destructive" className="h-4 px-1.5 text-[8px] uppercase font-black">Warning</Badge>
+                                ) : (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                                )}
                             </div>
-                            <div className="text-xl sm:text-2xl font-black relative z-10">{s.avg}%</div>
-                            <div className="flex justify-between items-center mt-1 relative z-10">
-                                <p className="text-[9px] text-muted-foreground uppercase font-bold truncate max-w-[60px] sm:max-w-[80px]" title={s.skill}>{s.skill || "Skill"}</p>
-                                <span className="text-[8px] font-black text-muted-foreground/60">{s.passRate}% Pass</span>
+                            <div className={cn("text-3xl font-black mb-1", s.isWeak ? "text-red-700" : "text-slate-900")}>{s.avg}%</div>
+                            <div className="flex flex-col gap-0.5 mt-auto">
+                                <p className="text-[10px] font-black uppercase text-slate-500 truncate" title={s.skill}>
+                                    {s.skill || "Standard Task"}
+                                </p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-bold text-muted-foreground/60">{s.passRate}% Pass</span>
+                                    <span className="text-[9px] font-bold text-muted-foreground/60">/{s.max} pts</span>
+                                </div>
+                            </div>
+                            
+                            {/* Visual indicator bar at bottom */}
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted/20">
+                                <div 
+                                    className={cn("h-full", s.isWeak ? "bg-red-500" : "bg-primary")} 
+                                    style={{ width: `${s.avg}%` }} 
+                                />
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {/* THEMES SECTION */}
                 <div className="grid md:grid-cols-2 gap-6">
-                    <Card className="bg-primary/5 border-primary/20 shadow-sm">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                                <LayoutGrid className="h-4 w-4 text-primary" /> Overall Class-Level Themes
+                    <Card className="bg-primary/5 border-primary/20 shadow-none rounded-2xl">
+                        <CardHeader className="pb-3 px-6">
+                            <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-primary">
+                                <LayoutGrid className="h-4 w-4" /> Overall Class Themes
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-2">
+                        <CardContent className="space-y-2 px-6 pb-6">
                             {themes.length === 0 ? (
-                                <p className="text-xs text-muted-foreground italic">Run AI Analysis to detect patterns.</p>
+                                <p className="text-xs text-muted-foreground italic bg-white/50 p-4 rounded-xl border border-dashed">Run AI Analysis to detect cohort patterns.</p>
                             ) : (
                                 themes.map((theme, i) => (
-                                    <div key={i} className="flex gap-2 items-start p-2 bg-background rounded border text-sm font-medium shadow-sm">
-                                        <div className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                                    <div key={i} className="flex gap-3 items-start p-3 bg-white rounded-xl border border-primary/10 text-sm font-bold text-slate-800 shadow-sm transition-all hover:translate-x-1">
+                                        <div className="mt-1 h-2 w-2 rounded-full bg-primary shrink-0" />
                                         <span>{theme}</span>
                                     </div>
                                 ))
@@ -271,19 +301,21 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-blue-50/50 border-blue-200 shadow-sm">
-                        <CardHeader className="pb-3">
+                    <Card className="bg-blue-50/50 border-blue-200 shadow-none rounded-2xl">
+                        <CardHeader className="pb-3 px-6">
                             <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-blue-700">
-                                <Lightbulb className="h-4 w-4" /> Global Remediation Strategies
+                                <Lightbulb className="h-4 w-4" /> Remediation Strategies
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-2">
+                        <CardContent className="space-y-2 px-6 pb-6">
                              {overallInterventions.length === 0 ? (
-                                <p className="text-xs text-muted-foreground italic text-blue-800/60">No global strategies recorded.</p>
+                                <p className="text-xs text-muted-foreground italic text-blue-800/40 bg-white/30 p-4 rounded-xl border border-dashed">No global strategies recorded yet.</p>
                             ) : (
                                 overallInterventions.map((int, i) => (
-                                    <div key={i} className="flex gap-2 items-start p-2 bg-white rounded border border-blue-100 text-sm text-blue-900 shadow-sm">
-                                        <Check className="h-4 w-4 text-blue-600 shrink-0" />
+                                    <div key={i} className="flex gap-3 items-start p-3 bg-white rounded-xl border border-blue-100 text-sm text-blue-900 font-medium shadow-sm transition-all hover:translate-x-1">
+                                        <div className="mt-1 p-0.5 bg-blue-100 rounded-full shrink-0">
+                                            <Check className="h-3 w-3 text-blue-600" />
+                                        </div>
                                         <span>{int}</span>
                                     </div>
                                 ))
@@ -292,69 +324,84 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     </Card>
                 </div>
 
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                        <TableIcon className="h-4 w-4 text-primary" />
-                        <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Item-Level Root Cause Analysis</h4>
+                <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary rounded-lg text-white">
+                                <TableIcon className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h4 className="font-black text-sm uppercase tracking-tight text-slate-900">Item-Level Root Cause Analysis</h4>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Differentiated Skill Assessment</p>
+                            </div>
+                        </div>
+                        <Badge variant="secondary" className="h-6 font-black uppercase text-[10px]">{rows.length} Items Analysed</Badge>
                     </div>
 
                     {/* Desktop Table View */}
-                    <div className="hidden md:block border rounded-xl overflow-x-auto bg-background shadow-sm w-full no-scrollbar pb-2">
-                        <Table className="min-w-[800px] table-fixed">
-                            <TableHeader className="bg-muted/50">
+                    <div className="hidden lg:block border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xl w-full">
+                        <Table className="table-fixed w-full">
+                            <TableHeader className="bg-slate-50 border-b-2">
                                 <TableRow>
-                                    <TableHead className="w-[15%] font-black text-[9px] uppercase tracking-widest py-3">Question / Skill</TableHead>
-                                    <TableHead className="w-[20%] font-black text-[9px] uppercase tracking-widest py-3">Result Summary</TableHead>
-                                    <TableHead className="w-[30%] font-black text-[9px] uppercase tracking-widest py-3">Specific Root Causes</TableHead>
-                                    <TableHead className="w-[30%] font-black text-[9px] uppercase tracking-widest py-3">Targeted Interventions</TableHead>
-                                    <TableHead className="w-[5%]"></TableHead>
+                                    <TableHead className="w-[18%] font-black text-[10px] uppercase tracking-widest py-4">Question / Skill</TableHead>
+                                    <TableHead className="w-[20%] font-black text-[10px] uppercase tracking-widest py-4">Result Summary</TableHead>
+                                    <TableHead className="w-[31%] font-black text-[10px] uppercase tracking-widest py-4">Specific Root Causes</TableHead>
+                                    <TableHead className="w-[31%] font-black text-[10px] uppercase tracking-widest py-4">Targeted Interventions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {rows.map((row) => (
-                                    <TableRow key={row.id} className="group hover:bg-muted/5 transition-colors align-top">
-                                        <TableCell className="p-3 space-y-2 border-r">
-                                            <Input 
-                                                value={row.question}
-                                                onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
-                                                className="border-none shadow-none font-bold text-sm bg-transparent p-0 focus-visible:ring-0 h-auto"
-                                            />
-                                            <Badge className={cn("text-[8px] uppercase font-black px-1.5 h-4 border-none", getCognitiveColor(row.cognitive_level))}>
-                                                {row.cognitive_level || 'unknown'}
-                                            </Badge>
+                                    <TableRow key={row.id} className="group hover:bg-primary/[0.01] transition-colors align-top border-b last:border-0">
+                                        <TableCell className="p-4 border-r space-y-3">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0 flex-1">
+                                                    <Input 
+                                                        value={row.question}
+                                                        onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
+                                                        className="border-none shadow-none font-black text-sm bg-transparent p-0 focus-visible:ring-0 h-auto mb-1"
+                                                    />
+                                                    <Badge className={cn("text-[8px] uppercase font-black px-1.5 h-4 border-none", getCognitiveColor(row.cognitive_level))}>
+                                                        {row.cognitive_level || 'unknown'}
+                                                    </Badge>
+                                                </div>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                                    onClick={() => handleDeleteRow(row.id)}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
                                         </TableCell>
-                                        <TableCell className="p-3 border-r">
+                                        <TableCell className="p-4 border-r">
                                             <Textarea 
                                                 value={row.performance_summary}
                                                 onChange={(e) => handleUpdateRow(row.id, 'performance_summary', e.target.value)}
-                                                className="border-none shadow-none resize-none bg-transparent min-h-[60px] text-xs p-0 focus-visible:ring-0"
+                                                className="border-none shadow-none resize-none bg-transparent min-h-[80px] text-xs p-0 focus-visible:ring-0 leading-relaxed font-medium text-slate-600"
                                             />
                                         </TableCell>
-                                        <TableCell className="p-3 border-r">
-                                            <Textarea 
-                                                value={row.possible_root_causes.join('\n')}
-                                                onChange={(e) => handleUpdateRow(row.id, 'possible_root_causes', e.target.value.split('\n'))}
-                                                className="border-none shadow-none resize-none bg-transparent min-h-[100px] text-xs p-0 focus-visible:ring-0 leading-relaxed"
-                                                placeholder="Enter skill-based causes..."
-                                            />
+                                        <TableCell className="p-4 border-r">
+                                            <div className="relative group/list">
+                                                <Textarea 
+                                                    value={row.possible_root_causes.join('\n')}
+                                                    onChange={(e) => handleUpdateRow(row.id, 'possible_root_causes', e.target.value.split('\n'))}
+                                                    className="border-none shadow-none resize-none bg-transparent min-h-[100px] text-xs p-0 focus-visible:ring-0 leading-relaxed text-slate-700"
+                                                    placeholder="Enter skill-based causes..."
+                                                />
+                                                <div className="absolute -left-2 top-0 bottom-0 w-0.5 bg-slate-100" />
+                                            </div>
                                         </TableCell>
-                                        <TableCell className="p-3 border-r">
-                                            <Textarea 
-                                                value={row.targeted_interventions.join('\n')}
-                                                onChange={(e) => handleUpdateRow(row.id, 'targeted_interventions', e.target.value.split('\n'))}
-                                                className="border-none shadow-none resize-none bg-transparent min-h-[100px] text-xs p-0 focus-visible:ring-0 leading-relaxed text-blue-800 dark:text-blue-300 font-medium"
-                                                placeholder="Enter actions..."
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 text-center align-middle">
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={() => handleDeleteRow(row.id)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                        <TableCell className="p-4 bg-blue-50/10">
+                                            <div className="relative">
+                                                <Textarea 
+                                                    value={row.targeted_interventions.join('\n')}
+                                                    onChange={(e) => handleUpdateRow(row.id, 'targeted_interventions', e.target.value.split('\n'))}
+                                                    className="border-none shadow-none resize-none bg-transparent min-h-[100px] text-xs p-0 focus-visible:ring-0 leading-relaxed text-blue-900 font-bold"
+                                                    placeholder="Enter actions..."
+                                                />
+                                                <div className="absolute -left-2 top-0 bottom-0 w-0.5 bg-blue-200" />
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -362,81 +409,93 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         </Table>
                     </div>
 
-                    {/* Mobile Card View */}
-                    <div className="block md:hidden space-y-4 w-full">
+                    {/* Mobile/Tablet View */}
+                    <div className="grid lg:hidden gap-4 w-full">
                         {rows.map((row) => (
-                            <div key={row.id} className="bg-background border rounded-xl p-4 space-y-4 shadow-sm relative">
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 flex-1">
+                            <Card key={row.id} className="bg-white border-border shadow-md rounded-2xl overflow-hidden">
+                                <div className="p-4 bg-slate-50 border-b flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
                                         <Input 
                                             value={row.question}
                                             onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
-                                            className="w-20 font-bold text-sm h-8"
+                                            className="w-20 font-black text-sm h-8"
                                         />
-                                        <Badge className={cn("text-[9px] uppercase font-black px-1.5 h-5 border-none", getCognitiveColor(row.cognitive_level))}>
+                                        <Badge className={cn("text-[8px] uppercase font-black px-1.5 h-5 border-none", getCognitiveColor(row.cognitive_level))}>
                                             {row.cognitive_level || 'unknown'}
                                         </Badge>
                                     </div>
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                         onClick={() => handleDeleteRow(row.id)}
                                     >
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Result Summary</Label>
-                                    <Textarea 
-                                        value={row.performance_summary}
-                                        onChange={(e) => handleUpdateRow(row.id, 'performance_summary', e.target.value)}
-                                        className="resize-none bg-muted/10 min-h-[60px] text-xs p-2 focus-visible:ring-1 leading-relaxed"
-                                    />
-                                </div>
+                                <div className="p-4 space-y-5">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                            <ChevronRight className="h-3 w-3" /> Result Summary
+                                        </Label>
+                                        <Textarea 
+                                            value={row.performance_summary}
+                                            onChange={(e) => handleUpdateRow(row.id, 'performance_summary', e.target.value)}
+                                            className="resize-none bg-muted/20 min-h-[60px] text-xs p-3 rounded-xl border-none focus-visible:ring-1 leading-relaxed font-medium"
+                                        />
+                                    </div>
 
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Specific Root Causes</Label>
-                                    <Textarea 
-                                        value={row.possible_root_causes.join('\n')}
-                                        onChange={(e) => handleUpdateRow(row.id, 'possible_root_causes', e.target.value.split('\n'))}
-                                        className="resize-none bg-muted/10 min-h-[80px] text-xs p-2 focus-visible:ring-1 leading-relaxed"
-                                        placeholder="Enter skill-based causes..."
-                                    />
-                                </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                            <ChevronRight className="h-3 w-3" /> Root Causes
+                                        </Label>
+                                        <Textarea 
+                                            value={row.possible_root_causes.join('\n')}
+                                            onChange={(e) => handleUpdateRow(row.id, 'possible_root_causes', e.target.value.split('\n'))}
+                                            className="resize-none bg-muted/20 min-h-[80px] text-xs p-3 rounded-xl border-none focus-visible:ring-1 leading-relaxed"
+                                            placeholder="Enter skill-based causes..."
+                                        />
+                                    </div>
 
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Targeted Interventions</Label>
-                                    <Textarea 
-                                        value={row.targeted_interventions.join('\n')}
-                                        onChange={(e) => handleUpdateRow(row.id, 'targeted_interventions', e.target.value.split('\n'))}
-                                        className="resize-none bg-blue-50/30 min-h-[80px] text-xs p-2 focus-visible:ring-1 leading-relaxed text-blue-800 dark:text-blue-300 font-medium border-blue-200"
-                                        placeholder="Enter actions..."
-                                    />
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
+                                            <Check className="h-3 w-3" /> Targeted Interventions
+                                        </Label>
+                                        <Textarea 
+                                            value={row.targeted_interventions.join('\n')}
+                                            onChange={(e) => handleUpdateRow(row.id, 'targeted_interventions', e.target.value.split('\n'))}
+                                            className="resize-none bg-blue-50/50 min-h-[80px] text-xs p-3 rounded-xl border-blue-100 focus-visible:ring-1 leading-relaxed text-blue-900 font-bold"
+                                            placeholder="Enter actions..."
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                            </Card>
                         ))}
                     </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4 sm:gap-6 mt-4">
-                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 h-fit shadow-sm">
-                        <Info className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                <div className="grid md:grid-cols-2 gap-4 sm:gap-6 mt-4 no-print">
+                    <div className="p-5 bg-blue-50 border border-blue-100 rounded-[1.5rem] flex items-start gap-4 h-fit shadow-sm">
+                        <div className="p-2 bg-blue-600 rounded-xl text-white shrink-0">
+                            <Info className="h-5 w-5" />
+                        </div>
                         <div className="space-y-1">
-                            <p className="text-xs font-bold text-blue-900 uppercase tracking-tight">Precision Diagnostics</p>
-                            <p className="text-[11px] text-blue-800 leading-tight">
-                                Root causes are now generated based on cognitive demand and skill clusters. Review themes for systemic classroom barriers.
+                            <p className="text-xs font-black text-blue-900 uppercase tracking-tight">Precision Diagnostics</p>
+                            <p className="text-[11px] text-blue-800 leading-relaxed font-medium">
+                                Root causes are generated based on cognitive demand and skill clusters. Review themes for systemic classroom barriers before final moderation.
                             </p>
                         </div>
                     </div>
                     
-                    <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl flex items-start gap-3 h-fit shadow-sm">
-                        <Rocket className="h-5 w-5 text-purple-600 mt-0.5 shrink-0" />
+                    <div className="p-5 bg-purple-50 border border-purple-100 rounded-[1.5rem] flex items-start gap-4 h-fit shadow-sm">
+                        <div className="p-2 bg-purple-600 rounded-xl text-white shrink-0">
+                            <Save className="h-5 w-5" />
+                        </div>
                         <div className="space-y-1">
-                            <p className="text-xs font-bold text-purple-900 uppercase tracking-tight">Actionable Insights</p>
-                            <p className="text-[11px] text-purple-800 leading-tight">
-                                Themes and interventions detected here are seamlessly embedded into your diagnostic reports and review packs.
+                            <p className="text-xs font-black text-purple-900 uppercase tracking-tight">Audit Preservation</p>
+                            <p className="text-[11px] text-purple-800 leading-relaxed font-medium">
+                                Finalizing this report embeds it into your digital Teacher File. Saved interventions are automatically tracked in your term-level Action Plan.
                             </p>
                         </div>
                     </div>
