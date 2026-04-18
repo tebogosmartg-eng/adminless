@@ -170,7 +170,7 @@ export interface AssessmentMark {
   comment?: string;
   rubric_selections?: Record<string, string>; 
   user_id?: string;
-  question_marks?: QuestionMark[]; 
+  question_marks?: Record<string, number | null>; // Enforce object structure mapping
 }
 
 export interface TimetableEntry {

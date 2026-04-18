@@ -132,7 +132,7 @@ export const generateQuestionDiagnosticPDF = async (
       const lMark = marks.find(m => m.learner_id === l.id);
       const row: any[] = [i + 1, l.name];
       assessment.questions?.forEach(q => {
-          const qScore = lMark?.question_marks?.find(qm => qm.question_id === q.id)?.score;
+          const qScore = lMark?.question_marks?.[q.id];
           row.push(qScore !== undefined && qScore !== null ? qScore : "-");
       });
       row.push(lMark?.score || "-");

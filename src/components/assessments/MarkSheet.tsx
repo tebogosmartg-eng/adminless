@@ -1,6 +1,6 @@
 "use client";
 
-import { ClassInfo, Learner, QuestionMark, Assessment } from '@/lib/types';
+import { ClassInfo, Learner, Assessment } from '@/lib/types';
 import { useMarkSheetLogic } from '@/hooks/useMarkSheetLogic';
 import { MarkSheetToolbar } from './MarkSheetToolbar';
 import { MarkSheetTable } from './MarkSheetTable';
@@ -44,7 +44,6 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
       assessment: Assessment | null;
   }>({ open: false, assessment: null });
 
-  // Use the robust integrity utility for the current context
   const integrityReport = useMemo(() => {
     if (state.assessments.length === 0) return null;
     return checkClassTermIntegrity(state.assessments, classInfo.learners, state.marks);
@@ -71,7 +70,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
     setQGrid({ open: true, assessmentId: assId });
   };
 
-  const handleQuestionSave = async (score: number, questionMarks: QuestionMark[]) => {
+  const handleQuestionSave = async (score: number, questionMarks: Record<string, number | null>) => {
     if (qMarking.assessmentId && qMarking.learner?.id) {
         await actions.updateMarks([{
             assessment_id: qMarking.assessmentId,
@@ -133,7 +132,6 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
 
   return (
     <div className="space-y-4">
-       {/* Detailed Data Health Status */}
        {integrityReport && (
            <div className="bg-muted/20 border rounded-lg p-4 animate-in fade-in slide-in-from-top-1">
                <div className="flex items-center gap-2 mb-3">

@@ -326,9 +326,22 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     if (!session?.user?.id || updates.length === 0) return;
     try {
         const toUpsert = updates.map(u => {
-            const cleaned = { ...u, user_id: session.user.id };
+            const existing = marks.find(m => m.assessment_id === u.assessment_id && m.learner_id === u.learner_id);
+            const cleaned = { 
+                ...existing,
+                ...u, 
+                user_id: session.user.id 
+            };
+            
+            // Guarantee reliable upsert match ID 
+            if (existing?.id && !cleaned.id) {
+                cleaned.id = existing.id;
+            }
+            
             return cleaned;
         });
+
+        console.log("Saving payload:", toUpsert);
 
         const { error } = await supabase.from('assessment_marks').upsert(toUpsert, { onConflict: 'assessment_id,learner_id' });
         if (error) throw error;
@@ -340,7 +353,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         showError("Failed to update marks: " + e.message);
         throw e;
     }
-  }, [session?.user?.id, updateLearnerActiveAverages, queryClient]);
+  }, [session?.user?.id, updateLearnerActiveAverages, queryClient, marks]);
 
   const refreshAssessments = useCallback(async (c: string, t?: string) => {
     const targetTermId = t || activeTerm?.id || '';

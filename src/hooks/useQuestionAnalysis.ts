@@ -39,7 +39,7 @@ export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[],
 
     const qStats: QuestionStat[] = assessment.questions.map(q => {
       const qMarks = marks
-        .map((m: any) => m.question_marks?.find((qm: any) => qm.question_id === q.id)?.score)
+        .map((m: any) => m.question_marks?.[q.id])
         .filter((s: any) => s !== undefined && s !== null) as number[];
 
       if (qMarks.length === 0) {

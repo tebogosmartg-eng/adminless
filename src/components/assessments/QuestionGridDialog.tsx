@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Assessment, Learner, AssessmentMark, QuestionMark } from '@/lib/types';
+import { Assessment, Learner, AssessmentMark } from '@/lib/types';
 import { Loader2, Save, AlertCircle, Grid3X3 } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -43,8 +43,8 @@ export const QuestionGridDialog = ({
         const markRecord = existingMarks.find(m => m.learner_id === l.id && m.assessment_id === assessment.id);
         
         assessment.questions!.forEach(q => {
-          const qMark = markRecord?.question_marks?.find(qm => qm.question_id === q.id);
-          initialData[l.id][q.id] = qMark?.score !== undefined && qMark?.score !== null ? String(qMark.score) : "";
+          const qMark = markRecord?.question_marks?.[q.id];
+          initialData[l.id][q.id] = qMark !== undefined && qMark !== null ? String(qMark) : "";
         });
       });
       setGridData(initialData);
@@ -147,17 +147,17 @@ export const QuestionGridDialog = ({
       const lData = gridData[l.id] || {};
       let total = 0;
       let hasAnyMark = false;
-      const qMarks: QuestionMark[] = [];
+      const qMarks: Record<string, number | null> = {};
 
       assessment.questions?.forEach(q => {
         const valStr = lData[q.id];
         if (valStr !== undefined && valStr !== "") {
           const valNum = parseFloat(valStr);
           total += valNum;
-          qMarks.push({ question_id: q.id, score: valNum });
+          qMarks[q.id] = valNum;
           hasAnyMark = true;
         } else {
-          qMarks.push({ question_id: q.id, score: null });
+          qMarks[q.id] = null;
         }
       });
 
@@ -173,7 +173,7 @@ export const QuestionGridDialog = ({
           assessment_id: assessment.id,
           learner_id: l.id,
           score: null,
-          question_marks: []
+          question_marks: {}
         });
       }
     });
@@ -290,7 +290,7 @@ export const QuestionGridDialog = ({
           </div>
         </div>
 
-        <DialogFooter className="p-6 border-t bg-muted/10 shrink-0 flex items-center justify-between sm:justify-between">
+        <DialogFooter className="p-6 border-t bg-muted/10 shrink-0 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {!isGridValid && (
               <div className="flex items-center gap-2 text-[11px] font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-md border border-red-200">

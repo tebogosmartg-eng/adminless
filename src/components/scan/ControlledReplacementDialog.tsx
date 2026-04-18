@@ -54,7 +54,7 @@ export const ControlledReplacementDialog = ({
                   existingScore: existing.score,
                   scannedScore: parseFloat(sl.mark),
                   isDifferent: existing.score !== parseFloat(sl.mark),
-                  hasExistingQuestions: existing.question_marks && existing.question_marks.length > 0
+                  hasExistingQuestions: existing.question_marks && Object.keys(existing.question_marks).length > 0
               });
           }
       });
@@ -76,9 +76,12 @@ export const ControlledReplacementDialog = ({
         .filter((_, idx) => learnerMappings[idx])
         .map((sl, idx) => {
             const lId = learnerMappings[idx];
-            const qms = sl.questionMarks?.map(qm => {
+            const qms: Record<string, number | null> = {};
+            sl.questionMarks?.forEach(qm => {
                 const q = targetAssessment?.questions?.find(q => q.question_number === qm.num);
-                return { question_id: q?.id || qm.num, score: qm.score === "" ? null : parseFloat(qm.score) };
+                if (q) {
+                    qms[q.id] = qm.score === "" ? null : parseFloat(qm.score);
+                }
             });
 
             return {

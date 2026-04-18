@@ -86,8 +86,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
             assessment_id: assessmentId, 
             learner_id: learnerId, 
             score,
-            comment: editedComments[key] || existingMark?.comment || "",
-            question_marks: existingMark?.question_marks || []
+            comment: editedComments[key] || existingMark?.comment || ""
         }]);
         
         setEditedMarks(prev => {
@@ -198,7 +197,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
       }
       
       try {
-          // Explicitly construct payload to avoid leaking 'max' or other UI state
           await createAssessment({ 
               title: newAss.title,
               type: newAss.type,
@@ -211,7 +209,6 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
               questions: newAss.questions
           });
           
-          // Reset the form on success
           setNewAss({ 
               title: "", 
               type: "Test", 

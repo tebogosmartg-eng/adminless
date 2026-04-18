@@ -114,7 +114,6 @@ export const useScanLogic = (defaultClassId?: string) => {
   };
 
   const handleSimulateScan = () => {
-    // Generate dummy mapped data based on actual assessment schema if available
     const qms1 = targetAssessment?.questions?.map(q => ({ num: q.question_number, score: Math.floor(Math.random() * q.max_mark).toString(), confidence: 0.9, evidenceText: "Clearly written." })) || [];
     const qms2 = targetAssessment?.questions?.map(q => ({ num: q.question_number, score: Math.floor(Math.random() * q.max_mark).toString(), confidence: 0.9, evidenceText: "Clearly written." })) || [];
     
@@ -129,16 +128,20 @@ export const useScanLogic = (defaultClassId?: string) => {
   const prepareMarksForSave = () => {
       return scannedLearners.filter((_, idx) => learnerMappings[idx]).map((sl, idx) => {
           const lId = learnerMappings[idx];
-          const questionMarks = sl.questionMarks?.map(qm => {
+          const qms: Record<string, number | null> = {};
+          
+          sl.questionMarks?.forEach(qm => {
               const q = targetAssessment?.questions?.find(q => q.question_number === qm.num);
-              return { question_id: q?.id || qm.num, score: qm.score === "" ? null : parseFloat(qm.score) };
+              if (q) {
+                  qms[q.id] = qm.score === "" ? null : parseFloat(qm.score);
+              }
           });
   
           return {
               assessment_id: selectedAssessmentId,
               learner_id: lId,
               score: parseFloat(sl.mark),
-              question_marks: questionMarks
+              question_marks: qms
           };
       });
   };
@@ -167,7 +170,6 @@ export const useScanLogic = (defaultClassId?: string) => {
           await archiveScanJob(currentJobId);
           showSuccess("Saved granular marks to record.");
           
-          // Re-route slightly dynamically based on whether we are in a modal or page context
           if (!defaultClassId) navigate(`/classes/${selectedClassId}`);
           
       } catch (e: any) { 
@@ -176,7 +178,6 @@ export const useScanLogic = (defaultClassId?: string) => {
   };
 
   const handleSaveToExisting = async () => {
-    // Check for existing marks to detect conflicts
     const currentMarks = await db.assessment_marks.where('assessment_id').equals(selectedAssessmentId).toArray();
     const hasConflict = scannedLearners.some((_, idx) => {
         const lId = learnerMappings[idx];

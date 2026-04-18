@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Check, ChevronRight, ChevronLeft, Save, ListChecks } from 'lucide-react';
-import { Assessment, Learner, QuestionMark } from '@/lib/types';
+import { ChevronRight, ChevronLeft, Save, ListChecks } from 'lucide-react';
+import { Assessment, Learner } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface QuestionMarkingDialogProps {
@@ -14,8 +14,8 @@ interface QuestionMarkingDialogProps {
   onOpenChange: (open: boolean) => void;
   assessment: Assessment;
   learner: Learner;
-  onSave: (score: number, questionMarks: QuestionMark[]) => void;
-  initialMarks?: QuestionMark[];
+  onSave: (score: number, questionMarks: Record<string, number | null>) => void;
+  initialMarks?: Record<string, number | null>;
   onNext?: () => void;
   onPrev?: () => void;
   isLocked?: boolean;
@@ -27,7 +27,7 @@ export const QuestionMarkingDialog = ({
   assessment,
   learner,
   onSave,
-  initialMarks = [],
+  initialMarks = {},
   onNext,
   onPrev,
   isLocked = false
@@ -38,8 +38,8 @@ export const QuestionMarkingDialog = ({
     if (open) {
         const map: Record<string, string> = {};
         assessment.questions?.forEach(q => {
-            const existing = initialMarks.find(m => m.question_id === q.id);
-            map[q.id] = existing?.score?.toString() || "";
+            const existing = initialMarks?.[q.id];
+            map[q.id] = existing !== undefined && existing !== null ? existing.toString() : "";
         });
         setQMarks(map);
     }
@@ -60,10 +60,10 @@ export const QuestionMarkingDialog = ({
   };
 
   const handleSave = () => {
-    const finalMarks: QuestionMark[] = Object.entries(qMarks).map(([qId, val]) => ({
-        question_id: qId,
-        score: val === "" ? null : parseFloat(val)
-    }));
+    const finalMarks: Record<string, number | null> = {};
+    Object.entries(qMarks).forEach(([qId, val]) => {
+        finalMarks[qId] = val === "" ? null : parseFloat(val);
+    });
     
     onSave(currentScore, finalMarks);
     if (!onNext) onOpenChange(false);
