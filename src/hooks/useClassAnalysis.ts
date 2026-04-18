@@ -4,11 +4,12 @@ import { useMemo } from 'react';
 import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { db } from '@/db';
 import { calculateWeightedAverage } from '@/utils/calculations';
-import { supabase } from '@/integrations/supabase/client';
+import { useAcademic } from '@/context/AcademicContext';
 
 export const useClassAnalysis = (classId: string, termId: string | undefined, learnersCount: number = 0) => {
+  const { activeYear } = useAcademic();
+
   // 1. Fetch assessments for this specific class and term
-  // Including academic_year_id in the check if we can, but class_id + term_id is the primary unique constraint
   const assessments = useLiveQuery(
     async () => {
         if (!termId || !classId) return [];
@@ -20,14 +21,20 @@ export const useClassAnalysis = (classId: string, termId: string | undefined, le
     [classId, termId]
   ) || [];
 
-  // 2. Fetch marks for these specific assessments
+  // 2. Fetch marks using the full context: user_id (handled by db shim), class_id, term_id, and academic_year_id
   const marks = useLiveQuery(
     async () => {
-      if (assessments.length === 0) return [];
-      const ids = assessments.map((a: any) => a.id);
-      return db.assessment_marks.where('assessment_id').anyOf(ids).toArray();
+      if (!termId || !classId || !activeYear?.id) return [];
+      
+      return await db.assessment_marks
+        .where({
+            class_id: classId,
+            term_id: termId,
+            academic_year_id: activeYear.id
+        })
+        .toArray();
     },
-    [assessments]
+    [classId, termId, activeYear?.id]
   ) || [];
 
   // 3. Fetch attendance records for this class and term
@@ -49,19 +56,20 @@ export const useClassAnalysis = (classId: string, termId: string | undefined, le
     // Process marks to handle question_marks fallback
     const processedMarks = marks.map((m: any) => {
         let score = m.score;
-        // If score is missing but question_marks exist, derive it
         if ((score === null || score === undefined) && m.question_marks && Object.keys(m.question_marks).length > 0) {
             score = Object.values(m.question_marks).reduce((acc: number, val: any) => acc + (Number(val) || 0), 0);
         }
         return { ...m, score: score !== null ? Number(score) : null };
     });
 
-    // Calculate missing marks
+    // Calculate missing marks based on existing assessments
     const expectedMarks = assessments.length * learnersCount;
     const recordedMarksCount = processedMarks.filter((m: any) => m.score !== null).length;
-    const missingMarksCount = Math.max(0, expectedMarks - recordedMarksCount);
+    const missingMarksCount = assessments.length > 0 ? Math.max(0, expectedMarks - recordedMarksCount) : 0;
 
-    // If no assessments exist, we still return the basic class metrics
+    const hasMarks = processedMarks.some(m => m.score !== null);
+
+    // If no assessments exist yet but marks do (rare but possible during sync), we still try to calculate basic averages
     if (assessments.length === 0) {
         return {
             assessmentPerformance: [],
@@ -70,7 +78,8 @@ export const useClassAnalysis = (classId: string, termId: string | undefined, le
             passRate: 0,
             totalAssessments: 0,
             attendanceRate,
-            missingMarksCount: 0
+            missingMarksCount: 0,
+            hasMarks
         };
     }
 
@@ -90,11 +99,10 @@ export const useClassAnalysis = (classId: string, termId: string | undefined, le
     }).sort((a: any, b: any) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime());
 
     // Calculate per-learner analytics
-    // Use a set of learner IDs from the marks to ensure we capture everyone with data
     const learnerIds = [...new Set(processedMarks.map((m: any) => m.learner_id))];
     const learnerPerformance = learnerIds.map((lId: any) => {
-      const hasMarks = processedMarks.some((m: any) => m.learner_id === lId && m.score !== null);
-      if (!hasMarks) return null;
+      const hasMarksForLearner = processedMarks.some((m: any) => m.learner_id === lId && m.score !== null);
+      if (!hasMarksForLearner) return null;
 
       const avg = calculateWeightedAverage(assessments, processedMarks, lId as string);
       
@@ -119,9 +127,10 @@ export const useClassAnalysis = (classId: string, termId: string | undefined, le
       passRate,
       totalAssessments: assessments.length,
       attendanceRate,
-      missingMarksCount
+      missingMarksCount,
+      hasMarks
     };
   }, [assessments, marks, attendance, termId, learnersCount]);
 
-  return { analysisData, loading: !analysisData && assessments.length > 0 };
+  return { analysisData, loading: !analysisData && (assessments.length > 0 || marks.length > 0) };
 };

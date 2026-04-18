@@ -182,14 +182,14 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
         </TooltipProvider>
       )}
 
-      {/* Performance Section - Requires assessments with some captured marks to be meaningful */}
-      {!analysisData || analysisData.totalAssessments === 0 || learners.every(l => !l.mark) ? (
+      {/* Performance Section - Now specifically depends on captured marks being present */}
+      {!analysisData?.hasMarks ? (
         <Card className="border-dashed bg-muted/5 mt-6">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <AlertCircle className="h-10 w-10 text-muted-foreground opacity-20 mb-4" />
             <h3 className="text-lg font-semibold">Insufficient Performance Data</h3>
             <p className="text-sm text-muted-foreground max-w-xs mt-1">
-              Create assessments and record marks to unlock term-scoped class analysis and performance trends.
+              Captured marks are required to unlock term-scoped class analysis and performance trends.
             </p>
           </CardContent>
         </Card>
