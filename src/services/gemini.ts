@@ -56,7 +56,7 @@ export const processImagesWithGemini = async (images: string[], assessmentSchema
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!API_KEY) throw new Error("Missing VITE_GEMINI_API_KEY environment variable.");
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-pro-vision:generateContent?key=${API_KEY}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
   
   const systemInstruction = "You are a strict academic data API. Return ONLY valid JSON. Validate all numbers: awarded marks cannot exceed possible marks.";
   
@@ -135,7 +135,7 @@ export const scanRosterWithGemini = async (images: string[]): Promise<any> => {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!API_KEY) throw new Error("Missing VITE_GEMINI_API_KEY environment variable.");
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-pro-vision:generateContent?key=${API_KEY}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
   
   const systemInstruction = "You are a strict academic data API. Return ONLY valid JSON. Validate all numbers: awarded marks cannot exceed possible marks.";
   
