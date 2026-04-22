@@ -183,7 +183,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
       )}
 
       {/* Performance Section - Now specifically depends on captured marks being present */}
-      {!analysisData?.hasMarks ? (
+      {!analysisData || !analysisData.hasMarks ? (
         <Card className="border-dashed bg-muted/5 mt-6">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <AlertCircle className="h-10 w-10 text-muted-foreground opacity-20 mb-4" />

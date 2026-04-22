@@ -1,136 +1,231 @@
 "use client";
 
-import { useMemo } from 'react';
-import { useLiveQuery } from '@/lib/dexie-react-hooks';
-import { db } from '@/db';
-import { calculateWeightedAverage } from '@/utils/calculations';
-import { useAcademic } from '@/context/AcademicContext';
+import { supabase } from "@/lib/supabaseClient";
+import { useMemo, useState, useEffect } from "react";
+import { calculateWeightedAverage } from "@/utils/calculations";
+import { useAcademic } from "@/context/AcademicContext";
 
-export const useClassAnalysis = (classId: string, termId: string | undefined, learnersCount: number = 0) => {
+export const useClassAnalysis = (
+  classId: string,
+  termId: string | undefined,
+  learnersCount: number = 0
+) => {
   const { activeYear } = useAcademic();
 
-  // 1. Fetch assessments for this specific class and term
-  const assessments = useLiveQuery(
-    async () => {
-        if (!termId || !classId) return [];
-        return await db.assessments
-            .where('[class_id+term_id]')
-            .equals([classId, termId])
-            .toArray();
-    },
-    [classId, termId]
-  ) || [];
+  const [marks, setMarks] = useState<any[]>([]);
+  const [assessments, setAssessments] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // 2. Fetch marks using the full context: user_id (handled by db shim), class_id, term_id, and academic_year_id
-  const marks = useLiveQuery(
-    async () => {
-      if (!termId || !classId || !activeYear?.id) return [];
-      
-      return await db.assessment_marks
-        .where({
-            class_id: classId,
-            term_id: termId,
-            academic_year_id: activeYear.id
-        })
-        .toArray();
-    },
-    [classId, termId, activeYear?.id]
-  ) || [];
+  // ===============================
+  // 🔥 FETCH DATA FROM SUPABASE
+  // ===============================
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!classId || !termId || !activeYear?.id) return;
 
-  // 3. Fetch attendance records for this class and term
-  const attendance = useLiveQuery(
-    () => termId ? db.attendance.where('class_id').equals(classId).filter((r: any) => r.term_id === termId).toArray() : [],
-    [classId, termId]
-  ) || [];
+      setLoading(true);
 
-  const analysisData = useMemo(() => {
-    if (!termId) return null;
+      try {
+        // 1. MARKS
+        const { data: marksData, error: marksError } = await supabase
+          .from("assessment_marks")
+          .select("*")
+          .eq("class_id", classId)
+          .eq("term_id", termId)
+          .eq("academic_year_id", activeYear.id);
 
-    // Calculate attendance rate
-    let attendanceRate = 0;
-    if (attendance.length > 0) {
-        const presentLike = attendance.filter((r: any) => r.status === 'present' || r.status === 'late').length;
-        attendanceRate = Math.round((presentLike / attendance.length) * 100);
-    }
-
-    // Process marks to handle question_marks fallback
-    const processedMarks = marks.map((m: any) => {
-        let score = m.score;
-        if ((score === null || score === undefined) && m.question_marks && Object.keys(m.question_marks).length > 0) {
-            score = Object.values(m.question_marks).reduce((acc: number, val: any) => acc + (Number(val) || 0), 0);
+        if (marksError) {
+          console.error("❌ Marks error:", marksError);
+        } else {
+          console.log("✅ MARKS:", marksData);
+          setMarks(marksData || []);
         }
-        return { ...m, score: score !== null ? Number(score) : null };
+
+        // 2. ASSESSMENTS
+        const { data: assessmentsData, error: assessmentsError } =
+          await supabase
+            .from("assessments")
+            .select("*")
+            .eq("class_id", classId)
+            .eq("term_id", termId);
+
+        if (assessmentsError) {
+          console.error("❌ Assessments error:", assessmentsError);
+        } else {
+          console.log("✅ ASSESSMENTS:", assessmentsData);
+          setAssessments(assessmentsData || []);
+        }
+
+        // 3. ATTENDANCE
+        const { data: attendanceData, error: attendanceError } =
+          await supabase
+            .from("attendance")
+            .select("*")
+            .eq("class_id", classId)
+            .eq("term_id", termId);
+
+        if (attendanceError) {
+          console.error("❌ Attendance error:", attendanceError);
+        } else {
+          setAttendance(attendanceData || []);
+        }
+      } catch (err) {
+        console.error("❌ Unexpected error:", err);
+      }
+
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [classId, termId, activeYear?.id]);
+
+  // ===============================
+  // 🔥 ANALYTICS ENGINE
+  // ===============================
+  const analysisData = useMemo(() => {
+    if (!marks.length) return null;
+
+    // Fix scores (handle question_marks fallback)
+    const processedMarks = marks.map((m: any) => {
+      let score = m.score;
+
+      if (
+        (score === null || score === undefined) &&
+        m.question_marks &&
+        Object.keys(m.question_marks).length > 0
+      ) {
+        score = Object.values(m.question_marks).reduce(
+          (acc: number, val: any) => acc + (Number(val) || 0),
+          0
+        );
+      }
+
+      return { ...m, score: score !== null ? Number(score) : null };
     });
 
-    // Calculate missing marks based on existing assessments
-    const expectedMarks = assessments.length * learnersCount;
-    const recordedMarksCount = processedMarks.filter((m: any) => m.score !== null).length;
-    const missingMarksCount = assessments.length > 0 ? Math.max(0, expectedMarks - recordedMarksCount) : 0;
+    const hasMarks = processedMarks.some(
+      (m) => m.score !== null && m.score !== undefined
+    );
 
-    const hasMarks = processedMarks.some(m => m.score !== null);
+    // ===============================
+    // 📊 ATTENDANCE
+    // ===============================
+    let attendanceRate = 0;
+    if (attendance.length > 0) {
+      const present = attendance.filter(
+        (r: any) => r.status === "present" || r.status === "late"
+      ).length;
 
-    // If no assessments exist yet but marks do (rare but possible during sync), we still try to calculate basic averages
-    if (assessments.length === 0) {
-        return {
-            assessmentPerformance: [],
-            learnerPerformance: [],
-            classAverage: 0,
-            passRate: 0,
-            totalAssessments: 0,
-            attendanceRate,
-            missingMarksCount: 0,
-            hasMarks
-        };
+      attendanceRate = Math.round((present / attendance.length) * 100);
     }
 
-    // Calculate per-assessment stats
+    // ===============================
+    // 📊 PER ASSESSMENT
+    // ===============================
     const assessmentPerformance = assessments.map((ass: any) => {
-      const assMarks = processedMarks.filter((m: any) => m.assessment_id === ass.id && m.score !== null);
-      if (assMarks.length === 0) return { title: ass.title, avg: 0, weight: ass.weight, date: ass.date };
+      const assMarks = processedMarks.filter(
+        (m: any) => m.assessment_id === ass.id && m.score !== null
+      );
 
-      const totalPct = assMarks.reduce((sum: number, m: any) => sum + (Number(m.score) / ass.max_mark) * 100, 0);
+      if (assMarks.length === 0) {
+        return {
+          id: ass.id,
+          title: ass.title,
+          avg: 0,
+          weight: ass.weight,
+          date: ass.date,
+        };
+      }
+
+      const totalPct = assMarks.reduce(
+        (sum: number, m: any) =>
+          sum + (Number(m.score) / ass.max_mark) * 100,
+        0
+      );
+
       return {
         id: ass.id,
         title: ass.title,
         avg: Math.round(totalPct / assMarks.length),
         weight: ass.weight,
-        date: ass.date
+        date: ass.date,
       };
-    }).sort((a: any, b: any) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime());
+    });
 
-    // Calculate per-learner analytics
-    const learnerIds = [...new Set(processedMarks.map((m: any) => m.learner_id))];
-    const learnerPerformance = learnerIds.map((lId: any) => {
-      const hasMarksForLearner = processedMarks.some((m: any) => m.learner_id === lId && m.score !== null);
-      if (!hasMarksForLearner) return null;
+    // ===============================
+    // 📊 PER LEARNER
+    // ===============================
+    const learnerIds = [
+      ...new Set(processedMarks.map((m: any) => m.learner_id)),
+    ];
 
-      const avg = calculateWeightedAverage(assessments, processedMarks, lId as string);
-      
-      return {
-        learnerId: lId,
-        average: avg
-      };
-    }).filter(Boolean).sort((a: any, b: any) => b!.average - a!.average);
+    const learnerPerformance = learnerIds
+      .map((lid: any) => {
+        const hasMarksForLearner = processedMarks.some(
+          (m: any) => m.learner_id === lid && m.score !== null
+        );
 
-    const classAvg = learnerPerformance.length > 0 
-        ? Math.round(learnerPerformance.reduce((s, l) => s + l!.average, 0) / learnerPerformance.length) 
+        if (!hasMarksForLearner) return null;
+
+        const avg = calculateWeightedAverage(
+          assessments,
+          processedMarks,
+          lid
+        );
+
+        return {
+          learnerId: lid,
+          average: avg,
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => b.average - a.average);
+
+    // ===============================
+    // 📊 CLASS METRICS
+    // ===============================
+    const classAverage =
+      learnerPerformance.length > 0
+        ? Math.round(
+            learnerPerformance.reduce((s, l) => s + l.average, 0) /
+              learnerPerformance.length
+          )
         : 0;
 
-    const passRate = learnerPerformance.length > 0
-        ? Math.round((learnerPerformance.filter(l => l!.average >= 50).length / learnerPerformance.length) * 100)
+    const passRate =
+      learnerPerformance.length > 0
+        ? Math.round(
+            (learnerPerformance.filter((l) => l.average >= 50).length /
+              learnerPerformance.length) *
+              100
+          )
         : 0;
+
+    const expectedMarks = assessments.length * learnersCount;
+    const recordedMarks = processedMarks.filter(
+      (m: any) => m.score !== null
+    ).length;
+
+    const missingMarksCount = Math.max(
+      0,
+      expectedMarks - recordedMarks
+    );
 
     return {
       assessmentPerformance,
       learnerPerformance,
-      classAverage: classAvg,
+      classAverage,
       passRate,
       totalAssessments: assessments.length,
       attendanceRate,
       missingMarksCount,
-      hasMarks
+      hasMarks,
     };
-  }, [assessments, marks, attendance, termId, learnersCount]);
+  }, [marks, assessments, attendance, learnersCount]);
 
-  return { analysisData, loading: !analysisData && (assessments.length > 0 || marks.length > 0) };
+  return {
+    analysisData,
+    loading,
+  };
 };

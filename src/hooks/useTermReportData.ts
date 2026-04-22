@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Assessment, AssessmentMark, Learner, ClassInfo } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateWeightedAverage } from '@/utils/calculations';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 
 interface TermReportResult {
   learnerName: string;
@@ -56,7 +56,7 @@ export const useTermReportData = () => {
         .from('assessments')
         .select('*')
         .eq('term_id', termId)
-        .in('class_id', classIds);
+        .in('class_id', Array.isArray(classIds) ? classIds : [classIds]);
 
       const uniqueTitles = Array.from(new Set<string>((assessmentsData || []).map(a => a.title as string))).sort();
       setAllAssessmentTitles(uniqueTitles);

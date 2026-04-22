@@ -6,7 +6,7 @@ import { processImagesWithGemini } from '@/services/gemini';
 import { showSuccess, showError } from '@/utils/toast';
 import { ScanType, AssessmentMark, ScannedLearner } from '@/lib/types';
 import { db } from '@/db';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { queueAction } from '@/services/sync';
 import { uploadEvidenceFile } from '@/services/storage';
 

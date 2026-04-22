@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Save, Layers, ListTodo } from 'lucide-react';
 import { Rubric, RubricCriterion, RubricLevel } from '@/lib/types';
 import { db } from '@/db';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { queueAction } from '@/services/sync';
 import { showSuccess, showError } from '@/utils/toast';
 

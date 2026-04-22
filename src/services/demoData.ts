@@ -1,6 +1,6 @@
 "use client";
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { format, subDays, isWeekend } from 'date-fns';
 
 export const importDemoData = async () => {

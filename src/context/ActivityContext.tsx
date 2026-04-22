@@ -1,7 +1,7 @@
 import { createContext, useContext, ReactNode, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { Activity } from '@/lib/types';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { useAcademic } from './AcademicContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 

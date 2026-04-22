@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '@/db';
 import { TeacherFileAnnotation } from '@/lib/types';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { queueAction } from '@/services/sync';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'queued';

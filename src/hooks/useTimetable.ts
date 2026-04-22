@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TimetableEntry } from '@/lib/types';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { showSuccess, showError } from '@/utils/toast';
 import { useAcademic } from '@/context/AcademicContext';
 

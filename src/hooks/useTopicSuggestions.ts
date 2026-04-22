@@ -1,44 +1,82 @@
 "use client";
 
-import { useLiveQuery } from '@/lib/dexie-react-hooks';
-import { db } from '@/db';
-import { normalizeTopic } from '@/utils/topic';
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { normalizeTopic } from "@/utils/topic";
 
-/**
- * Extracts a deduplicated list of topic suggestions based on the user's history.
- * Prioritizes matching the current subject and grade if provided.
- */
 export const useTopicSuggestions = (subject?: string, grade?: string) => {
-  return useLiveQuery(async () => {
-    const suggestions = new Set<string>();
+  const [topics, setTopics] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    try {
-      // 1. Fetch official topics from curriculum planner
-      const allTopics = await db.curriculum_topics.toArray();
-      allTopics.forEach((t: any) => {
-        if ((!subject || t.subject === subject) && (!grade || t.grade === grade)) {
-          if (t.title) suggestions.add(normalizeTopic(t.title));
-        }
-      });
+  useEffect(() => {
+    let isMounted = true;
 
-      // 2. Fetch organically created topics from previous assessments
-      const classes = await db.classes.toArray();
-      const classMap = new Map(classes.map((c: any) => [c.id, c]));
+    const fetchTopics = async () => {
+      setLoading(true);
 
-      const allAssessments = await db.assessments.toArray();
-      allAssessments.forEach((a: any) => {
-        const cls = classMap.get(a.class_id) as any;
-        // Only include if it matches the current class context (or if no context is provided)
-        if (cls && (!subject || cls.subject === subject) && (!grade || cls.grade === grade)) {
-          a.questions?.forEach((q: any) => {
-            if (q.topic) suggestions.add(normalizeTopic(q.topic));
+      try {
+        const suggestions = new Set<string>();
+
+        // 🔥 1. Curriculum topics
+        let curriculumQuery = supabase
+          .from("curriculum_topics")
+          .select("title, subject, grade");
+
+        if (subject) curriculumQuery = curriculumQuery.eq("subject", subject);
+        if (grade) curriculumQuery = curriculumQuery.eq("grade", grade);
+
+        const { data: curriculumData } = await curriculumQuery;
+
+        curriculumData?.forEach((t: any) => {
+          if (t.title) {
+            suggestions.add(normalizeTopic(t.title));
+          }
+        });
+
+        // 🔥 2. Get classes (for filtering assessments)
+        let classQuery = supabase
+          .from("classes")
+          .select("id, subject, grade");
+
+        if (subject) classQuery = classQuery.eq("subject", subject);
+        if (grade) classQuery = classQuery.eq("grade", grade);
+
+        const { data: classes } = await classQuery;
+
+        const classIds = classes?.map(c => c.id) || [];
+
+        if (classIds.length > 0) {
+          // 🔥 3. Assessments with questions
+          const { data: assessments } = await supabase
+            .from("assessments")
+            .select("questions, class_id")
+            .in("class_id", Array.isArray(classIds) ? classIds : [classIds]);
+
+          assessments?.forEach((a: any) => {
+            a.questions?.forEach((q: any) => {
+              if (q.topic) {
+                suggestions.add(normalizeTopic(q.topic));
+              }
+            });
           });
         }
-      });
-    } catch (error) {
-      console.error("Error fetching topic suggestions:", error);
-    }
 
-    return Array.from(suggestions).sort();
-  }, [subject, grade]) || [];
+        if (isMounted) {
+          setTopics(Array.from(suggestions).sort());
+        }
+      } catch (error) {
+        console.error("Error fetching topic suggestions:", error);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchTopics();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [subject, grade]);
+
+  return topics;
 };

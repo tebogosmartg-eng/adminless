@@ -216,19 +216,23 @@ export interface LearnerNote {
 
 export interface Evidence {
   id: string;
-  user_id?: string;
+  user_id: string;
   class_id: string;
-  year_id: string;
-  term_id?: string | null;
   learner_id?: string | null;
-  assessment_id?: string | null;
+
+  term_id: string;
+  academic_year_id: string; // ✅ replace year_id
+
   file_path: string;
   file_name: string;
   file_type: string;
-  category: 'script' | 'moderation' | 'photo' | 'general';
+
+  category: "script" | "moderation" | "photo" | "general";
   notes?: string;
+
   created_at?: string;
 }
+
 
 export interface RubricLevel {
   id: string;

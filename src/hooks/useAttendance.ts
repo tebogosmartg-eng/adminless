@@ -1,251 +1,243 @@
-import { useState, useEffect, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
-import { showSuccess, showError } from '@/utils/toast';
-import { Learner, AttendanceRecord, AttendanceStatus } from '@/lib/types';
-import { db } from '@/db';
-import { useLiveQuery } from '@/lib/dexie-react-hooks';
-import { queueAction } from '@/services/sync';
-import { useAcademic } from '@/context/AcademicContext';
-import { useSettings } from '@/context/SettingsContext';
-import { generateAttendancePDF, SchoolProfile } from '@/utils/pdfGenerator';
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { supabase } from "@/lib/supabaseClient";
+import { showSuccess, showError } from "@/utils/toast";
+import { Learner, AttendanceRecord, AttendanceStatus } from "@/lib/types";
+import { useAcademic } from "@/context/AcademicContext";
+import { useSettings } from "@/context/SettingsContext";
+import { generateAttendancePDF, SchoolProfile } from "@/utils/pdfGenerator";
 
 export const useAttendance = (classId: string, learners: Learner[]) => {
   const { activeTerm } = useAcademic();
   const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
+
   const [date, setDate] = useState<Date>(new Date());
-  
-  const formattedDate = format(date, 'yyyy-MM-dd');
-
-  // Step 2: Split loading into isolated dependencies
-  const [loadingSession, setLoadingSession] = useState(true);
-  const [loadingLearners, setLoadingLearners] = useState(true);
-  const [loadingAttendance, setLoadingAttendance] = useState(true);
-
-  // Step 5: Add Console Debugging
-  useEffect(() => {
-    console.log("Loading session...");
-    if (activeTerm !== undefined) {
-      setLoadingSession(false);
-    }
-  }, [activeTerm]);
-
-  const [safeLearners, setSafeLearners] = useState<Learner[]>([]);
-  
-  useEffect(() => {
-    console.log("Loading learners...");
-    if (learners) {
-      setSafeLearners(learners);
-      setLoadingLearners(false);
-    } else {
-      // Step 4: Safe Fallback
-      setSafeLearners([]);
-      setLoadingLearners(false);
-    }
-  }, [learners]);
-
-  const liveAttendance = useLiveQuery(
-    () => {
-        console.log("Loading class...");
-        return (classId && activeTerm?.id)
-            ? db.attendance
-                .where('class_id')
-                .equals(classId)
-                .filter((r: any) => r.date === formattedDate && r.term_id === activeTerm.id)
-                .toArray()
-            : [];
-    },
-    [classId, formattedDate, activeTerm?.id]
-  );
+  const formattedDate = format(date, "yyyy-MM-dd");
 
   const [attendanceData, setAttendanceData] = useState<Record<string, AttendanceRecord>>({});
-  const [hasChanges, setHasChanges] = useState(false);
+  const [safeLearners, setSafeLearners] = useState<Learner[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
+  // ✅ SAFE learners
   useEffect(() => {
-    console.log("Loading attendance...");
-    if (liveAttendance !== undefined) {
+    setSafeLearners(learners || []);
+  }, [learners]);
+
+  // 🔥 FETCH attendance (SUPABASE ONLY)
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      if (!classId || !activeTerm?.id) return;
+
+      setLoading(true);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData?.session?.user;
+
+      if (!user) {
+        console.error("❌ No session");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("*")
+        .eq("class_id", classId)
+        .eq("term_id", activeTerm.id)
+        .eq("date", formattedDate)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("❌ Attendance fetch error:", error);
+      } else {
+        console.log("✅ ATTENDANCE:", data);
+
         const map: Record<string, AttendanceRecord> = {};
-        (liveAttendance || []).forEach((r: any) => {
-            map[r.learner_id] = r;
+        (data || []).forEach((r: any) => {
+          map[r.learner_id] = r;
         });
+
         setAttendanceData(map);
         setHasChanges(false);
-        setLoadingAttendance(false);
-    } else {
-        // Step 4: Safe Fallback
-        setAttendanceData({});
-    }
-  }, [liveAttendance]);
+      }
 
-  // Step 3: Add Timeout Safety
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      console.warn("Attendance Register loading timeout reached. Forcing UI render.");
-      setLoadingSession(false);
-      setLoadingLearners(false);
-      setLoadingAttendance(false);
-    }, 3000);
-    return () => clearTimeout(timeout);
-  }, []);
+      setLoading(false);
+    };
 
+    fetchAttendance();
+  }, [classId, formattedDate, activeTerm?.id]);
+
+  // 🔥 UPDATE SINGLE
   const handleStatusChange = (learnerId: string, status: AttendanceStatus) => {
     if (!learnerId || !activeTerm?.id) {
-      showError("Action blocked: Active term context required.");
+      showError("Missing academic context");
       return;
     }
 
     setAttendanceData(prev => ({
       ...prev,
-      [learnerId]: { 
-          id: prev[learnerId]?.id || crypto.randomUUID(),
-          learner_id: learnerId, 
-          status, 
-          date: formattedDate, 
-          class_id: classId,
-          term_id: activeTerm.id
+      [learnerId]: {
+        id: prev[learnerId]?.id || crypto.randomUUID(),
+        learner_id: learnerId,
+        status,
+        date: formattedDate,
+        class_id: classId,
+        term_id: activeTerm.id
       }
     }));
+
     setHasChanges(true);
   };
 
+  // 🔥 MARK ALL
   const handleMarkAll = (status: AttendanceStatus) => {
-    if (!classId || !activeTerm?.id || !safeLearners?.length) {
-        console.warn("Attendance not ready to mark all");
-        showError("Action blocked: Academic context or learners missing.");
-        return;
+    if (!safeLearners.length || !activeTerm?.id) {
+      showError("Learners or term missing");
+      return;
     }
-    const newData = { ...attendanceData };
+
+    const newData: Record<string, AttendanceRecord> = {};
+
     safeLearners.forEach(l => {
-      if (l.id) {
-        newData[l.id] = { 
-            id: attendanceData[l.id]?.id || crypto.randomUUID(),
-            learner_id: l.id, 
-            status, 
-            date: formattedDate, 
-            class_id: classId,
-            term_id: activeTerm.id
-        };
-      }
+      if (!l.id) return;
+
+      newData[l.id] = {
+        id: attendanceData[l.id]?.id || crypto.randomUUID(),
+        learner_id: l.id,
+        status,
+        date: formattedDate,
+        class_id: classId,
+        term_id: activeTerm.id
+      };
     });
+
     setAttendanceData(newData);
     setHasChanges(true);
   };
 
+  // 🔥 SAVE (SUPABASE UPSERT)
   const saveAttendance = async () => {
-    if (!classId || !activeTerm?.id || !safeLearners?.length) {
-        console.warn("Attendance not ready to save");
-        showError("Save blocked: Academic context or learners missing.");
-        return;
+    if (!activeTerm?.id) {
+      showError("No active term");
+      return;
     }
-    
+
     setSaving(true);
+
     try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError) {
-             console.error("Attendance auth error", authError);
-             throw authError;
-        }
-        if (!user) throw new Error("Authentication session expired.");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData?.session?.user;
 
-        const recordsToSave = Object.values(attendanceData).map(r => ({
-            ...r,
-            term_id: activeTerm.id,
-            user_id: user.id
-        }));
+      if (!user) throw new Error("Session expired");
 
-        if (recordsToSave.length === 0) {
-            setSaving(false);
-            return;
-        }
-        
-        await db.attendance.bulkPut(recordsToSave);
-        await queueAction('attendance', 'upsert', recordsToSave);
+      const records = Object.values(attendanceData).map(r => ({
+        ...r,
+        user_id: user.id
+      }));
 
-        setHasChanges(false);
-        showSuccess('Attendance saved successfully.');
+      if (records.length === 0) return;
+
+      const { error } = await supabase
+        .from("attendance")
+        .upsert(records);
+
+      if (error) throw error;
+
+      showSuccess("Attendance saved");
+      setHasChanges(false);
+
     } catch (e: any) {
-        console.error("Attendance save error", e);
-        showError('Save failed: ' + e.message);
+      console.error("❌ Save error:", e);
+      showError(e.message);
     } finally {
-        setSaving(false);
+      setSaving(false);
     }
   };
 
-  const handleExportReport = async (type: 'csv' | 'pdf') => {
+  // 🔥 EXPORT
+  const handleExportReport = async (type: "csv" | "pdf") => {
     if (!activeTerm?.id) return;
+
     setIsExporting(true);
+
     try {
       const start = startOfMonth(date);
       const end = endOfMonth(date);
-      const allDays = eachDayOfInterval({ start, end });
-      const sortedDates = allDays.map(d => format(d, 'yyyy-MM-dd'));
-      const monthName = format(date, 'MMMM yyyy');
+      const days = eachDayOfInterval({ start, end });
+      const dates = days.map(d => format(d, "yyyy-MM-dd"));
 
-      const data = await db.attendance
-        .where('class_id').equals(classId)
-        .filter((r: any) => r.term_id === activeTerm.id && r.date! >= sortedDates[0] && r.date! <= sortedDates[sortedDates.length - 1])
-        .toArray();
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("*")
+        .eq("class_id", classId)
+        .eq("term_id", activeTerm.id)
+        .gte("date", dates[0])
+        .lte("date", dates[dates.length - 1]);
 
-      const recordMap: Record<string, Record<string, string>> = {}; 
-      data.forEach((record: any) => {
-        if (!recordMap[record.learner_id]) recordMap[record.learner_id] = {};
-        recordMap[record.learner_id][record.date!] = record.status;
+      if (error) throw error;
+
+      const recordMap: Record<string, Record<string, string>> = {};
+
+      (data || []).forEach((r: any) => {
+        if (!recordMap[r.learner_id]) recordMap[r.learner_id] = {};
+        recordMap[r.learner_id][r.date] = r.status;
       });
 
-      if (type === 'csv') {
-        let csv = 'Learner Name,' + allDays.map(d => format(d, 'dd/MM')).join(',') + ',Present,Absent,Late\n';
-        
+      if (type === "csv") {
+        let csv = "Learner Name," + days.map(d => format(d, "dd/MM")).join(",") + "\n";
+
         safeLearners.forEach(l => {
           if (!l.id) return;
-          const records = recordMap[l.id] || {};
-          let row = `"${l.name}"`;
-          let present = 0, absent = 0, late = 0;
 
-          sortedDates.forEach(d => {
-             const status = records[d] || '-';
-             row += `,${status}`;
-             if (status === 'present') present++;
-             if (status === 'absent') absent++;
-             if (status === 'late') late++;
+          let row = `"${l.name}"`;
+
+          dates.forEach(d => {
+            row += "," + (recordMap[l.id]?.[d] || "-");
           });
-          
-          row += `,${present},${absent},${late}\n`;
-          csv += row;
+
+          csv += row + "\n";
         });
 
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csv], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `Attendance_${format(date, 'MMM_yyyy')}.csv`;
-        link.click();
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "attendance.csv";
+        a.click();
+
         URL.revokeObjectURL(url);
-        
       } else {
         const profile: SchoolProfile = {
-            name: schoolName,
-            teacher: teacherName,
-            logo: schoolLogo,
-            email: contactEmail,
-            phone: contactPhone
+          name: schoolName,
+          teacher: teacherName,
+          logo: schoolLogo,
+          email: contactEmail,
+          phone: contactPhone
         };
 
-        generateAttendancePDF(safeLearners, recordMap, sortedDates, monthName, profile);
+        generateAttendancePDF(safeLearners, recordMap, dates, format(date, "MMMM yyyy"), profile);
       }
 
-      showSuccess("Attendance report generated.");
+      showSuccess("Export done");
+
     } catch (e) {
-      console.error("[Diagnostic: Export] Report failed:", e);
-      showError("Export failed. Check console for details.");
+      console.error("❌ Export error:", e);
+      showError("Export failed");
     } finally {
       setIsExporting(false);
     }
   };
 
+  // 📊 STATS
   const stats = useMemo(() => {
     const counts = { present: 0, absent: 0, late: 0, excused: 0, unmarked: 0 };
+
     safeLearners.forEach(l => {
       if (l.id && attendanceData[l.id]) {
         counts[attendanceData[l.id].status]++;
@@ -253,17 +245,16 @@ export const useAttendance = (classId: string, learners: Learner[]) => {
         counts.unmarked++;
       }
     });
+
     return counts;
   }, [safeLearners, attendanceData]);
 
-  // Combined non-blocking check
-  const isLoading = loadingAttendance || loadingSession || loadingLearners;
-
   return {
-    date, setDate,
+    date,
+    setDate,
     attendanceData,
     safeLearners,
-    loading: isLoading, 
+    loading,
     saving,
     hasChanges,
     isExporting,

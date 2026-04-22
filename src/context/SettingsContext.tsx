@@ -3,7 +3,7 @@ import { defaultGradingScheme } from '@/utils/grading';
 import { GradeSymbol } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface SettingsContextType {

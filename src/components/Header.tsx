@@ -22,7 +22,7 @@ import { useCurrentPeriod } from "@/hooks/useCurrentPeriod";
 import { showSuccess, showError } from "@/utils/toast";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
 
 const Header = () => {

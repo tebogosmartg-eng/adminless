@@ -4,9 +4,9 @@ import { useSettings } from '@/context/SettingsContext';
 import { Learner, ClassInfo, Assessment, Rubric, AssessmentMark } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
-import { db } from '@/db';
-import { useLiveQuery } from '@/lib/dexie-react-hooks';
 import { validateMarkEntry } from '@/utils/integrity';
+import { supabase } from "@/lib/supabaseClient";
+
 
 export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   const { 
@@ -24,8 +24,32 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
   } = useAcademic();
 
   const { atRiskThreshold } = useSettings();
-  const availableRubrics = useLiveQuery(() => db.rubrics.toArray()) || [];
+  const [availableRubrics, setAvailableRubrics] = useState<Rubric[]>([]);
 
+useEffect(() => {
+  let isMounted = true;
+
+  const fetchRubrics = async () => {
+    const { data, error } = await supabase
+      .from("rubrics")
+      .select("*");
+
+    if (error) {
+      console.error("Rubrics fetch error:", error);
+      return;
+    }
+
+    if (isMounted) {
+      setAvailableRubrics(data || []);
+    }
+  };
+
+  fetchRubrics();
+
+  return () => {
+    isMounted = false;
+  };
+}, []);
   // UI state
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);

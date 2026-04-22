@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
 import { showSuccess, showError } from '@/utils/toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
 
 export const useAcademicAverages = () => {

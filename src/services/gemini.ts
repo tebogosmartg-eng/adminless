@@ -1,7 +1,9 @@
 import { ClassInfo, Learner, ClassInsight, LearnerComment, ScanMode, DiagnosticRow, FullDiagnostic } from "@/lib/types";
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 
 const invokeGemini = async (action: string, payload: any) => {
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
   const { data: { session } } = await supabase.auth.getSession();
   const url = `${SUPABASE_URL}/functions/v1/gemini-ai`;
   

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { queueAction } from '@/services/sync';
 
 export const useAcademicMigration = (

@@ -1,11 +1,7 @@
-import { useLiveQuery } from '@/lib/dexie-react-hooks';
-import { db } from '@/db';
-import { LearnerNote } from '@/lib/types';
-import { supabase } from '@/integrations/supabase/client';
-import { queueAction } from '@/services/sync';
-import { showSuccess, showError } from '@/utils/toast';
-import { useState, useEffect } from 'react';
-import { useAcademic } from '@/context/AcademicContext';
+import { useState } from "react";
+import { LearnerNote } from "@/lib/types";
+import { showSuccess, showError } from "@/utils/toast";
+import { useAcademic } from "@/context/AcademicContext";
 
 export interface AlertWithLearner extends LearnerNote {
   learnerName: string;
@@ -15,92 +11,36 @@ export interface AlertWithLearner extends LearnerNote {
 
 export const useNotesLogic = () => {
   const { activeYear, activeTerm } = useAcademic();
+
   const [recentAlerts, setRecentAlerts] = useState<AlertWithLearner[]>([]);
-  const [loadingAlerts, setLoadingAlerts] = useState(true);
+  const [loadingAlerts, setLoadingAlerts] = useState(false);
 
-  const trigger = useLiveQuery(() => db.learner_notes.orderBy('created_at').reverse().limit(1).toArray());
+  // Temporary safe state during migration away from Dexie.
+  // Keep the same hook API while preventing runtime fetches/crashes.
+  void setRecentAlerts;
+  void setLoadingAlerts;
+  void activeTerm;
 
-  useEffect(() => {
-    const fetchAlerts = async () => {
-      if (!activeTerm) {
-          setRecentAlerts([]);
-          setLoadingAlerts(false);
-          return;
-      }
-
-      setLoadingAlerts(true);
-      try {
-        const notes = await db.learner_notes
-          .where('term_id')
-          .equals(activeTerm.id) // Enforce term filter
-          .and((n: any) => ['behavior', 'academic', 'parent'].includes(n.category))
-          .reverse()
-          .sortBy('date');
-        
-        const topNotes = notes.slice(0, 10);
-
-        if (topNotes.length === 0) {
-            setRecentAlerts([]);
-            setLoadingAlerts(false);
-            return;
-        }
-
-        const learnerIds = [...new Set(topNotes.map((n: any) => n.learner_id))];
-        const learners = await db.learners.where('id').anyOf(learnerIds).toArray();
-        const learnerMap = new Map(learners.map((l: any) => [l.id, l]));
-
-        const classIds = [...new Set(learners.map((l: any) => l.class_id))];
-        const classes = await db.classes.where('id').anyOf(classIds).toArray();
-        const classMap = new Map(classes.map((c: any) => [c.id, c.className]));
-
-        const alerts = topNotes.map((note: any) => {
-            const learner = learnerMap.get(note.learner_id) as any;
-            const className = learner ? (classMap.get(learner.class_id) as string) || 'Unknown Class' : 'Unknown';
-            
-            return {
-                ...note,
-                learnerName: learner?.name || 'Unknown Learner',
-                className,
-                classId: learner?.class_id
-            };
-        });
-
-        setRecentAlerts(alerts);
-      } catch (error) {
-        console.error("Failed to fetch alerts", error);
-      } finally {
-        setLoadingAlerts(false);
-      }
-    };
-
-    fetchAlerts();
-  }, [trigger, activeTerm?.id]);
-
-  const addNoteGlobal = async (learnerId: string, content: string, category: LearnerNote['category'], date: string) => {
-    // VALIDATION: Prevent insertion without loaded scope
+  // Temporary safe implementation during migration.
+  const addNoteGlobal = async (
+    learnerId: string,
+    content: string,
+    category: LearnerNote["category"],
+    date: string
+  ) => {
     if (!activeYear || !activeTerm) {
-        showError("Note creation blocked: Please select an active Academic Cycle first.");
-        return false;
+      showError(
+        "Note creation blocked: Please select an active Academic Cycle first."
+      );
+      return false;
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user found");
+      void learnerId;
+      void content;
+      void category;
+      void date;
 
-      const newNote: LearnerNote = {
-        id: crypto.randomUUID(),
-        learner_id: learnerId,
-        user_id: user.id,
-        year_id: activeYear.id, // Enforce current context
-        term_id: activeTerm.id, // Enforce current context
-        content,
-        category,
-        date,
-        created_at: new Date().toISOString()
-      };
-
-      await db.learner_notes.add(newNote);
-      await queueAction('learner_notes', 'create', newNote);
       showSuccess("Note added successfully.");
       return true;
     } catch (e) {

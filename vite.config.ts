@@ -15,7 +15,6 @@ export default defineConfig(() => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "dexie-react-hooks": path.resolve(__dirname, "./src/lib/dexie-react-hooks.ts")
     },
   },
 }));

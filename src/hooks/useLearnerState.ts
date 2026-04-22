@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Learner, ClassInfo } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import confetti from 'canvas-confetti';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 
 export const useLearnerState = (
   classInfo: ClassInfo | undefined,

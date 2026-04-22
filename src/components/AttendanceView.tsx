@@ -282,18 +282,18 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
 };
 
 export const AttendanceView = (props: AttendanceViewProps) => {
-  const { user, authReady } = useAuthGuard();
+  const { authReady } = useAuthGuard();
   const [timeoutReached, setTimeoutReached] = useState(false);
 
   useEffect(() => {
      const timer = setTimeout(() => {
-        console.warn("Auth Guard Timeout Reached.");
         setTimeoutReached(true);
      }, 3000);
      return () => clearTimeout(timer);
   }, []);
 
-  if (!authReady && !timeoutReached) {
+  const shouldWaitForAuth = !authReady && !timeoutReached;
+  if (shouldWaitForAuth) {
     return (
       <div className="flex h-[400px] w-full items-center justify-center animate-in fade-in duration-500">
         <div className="flex flex-col w-full px-8 gap-4">
@@ -302,10 +302,6 @@ export const AttendanceView = (props: AttendanceViewProps) => {
         </div>
       </div>
     );
-  }
-
-  if (!user && !timeoutReached) {
-      return <div className="text-center py-10">Unauthorized</div>;
   }
 
   return <AttendanceViewContent {...props} />;

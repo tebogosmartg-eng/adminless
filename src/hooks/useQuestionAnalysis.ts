@@ -1,14 +1,11 @@
 "use client";
 
-import { useMemo, useCallback } from 'react';
-import { db } from '@/db';
-import { Assessment, Learner, AssessmentMark, DiagnosticRow, FullDiagnostic, AssessmentDiagnostic } from '@/lib/types';
-import { supabase } from '@/integrations/supabase/client';
-import { queueAction } from '@/services/sync';
-import { showSuccess, showError } from '@/utils/toast';
-import { useLiveQuery } from '@/lib/dexie-react-hooks';
-import { generateAIDiagnostic } from '@/services/gemini';
-import { buildQuestionDiagnosis } from '@/utils/diagnosticEngine';
+import { useCallback } from "react";
+import {
+  Assessment,
+  Learner,
+  FullDiagnostic,
+} from "@/lib/types";
 
 export interface QuestionStat {
   id: string;
@@ -23,110 +20,43 @@ export interface QuestionStat {
   totalAttempts: number;
 }
 
-export const useQuestionAnalysis = (assessment: Assessment, learners: Learner[], classSubject: string = "General") => {
-  const marks = useLiveQuery(
-    () => db.assessment_marks.where('assessment_id').equals(assessment.id).toArray(),
-    [assessment.id]
-  ) || [];
+export const useQuestionAnalysis = (
+  assessment: Assessment,
+  learners: Learner[],
+  classSubject: string = "General"
+) => {
+  // Temporary safe placeholders during migration away from Dexie.
+  // Keep the same hook API while preventing runtime fetches/heavy work.
+  const stats = null;
+  const loading = false;
 
-  const savedDiagnostic = useLiveQuery(
-    () => db.diagnostics.where('assessment_id').equals(assessment.id).first(),
-    [assessment.id]
-  );
+  void assessment;
+  void learners;
+  void classSubject;
 
-  const stats = useMemo(() => {
-    if (!assessment.questions || assessment.questions.length === 0 || marks.length === 0) return null;
+  // 🔥 AI
+  const generateAIAnalysis = useCallback(async (
+    subject: string,
+    grade: string
+  ): Promise<FullDiagnostic | null> => {
+    void subject;
+    void grade;
+    return null;
+  }, []);
 
-    const qStats: QuestionStat[] = assessment.questions.map(q => {
-      const qMarks = marks
-        .map((m: any) => m.question_marks?.[q.id])
-        .filter((s: any) => s !== undefined && s !== null) as number[];
-
-      if (qMarks.length === 0) {
-        return { 
-          id: q.id, number: q.question_number, skill: q.skill_description, 
-          max: q.max_mark, avg: 0, high: 0, low: 0, passRate: 0, isWeak: false, totalAttempts: 0 
-        };
-      }
-
-      const sum = qMarks.reduce((a, b) => a + b, 0);
-      const avgRaw = (sum / qMarks.length);
-      const avgPct = (avgRaw / q.max_mark) * 100;
-      const high = Math.max(...qMarks);
-      const low = Math.min(...qMarks);
-      
-      const passes = qMarks.filter(s => (s / q.max_mark) >= 0.5).length;
-      const passRate = (passes / qMarks.length) * 100;
-
-      return {
-        id: q.id,
-        number: q.question_number,
-        skill: q.skill_description,
-        max: q.max_mark,
-        avg: parseFloat(avgPct.toFixed(1)),
-        high,
-        low,
-        passRate: Math.round(passRate),
-        isWeak: avgPct < 50,
-        totalAttempts: qMarks.length
-      };
-    });
-
-    const overallAvg = (qStats.reduce((a, b) => a + b.avg, 0) / qStats.length).toFixed(1);
-
-    // Context-aware diagnostic generation
-    const initialRows: DiagnosticRow[] = qStats.map(s => {
-       const qDef = assessment.questions?.find(q => q.id === s.id);
-       return buildQuestionDiagnosis(s, qDef, classSubject);
-    });
-
-    return { 
-        qStats, 
-        initialRows,
-        rawMarks: marks,
-        savedDiagnostic: savedDiagnostic || null,
-        overallAvg
-    };
-  }, [assessment, marks, savedDiagnostic, classSubject]);
-
-  const generateAIAnalysis = useCallback(async (subject: string, grade: string): Promise<FullDiagnostic | null> => {
-    if (!stats) return null;
-    try {
-        const response = await generateAIDiagnostic(assessment, stats.qStats, subject, grade);
-        return {
-            ...response,
-            rows: response.rows.map((r: any, i: number) => ({ ...r, id: r.id || `ai-${i}-${Date.now()}` }))
-        };
-    } catch (e) {
-        showError("AI Analysis failed. Reverting to manual entry.");
-        return null;
-    }
-  }, [assessment, stats]);
-
+  // 🔥 SAVE (safe no-op during migration)
   const saveDiagnostic = useCallback(async (fullDiag: FullDiagnostic) => {
-      try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
+    try {
+      void fullDiag;
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
-          const payload: AssessmentDiagnostic = {
-              id: savedDiagnostic?.id || crypto.randomUUID(),
-              assessment_id: assessment.id,
-              user_id: user.id,
-              findings: JSON.stringify(fullDiag.rows), 
-              interventions: JSON.stringify({
-                  themes: fullDiag.overall_class_themes,
-                  interventions: fullDiag.overall_interventions
-              }), 
-              updated_at: new Date().toISOString()
-          };
-
-          await db.diagnostics.put(payload);
-          await queueAction('diagnostics', 'upsert', payload);
-          showSuccess("Diagnostic analysis finalized.");
-      } catch (e) {
-          showError("Failed to save diagnostic.");
-      }
-  }, [assessment.id, savedDiagnostic]);
-
-  return { stats, loading: marks === undefined, saveDiagnostic, generateAIAnalysis };
+  return {
+    stats,
+    loading,
+    saveDiagnostic,
+    generateAIAnalysis
+  };
 };

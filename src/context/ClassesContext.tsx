@@ -4,7 +4,7 @@ import { useActivity } from './ActivityContext';
 import { Session } from '@supabase/supabase-js';
 import { showError, showSuccess } from '@/utils/toast';
 import { useAcademic } from '@/context/AcademicContext';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface ClassesContextType {
