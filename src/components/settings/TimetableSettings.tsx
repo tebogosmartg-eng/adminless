@@ -22,6 +22,17 @@ import { useClasses } from '@/context/ClassesContext';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -37,6 +48,9 @@ export const TimetableSettings = () => {
 
   // Track how many rows the user wants to see
   const [numRows, setNumRows] = useState(0);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<{ type: "day" | "row" | "remove"; value: string | number } | null>(null);
 
   // Sync numRows with data when it loads or changes
   useEffect(() => {
@@ -83,6 +97,7 @@ export const TimetableSettings = () => {
       const sourceEntries = timetable.filter(t => t.day === sourceDay);
       if (sourceEntries.length === 0) {
           showError(`No data found for ${sourceDay} to copy.`);
+          setErrorMessage(`No data found for ${sourceDay} to copy.`);
           return;
       }
 
@@ -94,16 +109,17 @@ export const TimetableSettings = () => {
           });
       }
       showSuccess(`Cloned ${sourceDay} schedule to ${targetDay}.`);
+      setStatusMessage(`Saved ✓ ${sourceDay} copied to ${targetDay}.`);
   };
 
   const handleClearDay = async (day: string) => {
-      if (confirm(`Clear all scheduled entries for ${day}? Times will be preserved if set.`)) {
-          const dayEntries = timetable.filter(t => t.day === day);
-          for (const entry of dayEntries) {
-              await clearEntry(day, entry.period);
-          }
-          showSuccess(`${day} schedule cleared.`);
+      const dayEntries = timetable.filter(t => t.day === day);
+      for (const entry of dayEntries) {
+          await clearEntry(day, entry.period);
       }
+      showSuccess(`${day} schedule cleared.`);
+      setStatusMessage(`Saved ✓ ${day} schedule cleared.`);
+      setConfirmState(null);
   };
 
   const handleToggleBreak = async (period: number) => {
@@ -122,24 +138,31 @@ export const TimetableSettings = () => {
           });
       }
       showSuccess(isBreak ? `Period ${period} reverted to class time.` : `Period ${period} marked as Break across all days.`);
+      setStatusMessage(isBreak ? `Saved ✓ Period ${period} reverted to class time.` : `Saved ✓ Period ${period} marked as break.`);
   };
 
   const handleClearRow = async (period: number) => {
-    if (confirm(`Clear all classes scheduled for Period ${period}?`)) {
-        for (const day of DAYS) {
-            await clearEntry(day, period);
-        }
+    for (const day of DAYS) {
+        await clearEntry(day, period);
     }
+    showSuccess(`Period ${period} cleared.`);
+    setStatusMessage(`Saved ✓ Period ${period} cleared.`);
+    setConfirmState(null);
   };
 
-  const handleRemoveLastRow = async () => {
+  const handleRemoveLastRow = async (force = false) => {
       if (numRows <= 0) return;
       const lastPeriod = numRows;
       if (timetable.some(t => t.period === lastPeriod)) {
-          if (!confirm(`Period ${lastPeriod} has data. Remove anyway?`)) return;
+          if (!force) {
+            setConfirmState({ type: "remove", value: lastPeriod });
+            return;
+          }
           for (const day of DAYS) await clearEntry(day, lastPeriod);
       }
       setNumRows(prev => prev - 1);
+      setStatusMessage(`Saved ✓ Period ${lastPeriod} removed.`);
+      setConfirmState(null);
   };
 
   return (
@@ -154,12 +177,24 @@ export const TimetableSettings = () => {
                 <CardDescription className="truncate">Configure your teaching periods and session times.</CardDescription>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-                {numRows > 0 && <Button variant="outline" size="sm" onClick={handleRemoveLastRow} className="flex-1 sm:flex-none"><Trash2 className="h-4 w-4 mr-2" /> Remove Row</Button>}
-                <Button size="sm" onClick={() => setNumRows(prev => prev + 1)} className="flex-1 sm:flex-none font-bold"><Plus className="h-4 w-4 mr-2" /> Add Period</Button>
+                {numRows > 0 && <Button variant="outline" size="sm" onClick={() => handleRemoveLastRow()} className="flex-1 sm:flex-none h-10 sm:h-9"><Trash2 className="h-4 w-4 mr-2" /> Remove Row</Button>}
+                <Button size="sm" onClick={() => setNumRows(prev => prev + 1)} className="flex-1 sm:flex-none h-10 sm:h-9 font-bold"><Plus className="h-4 w-4 mr-2" /> Add Period</Button>
             </div>
         </div>
       </CardHeader>
-      <CardContent className="w-full min-w-0">
+      <CardContent className="w-full min-w-0 space-y-4">
+        {statusMessage && (
+          <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+            <Clock className="h-4 w-4" />
+            <AlertDescription>{statusMessage}</AlertDescription>
+          </Alert>
+        )}
+        {errorMessage && (
+          <Alert variant="destructive">
+            <Clock className="h-4 w-4" />
+            <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        )}
         {numRows === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-xl bg-white dark:bg-card mx-2">
                 <div className="p-4 bg-primary/5 rounded-full mb-4"><CalendarDays className="h-10 w-10 text-primary/40" /></div>
@@ -186,7 +221,7 @@ export const TimetableSettings = () => {
                                             <DropdownMenuContent align="center">
                                                 <DropdownMenuLabel className="text-[9px] uppercase tracking-wider">Day Tools: {day}</DropdownMenuLabel>
                                                 <DropdownMenuSeparator />
-                                                <DropdownMenuItem className="text-xs" onClick={() => handleClearDay(day)}>
+                                                <DropdownMenuItem className="text-xs" onClick={() => setConfirmState({ type: "day", value: day })}>
                                                     <Eraser className="h-3.5 w-3.5 mr-2 text-orange-500" /> Clear Entries
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
@@ -222,7 +257,7 @@ export const TimetableSettings = () => {
                                                 <Button variant="outline" size="sm" className={cn("h-7 text-[8px] font-black uppercase gap-1 shadow-sm", isRowBreak ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-white")} onClick={() => handleToggleBreak(period)}>
                                                     <Coffee className="h-2.5 w-2.5" /> {isRowBreak ? "Lesson Time" : "Mark Break"}
                                                 </Button>
-                                                <Button variant="ghost" size="sm" className="h-6 text-[8px] font-bold uppercase gap-1 text-muted-foreground hover:text-destructive" onClick={() => handleClearRow(period)}>
+                                                <Button variant="ghost" size="sm" className="h-6 text-[8px] font-bold uppercase gap-1 text-muted-foreground hover:text-destructive" onClick={() => setConfirmState({ type: "row", value: period })}>
                                                     <Eraser className="h-2.5 w-2.5" /> Clear
                                                 </Button>
                                             </div>
@@ -271,6 +306,35 @@ export const TimetableSettings = () => {
             </div>
         )}
       </CardContent>
+      <AlertDialog open={confirmState !== null} onOpenChange={(open) => !open && setConfirmState(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmState?.type === "day" && `Clear ${confirmState.value} schedule?`}
+              {confirmState?.type === "row" && `Clear Period ${confirmState.value}?`}
+              {confirmState?.type === "remove" && `Remove Period ${confirmState.value}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmState?.type === "day" && "All class slots for this day will be cleared. Times remain where set."}
+              {confirmState?.type === "row" && "All classes scheduled for this period across all days will be removed."}
+              {confirmState?.type === "remove" && "This period contains data. Removing it will clear all entries in that period."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!confirmState) return;
+                if (confirmState.type === "day") handleClearDay(String(confirmState.value));
+                if (confirmState.type === "row") handleClearRow(Number(confirmState.value));
+                if (confirmState.type === "remove") handleRemoveLastRow(true);
+              }}
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

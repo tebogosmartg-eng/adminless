@@ -1,3 +1,4 @@
+import { startTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AlertTriangle, BookOpen, MessageCircle, Clock, ExternalLink } from "lucide-react";
 import { useNotesLogic } from "@/hooks/useNotesLogic";
@@ -21,7 +22,9 @@ export const RecentAlerts = () => {
 
   const handleAlertClick = (classId: string | undefined, learnerId: string) => {
     if (classId) {
-      navigate(`/classes/${classId}`, { state: { openLearnerId: learnerId } });
+      startTransition(() => {
+        navigate(`/classes/${classId}`, { state: { openLearnerId: learnerId } });
+      });
     }
   };
 

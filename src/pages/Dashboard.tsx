@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, LayoutGrid, GraduationCap, Loader2 } from 'lucide-react';
@@ -6,14 +6,12 @@ import { useClasses } from '@/context/ClassesContext';
 import { GlobalAddNoteDialog } from '@/components/dialogs/GlobalAddNoteDialog';
 import { useSettings } from '@/context/SettingsContext';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { DashboardOverviewTab } from '@/components/dashboard/DashboardOverviewTab';
+import { DashboardGroupedView } from '@/components/dashboard/DashboardGroupedView';
 
-const DashboardOverviewTab = lazy(() => import('@/components/dashboard/DashboardOverviewTab').then(m => ({ default: m.DashboardOverviewTab })));
-const DashboardGroupedView = lazy(() => import('@/components/dashboard/DashboardGroupedView').then(m => ({ default: m.DashboardGroupedView })));
 
 const DashboardContent = () => {
-  const { loading } = useClasses();
+  const { preloadClasses, isRefreshing: classesRefreshing } = useClasses();
   const { 
     classes,
     activeClasses, 
@@ -22,12 +20,12 @@ const DashboardContent = () => {
     classesByGrade 
   } = useDashboardData();
 
-  const { onboardingCompleted, setOnboardingCompleted, isLoadingProfile } = useSettings();
+  const { onboardingCompleted, setOnboardingCompleted } = useSettings();
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
 
-  if (loading || isLoadingProfile) {
-    return <LoadingScreen />;
-  }
+  useEffect(() => {
+    void preloadClasses();
+  }, [preloadClasses]);
 
   if (!onboardingCompleted) {
     return (
@@ -41,7 +39,15 @@ const DashboardContent = () => {
     <div className="space-y-4 pb-6 w-full animate-in fade-in duration-500">
       <div className="flex flex-col gap-0.5">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-xs">Professional overview of your academic workload and results.</p>
+        <div className="flex items-center gap-2">
+          <p className="text-muted-foreground text-xs">Professional overview of your academic workload and results.</p>
+          {classesRefreshing && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Refreshing
+            </span>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4 w-full">
@@ -57,32 +63,30 @@ const DashboardContent = () => {
           </TabsTrigger>
         </TabsList>
 
-        <Suspense fallback={<LoadingScreen />}>
-          <TabsContent value="overview" className="mt-0">
-            <DashboardOverviewTab 
-              activeClasses={activeClasses}
-              allActiveLearners={allActiveLearners}
-              totalClassesCount={classes.length}
-              onAddNote={() => setIsNoteDialogOpen(true)}
-            />
-          </TabsContent>
+        <TabsContent value="overview" className="mt-0">
+          <DashboardOverviewTab 
+            activeClasses={activeClasses}
+            allActiveLearners={allActiveLearners}
+            totalClassesCount={classes.length}
+            onAddNote={() => setIsNoteDialogOpen(true)}
+          />
+        </TabsContent>
 
-          <TabsContent value="subjects" className="mt-0">
-            <DashboardGroupedView 
-              activeClasses={activeClasses}
-              groupedClasses={classesBySubject}
-              groupBy="subject"
-            />
-          </TabsContent>
+        <TabsContent value="subjects" className="mt-0">
+          <DashboardGroupedView 
+            activeClasses={activeClasses}
+            groupedClasses={classesBySubject}
+            groupBy="subject"
+          />
+        </TabsContent>
 
-          <TabsContent value="grades" className="mt-0">
-            <DashboardGroupedView 
-              activeClasses={activeClasses}
-              groupedClasses={classesByGrade}
-              groupBy="grade"
-            />
-          </TabsContent>
-        </Suspense>
+        <TabsContent value="grades" className="mt-0">
+          <DashboardGroupedView 
+            activeClasses={activeClasses}
+            groupedClasses={classesByGrade}
+            groupBy="grade"
+          />
+        </TabsContent>
       </Tabs>
 
       <GlobalAddNoteDialog 
@@ -94,11 +98,6 @@ const DashboardContent = () => {
 };
 
 const Dashboard = () => {
-  const { user, authReady } = useAuthGuard();
-
-  if (!authReady) return <LoadingScreen />;
-  if (!user) return null;
-
   return <DashboardContent />;
 };
 

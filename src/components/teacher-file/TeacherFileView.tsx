@@ -19,11 +19,11 @@ import { format } from 'date-fns';
 import { TeacherFileLayout } from '@/components/teacher-file/TeacherFileLayout';
 
 export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { year: AcademicYear, term: Term, classId: string, isBulkMode?: boolean }) => {
-  const { data, loading, error } = useTeacherFileData(year.id, term.id, classId);
+  const { data, loading, isRefreshing, error } = useTeacherFileData(year.id, term.id, classId);
   const { teacherName, schoolCode, saceNumber, gradingScheme } = useSettings();
 
-  if (loading) return <div className="py-20 flex flex-col items-center gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" /><p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Assembling File...</p></div>;
-  if (error || !data) return <div className="py-20 text-center text-red-500">Failed to load class data.</div>;
+  if (loading && !data) return <div className="py-20 flex flex-col items-center gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" /><p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Assembling File...</p></div>;
+  if (!data) return <div className="py-20 text-center text-red-500">{error || "Failed to load class data."}</div>;
 
   const { classInfo, assessments, marks, moderationSample, rubrics, diagnostics, flexSections, flexEntries, flexAttachments } = data;
   const prefix = `${classId}_${term.id}_`; // Isolates manual file uploads to this specific class+term
@@ -41,9 +41,17 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
       {/* Action Bar (No Print) */}
       {!isBulkMode && (
         <div className="w-full max-w-[210mm] flex justify-end no-print mb-[-1rem]">
-           <Button className="gap-2 font-black shadow-xl shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 h-12 px-8 text-lg rounded-2xl" onClick={() => window.print()}>
-              <Printer className="h-5 w-5" /> Print / Save as PDF
-           </Button>
+           <div className="flex items-center gap-3">
+              {isRefreshing && (
+                <div className="inline-flex items-center gap-2 rounded-full border bg-background/90 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Refreshing...
+                </div>
+              )}
+              <Button className="gap-2 font-black shadow-xl shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 h-12 px-8 text-lg rounded-2xl" onClick={() => window.print()}>
+                  <Printer className="h-5 w-5" /> Print / Save as PDF
+              </Button>
+           </div>
         </div>
       )}
 

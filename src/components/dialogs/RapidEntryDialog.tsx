@@ -94,6 +94,8 @@ export const RapidEntryDialog = ({ open, onOpenChange, learners, onUpdateMark, m
                     <Input 
                         id="rapid-mark"
                         ref={inputRef}
+                        inputMode="decimal"
+                        pattern="[0-9]*"
                         value={currentMark}
                         onChange={(e) => setCurrentMark(e.target.value)}
                         onKeyDown={handleKeyDown}

@@ -347,6 +347,8 @@ export const MarkSheetTable = ({
                                 <div className="flex items-center justify-center h-[48px] md:h-10 w-full relative group/cell">
                                 <input
                                     id={`cell-${colIdx}-${rowIdx}`}
+                                    inputMode="decimal"
+                                    pattern="[0-9]*"
                                     className={cn(
                                         "h-full w-full bg-transparent text-center text-sm outline-none transition-all",
                                         "border border-transparent hover:border-muted-foreground/20 text-foreground",
@@ -405,6 +407,33 @@ export const MarkSheetTable = ({
                                     >
                                         <ListChecks className="h-3 w-3" />
                                     </Button>
+                                )}
+
+                                {!isLocked && (ass.rubric_id || hasQuestions) && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 absolute right-0.5 sm:hidden inline-flex hover:bg-muted/80"
+                                                title="Open actions"
+                                            >
+                                                <MoreHorizontal className="h-3 w-3" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-44">
+                                            {ass.rubric_id && (
+                                                <DropdownMenuItem onClick={() => onOpenRubric && onOpenRubric(ass.id, learner)}>
+                                                    <Layers className="mr-2 h-4 w-4" /> Mark with Rubric
+                                                </DropdownMenuItem>
+                                            )}
+                                            {hasQuestions && (
+                                                <DropdownMenuItem onClick={() => onOpenQuestions && onOpenQuestions(ass.id, learner)}>
+                                                    <ListChecks className="mr-2 h-4 w-4" /> Question-Level marking
+                                                </DropdownMenuItem>
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 )}
 
                                 {comment && (

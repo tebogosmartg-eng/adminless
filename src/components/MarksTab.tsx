@@ -21,6 +21,7 @@ interface MarksTabProps {
   onBatchDelete: (indices: number[]) => void;
   onBatchComment: (indices: number[], comment: string) => void;
   onBatchClearMarks: (indices: number[]) => void;
+  isLoading?: boolean;
 }
 
 export const MarksTab = ({
@@ -40,6 +41,7 @@ export const MarksTab = ({
   onBatchDelete,
   onBatchComment,
   onBatchClearMarks,
+  isLoading = false,
 }: MarksTabProps) => {
   return (
     <div className="space-y-6 mt-4">
@@ -76,6 +78,7 @@ export const MarksTab = ({
         onBatchDelete={onBatchDelete}
         onBatchComment={onBatchComment}
         onBatchClearMarks={onBatchClearMarks}
+        isLoading={isLoading}
       />
     </div>
   );

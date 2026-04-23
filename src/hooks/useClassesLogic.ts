@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { startTransition, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClasses } from "@/context/ClassesContext";
 import { useAcademic } from "@/context/AcademicContext";
@@ -58,7 +58,9 @@ export const useClassesLogic = () => {
   };
 
   const handleView = (id: string) => {
-    navigate(`/classes/${id}`);
+    startTransition(() => {
+      navigate(`/classes/${id}`);
+    });
   };
 
   const uniqueGrades = useMemo(() => {
@@ -66,19 +68,33 @@ export const useClassesLogic = () => {
     return Array.from(grades).sort();
   }, [classes]);
 
-  const getFilteredClasses = (isArchived: boolean) => {
-    return classes.filter(c => {
-      const matchesArchive = !!c.archived === isArchived;
-      const matchesSearch = 
-        (c.className || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.subject || "").toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesGrade = selectedGrade === "all" || c.grade === selectedGrade;
-      return matchesArchive && matchesSearch && matchesGrade;
-    });
-  };
+  const normalizedSearchQuery = searchQuery.toLowerCase();
 
-  const activeClasses = getFilteredClasses(false);
-  const archivedClasses = getFilteredClasses(true);
+  const activeClasses = useMemo(
+    () =>
+      classes.filter((c) => {
+        const matchesArchive = !c.archived;
+        const matchesSearch =
+          (c.className || "").toLowerCase().includes(normalizedSearchQuery) ||
+          (c.subject || "").toLowerCase().includes(normalizedSearchQuery);
+        const matchesGrade = selectedGrade === "all" || c.grade === selectedGrade;
+        return matchesArchive && matchesSearch && matchesGrade;
+      }),
+    [classes, normalizedSearchQuery, selectedGrade]
+  );
+
+  const archivedClasses = useMemo(
+    () =>
+      classes.filter((c) => {
+        const matchesArchive = !!c.archived;
+        const matchesSearch =
+          (c.className || "").toLowerCase().includes(normalizedSearchQuery) ||
+          (c.subject || "").toLowerCase().includes(normalizedSearchQuery);
+        const matchesGrade = selectedGrade === "all" || c.grade === selectedGrade;
+        return matchesArchive && matchesSearch && matchesGrade;
+      }),
+    [classes, normalizedSearchQuery, selectedGrade]
+  );
 
   const clearFilters = () => {
     setSearchQuery("");

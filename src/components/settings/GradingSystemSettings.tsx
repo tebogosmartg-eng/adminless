@@ -3,14 +3,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus, RotateCcw, Save } from "lucide-react";
+import { Trash2, Plus, RotateCcw, Save, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { GradeSymbol } from "@/lib/types";
 import { showSuccess, showError } from "@/utils/toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const GradingSystemSettings = () => {
   const { gradingScheme, updateGradingScheme, resetGradingScheme } = useSettings();
   const [localScheme, setLocalScheme] = useState<GradeSymbol[]>(gradingScheme);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
   const handleSchemeChange = (index: number, field: keyof GradeSymbol, value: any) => {
     const updated = [...localScheme];
@@ -19,30 +34,37 @@ export const GradingSystemSettings = () => {
   };
 
   const handleSaveScheme = () => {
+    setStatusMessage(null);
+    setErrorMessage(null);
     const isValid = localScheme.every(g => 
       !isNaN(g.min) && !isNaN(g.max) && g.symbol && !isNaN(g.level)
     );
 
     if (!isValid) {
       showError("Please ensure all fields are filled correctly.");
+      setErrorMessage("Please ensure all grade fields are filled correctly before saving.");
       return;
     }
 
     updateGradingScheme(localScheme);
     showSuccess("Grading scheme updated successfully.");
+    setStatusMessage("Saved ✓ Grading scheme updated.");
   };
 
   const handleResetScheme = () => {
-    if (confirm("Are you sure you want to reset to the default grading scheme?")) {
-      resetGradingScheme();
-      // Sync local state as well
-      window.location.reload(); 
-    }
+    setResetDialogOpen(false);
+    resetGradingScheme();
+    showSuccess("Default grading scheme restored.");
+    setStatusMessage("Saved ✓ Default scheme restored.");
+    // Sync local state as well
+    window.location.reload();
   };
   
   const handleDeleteRow = (index: number) => {
     const updated = localScheme.filter((_, i) => i !== index);
     setLocalScheme(updated);
+    setDeleteIndex(null);
+    setStatusMessage("Saved ✓ Grade range removed locally. Click Save to persist.");
   };
 
   const handleAddRow = () => {
@@ -56,10 +78,11 @@ export const GradingSystemSettings = () => {
       badgeColor: "bg-gray-100 text-gray-700",
     };
     setLocalScheme([...localScheme, newRow]);
+    setStatusMessage("New grade range added. Click Save to persist.");
   };
 
   return (
-    <Card className="h-full">
+    <Card className="h-full min-w-0">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -70,9 +93,21 @@ export const GradingSystemSettings = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4 min-w-0">
+          {statusMessage && (
+            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertDescription>{statusMessage}</AlertDescription>
+            </Alert>
+          )}
+          {errorMessage && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
           <div className="space-y-4">
-             <div className="rounded-md border max-h-[300px] overflow-x-auto w-full no-scrollbar">
+             <div className="rounded-md border max-h-[300px] overflow-x-auto w-full no-scrollbar min-w-0">
                 <Table className="min-w-[400px] w-full">
                   <TableHeader>
                     <TableRow>
@@ -118,7 +153,7 @@ export const GradingSystemSettings = () => {
                           />
                         </TableCell>
                         <TableCell className="p-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteRow(index)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteIndex(index)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -127,19 +162,47 @@ export const GradingSystemSettings = () => {
                   </TableBody>
                 </Table>
              </div>
-             <div className="flex flex-col sm:flex-row gap-2">
+             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 <Button variant="outline" size="sm" onClick={handleAddRow} className="flex-1 h-10 sm:h-9">
                   <Plus className="mr-2 h-4 w-4" /> Add Range
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleResetScheme} className="h-10 sm:h-9">
+                <Button variant="outline" size="sm" onClick={() => setResetDialogOpen(true)} className="w-full sm:w-auto h-10 sm:h-9">
                   <RotateCcw className="mr-2 h-4 w-4" /> Reset
                 </Button>
-                <Button size="sm" onClick={handleSaveScheme} className="h-10 sm:h-9 font-bold">
+                <Button size="sm" onClick={handleSaveScheme} className="w-full sm:w-auto h-10 sm:h-9 font-bold">
                   <Save className="mr-2 h-4 w-4" /> Save
                 </Button>
              </div>
           </div>
         </CardContent>
+        <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reset grading scheme?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This replaces your current ranges with the default grading scheme.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleResetScheme}>Reset</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <AlertDialog open={deleteIndex !== null} onOpenChange={(open) => !open && setDeleteIndex(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove grade range?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This row will be removed from the local list. Click Save to persist the change.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => deleteIndex !== null && handleDeleteRow(deleteIndex)}>Remove</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
     </Card>
   );
 };

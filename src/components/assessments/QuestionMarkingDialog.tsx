@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,13 +8,23 @@ import { Input } from '@/components/ui/input';
 import { ChevronRight, ChevronLeft, Save, ListChecks } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { showError } from '@/utils/toast';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const formatMarkSaveError = (errorMessage?: string) => {
+  const message = (errorMessage || "").toLowerCase();
+  if (message.includes("exceeds max")) return "Mark exceeds allowed maximum";
+  if (message.includes("invalid input syntax")) return "Invalid mark entered";
+  return "Failed to save marks";
+};
 
 interface QuestionMarkingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   assessment: Assessment;
   learner: Learner;
-  onSave: (score: number, questionMarks: Record<string, number | null>) => void;
+  onSave: (score: number, questionMarks: Record<string, number | null>) => Promise<{ success: boolean; message?: string } | void> | void;
   initialMarks?: Record<string, number | null>;
   onNext?: () => void;
   onPrev?: () => void;
@@ -33,6 +43,11 @@ export const QuestionMarkingDialog = ({
   isLocked = false
 }: QuestionMarkingDialogProps) => {
   const [qMarks, setQMarks] = useState<Record<string, string>>({});
+  const qMarksRef = useRef<Record<string, string>>({});
+  const saveSequenceRef = useRef<Record<string, number>>({});
+  const inFlightValueRef = useRef<Record<string, string>>({});
+  const isMountedRef = useRef(true);
+  const activeLearnerKeyRef = useRef<string>("");
 
   useEffect(() => {
     if (open) {
@@ -42,8 +57,24 @@ export const QuestionMarkingDialog = ({
             map[q.id] = existing !== undefined && existing !== null ? existing.toString() : "";
         });
         setQMarks(map);
+        qMarksRef.current = map;
     }
   }, [open, initialMarks, learner.id, assessment.questions]);
+
+  useEffect(() => {
+    qMarksRef.current = qMarks;
+  }, [qMarks]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    activeLearnerKeyRef.current = learner.id || learner.name;
+  }, [learner.id, learner.name]);
 
   const currentScore = useMemo(() => {
     let total = 0;
@@ -54,18 +85,93 @@ export const QuestionMarkingDialog = ({
     return parseFloat(total.toFixed(1));
   }, [qMarks]);
 
+  const buildFinalMarks = useCallback((marksToPersist: Record<string, string>) => {
+    const finalMarks: Record<string, number | null> = {};
+    let hasInvalid = false;
+
+    Object.entries(marksToPersist).forEach(([qId, val]) => {
+        if (!UUID_REGEX.test(qId) || val.trim() === "") return;
+        const parsed = parseFloat(val);
+        const question = assessment.questions?.find(q => q.id === qId);
+        if (!question || isNaN(parsed) || parsed < 0 || parsed > question.max_mark) {
+            hasInvalid = true;
+            return;
+        }
+        finalMarks[qId] = parsed;
+    });
+
+    const score = parseFloat(
+      Object.values(finalMarks)
+        .reduce((sum, value) => sum + (typeof value === 'number' && !isNaN(value) ? value : 0), 0)
+        .toFixed(1)
+    );
+
+    return { finalMarks, score, hasInvalid };
+  }, [assessment.questions]);
+
+  const persistQuestionChange = useCallback(async (
+    questionId: string,
+    value: string,
+    previousValue: string,
+    nextMarks: Record<string, string>,
+    learnerKey: string
+  ) => {
+    const key = `${learnerKey}::${questionId}`;
+    if (inFlightValueRef.current[key] === value) return;
+
+    const seq = (saveSequenceRef.current[key] || 0) + 1;
+    saveSequenceRef.current[key] = seq;
+    inFlightValueRef.current[key] = value;
+
+    try {
+      const { finalMarks, score, hasInvalid } = buildFinalMarks(nextMarks);
+      if (hasInvalid) return;
+      const result = await onSave(score, finalMarks);
+      if (saveSequenceRef.current[key] !== seq) return;
+      if (result?.success === false) {
+        throw new Error(result.message || "Failed to save marks");
+      }
+    } catch (e) {
+      if (saveSequenceRef.current[key] !== seq) return;
+      if (!isMountedRef.current || activeLearnerKeyRef.current !== learnerKey) return;
+      setQMarks(prev => ({ ...prev, [questionId]: previousValue }));
+      qMarksRef.current = { ...qMarksRef.current, [questionId]: previousValue };
+      showError(formatMarkSaveError(e instanceof Error ? e.message : undefined));
+    } finally {
+      if (saveSequenceRef.current[key] === seq) {
+        delete inFlightValueRef.current[key];
+      }
+    }
+  }, [buildFinalMarks, onSave]);
+
   const handleUpdate = (qId: string, val: string) => {
     if (val !== "" && !/^\d*\.?\d*$/.test(val)) return;
-    setQMarks(prev => ({ ...prev, [qId]: val }));
+    const question = assessment.questions?.find(q => q.id === qId);
+
+    if (question && val !== "") {
+      const parsed = parseFloat(val);
+      if (!isNaN(parsed) && parsed > question.max_mark) {
+        showError("Mark exceeds allowed maximum");
+        return;
+      }
+    }
+
+    const previousValue = qMarksRef.current[qId] || "";
+    if (previousValue === val) return;
+    const nextMarks = { ...qMarksRef.current, [qId]: val };
+    const learnerKey = learner.id || learner.name;
+    qMarksRef.current = nextMarks;
+    setQMarks(nextMarks);
+    void persistQuestionChange(qId, val, previousValue, nextMarks, learnerKey);
   };
 
   const handleSave = () => {
-    const finalMarks: Record<string, number | null> = {};
-    Object.entries(qMarks).forEach(([qId, val]) => {
-        finalMarks[qId] = val === "" ? null : parseFloat(val);
-    });
-    
-    onSave(currentScore, finalMarks);
+    const { hasInvalid } = buildFinalMarks(qMarks);
+
+    if (hasInvalid) {
+      showError("Please fix invalid marks before saving.");
+      return;
+    }
     if (!onNext) onOpenChange(false);
     else onNext();
   };
@@ -150,6 +256,7 @@ export const QuestionMarkingDialog = ({
                             <Input 
                                 type="text"
                                 inputMode="decimal"
+                                pattern="[0-9]*"
                                 value={qMarks[q.id] || ""}
                                 onChange={(e) => handleUpdate(q.id, e.target.value)}
                                 className={cn(

@@ -115,9 +115,9 @@ export const QuestionBuilder = ({
         </div>
       </div>
 
-      <div className="border rounded-xl bg-background shadow-sm overflow-x-auto w-full no-scrollbar">
+      <div className="border rounded-xl bg-background w-full overflow-x-auto no-scrollbar [&>div]:overflow-x-auto [&>div]:overflow-y-visible">
         <Table className="table-fixed min-w-[700px] w-full">
-          <TableHeader className="bg-muted/30">
+          <TableHeader>
             <TableRow>
               <TableHead className="w-12 text-center"></TableHead>
               <TableHead className="w-24 text-[10px] font-black uppercase">Q Label</TableHead>
@@ -249,7 +249,7 @@ export const QuestionBuilder = ({
           </TableBody>
         </Table>
         {questions.length > 0 && (
-            <div className="bg-muted/10 border-t p-2 px-4 flex justify-end">
+            <div className="border-t p-2 px-4 flex justify-end">
                 <span className="text-xs font-bold text-primary">
                     Calculated Total: {questions.reduce((sum, q) => sum + (q.max_mark || 0), 0)} Marks
                 </span>

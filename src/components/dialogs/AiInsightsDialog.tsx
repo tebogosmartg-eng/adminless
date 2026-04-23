@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Brain, Sparkles, TrendingUp, AlertTriangle, Lightbulb, Copy, Check, Loader2, Download, ClipboardCheck } from 'lucide-react';
 import { ClassInfo, ClassInsight, Learner } from '@/lib/types';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { showSuccess } from '@/utils/toast';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
 
@@ -29,7 +29,17 @@ export const AiInsightsDialog = ({
   onSimulate
 }: AiInsightsDialogProps) => {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  const [showSkeleton, setShowSkeleton] = useState(true);
   const { hasMarksCaptured } = useSetupStatus();
+
+  useEffect(() => {
+    if (!isLoading) {
+      const t = setTimeout(() => setShowSkeleton(false), 250);
+      return () => clearTimeout(t);
+    } else {
+      setShowSkeleton(true);
+    }
+  }, [isLoading]);
 
   const handleCopy = (text: string, section: string) => {
     navigator.clipboard.writeText(text);
@@ -121,11 +131,11 @@ ${insights.recommendations.map(s => `- ${s}`).join('\n')}
                   </div>
               ) : (
                 <div className="flex flex-col sm:flex-row gap-2 mt-4 w-full max-w-xs">
-                    <Button onClick={onGenerate} disabled={isLoading} className="w-full sm:min-w-[140px]">
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    <Button onClick={onGenerate} disabled={showSkeleton} className="w-full sm:min-w-[140px]">
+                        {showSkeleton ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                         Generate Analysis
                     </Button>
-                    <Button variant="outline" onClick={onSimulate} disabled={isLoading} className="w-full sm:w-auto">
+                    <Button variant="outline" onClick={onSimulate} disabled={showSkeleton} className="w-full sm:w-auto">
                         Demo Mode
                     </Button>
                 </div>

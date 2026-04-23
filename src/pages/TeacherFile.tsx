@@ -1,31 +1,30 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 import { useClasses } from '@/context/ClassesContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Book, LayoutDashboard, Printer, Layers, Loader2 } from 'lucide-react';
+import { Book, LayoutDashboard, Printer, Layers } from 'lucide-react';
 import { TeacherFileView } from '@/components/teacher-file/TeacherFileView';
 import { Button } from '@/components/ui/button';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
 
 const TeacherFileContent = () => {
   const { years, terms, activeYear, setActiveYear, activeTerm, setActiveTerm } = useAcademic();
   const { classes } = useClasses();
   const [selectedClassId, setSelectedClassId] = useState<string>("");
 
-  const termClasses = classes.filter(c => c.term_id === activeTerm?.id && !c.archived);
+  const termClasses = useMemo(
+    () => classes.filter((c) => c.term_id === activeTerm?.id && !c.archived),
+    [classes, activeTerm?.id]
+  );
 
-  useEffect(() => {
-      if (termClasses.length > 0) {
-          if (selectedClassId !== 'all' && !termClasses.find(c => c.id === selectedClassId)) {
-              setSelectedClassId(termClasses[0].id);
-          }
-      } else {
-          setSelectedClassId("");
-      }
-  }, [activeTerm?.id, classes]);
+  const resolvedSelectedClassId = useMemo(() => {
+    if (selectedClassId === "all") {
+      return termClasses.length > 1 ? "all" : (termClasses[0]?.id ?? "");
+    }
+    return termClasses.find((cls) => cls.id === selectedClassId)?.id ?? (termClasses[0]?.id ?? "");
+  }, [selectedClassId, termClasses]);
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-500">
@@ -59,7 +58,7 @@ const TeacherFileContent = () => {
             </div>
             <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Class Allocation</Label>
-                <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={!activeTerm || termClasses.length === 0}>
+                <Select value={resolvedSelectedClassId} onValueChange={setSelectedClassId} disabled={!activeTerm || termClasses.length === 0}>
                     <SelectTrigger className="bg-background"><SelectValue placeholder="Select Class" /></SelectTrigger>
                     <SelectContent>
                         {termClasses.length > 1 && (
@@ -74,7 +73,7 @@ const TeacherFileContent = () => {
         </div>
       </div>
 
-      {activeYear && activeTerm && selectedClassId === 'all' ? (
+      {activeYear && activeTerm && resolvedSelectedClassId === 'all' ? (
           <div className="space-y-16 animate-in fade-in duration-500">
               <div className="p-6 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 no-print shadow-sm">
                   <div className="flex items-center gap-3">
@@ -102,8 +101,8 @@ const TeacherFileContent = () => {
                   ))}
               </div>
           </div>
-      ) : activeYear && activeTerm && selectedClassId ? (
-          <TeacherFileView year={activeYear} term={activeTerm} classId={selectedClassId} />
+      ) : activeYear && activeTerm && resolvedSelectedClassId ? (
+          <TeacherFileView year={activeYear} term={activeTerm} classId={resolvedSelectedClassId} />
       ) : (
           <div className="py-24 flex flex-col items-center justify-center text-center border-2 border-dashed rounded-xl bg-muted/10 text-muted-foreground">
               <LayoutDashboard className="h-12 w-12 mb-4 opacity-20" />
@@ -117,21 +116,6 @@ const TeacherFileContent = () => {
   );
 }
 
-const TeacherFile = () => {
-  const { user, authReady } = useAuthGuard();
-
-  if (!authReady || !user) {
-    return (
-      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return <TeacherFileContent />;
-}
+const TeacherFile = () => <TeacherFileContent />;
 
 export default TeacherFile;

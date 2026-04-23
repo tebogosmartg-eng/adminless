@@ -24,13 +24,35 @@ import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useState } from "react";
 
 const Header = () => {
   const navigate = useNavigate();
-  const { teacherName } = useSettings();
-  const { years, activeYear, setActiveYear, terms, activeTerm, setActiveTerm } = useAcademic();
+  const { teacherName, isLoadingProfile } = useSettings();
+  const { years, activeYear, setActiveYear, terms, activeTerm, setActiveTerm, loading: isAcademicLoading } = useAcademic();
   const { currentPeriod } = useCurrentPeriod();
   const { isReadyForFinalization } = useSetupStatus();
+  const [showAcademicSkeleton, setShowAcademicSkeleton] = useState(true);
+  const [showProfileSkeleton, setShowProfileSkeleton] = useState(true);
+
+  useEffect(() => {
+    if (!isAcademicLoading) {
+      const t = setTimeout(() => setShowAcademicSkeleton(false), 250);
+      return () => clearTimeout(t);
+    } else {
+      setShowAcademicSkeleton(true);
+    }
+  }, [isAcademicLoading]);
+
+  useEffect(() => {
+    if (!isLoadingProfile) {
+      const t = setTimeout(() => setShowProfileSkeleton(false), 250);
+      return () => clearTimeout(t);
+    } else {
+      setShowProfileSkeleton(true);
+    }
+  }, [isLoadingProfile]);
 
   const initials = teacherName
     ? teacherName.split(' ').map((n) => n[0]).join('').toUpperCase().substring(0, 2)
@@ -105,8 +127,17 @@ const Header = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-10 md:h-9 px-1.5 sm:px-2 md:px-3 gap-1 md:gap-2 font-normal text-muted-foreground hover:bg-muted relative flex-shrink-0 min-w-0">
                   <CalendarDays className="h-4 w-4 md:h-3.5 md:w-3.5 flex-shrink-0" />
-                  <span className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-foreground hidden sm:inline-block truncate max-w-[60px] md:max-w-[100px]">{activeYear?.name || "Year"}</span>
-                  <span className="text-[10px] md:text-xs font-medium text-foreground/70 truncate max-w-[60px] md:max-w-[80px]">{activeTerm?.name || "Term"}</span>
+                  {showAcademicSkeleton ? (
+                    <span className="hidden sm:inline-flex items-center gap-1.5">
+                      <Skeleton className="h-3 w-14" />
+                      <Skeleton className="h-3 w-10" />
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-foreground hidden sm:inline-block truncate max-w-[60px] md:max-w-[100px]">{activeYear?.name || "Year"}</span>
+                      <span className="text-[10px] md:text-xs font-medium text-foreground/70 truncate max-w-[60px] md:max-w-[80px]">{activeTerm?.name || "Term"}</span>
+                    </>
+                  )}
                   <ChevronDown className="h-3 w-3 opacity-60 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
@@ -184,34 +215,41 @@ const Header = () => {
         <HelpDialog />
         <div className="hidden sm:block"><ThemeToggle /></div>
         
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 md:gap-3 pl-1 sm:pl-2 border-l border-border ml-1 hover:bg-muted transition-colors p-1 rounded-md outline-none max-w-[150px]">
-                    <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-foreground/90 truncate">
-                        {teacherName || "Teacher"}
-                    </span>
-                    <Avatar className="h-8 w-8 ring-2 ring-border flex-shrink-0">
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">{initials}</AvatarFallback>
-                    </Avatar>
-                </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/settings')}>
-                    <Settings className="mr-2 h-4 w-4" /> Settings
-                </DropdownMenuItem>
-                <div className="sm:hidden">
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Theme</DropdownMenuLabel>
-                    <div className="px-2 py-1"><ThemeToggle /></div>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" /> Sign Out
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+        {showProfileSkeleton ? (
+          <div className="flex items-center gap-2 md:gap-3 pl-1 sm:pl-2 border-l border-border ml-1 p-1 rounded-md max-w-[150px]">
+            <Skeleton className="hidden md:block h-3 w-14" />
+            <Skeleton className="h-8 w-8 rounded-full" />
+          </div>
+        ) : (
+          <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 md:gap-3 pl-1 sm:pl-2 border-l border-border ml-1 hover:bg-muted transition-colors p-1 rounded-md outline-none max-w-[150px]">
+                      <span className="text-[11px] font-bold uppercase tracking-widest hidden md:block text-foreground/90 truncate">
+                          {teacherName || "Teacher"}
+                      </span>
+                      <Avatar className="h-8 w-8 ring-2 ring-border flex-shrink-0">
+                          <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">{initials}</AvatarFallback>
+                      </Avatar>
+                  </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/settings')}>
+                      <Settings className="mr-2 h-4 w-4" /> Settings
+                  </DropdownMenuItem>
+                  <div className="sm:hidden">
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel>Theme</DropdownMenuLabel>
+                      <div className="px-2 py-1"><ThemeToggle /></div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
+                      <LogOut className="mr-2 h-4 w-4" /> Sign Out
+                  </DropdownMenuItem>
+              </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </header>
   );

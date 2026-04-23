@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAcademic } from '@/context/AcademicContext';
 import { useSettings } from '@/context/SettingsContext';
 import { Learner, ClassInfo, Assessment, Rubric, AssessmentMark } from '@/lib/types';
@@ -20,11 +20,25 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     updateAssessment,
     deleteAssessment, 
     refreshAssessments,
-    updateMarks
+    updateMarks,
+    getPreloadedMarkSheetData
   } = useAcademic();
 
   const { atRiskThreshold } = useSettings();
   const [availableRubrics, setAvailableRubrics] = useState<Rubric[]>([]);
+  const preloadedMarkSheetData = useMemo(() => {
+    if (!activeTerm?.id) return null;
+    return getPreloadedMarkSheetData(classInfo.id, activeTerm.id);
+  }, [getPreloadedMarkSheetData, classInfo.id, activeTerm?.id]);
+
+  const contextAssessments = useMemo(
+    () => assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm?.id),
+    [assessments, classInfo.id, activeTerm?.id]
+  );
+
+  const shouldUsePreloadedData = contextAssessments.length === 0 && !!preloadedMarkSheetData;
+  const resolvedAssessments = shouldUsePreloadedData ? preloadedMarkSheetData.assessments : contextAssessments;
+  const resolvedMarks = shouldUsePreloadedData ? preloadedMarkSheetData.marks : marks;
 
 useEffect(() => {
   let isMounted = true;
@@ -76,6 +90,9 @@ useEffect(() => {
   const [visibleAssessmentIds, setVisibleAssessmentIds] = useState<string[]>([]);
   const [recalculateTotal, setRecalculateTotal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
+  const markSaveSequenceRef = useRef<Record<string, number>>({});
+  const markSaveInFlightRef = useRef<Record<string, string>>({});
+  const pendingMarkSaveCountRef = useRef(0);
 
   // STABILISATION: Sync assessments only when essential dependencies change
   useEffect(() => {
@@ -89,22 +106,32 @@ useEffect(() => {
   }, [activeTerm?.id, classInfo.id, refreshAssessments]);
 
   useEffect(() => {
-    if (assessments.length > 0 && visibleAssessmentIds.length === 0) {
-        setVisibleAssessmentIds(assessments.map(a => a.id));
+    if (resolvedAssessments.length > 0 && visibleAssessmentIds.length === 0) {
+        setVisibleAssessmentIds(resolvedAssessments.map(a => a.id));
     }
-  }, [assessments]);
+  }, [resolvedAssessments, visibleAssessmentIds.length]);
 
   const handleTermChange = useCallback((termId: string) => {
     const term = terms.find(t => t.id === termId);
     if (term) setActiveTerm(term);
   }, [terms, setActiveTerm]);
 
-  const persistMark = useCallback(async (assessmentId: string, learnerId: string, value: string) => {
+  const persistMark = useCallback(async (
+    assessmentId: string,
+    learnerId: string,
+    value: string,
+    previousValue: string
+  ) => {
+    const key = `${assessmentId}::${learnerId}`;
+    if (markSaveInFlightRef.current[key] === value) return;
+    const nextSeq = (markSaveSequenceRef.current[key] || 0) + 1;
+    markSaveSequenceRef.current[key] = nextSeq;
+    markSaveInFlightRef.current[key] = value;
+    pendingMarkSaveCountRef.current += 1;
     setIsAutoSaving(true);
-    const key = `${assessmentId}-${learnerId}`;
     try {
         const score = value === "" ? null : parseFloat(value);
-        const existingMark = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+        const existingMark = resolvedMarks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
         
         await updateMarks([{ 
             assessment_id: assessmentId, 
@@ -114,6 +141,7 @@ useEffect(() => {
         }]);
         
         setEditedMarks(prev => {
+            if (markSaveSequenceRef.current[key] !== nextSeq) return prev;
             if (prev[key] === value) {
                 const next = { ...prev };
                 delete next[key];
@@ -123,21 +151,33 @@ useEffect(() => {
         });
     } catch (e) {
         console.error("Persistence failed:", e);
-        showError("Failed to save mark.");
+        if (markSaveSequenceRef.current[key] === nextSeq) {
+            setEditedMarks(prev => {
+                if (prev[key] !== value) return prev;
+                return { ...prev, [key]: previousValue };
+            });
+            showError("Failed to save mark.");
+        }
     } finally {
-        setIsAutoSaving(false);
+        if (markSaveSequenceRef.current[key] === nextSeq) {
+            delete markSaveInFlightRef.current[key];
+        }
+        pendingMarkSaveCountRef.current = Math.max(0, pendingMarkSaveCountRef.current - 1);
+        if (pendingMarkSaveCountRef.current === 0) {
+            setIsAutoSaving(false);
+        }
     }
-  }, [updateMarks, editedComments, marks]);
+  }, [updateMarks, editedComments, resolvedMarks]);
 
   const validateAndCommitMark = useCallback(async (assessmentId: string, learnerId: string, input: string) => {
-    const assessment = assessments.find(a => a.id === assessmentId);
+    const assessment = resolvedAssessments.find(a => a.id === assessmentId);
     if (!assessment) return false;
 
     const result = validateMarkEntry(input, assessment.max_mark);
 
     if (!result.isValid) {
         showError(result.error || "Invalid mark");
-        setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: "" }));
+        setEditedMarks(prev => ({ ...prev, [`${assessmentId}::${learnerId}`]: "" }));
         return false;
     }
 
@@ -145,26 +185,40 @@ useEffect(() => {
         showSuccess(`Calculated: ${input} = ${result.value}`);
     }
 
-    setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: result.value }));
-    persistMark(assessmentId, learnerId, result.value);
+    const key = `${assessmentId}::${learnerId}`;
+    const persistedScore = resolvedMarks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId)?.score;
+    const persistedValue = persistedScore === null || persistedScore === undefined ? "" : persistedScore.toString();
+
+    if (persistedValue === result.value) {
+        setEditedMarks(prev => {
+            if (!(key in prev)) return prev;
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+        return true;
+    }
+
+    setEditedMarks(prev => ({ ...prev, [key]: result.value }));
+    persistMark(assessmentId, learnerId, result.value, persistedValue);
     return true;
-  }, [assessments, persistMark]);
+  }, [resolvedAssessments, persistMark, resolvedMarks]);
 
   const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
     if (activeYear?.closed || activeTerm?.closed) return;
-    setEditedMarks(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
+    setEditedMarks(prev => ({ ...prev, [`${assessmentId}::${learnerId}`]: value }));
   }, [activeYear?.closed, activeTerm?.closed]);
 
-  const visibleAssessments = useMemo(() => assessments.filter(a => visibleAssessmentIds.includes(a.id)), [assessments, visibleAssessmentIds]);
+  const visibleAssessments = useMemo(() => resolvedAssessments.filter(a => visibleAssessmentIds.includes(a.id)), [resolvedAssessments, visibleAssessmentIds]);
 
   const calculateLearnerTotal = useCallback((learnerId: string) => {
-      const targetAssessments = recalculateTotal ? visibleAssessments : assessments;
+      const targetAssessments = recalculateTotal ? visibleAssessments : resolvedAssessments;
       
       const combinedMarksMap = new Map();
-      marks.filter(m => m.learner_id === learnerId).forEach(m => combinedMarksMap.set(m.assessment_id, m.score));
+      resolvedMarks.filter(m => m.learner_id === learnerId).forEach(m => combinedMarksMap.set(m.assessment_id, m.score));
       
       Object.entries(editedMarks).forEach(([key, val]) => {
-          const [assId, lId] = key.split('-');
+          const [assId, lId] = key.split('::');
           if (lId === learnerId) {
               combinedMarksMap.set(assId, val === "" ? null : parseFloat(val));
           }
@@ -179,7 +233,7 @@ useEffect(() => {
       
       const result = calculateWeightedAverage(targetAssessments, processedMarks, learnerId);
       return formatDisplayMark(result);
-  }, [recalculateTotal, visibleAssessments, assessments, editedMarks, marks]);
+  }, [recalculateTotal, visibleAssessments, resolvedAssessments, editedMarks, resolvedMarks]);
 
   const sortedAndFilteredLearners = useMemo(() => {
     const filtered = classInfo.learners.filter(l => l.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -190,11 +244,11 @@ useEffect(() => {
   }, [classInfo.learners, searchQuery, sortConfig]);
 
   const handleCommentChange = useCallback(async (assessmentId: string, learnerId: string, value: string) => {
-    setEditedComments(prev => ({ ...prev, [`${assessmentId}-${learnerId}`]: value }));
+    setEditedComments(prev => ({ ...prev, [`${assessmentId}::${learnerId}`]: value }));
     
     setIsAutoSaving(true);
     try {
-        const mark = marks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
+        const mark = resolvedMarks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
         await updateMarks([{ 
             assessment_id: assessmentId, 
             learner_id: learnerId, 
@@ -204,13 +258,13 @@ useEffect(() => {
         
         setEditedComments(prev => {
             const next = { ...prev };
-            delete next[`${assessmentId}-${learnerId}`];
+            delete next[`${assessmentId}::${learnerId}`];
             return next;
         });
     } finally {
         setIsAutoSaving(false);
     }
-  }, [updateMarks, marks]);
+  }, [updateMarks, resolvedMarks]);
 
   const handleAddAssessment = useCallback(async () => {
       const targetTermId = newAss.termId || activeTerm?.id;
@@ -252,8 +306,8 @@ useEffect(() => {
       setViewTermId: handleTermChange, 
       setIsAddOpen, setIsEditOpen, setIsImportOpen, setIsCopyOpen, setAnalyticsOpen,
       setNewAss, setEditingAssessment, setSearchQuery, setSelectedAssessment, setRecalculateTotal,
-      getMarkValue: (a: string, l: string) => editedMarks[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.score?.toString() ?? "",
-      getMarkComment: (a: string, l: string) => editedComments[`${a}-${l}`] ?? marks.find(m => m.assessment_id === a && m.learner_id === l)?.comment ?? "",
+      getMarkValue: (a: string, l: string) => editedMarks[`${a}::${l}`] ?? resolvedMarks.find(m => m.assessment_id === a && m.learner_id === l)?.score?.toString() ?? "",
+      getMarkComment: (a: string, l: string) => editedComments[`${a}::${l}`] ?? resolvedMarks.find(m => m.assessment_id === a && m.learner_id === l)?.comment ?? "",
       handleMarkChange, 
       handleCommentChange,
       handleAddAssessment,
@@ -263,8 +317,8 @@ useEffect(() => {
       },
       calculateLearnerTotal,
       getAssessmentStats: (id: string) => {
-          const assMarks = marks.filter(m => m.assessment_id === id && m.score !== null);
-          const ass = assessments.find(a => a.id === id);
+          const assMarks = resolvedMarks.filter(m => m.assessment_id === id && m.score !== null);
+          const ass = resolvedAssessments.find(a => a.id === id);
           if (!assMarks.length || !ass) return { avg: '0', max: 0, min: 0 };
           const pcts = assMarks.map(m => (m.score! / ass.max_mark) * 100);
           return { avg: (pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1), max: Math.max(...pcts).toFixed(0), min: Math.min(...pcts).toFixed(0) };
@@ -274,7 +328,7 @@ useEffect(() => {
       deleteAssessment, 
       refreshAssessments, 
       handleSort: (key: string) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
-      openTool: (type: 'rapid' | 'voice', id: string) => setActiveTool({ type, assessmentId: id, termId: assessments.find(a => a.id === id)?.term_id || null }),
+      openTool: (type: 'rapid' | 'voice', id: string) => setActiveTool({ type, assessmentId: id, termId: resolvedAssessments.find(a => a.id === id)?.term_id || null }),
       closeTool: () => setActiveTool({ type: null, assessmentId: null, termId: null }),
       handleToolUpdate: (idx: number, val: string) => { 
           if(activeTool.assessmentId && sortedAndFilteredLearners[idx]?.id) {
@@ -292,13 +346,13 @@ useEffect(() => {
           if (updates.length > 0) await updateMarks(updates);
       },
       handleApplyModeration: async (assessmentId: string, adjustment: number) => {
-          const ass = assessments.find(a => a.id === assessmentId);
+          const ass = resolvedAssessments.find(a => a.id === assessmentId);
           if (!ass) return;
 
           const updates = classInfo.learners
             .filter(l => l.id)
             .map(l => {
-                const current = marks.find(m => m.assessment_id === assessmentId && m.learner_id === l.id);
+                const current = resolvedMarks.find(m => m.assessment_id === assessmentId && m.learner_id === l.id);
                 if (!current || current.score === null) return null;
                 
                 // Add % adjustment to the current score
@@ -323,7 +377,7 @@ useEffect(() => {
           updateMarks(updates.map(u => ({ assessment_id: assessmentId, learner_id: u.learnerId, score: u.score })));
       },
       openRubricForLearner: (assessmentId: string, learner: Learner) => {
-          const assessment = assessments.find(a => a.id === assessmentId);
+          const assessment = resolvedAssessments.find(a => a.id === assessmentId);
           const rubric = availableRubrics.find(r => r.id === assessment?.rubric_id);
           if (rubric) setRubricMarking({ open: true, rubric, learner, assessmentId });
       },
@@ -343,7 +397,7 @@ useEffect(() => {
       updateMarks 
   }), [
     handleTermChange, handleMarkChange, handleCommentChange, handleAddAssessment, 
-    updateAssessment, calculateLearnerTotal, marks, assessments, deleteAssessment, 
+    updateAssessment, calculateLearnerTotal, resolvedMarks, resolvedAssessments, deleteAssessment, 
     refreshAssessments, activeTool, sortedAndFilteredLearners, validateAndCommitMark, 
     classInfo.learners, updateMarks, availableRubrics, rubricMarking
   ]);
@@ -356,16 +410,16 @@ useEffect(() => {
       visibleAssessmentIds, recalculateTotal, currentViewTerm: activeTerm, visibleAssessments,
       isLocked: activeYear?.closed || activeTerm?.closed, 
       filteredLearners: sortedAndFilteredLearners,
-      assessments, marks, terms, activeTerm, activeYear,
+      assessments: resolvedAssessments, marks: resolvedMarks, terms, activeTerm, activeYear,
       atRiskThreshold, sortConfig, activeTool, 
-      currentTotalWeight: assessments.reduce((acc, a) => acc + (a.weight || 0), 0),
-      isWeightValid: assessments.reduce((acc, a) => acc + (a.weight || 0), 0) === 100, 
+      currentTotalWeight: resolvedAssessments.reduce((acc, a) => acc + (a.weight || 0), 0),
+      isWeightValid: resolvedAssessments.reduce((acc, a) => acc + (a.weight || 0), 0) === 100, 
       isUsingVisibleTotal: recalculateTotal,
       isAutoSaving, availableRubrics, rubricMarking,
-      activeAssessmentMax: assessments.find(a => a.id === activeTool.assessmentId)?.max_mark,
+      activeAssessmentMax: resolvedAssessments.find(a => a.id === activeTool.assessmentId)?.max_mark,
       learnersForTools: sortedAndFilteredLearners.map(l => ({
           ...l,
-          mark: l.id ? editedMarks[`${activeTool.assessmentId}-${l.id}`] || (marks.find(m => m.assessment_id === activeTool.assessmentId && m.learner_id === l.id)?.score?.toString() || "") : ""
+          mark: l.id ? editedMarks[`${activeTool.assessmentId}::${l.id}`] || (resolvedMarks.find(m => m.assessment_id === activeTool.assessmentId && m.learner_id === l.id)?.score?.toString() || "") : ""
       }))
     },
     actions

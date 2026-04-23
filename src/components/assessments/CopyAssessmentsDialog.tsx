@@ -44,7 +44,6 @@ export const CopyAssessmentsDialog = ({
   const handleClassSelect = async (classId: string) => {
     setSelectedSourceClassId(classId);
     setLoadingAssessments(true);
-    setSourceAssessments([]);
     setSelectedAssessmentIds([]);
 
     try {

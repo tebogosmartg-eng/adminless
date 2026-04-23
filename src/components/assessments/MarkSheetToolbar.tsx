@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuChe
 import { Calendar, Eye, AlertCircle, Search, Settings2, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, ShieldCheck, XCircle, Trash2, ListChecks, Library } from 'lucide-react';
 import { Assessment, Term, AcademicYear, Rubric, ClassInfo, AssessmentQuestion } from '@/lib/types';
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BulkQuestionImportDialog } from "./BulkQuestionImportDialog";
 import { ReuseQuestionsDialog } from "./ReuseQuestionsDialog";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
@@ -61,9 +61,40 @@ export const MarkSheetToolbar = ({
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isReuseOpen, setIsReuseOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const wasAutoSavingRef = useRef(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { progress, missingRequired } = useSetupStatus();
   
   const topicSuggestions = useTopicSuggestions(classInfo?.subject, classInfo?.grade);
+
+  useEffect(() => {
+    const isSaving = Boolean(isAutoSaving);
+    const wasSaving = wasAutoSavingRef.current;
+
+    if (isSaving) {
+      setShowSaved(false);
+      if (savedTimerRef.current) {
+        clearTimeout(savedTimerRef.current);
+        savedTimerRef.current = null;
+      }
+    } else if (wasSaving) {
+      setShowSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => {
+        setShowSaved(false);
+        savedTimerRef.current = null;
+      }, 1800);
+    }
+
+    wasAutoSavingRef.current = isSaving;
+  }, [isAutoSaving]);
+
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
 
   const handleRubricSelect = (val: string) => {
       const rubric = availableRubrics.find(r => r.id === val);
@@ -156,6 +187,20 @@ export const MarkSheetToolbar = ({
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="w-[100px] h-9 flex items-center justify-center text-xs">
+            {isAutoSaving ? (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Saving...</span>
+              </div>
+            ) : showSaved ? (
+              <div className="flex items-center gap-1.5 text-green-700">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Saved ✓</span>
+              </div>
+            ) : null}
+          </div>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-10 md:h-9 flex-1 sm:flex-none">

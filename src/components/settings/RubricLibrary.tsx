@@ -21,12 +21,26 @@ import {
 import { RubricBuilder } from "@/components/assessments/RubricBuilder";
 import { showSuccess, showError } from "@/utils/toast";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const RubricLibrary = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [search, setSearch] = useState("");
   const [rubrics, setRubrics] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [rubricToDelete, setRubricToDelete] = useState<{ id: string; title: string } | null>(null);
 
   // 🔥 FETCH FROM SUPABASE
   useEffect(() => {
@@ -40,6 +54,7 @@ export const RubricLibrary = () => {
       if (error) {
         console.error(error);
         showError("Failed to load rubrics");
+        setErrorMessage("Failed to load rubrics. Please refresh and try again.");
       } else {
         setRubrics(data || []);
       }
@@ -59,8 +74,6 @@ export const RubricLibrary = () => {
 
   // 🔥 DELETE
   const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Delete "${title}"?`)) return;
-
     const { error } = await supabase
       .from("rubrics")
       .delete()
@@ -68,21 +81,24 @@ export const RubricLibrary = () => {
 
     if (error) {
       showError("Delete failed");
+      setErrorMessage("Delete failed. Please try again.");
       return;
     }
 
     setRubrics(prev => prev.filter(r => r.id !== id));
     showSuccess("Rubric removed");
+    setStatusMessage(`Saved ✓ "${title}" removed.`);
+    setRubricToDelete(null);
   };
 
   if (isCreating) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setIsCreating(false)}
-          className="gap-2"
+          className="gap-2 w-full sm:w-auto"
         >
           <ChevronLeft className="h-4 w-4" /> Back to Library
         </Button>
@@ -93,15 +109,15 @@ export const RubricLibrary = () => {
   }
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2">
             <Layers className="h-5 w-5 text-primary" />
             <CardTitle>Rubric Library</CardTitle>
           </div>
 
-          <Button onClick={() => setIsCreating(true)} size="sm">
+          <Button onClick={() => setIsCreating(true)} size="sm" className="w-full sm:w-auto h-10 sm:h-9">
             <Plus className="h-4 w-4 mr-1" /> New Rubric
           </Button>
         </div>
@@ -111,18 +127,33 @@ export const RubricLibrary = () => {
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 min-w-0">
+        {statusMessage && (
+          <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{statusMessage}</AlertDescription>
+          </Alert>
+        )}
+        {errorMessage && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        )}
 
         {/* Search */}
-        <div className="relative">
+        <section className="space-y-2">
+          <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Search</p>
+          <div className="relative">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search rubrics..."
-            className="pl-9"
+            className="pl-9 h-10 w-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
+          </div>
+        </section>
 
         {/* Loading */}
         {loading ? (
@@ -146,7 +177,7 @@ export const RubricLibrary = () => {
             No results for "{search}"
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {filteredRubrics.map((rubric) => (
               <div
                 key={rubric.id}
@@ -172,8 +203,8 @@ export const RubricLibrary = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="opacity-0 group-hover:opacity-100"
-                    onClick={() => handleDelete(rubric.id, rubric.title)}
+                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                    onClick={() => setRubricToDelete({ id: rubric.id, title: rubric.title })}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -188,6 +219,24 @@ export const RubricLibrary = () => {
           </div>
         )}
       </CardContent>
+      <AlertDialog open={rubricToDelete !== null} onOpenChange={(open) => !open && setRubricToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete rubric?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes "{rubricToDelete?.title}" from your library. Past marks remain unchanged.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => rubricToDelete && handleDelete(rubricToDelete.id, rubricToDelete.title)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

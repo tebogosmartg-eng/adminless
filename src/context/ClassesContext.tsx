@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { ClassInfo, Learner } from '@/lib/types';
 import { useActivity } from './ActivityContext';
 import { Session } from '@supabase/supabase-js';
@@ -10,6 +10,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 interface ClassesContextType {
   classes: ClassInfo[];
   loading: boolean;
+  isRefreshing: boolean;
+  hasLoadedOnce: boolean;
+  preloadClasses: () => Promise<void>;
   addClass: (classInfo: ClassInfo) => Promise<void>;
   updateLearners: (classId: string, updatedLearners: Learner[]) => Promise<void>;
   updateClassDetails: (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => Promise<void>;
@@ -27,49 +30,90 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const { logActivity } = useActivity();
   const { activeYear, activeTerm, diagnosticMode } = useAcademic();
   const queryClient = useQueryClient();
+  const refreshingRef = useRef(false);
+  const preloadRequestIdRef = useRef(0);
+  const preloadInFlightRef = useRef<Promise<void> | null>(null);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
 
   const isReady = !!activeYear?.id && !!activeTerm?.id;
 
-  const { data: classes = [], isLoading: loading } = useQuery({
-    queryKey: ['classes', session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode],
-    queryFn: async () => {
-      if (!session?.user.id) return [];
-      if (!diagnosticMode && !isReady) return []; 
+  const fetchClasses = useCallback(async () => {
+    if (!session?.user.id) return [];
+    if (!diagnosticMode && !isReady) return [];
 
-      try {
-          const { data: classesData, error: classesError } = await supabase.from('classes').select('*').eq('user_id', session.user.id);
-          if (classesError) throw classesError;
-          
-          if (!classesData || classesData.length === 0) return [];
+    try {
+        const { data: classesData, error: classesError } = await supabase.from('classes').select('*').eq('user_id', session.user.id);
+        if (classesError) throw classesError;
+        
+        if (!classesData || classesData.length === 0) return [];
 
-          const classIds = classesData.map(c => c.id);
-          const { data: learnersData, error: learnersError } = await supabase.from('learners').select('*').in('class_id', classIds);
-          if (learnersError) throw learnersError;
+        const classIds = classesData.map(c => c.id);
+        const { data: learnersData, error: learnersError } = await supabase.from('learners').select('*').in('class_id', classIds);
+        if (learnersError) throw learnersError;
 
-          let mappedClasses = classesData.map(c => ({
-              id: c.id,
-              year_id: c.year_id || activeYear?.id,
-              term_id: c.term_id || activeTerm?.id,
-              grade: c.grade,
-              subject: c.subject,
-              className: c.class_name || c.className || "Untitled Class",
-              archived: !!c.archived,
-              notes: c.notes || '',
-              is_finalised: !!c.is_finalised,
-              learners: (learnersData || []).filter(l => l.class_id === c.id)
-          })) as ClassInfo[];
+        let mappedClasses = classesData.map(c => ({
+            id: c.id,
+            year_id: c.year_id || activeYear?.id,
+            term_id: c.term_id || activeTerm?.id,
+            grade: c.grade,
+            subject: c.subject,
+            className: c.class_name || c.className || "Untitled Class",
+            archived: !!c.archived,
+            notes: c.notes || '',
+            is_finalised: !!c.is_finalised,
+            learners: (learnersData || []).filter(l => l.class_id === c.id)
+        })) as ClassInfo[];
 
-          if (!diagnosticMode && activeYear && activeTerm) {
-              mappedClasses = mappedClasses.filter(c => c.year_id === activeYear.id && c.term_id === activeTerm.id);
-          }
-          return mappedClasses;
-      } catch (error) {
-          console.error("AdminLess error: Failed to fetch classes", error);
-          return [];
-      }
-    },
+        if (!diagnosticMode && activeYear && activeTerm) {
+            mappedClasses = mappedClasses.filter(c => c.year_id === activeYear.id && c.term_id === activeTerm.id);
+        }
+        return mappedClasses;
+    } catch (error) {
+        console.error("AdminLess error: Failed to fetch classes", error);
+        return [];
+    }
+  }, [session?.user.id, diagnosticMode, isReady, activeYear, activeTerm]);
+
+  const classesQueryKey = useMemo(
+    () => ['classes', session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode] as const,
+    [session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode]
+  );
+
+  const { data: classes = [], isLoading, isFetching, isFetched } = useQuery({
+    queryKey: classesQueryKey,
+    queryFn: fetchClasses,
     enabled: !!session?.user.id && (diagnosticMode || isReady)
   });
+
+  const preloadClasses = useCallback(async () => {
+    if (!session?.user?.id || (!diagnosticMode && !isReady)) return;
+    if (refreshingRef.current && preloadInFlightRef.current) {
+      await preloadInFlightRef.current;
+      return;
+    }
+
+    const existing = queryClient.getQueryData(classesQueryKey);
+    const silent = !!existing;
+    const requestId = preloadRequestIdRef.current + 1;
+    preloadRequestIdRef.current = requestId;
+    refreshingRef.current = true;
+    if (silent) setManualRefreshing(true);
+
+    const run = queryClient.prefetchQuery({ queryKey: classesQueryKey, queryFn: fetchClasses });
+    preloadInFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      if (preloadRequestIdRef.current === requestId) {
+        refreshingRef.current = false;
+        setManualRefreshing(false);
+      }
+      preloadInFlightRef.current = null;
+    }
+  }, [session?.user?.id, diagnosticMode, isReady, queryClient, classesQueryKey, fetchClasses]);
+
+  const loading = isLoading && !isFetched;
+  const isRefreshing = ((isFetching && isFetched) || manualRefreshing) && !loading;
 
   const addClass = async (newClass: ClassInfo) => {
     if (!session?.user.id || !activeYear || !activeTerm) {
@@ -247,6 +291,9 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     <ClassesContext.Provider value={{ 
       classes, 
       loading,
+      isRefreshing,
+      hasLoadedOnce: isFetched,
+      preloadClasses,
       addClass, 
       updateLearners, 
       updateClassDetails, 

@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowUpDown, Plus } from 'lucide-react';
+import { ArrowUpDown, Loader2, Plus } from 'lucide-react';
 import { Learner, GradeSymbol } from '@/lib/types';
 import { useSettings } from '@/context/SettingsContext';
 import { showSuccess } from '@/utils/toast';
@@ -10,6 +10,8 @@ import { useLearnerTable } from '@/hooks/useLearnerTable';
 import { LearnerListToolbar } from './LearnerListToolbar';
 import { LearnerListRow } from './LearnerListRow';
 import { parseMarkInput } from '@/utils/marks';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useEffect, useState } from 'react';
 
 interface LearnerListProps {
   learners: Learner[];
@@ -26,6 +28,7 @@ interface LearnerListProps {
   onBatchDelete?: (indices: number[]) => void;
   onBatchComment?: (indices: number[], comment: string) => void;
   onBatchClearMarks?: (indices: number[]) => void;
+  isLoading?: boolean;
 }
 
 export const LearnerList = ({
@@ -42,9 +45,17 @@ export const LearnerList = ({
   onAddLearnerClick,
   onBatchDelete,
   onBatchComment,
-  onBatchClearMarks
+  onBatchClearMarks,
+  isLoading = false
 }: LearnerListProps) => {
   const { atRiskThreshold } = useSettings();
+  const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(!isLoading);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setHasResolvedInitialLoad(true);
+    }
+  }, [isLoading]);
   
   const {
     searchQuery, setSearchQuery,
@@ -124,8 +135,66 @@ export const LearnerList = ({
 
   const allSelected = sortedAndFilteredLearners.length > 0 && selectedIndices.length === sortedAndFilteredLearners.length;
 
+  const showInitialSkeleton = isLoading && !hasResolvedInitialLoad;
+  const showRefreshOverlay = isLoading && hasResolvedInitialLoad;
+
+  if (showInitialSkeleton) {
+    return (
+      <Card className="transition-all duration-300 w-full overflow-hidden">
+        <div className="p-6 border-b space-y-3">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-72" />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Skeleton className="h-10 w-full sm:w-36" />
+            <Skeleton className="h-10 w-full sm:w-52" />
+          </div>
+        </div>
+        <CardContent className="p-0 sm:p-6">
+          <div className="overflow-x-auto w-full no-scrollbar max-w-[calc(100vw-2.5rem)] md:max-w-full">
+            <Table className="min-w-[600px] w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[40px] px-2 sm:px-4"><Skeleton className="h-4 w-4" /></TableHead>
+                  <TableHead className="w-[50px] px-2"><Skeleton className="h-4 w-4" /></TableHead>
+                  <TableHead className="min-w-[150px]"><Skeleton className="h-4 w-32" /></TableHead>
+                  <TableHead className="w-[100px] sm:w-[120px]"><Skeleton className="h-4 w-16" /></TableHead>
+                  <TableHead className="w-[80px] sm:w-[100px]"><Skeleton className="h-4 w-14" /></TableHead>
+                  {showComments && <TableHead><Skeleton className="h-4 w-20" /></TableHead>}
+                  <TableHead className="w-[40px] sm:w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 6 }).map((_, idx) => (
+                  <TableRow key={`learner-list-skeleton-${idx}`}>
+                    <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-5" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-20 rounded-md" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                    {showComments && <TableCell><Skeleton className="h-8 w-full rounded-md" /></TableCell>}
+                    <TableCell><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="transition-all duration-300 w-full overflow-hidden">
+    <Card className="relative transition-all duration-300 w-full overflow-hidden">
+      {showRefreshOverlay && (
+        <div className="pointer-events-none absolute inset-0 z-40 bg-background/45 backdrop-blur-[1px]">
+          <div className="flex justify-end p-3">
+            <div className="inline-flex items-center gap-2 rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Updating learners...
+            </div>
+          </div>
+        </div>
+      )}
       <LearnerListToolbar 
         showComments={showComments}
         selectedCount={selectedIndices.length}

@@ -1,53 +1,100 @@
 "use client";
 
-import { useLiveQuery } from '@/lib/dexie-react-hooks';
-import { db } from '@/db';
-import { ReviewSnapshot } from '@/lib/types';
-import { supabase } from '@/integrations/supabase/client';
-import { queueAction } from '@/services/sync';
-import { showSuccess, showError } from '@/utils/toast';
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { ReviewSnapshot } from "@/lib/types";
+import { showSuccess, showError } from "@/utils/toast";
 
 export const useReviewSnapshots = (classId: string, termId: string) => {
-  const snapshots = useLiveQuery(
-    async () => {
-        if (!classId || !termId) return [];
-        return await db.review_snapshots
-            .where('[class_id+term_id]')
-            .equals([classId, termId])
-            .reverse()
-            .sortBy('created_at');
-    },
-    [classId, termId]
-  ) || [];
+  const [snapshots, setSnapshots] = useState<ReviewSnapshot[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const createSnapshot = async (name: string, entryIds: string[], rules: any) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  // 🔥 FETCH SNAPSHOTS
+  useEffect(() => {
+    const fetchSnapshots = async () => {
+      if (!classId || !termId) return;
 
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from("review_snapshots")
+        .select("*")
+        .eq("class_id", classId)
+        .eq("term_id", termId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        showError("Failed to load snapshots");
+      } else {
+        setSnapshots(data || []);
+      }
+
+      setLoading(false);
+    };
+
+    fetchSnapshots();
+  }, [classId, termId]);
+
+  // 🔥 CREATE SNAPSHOT
+  const createSnapshot = async (
+    name: string,
+    entryIds: string[],
+    rules: any
+  ) => {
     try {
-      const newSnapshot: ReviewSnapshot = {
-        id: crypto.randomUUID(),
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData?.session?.user;
+
+      if (!user) throw new Error("No session");
+
+      const newSnapshot = {
         user_id: user.id,
         class_id: classId,
         term_id: termId,
         name,
         rules,
         entry_ids: entryIds,
-        created_at: new Date().toISOString()
       };
 
-      await db.review_snapshots.add(newSnapshot);
-      await queueAction('review_snapshots', 'create', newSnapshot);
+      const { data, error } = await supabase
+        .from("review_snapshots")
+        .insert([newSnapshot])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSnapshots(prev => [data, ...prev]);
+
       showSuccess(`Snapshot "${name}" saved.`);
-    } catch (e) {
-      showError("Failed to save snapshot.");
+    } catch (e: any) {
+      console.error(e);
+      showError(e.message || "Failed to save snapshot.");
     }
   };
 
+  // 🔥 DELETE SNAPSHOT
   const deleteSnapshot = async (id: string) => {
-      await db.review_snapshots.delete(id);
-      await queueAction('review_snapshots', 'delete', { id });
+    try {
+      const { error } = await supabase
+        .from("review_snapshots")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setSnapshots(prev => prev.filter(s => s.id !== id));
+    } catch (e) {
+      console.error(e);
+      showError("Failed to delete snapshot");
+    }
   };
 
-  return { snapshots, createSnapshot, deleteSnapshot };
+  return {
+    snapshots,
+    loading,
+    createSnapshot,
+    deleteSnapshot,
+  };
 };

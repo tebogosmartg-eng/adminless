@@ -17,8 +17,6 @@ import {
   SelectTrigger, SelectValue
 } from "@/components/ui/select";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
-
 import { Layers } from "lucide-react";
 
 import {
@@ -150,110 +148,104 @@ export const EditAssessmentDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[95vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[90vh] flex flex-col p-0 overflow-hidden">
 
-          <div className="p-6 pb-2">
+          <div className="shrink-0 p-6 pb-4 border-b">
             <DialogHeader>
               <DialogTitle>Assessment Settings</DialogTitle>
               <DialogDescription>
                 Update the task structure and weighting.
               </DialogDescription>
             </DialogHeader>
-          </div>
 
-          <ScrollArea className="flex-1 p-6 pt-0">
-            <div className="grid gap-6 py-4">
+            {/* FORM */}
+            <div className="grid gap-4 pt-4">
 
-              {/* FORM */}
-              <div className="grid gap-4">
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right text-xs">Title</Label>
-                  <Input
-                    value={formData.title || ""}
-                    onChange={e =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    className="col-span-3 h-9"
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right text-xs">Rubric</Label>
-
-                  <Select
-                    value={formData.rubric_id || "none"}
-                    onValueChange={handleRubricSelect}
-                  >
-                    <SelectTrigger className="col-span-3 h-9">
-                      <SelectValue placeholder="None" />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      <SelectItem value="none">Standard Score</SelectItem>
-
-                      {availableRubrics.map(r => (
-                        <SelectItem key={r.id} value={r.id}>
-                          <div className="flex gap-2 items-center">
-                            <Layers className="h-3 w-3" />
-                            {r.title} ({r.total_points})
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right text-xs">Max Mark</Label>
-                  <Input
-                    type="number"
-                    value={formData.max_mark || ""}
-                    onChange={e =>
-                      setFormData({
-                        ...formData,
-                        max_mark: parseInt(e.target.value)
-                      })
-                    }
-                    className="col-span-3 h-9"
-                    disabled={
-                      !!formData.rubric_id ||
-                      (formData.questions?.length || 0) > 0
-                    }
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right text-xs">Weight (%)</Label>
-                  <Input
-                    type="number"
-                    value={formData.weight || ""}
-                    onChange={e =>
-                      setFormData({
-                        ...formData,
-                        weight: parseFloat(e.target.value)
-                      })
-                    }
-                    className="col-span-3 h-9"
-                  />
-                </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right text-xs">Title</Label>
+                <Input
+                  value={formData.title || ""}
+                  onChange={e =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  className="col-span-3 h-9"
+                />
               </div>
 
-              {/* QUESTIONS */}
-              <div className="border-t pt-4">
-                <QuestionBuilder
-                  questions={formData.questions || []}
-                  onChange={handleQuestionsChange}
-                  topicSuggestions={topicSuggestions}
-                  disabled={!!formData.rubric_id}
-                  onOpenBulk={() => setIsBulkImportOpen(true)}
-                  onOpenReuse={() => setIsReuseOpen(true)}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right text-xs">Rubric</Label>
+
+                <Select
+                  value={formData.rubric_id || "none"}
+                  onValueChange={handleRubricSelect}
+                >
+                  <SelectTrigger className="col-span-3 h-9">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="none">Standard Score</SelectItem>
+
+                    {availableRubrics.map(r => (
+                      <SelectItem key={r.id} value={r.id}>
+                        <div className="flex gap-2 items-center">
+                          <Layers className="h-3 w-3" />
+                          {r.title} ({r.total_points})
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right text-xs">Max Mark</Label>
+                <Input
+                  type="number"
+                  value={formData.max_mark || ""}
+                  onChange={e =>
+                    setFormData({
+                      ...formData,
+                      max_mark: parseInt(e.target.value)
+                    })
+                  }
+                  className="col-span-3 h-9"
+                  disabled={
+                    !!formData.rubric_id ||
+                    (formData.questions?.length || 0) > 0
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right text-xs">Weight (%)</Label>
+                <Input
+                  type="number"
+                  value={formData.weight || ""}
+                  onChange={e =>
+                    setFormData({
+                      ...formData,
+                      weight: parseFloat(e.target.value)
+                    })
+                  }
+                  className="col-span-3 h-9"
                 />
               </div>
             </div>
-          </ScrollArea>
+          </div>
 
-          <DialogFooter className="p-6 border-t">
+          <div className="flex-1 overflow-y-auto p-6 min-h-0">
+            <QuestionBuilder
+              questions={formData.questions || []}
+              onChange={handleQuestionsChange}
+              topicSuggestions={topicSuggestions}
+              disabled={!!formData.rubric_id}
+              onOpenBulk={() => setIsBulkImportOpen(true)}
+              onOpenReuse={() => setIsReuseOpen(true)}
+            />
+          </div>
+
+          <DialogFooter className="shrink-0 border-t pt-4 px-6 pb-6">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

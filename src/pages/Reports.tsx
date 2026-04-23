@@ -35,8 +35,8 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
     phone: contactPhone
   };
 
-  const { loading: termLoading, reportData: termData, generateTermReport, allAssessmentTitles, setReportData } = useTermReportData();
-  const { loading: yearLoading, yearData, generateYearReport, setYearData } = useYearReportData();
+  const { loading: termLoading, reportData: termData, generateTermReport, allAssessmentTitles } = useTermReportData();
+  const { loading: yearLoading, yearData, generateYearReport } = useYearReportData();
 
   const defaultClass = useMemo(() => classes.find(c => c.id === defaultClassId), [classes, defaultClassId]);
 
@@ -76,9 +76,7 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
 
   useEffect(() => {
       if (!defaultClassId) setSelectedClassId("all");
-      setReportData(null);
-      setYearData(null);
-  }, [selectedGrade, selectedSubject, selectedTermId, setReportData, setYearData, defaultClassId]);
+  }, [selectedGrade, selectedSubject, selectedTermId, defaultClassId]);
 
   const selectedTerm = useMemo(() => terms.find(t => t.id === selectedTermId), [terms, selectedTermId]);
 

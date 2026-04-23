@@ -1,14 +1,23 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Assessment, Learner, AssessmentMark } from '@/lib/types';
 import { Loader2, Save, AlertCircle, Grid3X3 } from 'lucide-react';
-import { showSuccess, showError } from '@/utils/toast';
+import { showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const formatMarkSaveError = (errorMessage?: string) => {
+  const message = (errorMessage || "").toLowerCase();
+  if (message.includes("exceeds max")) return "Mark exceeds allowed maximum";
+  if (message.includes("invalid input syntax")) return "Invalid mark entered";
+  return "Failed to save marks";
+};
 
 interface QuestionGridDialogProps {
   open: boolean;
@@ -16,7 +25,7 @@ interface QuestionGridDialogProps {
   assessment: Assessment;
   learners: Learner[];
   existingMarks: AssessmentMark[];
-  onSave: (updates: any[]) => Promise<void>;
+  onSave: (updates: any[]) => Promise<{ success: boolean; message?: string } | void>;
   isLocked?: boolean;
 }
 
@@ -32,6 +41,10 @@ export const QuestionGridDialog = ({
   // state structure: { learnerId: { questionId: "scoreString" } }
   const [gridData, setGridData] = useState<Record<string, Record<string, string>>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const gridDataRef = useRef<Record<string, Record<string, string>>>({});
+  const saveSequenceRef = useRef<Record<string, number>>({});
+  const inFlightValueRef = useRef<Record<string, string>>({});
+  const isMountedRef = useRef(true);
 
   // Initialize data when dialog opens
   useEffect(() => {
@@ -48,20 +61,128 @@ export const QuestionGridDialog = ({
         });
       });
       setGridData(initialData);
+      gridDataRef.current = initialData;
     }
   }, [open, assessment, learners, existingMarks]);
 
-  const handleCellChange = (learnerId: string, questionId: string, value: string) => {
+  useEffect(() => {
+    gridDataRef.current = gridData;
+  }, [gridData]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const buildLearnerUpdate = useCallback(
+    (learnerId: string, rowData: Record<string, string>) => {
+      const validQuestionIds = new Set((assessment.questions || []).map(q => q.id).filter(id => UUID_REGEX.test(id)));
+      let total = 0;
+      let hasAnyMark = false;
+      const qMarks: Record<string, number> = {};
+
+      assessment.questions?.forEach(q => {
+        if (!validQuestionIds.has(q.id)) return;
+        const valStr = rowData[q.id];
+        if (valStr !== undefined && valStr.trim() !== "") {
+          const valNum = parseFloat(valStr);
+          if (!isNaN(valNum) && valNum >= 0 && valNum <= q.max_mark) {
+            total += valNum;
+            qMarks[q.id] = valNum;
+            hasAnyMark = true;
+          }
+        }
+      });
+
+      return {
+        assessment_id: assessment.id,
+        learner_id: learnerId,
+        score: hasAnyMark ? parseFloat(total.toFixed(1)) : null,
+        question_marks: hasAnyMark ? qMarks : {}
+      };
+    },
+    [assessment]
+  );
+
+  const persistCellChange = useCallback(async (
+    learnerId: string,
+    questionId: string,
+    value: string,
+    previousValue: string,
+    rowData: Record<string, string>
+  ) => {
+    const key = `${learnerId}::${questionId}`;
+    if (inFlightValueRef.current[key] === value) return;
+
+    const seq = (saveSequenceRef.current[key] || 0) + 1;
+    saveSequenceRef.current[key] = seq;
+    inFlightValueRef.current[key] = value;
+
+    try {
+      const payload = buildLearnerUpdate(learnerId, rowData);
+      const result = await onSave([payload]);
+      if (saveSequenceRef.current[key] !== seq) return;
+      if (result?.success === false) {
+        throw new Error(result.message || "Failed to save marks");
+      }
+    } catch (e) {
+      if (saveSequenceRef.current[key] !== seq) return;
+      if (!isMountedRef.current) return;
+      setGridData(prev => ({
+        ...prev,
+        [learnerId]: {
+          ...prev[learnerId],
+          [questionId]: previousValue
+        }
+      }));
+      gridDataRef.current = {
+        ...gridDataRef.current,
+        [learnerId]: {
+          ...(gridDataRef.current[learnerId] || {}),
+          [questionId]: previousValue
+        }
+      };
+      showError(formatMarkSaveError(e instanceof Error ? e.message : undefined));
+    } finally {
+      if (saveSequenceRef.current[key] === seq) {
+        delete inFlightValueRef.current[key];
+      }
+    }
+  }, [buildLearnerUpdate, onSave]);
+
+  const handleCellChange = (
+    learnerId: string,
+    question: NonNullable<Assessment["questions"]>[number],
+    value: string
+  ) => {
     // Basic validation to allow typing decimals
     if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
 
+    if (value !== "") {
+      const parsed = parseFloat(value);
+      if (!isNaN(parsed) && parsed > question.max_mark) {
+        showError("Mark exceeds allowed maximum");
+        return;
+      }
+    }
+    const previousValue = gridDataRef.current[learnerId]?.[question.id] || "";
+    if (previousValue === value) return;
+    const nextRow = {
+      ...(gridDataRef.current[learnerId] || {}),
+      [question.id]: value
+    };
+
+    gridDataRef.current = {
+      ...gridDataRef.current,
+      [learnerId]: nextRow
+    };
     setGridData(prev => ({
       ...prev,
-      [learnerId]: {
-        ...prev[learnerId],
-        [questionId]: value
-      }
+      [learnerId]: nextRow
     }));
+    void persistCellChange(learnerId, question.id, value, previousValue, nextRow);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => {
@@ -102,7 +223,7 @@ export const QuestionGridDialog = ({
   };
 
   const validateGrid = () => {
-    let isValid = true;
+    let errorMessage: string | null = null;
     learners.forEach(l => {
       if (!l.id) return;
       assessment.questions?.forEach(q => {
@@ -110,12 +231,12 @@ export const QuestionGridDialog = ({
         if (valStr) {
           const valNum = parseFloat(valStr);
           if (isNaN(valNum) || valNum < 0 || valNum > q.max_mark) {
-            isValid = false;
+            errorMessage = `Q${q.question_number} has an invalid mark for ${l.name}.`;
           }
         }
       });
     });
-    return isValid;
+    return { isValid: !errorMessage, errorMessage };
   };
 
   const getRowTotal = (learnerId: string) => {
@@ -134,62 +255,33 @@ export const QuestionGridDialog = ({
   };
 
   const handleSave = async () => {
-    if (!validateGrid()) {
-      showError("Please fix invalid marks (highlighted in red) before saving.");
+    if (isSaving) return;
+
+    const validation = validateGrid();
+    if (!validation.isValid) {
+      showError(validation.errorMessage || "Please fix invalid marks (highlighted in red) before saving.");
       return;
     }
 
     setIsSaving(true);
-    const updates: any[] = [];
-
-    learners.forEach(l => {
-      if (!l.id) return;
-      const lData = gridData[l.id] || {};
-      let total = 0;
-      let hasAnyMark = false;
-      const qMarks: Record<string, number | null> = {};
-
-      assessment.questions?.forEach(q => {
-        const valStr = lData[q.id];
-        if (valStr !== undefined && valStr !== "") {
-          const valNum = parseFloat(valStr);
-          total += valNum;
-          qMarks[q.id] = valNum;
-          hasAnyMark = true;
-        } else {
-          qMarks[q.id] = null;
-        }
-      });
-
-      if (hasAnyMark) {
-        updates.push({
-          assessment_id: assessment.id,
-          learner_id: l.id,
-          score: parseFloat(total.toFixed(1)),
-          question_marks: qMarks
-        });
-      } else {
-        updates.push({
-          assessment_id: assessment.id,
-          learner_id: l.id,
-          score: null,
-          question_marks: {}
-        });
-      }
-    });
-
     try {
-      await onSave(updates);
-      showSuccess("Grid marks saved successfully.");
       onOpenChange(false);
-    } catch (e) {
-      showError("Failed to save grid marks.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const isGridValid = useMemo(() => validateGrid(), [gridData]);
+  const isGridValid = useMemo(() => {
+    return learners.every(l => {
+      if (!l.id) return true;
+      return (assessment.questions || []).every(q => {
+        const valStr = gridData[l.id]?.[q.id];
+        if (!valStr) return true;
+        const valNum = parseFloat(valStr);
+        return !isNaN(valNum) && valNum >= 0 && valNum <= q.max_mark;
+      });
+    });
+  }, [gridData, learners, assessment.questions]);
 
   if (!assessment.questions || assessment.questions.length === 0) return null;
 
@@ -260,8 +352,10 @@ export const QuestionGridDialog = ({
                             <TableCell key={q.id} className="p-0 border-r relative">
                               <Input
                                 id={`grid-input-${rowIdx}-${colIdx}`}
+                                inputMode="decimal"
+                                pattern="[0-9]*"
                                 value={valStr}
-                                onChange={(e) => l.id && handleCellChange(l.id, q.id, e.target.value)}
+                                onChange={(e) => l.id && handleCellChange(l.id, q, e.target.value)}
                                 onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
                                 disabled={isLocked}
                                 className={cn(
@@ -307,7 +401,7 @@ export const QuestionGridDialog = ({
               className="font-bold gap-2 bg-blue-600 hover:bg-blue-700 w-32"
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save Grid
+              {isSaving ? "Saving..." : "Save Grid"}
             </Button>
           </div>
         </DialogFooter>

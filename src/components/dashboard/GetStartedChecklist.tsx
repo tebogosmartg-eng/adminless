@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { startTransition, useState, useEffect } from "react";
 import { useSetupStatus, StepStatus } from "@/hooks/useSetupStatus";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -32,6 +32,7 @@ export const GetStartedChecklist = () => {
   const { classes } = useClasses();
   const { recalculateAllActiveAverages } = useAcademic();
   const navigate = useNavigate();
+  const [showSkeleton, setShowSkeleton] = useState(true);
   
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
@@ -49,6 +50,15 @@ export const GetStartedChecklist = () => {
         });
     }
   }, [progress]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      const t = setTimeout(() => setShowSkeleton(false), 250);
+      return () => clearTimeout(t);
+    } else {
+      setShowSkeleton(true);
+    }
+  }, [isLoading]);
 
   const toggleMinimized = () => {
     const nextState = !isMinimized;
@@ -73,7 +83,7 @@ export const GetStartedChecklist = () => {
     }
   };
 
-  if (isLoading) return null;
+  if (showSkeleton) return null;
 
   const getProgressMessage = () => {
     if (progress === 0) return "Welcome! Let's build your academic foundation.";
@@ -89,50 +99,55 @@ export const GetStartedChecklist = () => {
     if (isLocked) return;
 
     const firstClassId = classes.length > 0 ? classes[0].id : null;
+    const navigateWithTransition = (to: string, state?: Record<string, unknown>) => {
+      startTransition(() => {
+        navigate(to, state ? { state } : undefined);
+      });
+    };
 
     switch (id) {
       case 1:
-        navigate('/settings', { state: { highlightId: 'profile-settings', fromOnboarding: true } });
+        navigateWithTransition('/settings', { highlightId: 'profile-settings', fromOnboarding: true });
         break;
       case 2:
-        navigate('/settings', { state: { highlightId: 'year-selector', fromOnboarding: true } });
+        navigateWithTransition('/settings', { highlightId: 'year-selector', fromOnboarding: true });
         break;
       case 3:
-        navigate('/classes', { state: { highlightId: 'create-class-btn', fromOnboarding: true } });
+        navigateWithTransition('/classes', { highlightId: 'create-class-btn', fromOnboarding: true });
         break;
       case 4:
         if (firstClassId) {
-            navigate(`/classes/${firstClassId}`, { state: { openDialog: 'addLearners', fromOnboarding: true } });
+            navigateWithTransition(`/classes/${firstClassId}`, { openDialog: 'addLearners', fromOnboarding: true });
         } else {
-            navigate('/classes', { state: { highlightId: 'create-class-btn', fromOnboarding: true } });
+            navigateWithTransition('/classes', { highlightId: 'create-class-btn', fromOnboarding: true });
         }
         break;
       case 5:
         if (firstClassId) {
-            navigate(`/classes/${firstClassId}`, { state: { highlightId: 'new-task-btn', fromOnboarding: true } });
+            navigateWithTransition(`/classes/${firstClassId}`, { highlightId: 'new-task-btn', fromOnboarding: true });
         } else {
-            navigate('/classes');
+            navigateWithTransition('/classes');
         }
         break;
       case 6:
         if (firstClassId) {
-            navigate(`/classes/${firstClassId}`, { state: { highlightId: 'mark-sheet-grid', fromOnboarding: true } });
+            navigateWithTransition(`/classes/${firstClassId}`, { highlightId: 'mark-sheet-grid', fromOnboarding: true });
         } else {
-            navigate('/classes');
+            navigateWithTransition('/classes');
         }
         break;
       case 7:
         if (firstClassId) {
-            navigate(`/classes/${firstClassId}`, { state: { highlightId: 'integrity-guard', fromOnboarding: true } });
+            navigateWithTransition(`/classes/${firstClassId}`, { highlightId: 'integrity-guard', fromOnboarding: true });
         } else {
-            navigate('/classes');
+            navigateWithTransition('/classes');
         }
         break;
       case 8:
-        navigate('/settings', { state: { highlightId: 'finalize-term-btn', fromOnboarding: true } });
+        navigateWithTransition('/settings', { highlightId: 'finalize-term-btn', fromOnboarding: true });
         break;
       default:
-        navigate('/settings');
+        navigateWithTransition('/settings');
     }
   };
 

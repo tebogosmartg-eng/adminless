@@ -1,29 +1,57 @@
-import { useLiveQuery } from '@/lib/dexie-react-hooks';
-import { db } from '@/db';
-import { LessonLog } from '@/lib/types';
-import { useAcademic } from '@/context/AcademicContext';
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { LessonLog } from "@/lib/types";
+import { useAcademic } from "@/context/AcademicContext";
 
 export const useClassLessonLogs = (classId: string) => {
   const { activeTerm } = useAcademic();
 
-  const logs = useLiveQuery(async () => {
-    if (!activeTerm?.id || !classId) return [];
+  const [logs, setLogs] = useState<LessonLog[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    // 1. Get all timetable slots for this class
-    const slots = await db.timetable.where('class_id').equals(classId).toArray();
-    const slotIds = slots.map((s: any) => s.id);
+  useEffect(() => {
+    let isMounted = true;
 
-    if (slotIds.length === 0) return [];
+    const fetchLogs = async () => {
+      if (!activeTerm?.id || !classId) {
+        if (isMounted) {
+          setLogs([]);
+          setLoading(false);
+        }
+        return;
+      }
 
-    // 2. Get all logs linked to these slots
-    const allLogs = await db.lesson_logs
-        .where('timetable_id')
-        .anyOf(slotIds)
-        .reverse()
-        .sortBy('date');
-    
-    return allLogs as LessonLog[];
-  }, [classId, activeTerm?.id]) || [];
+      setLoading(true);
 
-  return { logs, loading: !logs };
+      const { data, error } = await supabase
+        .from("lesson_logs")
+        .select(`
+          *,
+          timetable!inner (
+            class_id
+          )
+        `)
+        .eq("timetable.class_id", classId)
+        .order("date", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching logs:", error);
+        if (isMounted) setLoading(false);
+        return;
+      }
+
+      if (isMounted) {
+        setLogs((data as LessonLog[]) || []);
+        setLoading(false);
+      }
+    };
+
+    fetchLogs();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [classId, activeTerm?.id]);
+
+  return { logs, loading };
 };

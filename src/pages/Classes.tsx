@@ -1,3 +1,4 @@
+import { startTransition, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,15 +8,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateClassDialog } from "@/components/CreateClassDialog";
 import { EditClassDialog } from "@/components/dialogs/EditClassDialog";
 import { DeleteClassDialog } from "@/components/dialogs/DeleteClassDialog";
-import { Search, Filter, X, Archive, ArrowLeft, Users } from "lucide-react";
+import { Search, Filter, X, Archive, ArrowLeft, Loader2 } from "lucide-react";
 import { useClassesLogic } from "@/hooks/useClassesLogic";
 import { ClassCard } from "@/components/ClassCard";
 import { cn } from "@/lib/utils";
-import { useAuthGuard } from "@/hooks/useAuthGuard";
-import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { useClasses } from "@/context/ClassesContext";
+import { useAcademic } from "@/context/AcademicContext";
 
 const ClassesContent = () => {
+  const { classes, isRefreshing } = useClasses();
+  const { activeTerm, preloadMarkSheetData } = useAcademic();
   const location = useLocation();
   const navigate = useNavigate();
   const highlightId = location.state?.highlightId;
@@ -41,6 +44,16 @@ const ClassesContent = () => {
     clearFilters
   } = useClassesLogic();
 
+  useEffect(() => {
+    if (!activeTerm?.id) return;
+    classes
+      .filter((classItem) => !classItem.archived && classItem.term_id === activeTerm.id)
+      .slice(0, 2)
+      .forEach((classItem) => {
+        void preloadMarkSheetData(classItem.id, activeTerm.id);
+      });
+  }, [classes, activeTerm?.id, preloadMarkSheetData]);
+
   return (
     <div className="space-y-6 w-full">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -48,12 +61,29 @@ const ClassesContent = () => {
             <div className="flex items-center gap-3">
                 <h1 className="text-3xl font-bold tracking-tight">Classes</h1>
                 {isGuided && (
-                    <Button variant="outline" size="sm" onClick={() => navigate('/')} className="h-8 gap-2 border-primary text-primary hover:bg-primary/5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        startTransition(() => {
+                          navigate('/');
+                        })
+                      }
+                      className="h-8 gap-2 border-primary text-primary hover:bg-primary/5"
+                    >
                         <ArrowLeft className="h-3.5 w-3.5" /> Back to Checklist
                     </Button>
                 )}
             </div>
-            <p className="text-muted-foreground text-sm">Manage your class rosters and term assignments.</p>
+            <div className="flex items-center gap-2">
+              <p className="text-muted-foreground text-sm">Manage your class rosters and term assignments.</p>
+              {isRefreshing && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Refreshing
+                </span>
+              )}
+            </div>
         </div>
         
         <div className={cn(
@@ -163,13 +193,6 @@ const ClassesContent = () => {
   );
 };
 
-const Classes = () => {
-  const { user, authReady } = useAuthGuard();
-
-  if (!authReady) return <LoadingScreen />;
-  if (!user) return null;
-
-  return <ClassesContent />;
-};
+const Classes = () => <ClassesContent />;
 
 export default Classes;

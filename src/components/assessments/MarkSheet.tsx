@@ -8,24 +8,61 @@ import { MarkSheetDialogs } from './MarkSheetDialogs';
 import { EditAssessmentDialog } from './EditAssessmentDialog';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
-import { CalendarClock, ShieldCheck } from 'lucide-react';
+import { CalendarClock, Loader2, ShieldCheck } from 'lucide-react';
 import { RapidEntryDialog } from '@/components/dialogs/RapidEntryDialog';
 import { VoiceEntryDialog } from '@/components/dialogs/VoiceEntryDialog';
 import { RubricMarkingDialog } from './RubricMarkingDialog';
 import { QuestionMarkingDialog } from './QuestionMarkingDialog';
 import { QuestionDiagnosticDialog } from './QuestionDiagnosticDialog';
 import { QuestionGridDialog } from './QuestionGridDialog';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
   onViewLearnerProfile?: (learner: Learner) => void;
+  isLoading?: boolean;
+  isRefreshing?: boolean;
 }
 
-export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) => {
+const MarkSheetSkeleton = () => (
+  <div className="space-y-4">
+    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b pb-4">
+      <div className="space-y-2 w-full xl:w-auto">
+        <Skeleton className="h-10 w-[180px]" />
+        <Skeleton className="h-7 w-[120px]" />
+      </div>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto">
+        <Skeleton className="h-10 w-full sm:w-[190px]" />
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-[96px]" />
+          <Skeleton className="h-10 w-[96px]" />
+        </div>
+      </div>
+    </div>
+    <div className="border border-border bg-card rounded-md overflow-hidden shadow-sm w-full p-4">
+      <div className="space-y-3">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    </div>
+  </div>
+);
+
+export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, isRefreshing = false }: MarkSheetProps) => {
   const { state, actions } = useMarkSheetLogic(classInfo);
+  const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(!isLoading);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setHasResolvedInitialLoad(true);
+    }
+  }, [isLoading]);
 
   // Question marking & diagnostic state
   const [qMarking, setQMarking] = useState<{
@@ -82,7 +119,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
   };
 
   const handleGridSave = async (updates: any[]) => {
-      await actions.updateMarks(updates);
+      return await actions.updateMarks(updates);
   };
 
   const handleOpenDiagnostic = (ass: Assessment) => {
@@ -104,6 +141,13 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
         setQMarking(prev => ({ ...prev, learner: state.filteredLearners[idx - 1] }));
     }
   };
+
+  const showInitialSkeleton = isLoading && !hasResolvedInitialLoad;
+  const showRefreshOverlay = isRefreshing && hasResolvedInitialLoad;
+
+  if (showInitialSkeleton) {
+      return <MarkSheetSkeleton />;
+  }
 
   if (!state.currentViewTerm) {
       return (
@@ -131,7 +175,17 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile }: MarkSheetProps) =
   const currentIndex = state.filteredLearners.findIndex(l => l.id === state.rubricMarking.learner?.id);
 
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4">
+       {showRefreshOverlay && (
+           <div className="pointer-events-none absolute inset-0 z-50 rounded-md bg-background/45 backdrop-blur-[1px]">
+               <div className="flex h-full items-start justify-end p-3">
+                   <div className="inline-flex items-center gap-2 rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
+                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                       Updating marksheet...
+                   </div>
+               </div>
+           </div>
+       )}
        {integrityReport && (
            <div className="bg-muted/20 border rounded-lg p-4 animate-in fade-in slide-in-from-top-1">
                <div className="flex items-center gap-2 mb-3">

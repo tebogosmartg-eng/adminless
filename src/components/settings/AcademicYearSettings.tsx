@@ -12,6 +12,17 @@ import { useTermValidation, ValidationError } from '@/hooks/useTermValidation';
 import { TermClosureDialog } from '@/components/dialogs/TermClosureDialog';
 import { RollForwardDialog } from '@/components/dialogs/RollForwardDialog';
 import { showError } from '@/utils/toast';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const AcademicYearSettings = () => {
   const { years, terms, activeYear, setActiveYear, createYear, deleteYear, toggleTermStatus, closeYear, rollForwardClasses } = useAcademic();
@@ -25,6 +36,10 @@ export const AcademicYearSettings = () => {
 
   const [rollForwardOpen, setRollForwardOpen] = useState(false);
   const [rollForwardSourceId, setRollForwardSourceId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteYearDialogOpen, setDeleteYearDialogOpen] = useState(false);
+  const [closeYearDialogOpen, setCloseYearDialogOpen] = useState(false);
 
   const handleCreateYear = async () => {
     if (newYearName.trim()) {
@@ -35,12 +50,14 @@ export const AcademicYearSettings = () => {
 
   const handleDeleteYear = async () => {
     if (!activeYear) return;
-    if (confirm(`Delete "${activeYear.name}"? This is only possible if empty.`)) {
-      await deleteYear(activeYear.id);
-    }
+    await deleteYear(activeYear.id);
+    setDeleteYearDialogOpen(false);
+    setStatusMessage(`Saved ✓ "${activeYear.name}" deleted.`);
   };
 
   const handleTermAction = async (termId: string, currentFinalised: boolean) => {
+    setStatusMessage(null);
+    setErrorMessage(null);
     if (currentFinalised) {
         if (activeYear?.closed) { showError("Year is finalized."); return; }
         
@@ -50,10 +67,12 @@ export const AcademicYearSettings = () => {
         
         if (hasSubsequentFinalised) {
             showError("Progression Block: Cannot re-open a term if future terms are already finalised.");
+            setErrorMessage("Cannot re-open a term while future terms are already finalised.");
             return;
         }
 
         await toggleTermStatus(termId, false);
+        setStatusMessage("Saved ✓ Term re-opened.");
     } else {
         setSelectedTermId(termId);
         const { isValid, errors } = await validateTerm(termId);
@@ -67,6 +86,7 @@ export const AcademicYearSettings = () => {
       if (selectedTermId) {
           await toggleTermStatus(selectedTermId, true);
           setValidationDialogOpen(false);
+          setStatusMessage("Saved ✓ Term finalised.");
       }
   };
 
@@ -74,6 +94,7 @@ export const AcademicYearSettings = () => {
       const nextOpenTerm = terms.find(t => !t.is_finalised);
       if (!nextOpenTerm) {
           showError("No open term found to receive data.");
+          setErrorMessage("No open term found to receive roll-forward data.");
           return;
       }
       setRollForwardSourceId(sourceId);
@@ -84,6 +105,7 @@ export const AcademicYearSettings = () => {
       const nextOpenTerm = terms.find(t => !t.is_finalised);
       if (rollForwardSourceId && nextOpenTerm) {
           await rollForwardClasses(rollForwardSourceId, nextOpenTerm.id, preparedClasses);
+          setStatusMessage(`Saved ✓ Classes rolled into ${nextOpenTerm.name}.`);
       }
   };
 
@@ -105,10 +127,10 @@ export const AcademicYearSettings = () => {
             <div className="flex flex-wrap gap-2 w-full md:w-auto shrink-0">
                 {activeYear && !activeYear.closed && (
                     <>
-                        <Button variant="ghost" size="sm" onClick={handleDeleteYear} className="flex-1 sm:flex-none text-muted-foreground hover:text-destructive h-10 md:h-9">
+                        <Button variant="ghost" size="sm" onClick={() => setDeleteYearDialogOpen(true)} className="flex-1 sm:flex-none text-muted-foreground hover:text-destructive h-10 md:h-9">
                             <Trash2 className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Delete Cycle</span>
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={() => { if(allTermsClosed && isWeightValid) closeYear(activeYear.id); }} disabled={!allTermsClosed || !isWeightValid} className="flex-1 sm:flex-none h-10 md:h-9">
+                        <Button variant="destructive" size="sm" onClick={() => setCloseYearDialogOpen(true)} disabled={!allTermsClosed || !isWeightValid} className="flex-1 sm:flex-none h-10 md:h-9">
                             <Archive className="mr-2 h-4 w-4" /> Close Year
                         </Button>
                     </>
@@ -118,15 +140,27 @@ export const AcademicYearSettings = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4 w-full min-w-0">
-          <div className="flex flex-col sm:flex-row gap-6 sm:gap-4 w-full min-w-0">
-             <div className="space-y-1.5 w-full sm:w-auto flex-1 min-w-0">
+          {statusMessage && (
+            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertDescription>{statusMessage}</AlertDescription>
+            </Alert>
+          )}
+          {errorMessage && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
+             <div className="space-y-1.5 w-full flex-1 min-w-0">
                 <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block truncate">Active Academic Cycle</label>
                 <Select value={activeYear?.id} onValueChange={(val) => setActiveYear(years.find(y => y.id === val) || null)}>
                     <SelectTrigger className="w-full sm:w-[240px] h-10"><SelectValue placeholder="Select Year" /></SelectTrigger>
                     <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name} {y.closed ? "(Finalized)" : ""}</SelectItem>)}</SelectContent>
                 </Select>
              </div>
-             <div className="space-y-1.5 w-full sm:w-auto sm:ml-auto shrink-0">
+             <div className="space-y-1.5 w-full sm:ml-auto shrink-0">
                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block truncate">Initialise New Year</label>
                  <div className="flex flex-col sm:flex-row gap-2 w-full">
                     <Input placeholder="e.g. 2026" value={newYearName} onChange={(e) => setNewYearName(e.target.value)} className="w-full sm:w-[120px] h-10" />
@@ -238,6 +272,43 @@ export const AcademicYearSettings = () => {
             onConfirm={handleConfirmRollForward}
           />
       )}
+      <AlertDialog open={deleteYearDialogOpen} onOpenChange={setDeleteYearDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete academic cycle?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete "{activeYear?.name}". This is only possible when the cycle has no dependent records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteYear}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={closeYearDialogOpen} onOpenChange={setCloseYearDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close academic year?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Closing this year locks all terms and records for the active cycle.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!activeYear) return;
+                closeYear(activeYear.id);
+                setCloseYearDialogOpen(false);
+                setStatusMessage("Saved ✓ Academic year closed.");
+              }}
+            >
+              Close Year
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

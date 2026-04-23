@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { AcademicYear, Term, Assessment, AssessmentMark, AssessmentQuestion } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
@@ -16,6 +16,7 @@ interface AcademicContextType {
   assessments: Assessment[];
   marks: AssessmentMark[];
   loading: boolean;
+  isRefreshing: boolean;
   activeYear: AcademicYear | null;
   activeTerm: Term | null;
   setActiveYear: (year: AcademicYear | null) => void;
@@ -26,8 +27,11 @@ interface AcademicContextType {
   createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<string | undefined>;
   updateAssessment: (assessment: Assessment) => Promise<void>;
   deleteAssessment: (id: string) => Promise<void>;
-  updateMarks: (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => Promise<void>;
-  refreshAssessments: (classId: string, termId?: string) => Promise<void>;
+  updateMarks: (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => Promise<{ success: boolean; message?: string }>;
+  refreshAssessments: (classId: string, termId?: string, forceRefresh?: boolean) => Promise<void>;
+  preloadMarkSheetData: (classId: string, termId: string, forceRefresh?: boolean) => Promise<void>;
+  getPreloadedMarkSheetData: (classId: string, termId: string) => { assessments: Assessment[]; marks: AssessmentMark[] } | null;
+  hasPreloadedMarkSheetData: (classId: string, termId: string) => boolean;
   toggleTermStatus: (termId: string, finalised: boolean) => Promise<void>;
   closeYear: (yearId: string) => Promise<void>;
   recalculateAllActiveAverages: (silent?: boolean) => Promise<void>;
@@ -38,13 +42,46 @@ interface AcademicContextType {
 }
 
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PRELOAD_TTL_MS = 5 * 60 * 1000;
+
+type MarkSheetPreloadEntry = {
+  assessments: Assessment[];
+  marks: AssessmentMark[];
+  loadedAt: number;
+};
+
+const formatMarkSaveError = (errorMessage?: string) => {
+  const message = (errorMessage || "").toLowerCase();
+  if (message.includes("exceeds max")) return "Mark exceeds allowed maximum";
+  if (message.includes("invalid input syntax")) return "Invalid mark entered";
+  return "Failed to save marks";
+};
+
+const sanitizeQuestionMarks = (input: unknown): Record<string, number> => {
+  if (!input || typeof input !== 'object') return {};
+
+  const cleaned: Record<string, number> = {};
+  Object.entries(input as Record<string, unknown>).forEach(([key, value]) => {
+    if (!UUID_REGEX.test(key)) return;
+    if (typeof value !== 'number' || !Number.isFinite(value)) return;
+    cleaned[key] = value;
+  });
+
+  return cleaned;
+};
 
 export const AcademicProvider = ({ children, session }: { children: ReactNode; session: Session | null }) => {
   const [diagnosticMode, setDiagnosticMode] = useState(false);
   const [currentClassFilter, setCurrentClassFilter] = useState<{classId: string, termId: string} | null>(null);
+  const [, setMarkSheetPreloads] = useState<Record<string, MarkSheetPreloadEntry>>({});
+  const markSheetPreloadsRef = useRef<Record<string, MarkSheetPreloadEntry>>({});
+  const preloadInFlightRef = useRef<Record<string, Promise<void>>>({});
+  const refreshingRef = useRef<Record<string, boolean>>({});
+  const preloadRequestIdRef = useRef<Record<string, number>>({});
   const queryClient = useQueryClient();
 
-  const { data: years = [], isLoading: loadingYears } = useQuery({
+  const { data: years = [], isLoading: loadingYears, isFetching: fetchingYears } = useQuery({
     queryKey: ['academic_years', session?.user?.id],
     queryFn: async () => {
       if (!session?.user?.id) return [];
@@ -60,7 +97,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     enabled: !!session?.user?.id
   });
 
-  const { data: allTerms = [], isLoading: loadingTerms } = useQuery({
+  const { data: allTerms = [], isLoading: loadingTerms, isFetching: fetchingTerms } = useQuery({
     queryKey: ['terms', session?.user?.id],
     queryFn: async () => {
       if (!session?.user?.id) return [];
@@ -86,7 +123,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const isContextReady = !!activeYear?.id && !!activeTerm?.id;
 
-  const { data: assessments = [], isLoading: loadingAss } = useQuery({
+  const { data: assessments = [], isLoading: loadingAss, isFetching: fetchingAss } = useQuery({
     queryKey: ['assessments', session?.user?.id, currentClassFilter?.classId, currentClassFilter?.termId, activeTerm?.id, diagnosticMode],
     queryFn: async () => {
       if (!session?.user?.id) return [];
@@ -120,7 +157,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     enabled: !!session?.user?.id && (diagnosticMode || (isContextReady && !!currentClassFilter?.classId))
   });
 
-  const { data: marks = [] } = useQuery({
+  const { data: marks = [], isLoading: loadingMarks, isFetching: fetchingMarks } = useQuery({
     queryKey: ['assessment_marks', session?.user?.id, assessments.map((a: any) => a.id).join(',')],
     queryFn: async () => {
       if (!session?.user?.id || assessments.length === 0) return [];
@@ -323,44 +360,164 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   }, [queryClient]);
 
   const updateMarks = useCallback(async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
-    if (!session?.user?.id || updates.length === 0) return;
+    if (!session?.user?.id || updates.length === 0) return { success: true };
     try {
-        const toUpsert = updates.map(u => {
-            const existing = marks.find(m => m.assessment_id === u.assessment_id && m.learner_id === u.learner_id);
-            const cleaned = { 
-                ...existing,
-                ...u, 
-                user_id: session.user.id 
-            };
-            
-            // Guarantee reliable upsert match ID 
-            if (existing?.id && !cleaned.id) {
-                cleaned.id = existing.id;
+        for (const update of updates) {
+            const existing = marks.find(
+              m => m.assessment_id === update.assessment_id && m.learner_id === update.learner_id
+            );
+
+            let nextScore = update.score ?? existing?.score ?? null;
+            const cleanedQuestionMarks = sanitizeQuestionMarks(update.question_marks);
+            const hasQuestionMarks = Object.keys(cleanedQuestionMarks).length > 0;
+
+            if (update.question_marks !== undefined) {
+              const summedScore = Object.values(cleanedQuestionMarks).reduce((sum, value) => {
+                if (!isNaN(value)) return sum + value;
+                return sum;
+              }, 0);
+              nextScore = hasQuestionMarks ? parseFloat(summedScore.toFixed(1)) : null;
+              console.log("Saving:", cleanedQuestionMarks);
             }
-            
-            return cleaned;
-        });
 
-        console.log("Saving payload:", toUpsert);
+            const payload = {
+              user_id: session.user.id,
+              score: nextScore,
+              comment: update.comment ?? existing?.comment ?? "",
+              question_marks: update.question_marks !== undefined ? cleanedQuestionMarks : (existing?.question_marks ?? {}),
+              rubric_selections: update.rubric_selections ?? existing?.rubric_selections ?? null
+            };
 
-        const { error } = await supabase.from('assessment_marks').upsert(toUpsert, { onConflict: 'assessment_id,learner_id' });
-        if (error) throw error;
+            const { data: updatedRows, error: updateError } = await supabase
+              .from('assessment_marks')
+              .update(payload)
+              .eq('learner_id', update.learner_id)
+              .eq('assessment_id', update.assessment_id)
+              .eq('user_id', session.user.id)
+              .select('id');
+
+            if (updateError) throw updateError;
+
+            // Fallback for first-write rows that don't exist yet.
+            if (!updatedRows || updatedRows.length === 0) {
+              const { error: insertError } = await supabase.from('assessment_marks').insert({
+                ...payload,
+                assessment_id: update.assessment_id,
+                learner_id: update.learner_id
+              });
+              if (insertError) throw insertError;
+            }
+        }
 
         await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
         updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
+        return { success: true };
     } catch (e: any) {
         console.error("AdminLess error: Failed to update marks", e);
-        showError("Failed to update marks: " + e.message);
-        throw e;
+        const message = formatMarkSaveError(e?.message);
+        showError(message);
+        return { success: false, message };
     }
   }, [session?.user?.id, updateLearnerActiveAverages, queryClient, marks]);
 
-  const refreshAssessments = useCallback(async (c: string, t?: string) => {
-    const targetTermId = t || activeTerm?.id || '';
-    if (targetTermId && targetTermId !== 'undefined') {
-        setCurrentClassFilter({ classId: c, termId: targetTermId });
+  const preloadMarkSheetData = useCallback(async (classId: string, termId: string, forceRefresh = false) => {
+    if (!session?.user?.id || !classId || !termId || termId === 'undefined') return;
+    const key = `${classId}::${termId}`;
+    const existing = markSheetPreloadsRef.current[key];
+    if (!forceRefresh && existing && Date.now() - existing.loadedAt < PRELOAD_TTL_MS) return;
+    if (refreshingRef.current[key] && preloadInFlightRef.current[key]) {
+      await preloadInFlightRef.current[key];
+      return;
     }
-  }, [activeTerm?.id]);
+    refreshingRef.current[key] = true;
+    const requestId = (preloadRequestIdRef.current[key] || 0) + 1;
+    preloadRequestIdRef.current[key] = requestId;
+
+    const run = (async () => {
+      try {
+        const selectStr = '*, assessment_questions(*)';
+        const { data: assData, error: assError } = await supabase
+          .from('assessments')
+          .select(selectStr)
+          .eq('class_id', classId)
+          .eq('term_id', termId)
+          .eq('user_id', session.user.id);
+        if (assError) throw assError;
+
+        const mappedAssessments = (assData || []).map(a => ({ ...a, questions: a.assessment_questions })) as Assessment[];
+        const assIds = mappedAssessments.map(a => a.id);
+
+        let mappedMarks: AssessmentMark[] = [];
+        if (assIds.length > 0) {
+          const { data: markData, error: markError } = await supabase
+            .from('assessment_marks')
+            .select('*')
+            .in('assessment_id', assIds)
+            .eq('user_id', session.user.id);
+          if (markError) throw markError;
+          mappedMarks = (markData || []) as AssessmentMark[];
+        }
+
+        const loadedAt = Date.now();
+        const entry: MarkSheetPreloadEntry = { assessments: mappedAssessments, marks: mappedMarks, loadedAt };
+        if (preloadRequestIdRef.current[key] !== requestId) return;
+        markSheetPreloadsRef.current = { ...markSheetPreloadsRef.current, [key]: entry };
+        setMarkSheetPreloads(prev => ({ ...prev, [key]: entry }));
+
+        const assKey = ['assessments', session.user.id, classId, termId, activeTerm?.id, diagnosticMode];
+        const marksKey = ['assessment_marks', session.user.id, assIds.join(',')];
+        queryClient.setQueryData(assKey, mappedAssessments, { updatedAt: loadedAt });
+        queryClient.setQueryData(marksKey, mappedMarks, { updatedAt: loadedAt });
+      } catch (e) {
+        console.error("AdminLess error: Marksheet preload failed", e);
+      }
+    })();
+    preloadInFlightRef.current[key] = run;
+    try {
+      await run;
+    } finally {
+      if (preloadRequestIdRef.current[key] === requestId) {
+        refreshingRef.current[key] = false;
+      }
+      delete preloadInFlightRef.current[key];
+    }
+  }, [session?.user?.id, queryClient, activeTerm?.id, diagnosticMode]);
+
+  const refreshAssessments = useCallback(async (c: string, t?: string, forceRefresh = false) => {
+    const targetTermId = t || activeTerm?.id || '';
+    if (!targetTermId || targetTermId === 'undefined') return;
+    setCurrentClassFilter(prev => {
+      if (prev?.classId === c && prev?.termId === targetTermId) return prev;
+      return { classId: c, termId: targetTermId };
+    });
+    if (forceRefresh) {
+      await preloadMarkSheetData(c, targetTermId, true);
+    }
+  }, [activeTerm?.id, preloadMarkSheetData]);
+
+  const getPreloadedMarkSheetData = useCallback((classId: string, termId: string) => {
+    if (!classId || !termId || termId === 'undefined') return null;
+    const key = `${classId}::${termId}`;
+    const entry = markSheetPreloadsRef.current[key];
+    if (!entry) return null;
+    if (Date.now() - entry.loadedAt > PRELOAD_TTL_MS) return null;
+    return { assessments: entry.assessments, marks: entry.marks };
+  }, []);
+
+  const hasPreloadedMarkSheetData = useCallback((classId: string, termId: string) => {
+    if (!classId || !termId || termId === 'undefined') return false;
+    const key = `${classId}::${termId}`;
+    const entry = markSheetPreloadsRef.current[key];
+    if (!entry) return false;
+    return Date.now() - entry.loadedAt <= PRELOAD_TTL_MS;
+  }, []);
+
+  const loading = loadingYears || loadingTerms || loadingAss || loadingMarks;
+  const isRefreshing =
+    (fetchingYears && !loadingYears) ||
+    (fetchingTerms && !loadingTerms) ||
+    (fetchingAss && !loadingAss) ||
+    (fetchingMarks && !loadingMarks);
 
   const toggleTermStatus = useCallback(async (termId: string, finalised: boolean) => {
     try {
@@ -398,19 +555,20 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const value = useMemo(() => ({
     years, terms, assessments, marks, 
-    loading: loadingYears || loadingTerms || loadingAss, 
+    loading,
+    isRefreshing,
     activeYear, activeTerm, setActiveYear, setActiveTerm, 
     createYear, deleteYear, updateTerm,
     createAssessment, updateAssessment, deleteAssessment,
-    updateMarks, refreshAssessments, toggleTermStatus, closeYear,
+    updateMarks, refreshAssessments, preloadMarkSheetData, getPreloadedMarkSheetData, hasPreloadedMarkSheetData, toggleTermStatus, closeYear,
     recalculateAllActiveAverages, runDataVacuum, rollForwardClasses,
     diagnosticMode, setDiagnosticMode
   }), [
     years, terms, assessments, marks, activeYear, activeTerm, 
     setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm, 
     createAssessment, updateAssessment, deleteAssessment, updateMarks, 
-    refreshAssessments, toggleTermStatus, closeYear, recalculateAllActiveAverages, 
-    runDataVacuum, rollForwardClasses, diagnosticMode, loadingYears, loadingTerms, loadingAss
+    refreshAssessments, preloadMarkSheetData, getPreloadedMarkSheetData, hasPreloadedMarkSheetData, toggleTermStatus, closeYear, recalculateAllActiveAverages, 
+    runDataVacuum, rollForwardClasses, diagnosticMode, loading, isRefreshing
   ]);
 
   return (

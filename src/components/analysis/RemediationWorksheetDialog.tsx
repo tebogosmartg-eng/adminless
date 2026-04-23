@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Download, FileText, Loader2, Sparkles, Copy, Check, Printer } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { showSuccess } from '@/utils/toast';
 
 interface RemediationWorksheetDialogProps {
@@ -18,6 +18,16 @@ interface RemediationWorksheetDialogProps {
 
 export const RemediationWorksheetDialog = ({ open, onOpenChange, worksheet, isLoading, title }: RemediationWorksheetDialogProps) => {
   const [copied, setCopied] = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(true);
+
+  useEffect(() => {
+    if (!isLoading) {
+      const t = setTimeout(() => setShowSkeleton(false), 250);
+      return () => clearTimeout(t);
+    } else {
+      setShowSkeleton(true);
+    }
+  }, [isLoading]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(worksheet);
@@ -50,7 +60,7 @@ export const RemediationWorksheetDialog = ({ open, onOpenChange, worksheet, isLo
                     <DialogDescription className="text-primary-foreground/80 text-xs sm:text-sm">Draft remediation material based on diagnostic root causes.</DialogDescription>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
-                    <Button variant="outline" size="sm" className="bg-white/10 text-white hover:bg-white/20 flex-1 sm:flex-none border-none shadow-none h-9" onClick={handleDownload} disabled={isLoading || !worksheet}>
+                    <Button variant="outline" size="sm" className="bg-white/10 text-white hover:bg-white/20 flex-1 sm:flex-none border-none shadow-none h-9" onClick={handleDownload} disabled={showSkeleton || !worksheet}>
                         <Download className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Download .md</span>
                     </Button>
                     <Button variant="outline" size="sm" className="bg-white/10 text-white hover:bg-white/20 flex-1 sm:flex-none border-none shadow-none h-9" onClick={() => window.print()}>
@@ -62,7 +72,7 @@ export const RemediationWorksheetDialog = ({ open, onOpenChange, worksheet, isLo
         </div>
 
         <ScrollArea className="flex-1 p-4 sm:p-8 bg-background">
-            {isLoading ? (
+            {showSkeleton ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                     <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
                     <p className="text-xs sm:text-sm font-medium text-muted-foreground animate-pulse text-center px-4">Generating pedagogical bridge from data...</p>

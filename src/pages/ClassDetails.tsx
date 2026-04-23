@@ -1,5 +1,5 @@
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
@@ -29,8 +29,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showError } from "@/utils/toast";
-import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { generateSASAMSExport } from "@/utils/sasams";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import Scan from "@/pages/Scan";
 import EvidenceAudit from "@/pages/EvidenceAudit";
@@ -41,7 +41,16 @@ const ClassDetailsContent = () => {
   const { classId } = useParams();
   const navigate = useNavigate();
   const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
-  const { assessments, activeTerm, activeYear, marks, loading: academicLoading, refreshAssessments } = useAcademic();
+  const {
+    assessments,
+    activeTerm,
+    activeYear,
+    marks,
+    loading: academicLoading,
+    isRefreshing: academicRefreshing,
+    refreshAssessments,
+    hasPreloadedMarkSheetData
+  } = useAcademic();
   const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo } = useSettings();
   
   const classInfo = classes.find((c) => c.id === classId);
@@ -94,11 +103,18 @@ const ClassDetailsContent = () => {
       marks
   );
 
+  const hasCachedMarkSheetData = useMemo(() => {
+    if (!classId || !activeTerm?.id) return false;
+    const hasContextData = assessments.some(a => a.class_id === classId && a.term_id === activeTerm.id);
+    return hasContextData || hasPreloadedMarkSheetData(classId, activeTerm.id);
+  }, [classId, activeTerm?.id, assessments, hasPreloadedMarkSheetData]);
+  const isMarkSheetRefreshing = academicRefreshing && hasCachedMarkSheetData;
+
   useEffect(() => {
       if (classId && activeTerm?.id) {
-          refreshAssessments(classId, activeTerm.id);
+          void refreshAssessments(classId, activeTerm.id, hasCachedMarkSheetData);
       }
-  }, [classId, activeTerm?.id, refreshAssessments]);
+  }, [classId, activeTerm?.id, refreshAssessments, hasCachedMarkSheetData]);
 
   useEffect(() => {
     if (classInfo) {
@@ -123,10 +139,12 @@ const ClassDetailsContent = () => {
       );
   };
 
-  if (classesLoading || academicLoading) {
+  if (classesLoading && !classInfo) {
     return (
-      <div className="flex h-[50vh] w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-30" />
+      <div className="space-y-4 w-full p-4">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-10 w-full max-w-2xl" />
+        <Skeleton className="h-[360px] w-full" />
       </div>
     );
   }
@@ -180,6 +198,8 @@ const ClassDetailsContent = () => {
         <TabsContent value="assessments" className="mt-4">
             <MarkSheet 
                 classInfo={classInfo} 
+                isLoading={academicLoading && !hasCachedMarkSheetData}
+                isRefreshing={isMarkSheetRefreshing}
                 onViewLearnerProfile={(l) => dialogs.setSelectedProfileLearner(l)}
             />
         </TabsContent>
@@ -255,21 +275,6 @@ const ClassDetailsContent = () => {
   );
 };
 
-const ClassDetails = () => {
-  const { user, authReady } = useAuthGuard();
-
-  if (!authReady || !user) {
-    return (
-      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return <ClassDetailsContent />;
-};
+const ClassDetails = () => <ClassDetailsContent />;
 
 export default ClassDetails;
