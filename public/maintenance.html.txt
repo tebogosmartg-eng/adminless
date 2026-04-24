@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>AdminLess Maintenance</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;">
+    <div>
+      <h1>AdminLess is temporarily offline</h1>
+      <p>We’re improving your experience. Please check back soon.</p>
+    </div>
+  </body>
+</html>
