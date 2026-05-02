@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Assessment, AssessmentMark, Learner, ClassInfo } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
+import { logAdminLessError } from '@/utils/logAdminLessError';
 import { calculateWeightedAverage } from '@/utils/calculations';
 import { supabase } from '@/lib/supabaseClient';
 import { applySupabaseAssessmentOrder, sortAssessmentsDeterministically } from '@/utils/assessmentOrdering';
@@ -27,7 +28,8 @@ export const useTermReportData = () => {
 
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr) throw authErr;
       if (!user) throw new Error("Not authenticated");
 
       // Direct Supabase call: omit term_id to avoid 400 error
@@ -50,20 +52,22 @@ export const useTermReportData = () => {
 
       const classIds = allClasses.map(c => c.id);
       
-      const { data: allLearners } = await supabase
+      const { data: allLearners, error: learnersErr } = await supabase
         .from('learners')
         .select('*')
         .in('class_id', classIds);
+      if (learnersErr) throw learnersErr;
 
-      const { data: assessmentsData } = await applySupabaseAssessmentOrder(
+      const assessmentsRes = await applySupabaseAssessmentOrder(
         supabase
           .from('assessments')
           .select('*')
           .eq('term_id', termId)
-          .in('class_id', Array.isArray(classIds) ? classIds : [classIds])
+          .in('class_id', classIds)
       );
+      if (assessmentsRes.error) throw assessmentsRes.error;
 
-      const orderedAssessments = sortAssessmentsDeterministically(assessmentsData || []);
+      const orderedAssessments = sortAssessmentsDeterministically(assessmentsRes.data || []);
 
       const uniqueTitles: string[] = [];
       const seenTitles = new Set<string>();
@@ -76,10 +80,15 @@ export const useTermReportData = () => {
       setAllAssessmentTitles(uniqueTitles);
 
       const assessmentIds = orderedAssessments.map(a => a.id);
-      const { data: marksData } = await supabase
-        .from('assessment_marks')
-        .select('*')
-        .in('assessment_id', assessmentIds);
+      let marksData: any[] = [];
+      if (assessmentIds.length > 0) {
+        const { data, error: marksErr } = await supabase
+          .from('assessment_marks')
+          .select('*')
+          .in('assessment_id', assessmentIds);
+        if (marksErr) throw marksErr;
+        marksData = data ?? [];
+      }
 
       const results: TermReportResult[] = [];
 
@@ -126,8 +135,8 @@ export const useTermReportData = () => {
       showSuccess(`Generated report for ${results.length} learners.`);
 
     } catch (err: any) {
-      console.error("[Diagnostic: Reports] Failure:", err);
-      showError("Failed to generate report: " + err.message);
+      logAdminLessError('term_report_generate', err);
+      showError("Failed to load data");
     } finally {
       setLoading(false);
     }

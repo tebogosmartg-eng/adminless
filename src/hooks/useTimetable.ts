@@ -1,14 +1,21 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TimetableEntry } from '@/lib/types';
 import { supabase } from '@/lib/supabaseClient';
-import { showSuccess, showError } from '@/utils/toast';
+import { showError } from '@/utils/toast';
+import { logAdminLessError } from '@/utils/logAdminLessError';
 import { useAcademic } from '@/context/AcademicContext';
 
 export const useTimetable = () => {
   const { activeYear } = useAcademic();
   const queryClient = useQueryClient();
 
-  const { data: timetable = [] } = useQuery({
+  const {
+    data: timetable = [],
+    error: timetableQueryError,
+    isLoading: timetableQueryLoading,
+    isFetching: timetableQueryFetching,
+    refetch,
+  } = useQuery({
     queryKey: ['timetable', activeYear?.id],
     queryFn: async () => {
       try {
@@ -24,12 +31,19 @@ export const useTimetable = () => {
           
           return data as TimetableEntry[];
       } catch (e) {
-          console.error("AdminLess error: Timetable fetch error", e);
-          return [];
+          logAdminLessError('timetable_fetch', e);
+          throw e;
       }
     },
     enabled: !!activeYear?.id
   });
+
+  const error: Error | null =
+    timetableQueryError == null
+      ? null
+      : timetableQueryError instanceof Error
+        ? timetableQueryError
+        : new Error(String(timetableQueryError));
 
   const updateEntry = async (entry: Partial<TimetableEntry> & { day: string; period: number }) => {
     if (!activeYear?.id) {
@@ -60,8 +74,8 @@ export const useTimetable = () => {
       
       await queryClient.invalidateQueries({ queryKey: ['timetable'] });
     } catch (e) {
-      console.error("AdminLess error: Failed to update timetable entry", e);
-      showError("Failed to update routine entry.");
+      logAdminLessError('timetable_update_entry', e);
+      showError("Failed to update timetable");
     }
   };
 
@@ -74,10 +88,19 @@ export const useTimetable = () => {
         await queryClient.invalidateQueries({ queryKey: ['timetable'] });
       }
     } catch (e) {
-      console.error("AdminLess error: Failed to clear timetable entry", e);
-      showError("Failed to clear entry.");
+      logAdminLessError('timetable_clear_entry', e);
+      showError("Failed to update timetable");
     }
   };
 
-  return { timetable, updateEntry, clearEntry };
+  return {
+    data: timetable,
+    timetable,
+    error,
+    isLoading: Boolean(activeYear?.id) && timetableQueryLoading,
+    isFetching: Boolean(activeYear?.id) && timetableQueryFetching,
+    refetch,
+    updateEntry,
+    clearEntry,
+  };
 };

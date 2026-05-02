@@ -1,37 +1,84 @@
 import { ClassInfo, Learner, ClassInsight, LearnerComment, ScanMode, DiagnosticRow, FullDiagnostic } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
+import { withTimeout } from "@/utils/withTimeout";
+
+/** Edge + Gemini can be slow for multi-image scans; still bounded so UI never hangs forever. */
+const GEMINI_FETCH_TIMEOUT_MS = 180_000;
+const GEMINI_SESSION_TIMEOUT_MS = 15_000;
+
+const truncateForLog = (text: string, max = 800) =>
+  text.length <= max ? text : `${text.slice(0, max)}… (${text.length} chars)`;
 
 const invokeGemini = async (action: string, payload: any) => {
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
   const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await withTimeout(
+    supabase.auth.getSession(),
+    GEMINI_SESSION_TIMEOUT_MS,
+    "gemini.auth.getSession"
+  );
   const url = `${SUPABASE_URL}/functions/v1/gemini-ai`;
 
   if (action === 'generate-diagnostic') {
     console.log('[diagnostic] payload to edge', { action, payload });
   }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${session?.access_token}`,
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_ANON_KEY
-    },
-    body: JSON.stringify({ action, payload })
-  });
+  const controller = new AbortController();
+  const abortTimer = setTimeout(() => controller.abort(), GEMINI_FETCH_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session?.access_token}`,
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ action, payload }),
+      signal: controller.signal
+    });
+  } catch (err: unknown) {
+    const name = err instanceof Error ? err.name : "";
+    if (name === "AbortError") {
+      console.error("[gemini-ai] fetch aborted or timed out", { action, timeoutMs: GEMINI_FETCH_TIMEOUT_MS });
+      throw new Error(`AI request timed out after ${GEMINI_FETCH_TIMEOUT_MS / 1000}s.`);
+    }
+    console.error("[gemini-ai] fetch failed", { action, err });
+    throw err instanceof Error ? err : new Error("AI network request failed.");
+  } finally {
+    clearTimeout(abortTimer);
+  }
 
   const responseText = await response.text();
 
   if (action === 'generate-diagnostic') {
     console.log('[diagnostic] edge status', response.status, 'body', responseText);
+  } else {
+    console.info("[gemini-ai] response", {
+      action,
+      status: response.status,
+      bodyPreview: truncateForLog(responseText),
+    });
   }
 
   let jsonResponse: any = null;
-  try { jsonResponse = JSON.parse(responseText); } catch (e) {}
+  try {
+    jsonResponse = JSON.parse(responseText);
+  } catch {
+    console.error("[gemini-ai] invalid JSON body", { action, status: response.status, bodyPreview: truncateForLog(responseText) });
+  }
 
-  if (!response.ok) throw new Error(jsonResponse?.error || "AI Service Error");
-  if (!jsonResponse.success) throw new Error(jsonResponse.error || "AI failed to process request.");
+  if (!response.ok) {
+    const msg = jsonResponse?.error || `AI Service Error (${response.status})`;
+    console.error("[gemini-ai] HTTP error", { action, status: response.status, error: msg, bodyPreview: truncateForLog(responseText) });
+    throw new Error(msg);
+  }
+  if (!jsonResponse || jsonResponse.success !== true) {
+    const msg = jsonResponse?.error || "AI failed to process request.";
+    console.error("[gemini-ai] success flag false", { action, error: msg, bodyPreview: truncateForLog(responseText) });
+    throw new Error(msg);
+  }
 
   return jsonResponse.data;
 };

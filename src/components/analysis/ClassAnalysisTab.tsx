@@ -2,6 +2,8 @@
 
 import { useClassAnalysis } from '@/hooks/useClassAnalysis';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
@@ -20,8 +22,25 @@ interface ClassAnalysisTabProps {
 }
 
 export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTabProps) => {
-  const { analysisData, loading } = useClassAnalysis(classId, termId, learners.length);
+  const { analysisData, loading, error, refetch } = useClassAnalysis(classId, termId, learners.length);
   const { atRiskThreshold } = useSettings();
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-4 px-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Failed to load insights</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm">Connection issue, please retry.</span>
+            <Button type="button" variant="outline" size="sm" className="shrink-0 w-fit" onClick={() => void refetch()}>
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

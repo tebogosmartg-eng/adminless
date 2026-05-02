@@ -20,19 +20,27 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAcademic } from "@/context/AcademicContext";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import { showError } from "@/utils/toast";
+import { logAdminLessError } from "@/utils/logAdminLessError";
 
 export default function RecentActivity() {
   const { activeTerm } = useAcademic();
 
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
-  // 🔥 FETCH FROM SUPABASE
   useEffect(() => {
     const fetchActivities = async () => {
-      if (!activeTerm?.id) return;
+      if (!activeTerm?.id) {
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
+      setFetchError(false);
 
       const { data, error } = await supabase
         .from("activities")
@@ -42,8 +50,9 @@ export default function RecentActivity() {
         .limit(20);
 
       if (error) {
-        console.error("❌ Activity fetch error:", error);
-        setActivities([]);
+        logAdminLessError("dashboard_recent_activity_fetch", error);
+        setFetchError(true);
+        showError("Failed to load data");
       } else {
         setActivities(data || []);
       }
@@ -85,11 +94,24 @@ export default function RecentActivity() {
 
       <CardContent className="overflow-hidden p-0">
         <ScrollArea className="max-h-[350px] px-5 pb-3">
+          {fetchError && activities.length > 0 && (
+            <Alert variant="destructive" className="mb-3 mt-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Failed to load data</AlertTitle>
+              <AlertDescription>Connection issue, please retry.</AlertDescription>
+            </Alert>
+          )}
 
           {loading ? (
             <div className="text-center text-xs py-6 text-muted-foreground">
               Loading activity...
             </div>
+          ) : fetchError && activities.length === 0 ? (
+            <Alert variant="destructive" className="my-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Failed to load data</AlertTitle>
+              <AlertDescription>Connection issue, please retry.</AlertDescription>
+            </Alert>
           ) : activities.length === 0 ? (
             <div className="text-center text-xs text-muted-foreground py-6">
               No recent activity.

@@ -5,12 +5,14 @@ import { db } from '@/db';
 import { calculateWeightedAverage } from '@/utils/calculations';
 import { sortAssessmentsDeterministically } from '@/utils/assessmentOrdering';
 import { PASS_THRESHOLD } from '@/constants/diagnostics';
+import { withTimeout } from '@/utils/withTimeout';
 
 const TEACHER_FILE_CACHE_TTL_MS = 5 * 60 * 1000;
 type TeacherFileCacheEntry = { data: any; loadedAt: number };
 const teacherFileCache = new Map<string, TeacherFileCacheEntry>();
 const teacherFileInFlight = new Map<string, Promise<void>>();
 const teacherFileRequestIds = new Map<string, number>();
+const TEACHER_FILE_JOIN_IN_FLIGHT_MS = 90_000;
 
 export const useTeacherFileData = (yearId: string, termId: string, classId: string) => {
   const cacheKey = `${yearId}::${termId}::${classId}`;
@@ -40,13 +42,23 @@ export const useTeacherFileData = (yearId: string, termId: string, classId: stri
 
       if (refreshingRef.current) {
         const inFlight = teacherFileInFlight.get(cacheKey);
-        if (inFlight) await inFlight;
+        if (inFlight) {
+          try {
+            await withTimeout(inFlight, TEACHER_FILE_JOIN_IN_FLIGHT_MS, 'teacherFile.joinRefreshing');
+          } catch (e) {
+            console.error('[useTeacherFileData] join in-flight (refreshing) timed out', { cacheKey, e });
+          }
+        }
         return;
       }
 
       const existingRequest = teacherFileInFlight.get(cacheKey);
       if (existingRequest) {
-        await existingRequest;
+        try {
+          await withTimeout(existingRequest, TEACHER_FILE_JOIN_IN_FLIGHT_MS, 'teacherFile.joinExisting');
+        } catch (e) {
+          console.error('[useTeacherFileData] join in-flight (existing) timed out', { cacheKey, e });
+        }
         return;
       }
 

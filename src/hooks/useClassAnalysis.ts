@@ -14,6 +14,15 @@ type ClassInsightsPayload = {
   attendance: any[];
 };
 
+const QUERY_KEY_NONE = "none" as const;
+
+/** Deterministic React Query key; must match prefetch callers. */
+export const getClassInsightsQueryKey = (
+  classId: string,
+  termId: string | undefined,
+  activeYearId: string | undefined
+) => ["insights", classId, termId ?? QUERY_KEY_NONE, activeYearId ?? QUERY_KEY_NONE] as const;
+
 export const fetchClassInsights = async (
   classId: string,
   termId: string | undefined,
@@ -23,7 +32,8 @@ export const fetchClassInsights = async (
     return { marks: [], assessments: [], attendance: [] };
   }
 
-  const { data: sessionData } = await supabase.auth.getSession();
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const user = sessionData?.session?.user;
   if (!user) {
     return { marks: [], assessments: [], attendance: [] };
@@ -77,12 +87,25 @@ export const useClassAnalysis = (
   learnersCount: number = 0
 ) => {
   const { activeYear } = useAcademic();
-  const { data, isLoading } = useQuery({
-    queryKey: ["insights", classId],
+  const {
+    data,
+    error: insightsQueryError,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: getClassInsightsQueryKey(classId, termId, activeYear?.id),
     queryFn: () => fetchClassInsights(classId, termId, activeYear?.id),
     enabled: !!classId && !!termId && !!activeYear?.id,
     staleTime: 60_000,
   });
+
+  const error: Error | null =
+    insightsQueryError == null
+      ? null
+      : insightsQueryError instanceof Error
+        ? insightsQueryError
+        : new Error(String(insightsQueryError));
 
   const marks = data?.marks ?? [];
   const assessments = data?.assessments ?? [];
@@ -233,6 +256,11 @@ export const useClassAnalysis = (
   }, [marks, assessments, attendance, learnersCount]);
 
   return {
+    data,
+    error,
+    isLoading,
+    isFetching,
+    refetch,
     analysisData,
     loading: isLoading,
   };

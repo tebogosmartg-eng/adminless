@@ -1,10 +1,12 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Calendar, FileText, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { TrendingUp, Calendar, FileText, AlertTriangle, Loader2, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { useSettings } from '@/context/SettingsContext';
 import { useLearnerAnalytics } from '@/hooks/useLearnerAnalytics';
+import { AssessmentResult } from '@/hooks/useLearnerAssessmentData';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -13,16 +15,40 @@ interface ProfileAcademicTabProps {
   academicYearId?: string;
   termId?: string;
   classId?: string;
+  /** Lifted from parent to avoid duplicate learner assessment queries. */
+  prefetchedResults?: AssessmentResult[];
+  prefetchedLoading?: boolean;
+  prefetchedError?: Error | null;
+  prefetchedIsFetching?: boolean;
 }
 
-export const ProfileAcademicTab = ({ learnerId, academicYearId, termId, classId }: ProfileAcademicTabProps) => {
+export const ProfileAcademicTab = ({
+  learnerId,
+  academicYearId,
+  termId,
+  classId,
+  prefetchedResults,
+  prefetchedLoading,
+  prefetchedError,
+  prefetchedIsFetching
+}: ProfileAcademicTabProps) => {
   const { atRiskThreshold } = useSettings();
-  const analytics = useLearnerAnalytics({ learnerId, academicYearId, termId, classId });
+  const analytics = useLearnerAnalytics({
+    learnerId,
+    academicYearId,
+    termId,
+    classId,
+    ...(prefetchedResults !== undefined && prefetchedLoading !== undefined
+      ? { prefetchedResults, prefetchedLoading, prefetchedError, prefetchedIsFetching }
+      : {})
+  });
   const safeAssessments = analytics.assessments ?? [];
   const safeChartData = analytics.chartData ?? [];
   const safeAssessmentsByTerm = analytics.assessmentsByTerm ?? [];
+  const hasData = safeAssessments.length > 0;
+  const err = analytics.error;
 
-  if (analytics.isLoading) {
+  if (analytics.isLoading && !hasData && !err) {
     return (
       <div className="space-y-4 pt-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -41,7 +67,7 @@ export const ProfileAcademicTab = ({ learnerId, academicYearId, termId, classId 
     );
   }
 
-  if (safeAssessments.length === 0) {
+  if (!analytics.isLoading && !err && !hasData) {
     return (
       <EmptyState
         title="No assessments yet"
@@ -53,6 +79,21 @@ export const ProfileAcademicTab = ({ learnerId, academicYearId, termId, classId 
 
   return (
     <div className="space-y-6 pt-4 h-full overflow-y-auto pr-2">
+      {analytics.isFetching && hasData && (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+          Updating…
+        </p>
+      )}
+      {err && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Failed to load data</AlertTitle>
+          <AlertDescription>Connection issue, please retry.</AlertDescription>
+        </Alert>
+      )}
+      {!hasData ? null : (
+        <>
       {/* Trend Chart */}
       <Card className="p-4 border shadow-sm animate-in fade-in duration-500">
         <div className="flex items-center gap-2 mb-4">
@@ -190,6 +231,8 @@ export const ProfileAcademicTab = ({ learnerId, academicYearId, termId, classId 
           </div>
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 };

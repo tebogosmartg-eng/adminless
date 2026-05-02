@@ -15,12 +15,14 @@ import { getGradeSymbol } from '@/utils/grading';
 import { ChevronLeft, ChevronRight, GraduationCap, Share2, Book, Edit2, ShieldCheck, FileDown, Loader2 } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { generateLearnerReportPDF } from '@/utils/pdfGenerator';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLearnerAnalytics } from '@/hooks/useLearnerAnalytics';
+import { useLearnerAssessmentData } from '@/hooks/useLearnerAssessmentData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAsyncState } from '@/hooks/useAsyncState';
 import { AsyncStatus } from '@/components/ui/AsyncStatus';
 import { supabase } from '@/lib/supabaseClient';
+import { logAdminLessError } from '@/utils/logAdminLessError';
 
 interface LearnerProfileDialogProps {
   learner: Learner | null;
@@ -49,6 +51,8 @@ export const LearnerProfileDialog = ({
   const [isExporting, setIsExporting] = useState(false);
   const actionState = useAsyncState();
   const learnerId = learner?.id;
+  const profileLearnerId = open && learnerId ? learnerId : undefined;
+  const profileAssessment = useLearnerAssessmentData(profileLearnerId);
   const currentClass = learnerId
     ? classes.find(c => c.learners.some(l => l.id === learnerId))
     : undefined;
@@ -58,11 +62,26 @@ export const LearnerProfileDialog = ({
     ? currentClass?.learners.find((item) => item.id === learnerId) ?? learner
     : null;
   const analytics = useLearnerAnalytics({
-    learnerId,
+    learnerId: profileLearnerId,
     academicYearId: activeYear?.id,
     termId: activeTerm?.id,
-    classId: currentClassId
+    classId: currentClassId,
+    ...(profileLearnerId
+      ? {
+          prefetchedResults: profileAssessment.results,
+          prefetchedLoading: profileAssessment.loading,
+          prefetchedError: profileAssessment.error,
+          prefetchedIsFetching: profileAssessment.isFetching,
+        }
+      : {})
   });
+
+  useEffect(() => {
+    if (!open || !learnerId) return;
+    if (!profileAssessment.error?.message) return;
+    showError("Failed to load data");
+  }, [open, learnerId, profileAssessment.error?.message]);
+
   if (!learnerId || !open) return null;
   const isProfileLoading = !currentLearner;
 
@@ -129,8 +148,8 @@ export const LearnerProfileDialog = ({
         }), { status: "loading", userInitiated: false });
         showSuccess("PDF report generated.");
     } catch (e) {
-        console.error(e);
-        showError("Failed to generate PDF.");
+        logAdminLessError('learner_profile_pdf_export', e);
+        showError("Failed to load data");
     } finally {
         setIsExporting(false);
     }
@@ -228,6 +247,10 @@ export const LearnerProfileDialog = ({
                     academicYearId={activeYear?.id}
                     termId={activeTerm?.id}
                     classId={currentClassId}
+                    prefetchedResults={profileLearnerId ? profileAssessment.results : undefined}
+                    prefetchedLoading={profileLearnerId ? profileAssessment.loading : undefined}
+                    prefetchedError={profileLearnerId ? profileAssessment.error : undefined}
+                    prefetchedIsFetching={profileLearnerId ? profileAssessment.isFetching : undefined}
                   />
                 </TabsContent>
                 <TabsContent value="summary" className="h-full m-0">
@@ -270,6 +293,10 @@ export const LearnerProfileDialog = ({
                     academicYearId={activeYear?.id}
                     termId={activeTerm?.id}
                     classId={currentClassId}
+                    prefetchedResults={profileLearnerId ? profileAssessment.results : undefined}
+                    prefetchedLoading={profileLearnerId ? profileAssessment.loading : undefined}
+                    prefetchedError={profileLearnerId ? profileAssessment.error : undefined}
+                    prefetchedIsFetching={profileLearnerId ? profileAssessment.isFetching : undefined}
                   />
                 </TabsContent>
                 <TabsContent value="attendance" className="h-full m-0">

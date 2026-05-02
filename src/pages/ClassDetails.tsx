@@ -22,14 +22,18 @@ import {
   ShieldCheck, 
   BarChart3, 
   FileDown,
-  Camera
+  Camera,
+  AlertCircle
 } from "lucide-react";
 import { showError } from "@/utils/toast";
 import { generateSASAMSExport } from "@/utils/sasams";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchClassInsights } from "@/hooks/useClassAnalysis";
+import { fetchClassInsights, getClassInsightsQueryKey } from "@/hooks/useClassAnalysis";
+import { logAdminLessError } from "@/utils/logAdminLessError";
 
 import Scan from "@/pages/Scan";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 const ClassDetailsContent = () => {
   const { classId } = useParams();
@@ -68,10 +72,18 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
     marks,
     loading: academicLoading,
     refreshAssessments,
-    hasPreloadedMarkSheetData
+    hasPreloadedMarkSheetData,
+    assessmentsQueryError,
+    marksQueryError,
   } = useAcademic();
   const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo } = useSettings();
   const isLocked = !!activeTerm?.closed || !!classInfo.is_finalised;
+  const academicDataFetchError = assessmentsQueryError ?? marksQueryError;
+
+  const handleRetryAcademicQueries = () => {
+    void queryClient.invalidateQueries({ queryKey: ["assessments"] });
+    void queryClient.invalidateQueries({ queryKey: ["assessment_marks"] });
+  };
 
   const [diagOpen, setDiagOpen] = useState(false);
   const [isMarkSheetUpdating, setIsMarkSheetUpdating] = useState(false);
@@ -128,13 +140,14 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
     return hasContextData || hasPreloadedMarkSheetData(classId, activeTerm.id);
   }, [classId, activeTerm?.id, assessments, hasPreloadedMarkSheetData]);
 
-  const fetchInsights = () => fetchClassInsights(classId, activeTerm?.id, activeYear?.id);
-
-  const fetchReports = async () => ({ classId, ready: true });
-
   useEffect(() => {
-    queryClient.prefetchQuery({ queryKey: ["insights", classId], queryFn: fetchInsights });
-    queryClient.prefetchQuery({ queryKey: ["reports", classId], queryFn: fetchReports });
+    const termId = activeTerm?.id;
+    const yearId = activeYear?.id;
+    if (!classId || !termId || !yearId) return;
+    void queryClient.prefetchQuery({
+      queryKey: getClassInsightsQueryKey(classId, termId, yearId),
+      queryFn: () => fetchClassInsights(classId, termId, yearId),
+    });
   }, [classId, activeTerm?.id, activeYear?.id, queryClient]);
 
   useEffect(() => {
@@ -165,19 +178,23 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
 
       const runRefresh = async () => {
         setIsMarkSheetUpdating(true);
+        console.info("[marksheet] refresh start", { classId, termId: activeTerm.id, requestId });
 
         try {
           // Align React Query filter only; assessments/marks load via AcademicContext queries.
           // Avoid forceRefresh here — it duplicated preloadMarkSheetData + churned when cache appeared.
           await refreshAssessments(classId, activeTerm.id, false);
           if (requestId !== marksheetRequestRef.current) return;
+          console.info("[marksheet] refresh success", { classId, termId: activeTerm.id, requestId });
         } catch (err) {
-          console.error("[marksheet update failed]", err);
+          logAdminLessError("class_details_marks_refresh", err);
+          showError("Failed to refresh");
         } finally {
           clearTimeout(timeoutId);
           if (!isCancelled && requestId === marksheetRequestRef.current) {
             setIsMarkSheetUpdating(false);
           }
+          console.info("[marksheet] refresh end", { classId, termId: activeTerm.id, requestId, cancelled: isCancelled });
         }
       };
 
@@ -256,6 +273,18 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
         </TabsList>
         
         <TabsContent value="assessments" className="mt-4">
+            {academicDataFetchError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Failed to load data</AlertTitle>
+                <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm">Connection issue, please retry.</span>
+                  <Button type="button" variant="outline" size="sm" className="shrink-0 w-fit" onClick={handleRetryAcademicQueries}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
             <MarkSheet 
                 classInfo={classInfo} 
                 isLoading={academicLoading && !hasCachedMarkSheetData}

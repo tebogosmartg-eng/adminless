@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { db } from '@/db';
 import { showSuccess, showError } from '@/utils/toast';
+import { logAdminLessError } from '@/utils/logAdminLessError';
 import { calculateWeightedAverage } from '@/utils/calculations';
 import { sortAssessmentsDeterministically } from '@/utils/assessmentOrdering';
 
@@ -113,8 +114,8 @@ export const useYearReportData = () => {
       showSuccess("Year-end report generated.");
 
     } catch (e: any) {
-      console.error(e);
-      showError(e.message);
+      logAdminLessError('year_report_generate', e);
+      showError("Failed to load data");
     } finally {
       setLoading(false);
     }

@@ -6,9 +6,12 @@ import { showError, showSuccess } from '@/utils/toast';
 import { useAcademic } from '@/context/AcademicContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { logAdminLessError } from '@/utils/logAdminLessError';
 
 interface ClassesContextType {
   classes: ClassInfo[];
+  /** Present when the classes React Query is in error state. */
+  classesQueryError: Error | null;
   loading: boolean;
   isLoading: boolean;
   isRefreshing: boolean;
@@ -71,8 +74,8 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         }
         return mappedClasses;
     } catch (error) {
-        console.error("AdminLess error: Failed to fetch classes", error);
-        return [];
+        logAdminLessError('classes_fetch', error);
+        throw error;
     }
   }, [session?.user.id, diagnosticMode, isReady, activeYear, activeTerm]);
 
@@ -81,11 +84,18 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     [session?.user.id, activeYear?.id, activeTerm?.id, diagnosticMode]
   );
 
-  const { data: classes = [], isLoading, isFetching, isFetched } = useQuery({
+  const { data: classes = [], error: classesQueryError, isLoading, isFetching, isFetched } = useQuery({
     queryKey: classesQueryKey,
     queryFn: fetchClasses,
     enabled: !!session?.user.id && (diagnosticMode || isReady)
   });
+
+  const classesQueryErrorNormalized: Error | null =
+    classesQueryError == null
+      ? null
+      : classesQueryError instanceof Error
+        ? classesQueryError
+        : new Error(String(classesQueryError));
 
   const preloadClasses = useCallback(async () => {
     if (!session?.user?.id || (!diagnosticMode && !isReady)) return;
@@ -155,7 +165,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       await queryClient.invalidateQueries({ queryKey: ['classes'] });
       logActivity(`Created class: "${newClass.className}"`);
     } catch (e: any) {
-      console.error("AdminLess error:", e);
+      logAdminLessError('classes_add_class', e);
       showError("Failed to create class: " + e.message);
       throw e;
     }
@@ -239,7 +249,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e: any) {
-        console.error("AdminLess error:", e);
+        logAdminLessError('classes_update_learners', e);
         showError("Failed to update roster: " + e.message);
         throw e;
     }
@@ -251,7 +261,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e: any) {
-        console.error("AdminLess error:", e);
+        logAdminLessError('classes_rename_learner', e);
         showError("Failed to rename learner: " + e.message);
         throw e;
     }
@@ -273,7 +283,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e: any) {
-        console.error("AdminLess error:", e);
+        logAdminLessError('classes_update_learner_comment', e);
         showError("Failed to save learner comment: " + e.message);
         throw e;
     }
@@ -290,7 +300,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e: any) {
-        console.error("AdminLess error:", e);
+        logAdminLessError('classes_update_details', e);
         showError("Update failed: " + e.message);
         throw e;
     }
@@ -302,7 +312,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e: any) {
-        console.error("AdminLess error:", e);
+        logAdminLessError('classes_update_notes', e);
         showError("Failed to save notes: " + e.message);
         throw e;
     }
@@ -316,7 +326,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         showSuccess("Class finalised successfully.");
         logActivity(`Finalised class term data.`);
     } catch (e: any) {
-        console.error("AdminLess error:", e);
+        logAdminLessError('classes_finalize_term', e);
         showError("Failed to finalize class: " + e.message);
         throw e;
     }
@@ -330,7 +340,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         if (delClassErr) throw delClassErr;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e: any) {
-        console.error("AdminLess error:", e);
+        logAdminLessError('classes_delete', e);
         showError("Failed to delete class: " + e.message);
         throw e;
     }
@@ -342,7 +352,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });
     } catch (e: any) {
-        console.error("AdminLess error:", e);
+        logAdminLessError('classes_toggle_archive', e);
         showError("Status update failed: " + e.message);
         throw e;
     }
@@ -355,6 +365,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   return (
     <ClassesContext.Provider value={{ 
       classes, 
+      classesQueryError: classesQueryErrorNormalized,
       loading,
       isLoading: loading,
       isRefreshing,

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,9 @@ import {
     Eraser, 
     Copy, 
     Coffee,
-    ArrowRightLeft
+    ArrowRightLeft,
+    AlertCircle,
+    Loader2
 } from "lucide-react";
 import { useTimetable } from '@/hooks/useTimetable';
 import { useClasses } from '@/context/ClassesContext';
@@ -43,7 +46,8 @@ const buildFieldKey = (day: string, period: number, field: TimetableField) =>
   `${day}_${period}_${field}`;
 
 export const TimetableSettings = () => {
-  const { timetable, updateEntry, clearEntry } = useTimetable();
+  const { timetable, error: timetableLoadError, isLoading: timetableLoading, isFetching: timetableFetching, updateEntry, clearEntry } = useTimetable();
+  const timetableErrorToastKey = useRef<string | null>(null);
   const { classes } = useClasses();
 
   // Find the highest period number currently in the database
@@ -177,7 +181,7 @@ export const TimetableSettings = () => {
       form.reset(form.values);
       setStatusMessage("Saved ✓");
     } catch {
-      setErrorMessage("Failed to auto-save timetable changes.");
+      setErrorMessage("Failed to refresh");
       setStatusMessage(null);
     } finally {
       setIsSaving(false);
@@ -201,6 +205,13 @@ export const TimetableSettings = () => {
   const feedbackMessage =
     statusMessage ?? (isSaving || autoSave.isSaving ? "Saving..." : autoSave.didSave ? "Saved ✓" : null);
   const feedbackError = errorMessage ?? autoSave.saveError;
+
+  useEffect(() => {
+    if (!timetableLoadError?.message) return;
+    if (timetableErrorToastKey.current === timetableLoadError.message) return;
+    timetableErrorToastKey.current = timetableLoadError.message;
+    showError("Failed to load data");
+  }, [timetableLoadError?.message]);
 
   const handleCloneDay = async (sourceDay: string, targetDay: string) => {
       if (sourceDay === targetDay) return;
@@ -291,9 +302,20 @@ export const TimetableSettings = () => {
                 <CardDescription className="truncate">Configure your teaching periods and session times.</CardDescription>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-                {numRows > 0 && <Button variant="outline" size="sm" onClick={() => handleRemoveLastRow()} className="flex-1 sm:flex-none h-10 sm:h-9"><Trash2 className="h-4 w-4 mr-2" /> Remove Row</Button>}
+                {numRows > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isSaving || timetableFetching}
+                    onClick={() => handleRemoveLastRow()}
+                    className="flex-1 sm:flex-none h-10 sm:h-9"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" /> Remove Row
+                  </Button>
+                )}
                 <Button
                   size="sm"
+                  disabled={isSaving || timetableFetching}
                   onClick={() => {
                     const nextRows = numRows + 1;
                     form.setFieldValue("numRows", String(nextRows), rowValidationRules.numRows);
@@ -308,6 +330,19 @@ export const TimetableSettings = () => {
         </div>
       </CardHeader>
       <CardContent className="w-full min-w-0 space-y-4">
+        {timetableLoadError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Failed to load data</AlertTitle>
+            <AlertDescription>Connection issue, please retry.</AlertDescription>
+          </Alert>
+        )}
+        {timetableFetching && !timetableLoading && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+            Updating…
+          </p>
+        )}
         <AsyncStatus
           state={{
             status: feedbackPhase,

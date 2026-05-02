@@ -48,8 +48,10 @@ interface MarkSheetToolbarProps {
   saveSuccessTick?: number;
   availableRubrics?: Rubric[];
   classInfo?: ClassInfo;
-  /** Background assessments/marks fetch — non-blocking indicator */
+  /** Background refresh (e.g. class tab alignment) — subtle non-blocking indicator */
   isDataRefreshing?: boolean;
+  /** React Query marks/assessments fetch in flight — "Syncing marks…" badge only */
+  isMarksQueryFetching?: boolean;
 }
 
 export const MarkSheetToolbar = ({
@@ -62,6 +64,7 @@ export const MarkSheetToolbar = ({
   isAutoSaving, saveSuccessTick = 0, availableRubrics = [],
   classInfo,
   isDataRefreshing = false,
+  isMarksQueryFetching = false,
 }: MarkSheetToolbarProps) => {
 
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
@@ -170,7 +173,7 @@ export const MarkSheetToolbar = ({
           </Select>
 
           {currentViewTerm?.closed && <Badge variant="secondary"><Eye className="mr-1 h-3 w-3" /> Read Only</Badge>}
-          {isDataRefreshing && (
+          {isMarksQueryFetching && (
             <Badge variant="outline" className="gap-1.5 font-normal text-muted-foreground border-primary/25 bg-background/80">
               <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />
               <span className="text-[11px] font-medium">Syncing marks…</span>

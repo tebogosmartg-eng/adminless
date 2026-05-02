@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { useTimetable } from '@/hooks/useTimetable';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarClock } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { CalendarClock, AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { showError } from '@/utils/toast';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -13,7 +15,15 @@ interface TimetableGridProps {
 }
 
 export const TimetableGrid = ({ isDocumentMode = false }: TimetableGridProps) => {
-  const { timetable } = useTimetable();
+  const { timetable, error, isLoading, isFetching } = useTimetable();
+  const lastToastKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!error?.message) return;
+    if (lastToastKey.current === error.message) return;
+    lastToastKey.current = error.message;
+    showError("Failed to load data");
+  }, [error?.message]);
 
   const maxPeriod = useMemo(() => {
     if (!timetable || timetable.length === 0) return 0;
@@ -29,12 +39,30 @@ export const TimetableGrid = ({ isDocumentMode = false }: TimetableGridProps) =>
           );
       }
 
+      if (isLoading && !error) {
+        return (
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin shrink-0" aria-hidden />
+            Loading…
+          </div>
+        );
+      }
+
       return (
-          <div className="py-10 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none print:text-left print:p-2 print:text-black">
+          <div className="space-y-3 py-6 print:border-none print:text-left print:p-2 print:text-black">
+              {error && (
+                <Alert variant="destructive" className="no-print">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Failed to load data</AlertTitle>
+                  <AlertDescription>Connection issue, please retry.</AlertDescription>
+                </Alert>
+              )}
+              <div className="py-10 text-center border-2 border-dashed rounded-xl bg-muted/5 print:border-none">
               <CalendarClock className="h-10 w-10 mx-auto text-muted-foreground opacity-20 mb-2 no-print" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground no-print">No Timetable Configured</p>
-              <p className="text-[9px] text-muted-foreground mt-1 no-print">Set up your teaching schedule in Settings {'>'} Academic.</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground no-print">{error ? 'Timetable unavailable' : 'No Timetable Configured'}</p>
+              <p className="text-[9px] text-muted-foreground mt-1 no-print">{error ? '' : <>Set up your teaching schedule in Settings {'>'} Academic.</>}</p>
               <p className="hidden print:block text-sm text-slate-800 font-medium">The educator's official teaching allocation and master timetable are securely held in the school's central administrative repository.</p>
+              </div>
           </div>
       );
   }
@@ -46,6 +74,19 @@ export const TimetableGrid = ({ isDocumentMode = false }: TimetableGridProps) =>
 
   return (
     <div className={cn("overflow-x-auto w-full max-w-[calc(100vw-2.5rem)] md:max-w-full print-avoid-break no-scrollbar", isDocumentMode ? "bg-white border-slate-200 border rounded-xl text-slate-900" : "bg-card text-card-foreground border border-border rounded-xl shadow-sm")}>
+      {error && (
+        <Alert variant="destructive" className="m-3 mb-0 no-print">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Failed to load data</AlertTitle>
+          <AlertDescription>Connection issue, please retry.</AlertDescription>
+        </Alert>
+      )}
+      {isFetching && !isLoading && (
+        <p className="flex items-center gap-2 px-3 pt-2 text-xs text-muted-foreground no-print" aria-live="polite">
+          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+          Updating…
+        </p>
+      )}
       <Table className="table-fixed min-w-[600px] w-full border-collapse">
         <TableHeader>
           <TableRow className={cn("border-b", isDocumentMode ? "bg-slate-50 border-slate-200" : "bg-muted/50 border-border")}>

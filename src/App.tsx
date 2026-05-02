@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { defaultQueryOptions } from "@/utils/queryDefaults";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Session } from "@supabase/supabase-js";
@@ -29,14 +30,14 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { SettingsProvider } from "./context/SettingsContext";
 import { AcademicProvider } from "./context/AcademicContext";
 import { SystemThemeManager } from "./components/SystemThemeManager";
+import { logAdminLessError } from "@/utils/logAdminLessError";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
+      ...defaultQueryOptions,
       refetchOnMount: false,
       refetchOnReconnect: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
 });
@@ -59,7 +60,7 @@ const App = () => {
         if (error) throw error;
         setSession(initialSession);
       } catch (err) {
-        console.error("[Auth] Initial session load failed:", err);
+        logAdminLessError("auth_initial_session", err);
       } finally {
         setLoading(false);
       }

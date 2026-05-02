@@ -9,8 +9,10 @@ import {
   ReferenceLine
 } from 'recharts';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TrendingUp, History, Calendar } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { TrendingUp, History, Calendar, Loader2, AlertCircle } from "lucide-react";
 import { useLearnerAnalytics } from '@/hooks/useLearnerAnalytics';
+import { AssessmentResult } from '@/hooks/useLearnerAssessmentData';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PASS_THRESHOLD } from '@/constants/diagnostics';
@@ -20,21 +22,39 @@ interface ProfileHistoryTabProps {
   academicYearId?: string;
   termId?: string;
   classId?: string;
+  prefetchedResults?: AssessmentResult[];
+  prefetchedLoading?: boolean;
+  prefetchedError?: Error | null;
+  prefetchedIsFetching?: boolean;
 }
 
 export const ProfileHistoryTab = ({
   learnerId,
   academicYearId,
   termId,
-  classId
+  classId,
+  prefetchedResults,
+  prefetchedLoading,
+  prefetchedError,
+  prefetchedIsFetching
 }: ProfileHistoryTabProps) => {
-  const analytics = useLearnerAnalytics({ learnerId, academicYearId, termId, classId });
+  const analytics = useLearnerAnalytics({
+    learnerId,
+    academicYearId,
+    termId,
+    classId,
+    ...(prefetchedResults !== undefined && prefetchedLoading !== undefined
+      ? { prefetchedResults, prefetchedLoading, prefetchedError, prefetchedIsFetching }
+      : {})
+  });
   const safeAssessments = analytics.assessments ?? [];
   const safeChartData = analytics.chartData ?? [];
   const safeLearnerGroups = analytics.learnerGroups ?? [];
   const safeWeakAreas = analytics.weakAreas ?? [];
+  const hasData = safeAssessments.length > 0;
+  const err = analytics.error;
 
-  if (analytics.isLoading) {
+  if (analytics.isLoading && !hasData && !err) {
     return (
       <div className="space-y-4 pt-4">
         <div className="grid grid-cols-3 gap-2">
@@ -49,7 +69,7 @@ export const ProfileHistoryTab = ({
     );
   }
 
-  if (safeAssessments.length === 0) {
+  if (!analytics.isLoading && !err && !hasData) {
     return (
       <EmptyState
         title="No assessment history"
@@ -61,6 +81,21 @@ export const ProfileHistoryTab = ({
 
   return (
     <div className="flex flex-col h-full space-y-4 pt-4">
+      {analytics.isFetching && hasData && (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+          Updating…
+        </p>
+      )}
+      {err && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Failed to load data</AlertTitle>
+          <AlertDescription>Connection issue, please retry.</AlertDescription>
+        </Alert>
+      )}
+      {!hasData ? null : (
+        <>
       {/* Mini Stats */}
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-muted/30 p-3 rounded-lg text-center border">
@@ -167,6 +202,8 @@ export const ProfileHistoryTab = ({
           </div>
         </ScrollArea>
       </div>
+        </>
+      )}
     </div>
   );
 };

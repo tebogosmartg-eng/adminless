@@ -23,6 +23,8 @@ export interface LearnerAnalyticsResult {
   learnerGroups: LearnerGroupSummary[];
   isLoading: boolean;
   loading: boolean;
+  error: Error | null;
+  isFetching: boolean;
 }
 
 interface UseLearnerAnalyticsParams {
@@ -31,9 +33,14 @@ interface UseLearnerAnalyticsParams {
   termId?: string;
   classId?: string;
   weakThreshold?: number;
+  /** When both are set, skips internal `useLearnerAssessmentData` (e.g. dialog lifts a single query). */
+  prefetchedResults?: AssessmentResult[];
+  prefetchedLoading?: boolean;
+  prefetchedError?: Error | null;
+  prefetchedIsFetching?: boolean;
 }
 
-const DEFAULT_ANALYTICS_RESULT: Omit<LearnerAnalyticsResult, 'isLoading' | 'loading'> = {
+const DEFAULT_ANALYTICS_RESULT: Omit<LearnerAnalyticsResult, 'isLoading' | 'loading' | 'error' | 'isFetching'> = {
   assessments: [],
   assessmentsByTerm: [],
   chartData: [],
@@ -70,12 +77,23 @@ export const useLearnerAnalytics = ({
   academicYearId,
   termId,
   classId,
-  weakThreshold = PASS_THRESHOLD
+  weakThreshold = PASS_THRESHOLD,
+  prefetchedResults,
+  prefetchedLoading,
+  prefetchedError,
+  prefetchedIsFetching
 }: UseLearnerAnalyticsParams): LearnerAnalyticsResult => {
-  const assessmentData = useLearnerAssessmentData(learnerId);
-  const isLoading = Boolean(assessmentData?.loading);
+  const useLifted = prefetchedResults !== undefined && prefetchedLoading !== undefined;
+  const assessmentData = useLearnerAssessmentData(useLifted ? undefined : learnerId);
+  const isLoading = Boolean(useLifted ? prefetchedLoading : assessmentData?.loading);
   const loading = isLoading;
-  const safeResults = Array.isArray(assessmentData?.results) ? assessmentData.results : [];
+  const assessmentError: Error | null = useLifted
+    ? (prefetchedError ?? null)
+    : (assessmentData?.error ?? null);
+  const isFetching = useLifted ? Boolean(prefetchedIsFetching) : Boolean(assessmentData?.isFetching);
+  const safeResults = Array.isArray(useLifted ? prefetchedResults : assessmentData?.results)
+    ? (useLifted ? prefetchedResults! : assessmentData!.results)
+    : [];
   const safeWeakThreshold = Number.isFinite(weakThreshold) ? weakThreshold : PASS_THRESHOLD;
 
   return useMemo(() => {
@@ -83,15 +101,19 @@ export const useLearnerAnalytics = ({
       return {
         ...DEFAULT_ANALYTICS_RESULT,
         isLoading,
-        loading
+        loading,
+        error: null,
+        isFetching
       };
     }
 
     if (safeResults.length === 0) {
       return {
         ...DEFAULT_ANALYTICS_RESULT,
-        isLoading,
-        loading
+        isLoading: false,
+        loading: false,
+        error: assessmentError,
+        isFetching
       };
     }
 
@@ -104,8 +126,10 @@ export const useLearnerAnalytics = ({
     if (scopedAssessments.length === 0) {
       return {
         ...DEFAULT_ANALYTICS_RESULT,
-        isLoading,
-        loading
+        isLoading: false,
+        loading: false,
+        error: assessmentError,
+        isFetching
       };
     }
 
@@ -168,7 +192,9 @@ export const useLearnerAnalytics = ({
       weakAreas,
       learnerGroups,
       isLoading,
-      loading
+      loading,
+      error: assessmentError,
+      isFetching
     };
-  }, [academicYearId, classId, isLoading, loading, safeResults, safeWeakThreshold, termId]);
+  }, [academicYearId, assessmentError, classId, isFetching, isLoading, loading, safeResults, safeWeakThreshold, termId]);
 };

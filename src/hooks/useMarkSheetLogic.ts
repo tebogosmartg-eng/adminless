@@ -7,6 +7,7 @@ import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculation
 import { validateMarkEntry } from '@/utils/integrity';
 import { isLocked } from '@/utils/termLock';
 import { supabase } from "@/lib/supabaseClient";
+import { logAdminLessError } from '@/utils/logAdminLessError';
 import { useDebounce } from '@/hooks/useDebounce';
 
 type CellSaveStatus = 'saving' | 'saved' | 'error';
@@ -54,7 +55,7 @@ useEffect(() => {
       .select("*");
 
     if (error) {
-      console.error("Rubrics fetch error:", error);
+      logAdminLessError('marksheet_rubrics_fetch', error);
       return;
     }
 
@@ -199,7 +200,7 @@ useEffect(() => {
         setSaveSuccessTick((prev) => prev + 1);
         scheduleCellStatusReset(key, 'saved', 1600);
     } catch (e) {
-        console.error("Persistence failed:", e);
+        logAdminLessError('marksheet_mark_persist', e);
         if (markSaveSequenceRef.current[key] === nextSeq) {
             setEditedMarks(prev => {
                 if (prev[key] !== value) return prev;
@@ -334,7 +335,7 @@ useEffect(() => {
         setSaveSuccessTick((prev) => prev + 1);
         scheduleCellStatusReset(key, 'saved', 1600);
     } catch (error) {
-        console.error("Comment persistence failed:", error);
+        logAdminLessError('marksheet_comment_persist', error);
         setCellSaveStatus(prev => ({ ...prev, [key]: 'error' }));
         scheduleCellStatusReset(key, 'error', 2200);
         showError("Failed to save note.");

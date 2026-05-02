@@ -65,6 +65,11 @@ export const useScanLogic = (defaultClassId?: string) => {
     if (!selectedClassId || !targetAssessment || imagePreviews.length === 0 || !navigator.onLine) return;
     
     setIsProcessing(true);
+    console.info("[scan] process start", {
+      classId: selectedClassId,
+      assessmentId: selectedAssessmentId,
+      imageCount: imagePreviews.length,
+    });
     try {
       const schema = {
         title: targetAssessment.title,
@@ -77,7 +82,8 @@ export const useScanLogic = (defaultClassId?: string) => {
       };
 
       const result = await processImagesWithGemini(imagePreviews, schema);
-      
+      console.info("[scan] gemini raw result keys", result && typeof result === "object" ? Object.keys(result) : typeof result);
+
       const mappedResults = result.results.map((r: any) => {
         // Enforce strict mapping against the schema so UI arrays are always in order
         const questionMarks = (targetAssessment.questions || []).map(schemaQ => {
@@ -108,9 +114,14 @@ export const useScanLogic = (defaultClassId?: string) => {
       if (user) await saveScanJob(user.id, selectedClassId!, selectedAssessmentId, { details: result.details, learners: mappedResults });
 
       showSuccess(`AI analyzed ${mappedResults.length} scripts.`);
+      console.info("[scan] process success", { learnerCount: mappedResults.length });
     } catch (error: any) {
+      console.error("[scan] process error", error);
       showError(error.message);
-    } finally { setIsProcessing(false); }
+    } finally {
+      setIsProcessing(false);
+      console.info("[scan] process end");
+    }
   };
 
   const handleSimulateScan = () => {

@@ -86,7 +86,12 @@ serve(async (req) => {
     const apiKey = Deno.env.get('GEMINI_API_KEY')
     if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
-    const body = await req.json();
+    let body: { action?: string; payload?: unknown };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ success: false, error: "Invalid JSON body" }), { headers: corsHeaders, status: 400 });
+    }
     const { action, payload } = body;
     
     const systemInstruction = "You are a strict academic data API. Return ONLY valid JSON. Validate all numbers: awarded marks cannot exceed possible marks.";

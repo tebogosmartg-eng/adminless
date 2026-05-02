@@ -19,8 +19,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAcademic } from '@/context/AcademicContext';
+import { useIsFetching } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { logAdminLessError } from '@/utils/logAdminLessError';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
@@ -57,10 +58,22 @@ const MarkSheetSkeleton = () => (
 );
 
 export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, isRefreshing = false }: MarkSheetProps) => {
-  const { isRefreshing: academicRefreshing } = useAcademic();
   const { state, actions } = useMarkSheetLogic(classInfo);
   const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(!isLoading);
-  const isDataRefreshing = isRefreshing || academicRefreshing;
+  const marksQueryFingerprint = useMemo(
+    () => [...state.assessments.map((a) => a.id).filter(Boolean)].sort().join(','),
+    [state.assessments]
+  );
+  const scopedMarksSheetFetching = useIsFetching({
+    predicate: (query) => {
+      const k = query.queryKey;
+      if (k[0] === 'assessments' && k[2] === classInfo.id) return true;
+      if (k[0] === 'assessment_marks' && k[2] === marksQueryFingerprint) return true;
+      return false;
+    },
+  });
+  const isMarksQueryFetching = scopedMarksSheetFetching > 0;
+  const isDataRefreshing = isRefreshing || isMarksQueryFetching;
 
   useEffect(() => {
     if (!isLoading) {
@@ -128,7 +141,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
     });
 
     if (invalidKeys.length > 0) {
-      console.error("[marksheet] question_marks key mismatch", {
+      logAdminLessError('marksheet_question_marks_key_mismatch', new Error('Non-question keys stripped'), {
         assessmentId,
         invalidKeys,
         expectedQuestionIds: Array.from(validIds),
@@ -243,6 +256,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
           setViewTermId={actions.setViewTermId}
           currentViewTerm={state.currentViewTerm}
           isDataRefreshing={isDataRefreshing}
+          isMarksQueryFetching={isMarksQueryFetching}
           isWeightValid={state.isWeightValid}
           currentTotalWeight={state.currentTotalWeight}
           isLocked={state.isLocked}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Learner, ClassInfo } from '@/lib/types';
 import { db } from '@/db';
 
@@ -17,18 +17,26 @@ interface LearnerHistoryItem {
 
 export const useLearnerHistory = (learner: Learner | null, classes: ClassInfo[]) => {
   const [history, setHistory] = useState<LearnerHistoryItem[]>([]);
+  const classesRef = useRef(classes);
+  classesRef.current = classes;
+
+  const classIdsKey = useMemo(
+    () => classes.map((c) => c.id).filter(Boolean).sort().join(','),
+    [classes]
+  );
 
   useEffect(() => {
     let isMounted = true;
+    const classesSnapshot = classesRef.current;
 
     const loadHistory = async () => {
-      if (!learner || classes.length === 0) {
+      if (!learner || classesSnapshot.length === 0) {
         if (isMounted) setHistory([]);
         return;
       }
 
       try {
-        const classIds = classes.map(c => c.id).filter(Boolean);
+        const classIds = classesSnapshot.map((c) => c.id).filter(Boolean);
         if (classIds.length === 0) {
           if (isMounted) setHistory([]);
           return;
@@ -37,7 +45,7 @@ export const useLearnerHistory = (learner: Learner | null, classes: ClassInfo[])
         const learnerIds = new Set<string>();
         if (learner.id) learnerIds.add(learner.id);
 
-        classes.forEach((c) => {
+        classesSnapshot.forEach((c) => {
           c.learners.forEach((l) => {
             if (l.id && l.name.toLowerCase() === learner.name.toLowerCase()) {
               learnerIds.add(l.id);
@@ -61,7 +69,7 @@ export const useLearnerHistory = (learner: Learner | null, classes: ClassInfo[])
           return;
         }
 
-        const classMap = new Map(classes.map(c => [c.id, c]));
+        const classMap = new Map(classesSnapshot.map((c) => [c.id, c]));
         const marksByAssessment = new Map(
           marks
             .filter((m: any) => m?.score !== null && m?.score !== undefined)
@@ -112,11 +120,11 @@ export const useLearnerHistory = (learner: Learner | null, classes: ClassInfo[])
       }
     };
 
-    loadHistory();
+    void loadHistory();
     return () => {
       isMounted = false;
     };
-  }, [learner, classes]);
+  }, [learner?.id, learner?.name, classIdsKey]);
 
   const stats = useMemo(() => {
     if (history.length === 0 || !learner) return null;
@@ -124,7 +132,7 @@ export const useLearnerHistory = (learner: Learner | null, classes: ClassInfo[])
     const avg = Number.isFinite(weightedAverage) ? Math.round(weightedAverage) : 0;
     const max = Math.max(...history.map(i => i.mark));
     return { avg, max, count: history.length };
-  }, [history, learner]);
+  }, [history, learner?.id, learner?.mark]);
 
   const subjects = useMemo(() => {
     return Array.from(new Set(history.map(h => h.subject)));

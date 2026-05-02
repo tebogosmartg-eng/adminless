@@ -4,9 +4,12 @@ import { Activity } from '@/lib/types';
 import { supabase } from '@/lib/supabaseClient';
 import { useAcademic } from './AcademicContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { logAdminLessError } from '@/utils/logAdminLessError';
 
 interface ActivityContextType {
   activities: Activity[];
+  /** Present when the activities query is in error state. */
+  activitiesQueryError: Error | null;
   logActivity: (message: string) => void;
 }
 
@@ -16,7 +19,7 @@ export const ActivityProvider = ({ children, session }: { children: ReactNode; s
   const { activeYear, activeTerm } = useAcademic();
   const queryClient = useQueryClient();
 
-  const { data: activities = [] } = useQuery({
+  const { data: activities = [], error: activitiesQueryError } = useQuery({
     queryKey: ['activities', session?.user?.id],
     queryFn: async () => {
       if (!session?.user?.id) return [];
@@ -28,8 +31,8 @@ export const ActivityProvider = ({ children, session }: { children: ReactNode; s
           .limit(20);
       
       if (error) {
-        console.warn('Failed to load activities', error);
-        return [];
+        logAdminLessError('activities_fetch', error);
+        throw error;
       }
       return data as Activity[];
     },
@@ -52,15 +55,25 @@ export const ActivityProvider = ({ children, session }: { children: ReactNode; s
     },
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['activities'] });
-    }
+    },
+    onError: (mutationError: unknown) => {
+      logAdminLessError('activities_log_write', mutationError);
+    },
   });
 
   const logActivity = useCallback((message: string) => {
     logActivityMutation.mutate(message);
   }, [logActivityMutation]);
 
+  const activitiesQueryErrorNormalized: Error | null =
+    activitiesQueryError == null
+      ? null
+      : activitiesQueryError instanceof Error
+        ? activitiesQueryError
+        : new Error(String(activitiesQueryError));
+
   return (
-    <ActivityContext.Provider value={{ activities, logActivity }}>
+    <ActivityContext.Provider value={{ activities, activitiesQueryError: activitiesQueryErrorNormalized, logActivity }}>
       {children}
     </ActivityContext.Provider>
   );

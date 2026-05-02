@@ -10,13 +10,20 @@ import { useAcademicSelection } from '@/hooks/useAcademicSelection';
 import { useAcademicMigration } from '@/hooks/useAcademicMigration';
 import { useAcademicAverages } from '@/hooks/useAcademicAverages';
 import { canonicalizeQuestionMarksForSave, remapQuestionMarksByIndexToQuestionIds } from '@/utils/questionMarks';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { withTimeout } from '@/utils/withTimeout';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { logAdminLessError } from '@/utils/logAdminLessError';
+import { queryRetry } from '@/utils/queryDefaults';
 
 interface AcademicContextType {
   years: AcademicYear[];
   terms: Term[];
   assessments: Assessment[];
   marks: AssessmentMark[];
+  /** Present when the assessments React Query is in error state (e.g. timeout); not a substitute for empty legitimate data. */
+  assessmentsQueryError: Error | null;
+  /** Present when the marks React Query is in error state (e.g. timeout). */
+  marksQueryError: Error | null;
   loading: boolean;
   isRefreshing: boolean;
   activeYear: AcademicYear | null;
@@ -51,6 +58,9 @@ interface AcademicContextType {
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PRELOAD_TTL_MS = 5 * 60 * 1000;
+/** Bound Supabase reads so React Query `isFetching` cannot stick forever on a hung network. */
+const ACADEMIC_QUERY_TIMEOUT_MS = 45_000;
+const MARKS_MIGRATION_TIMEOUT_MS = 30_000;
 
 type MarkSheetPreloadEntry = {
   assessments: Assessment[];
@@ -105,8 +115,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           if (error) throw error;
           return data as AcademicYear[];
       } catch (e) {
-          console.error("AdminLess error: Failed to fetch academic years", e);
-          return [];
+          logAdminLessError('academic_years_fetch', e);
+          throw e;
       }
     },
     enabled: !!session?.user?.id
@@ -121,8 +131,8 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           if (error) throw error;
           return data.map(t => ({ ...t, is_finalised: !!t.closed })) as Term[];
       } catch (e) {
-          console.error("AdminLess error: Failed to fetch terms", e);
-          return [];
+          logAdminLessError('academic_terms_fetch', e);
+          throw e;
       }
     },
     enabled: !!session?.user?.id
@@ -138,120 +148,161 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
   const isContextReady = !!activeYear?.id && !!activeTerm?.id;
 
-  const { data: assessments = [], isLoading: loadingAss, isFetching: fetchingAss } = useQuery({
+  const {
+    data: assessmentsData,
+    error: assessmentsQueryError,
+    isLoading: loadingAss,
+    isFetching: fetchingAss,
+  } = useQuery({
     queryKey: ['assessments', session?.user?.id, currentClassFilter?.classId, currentClassFilter?.termId, activeTerm?.id, diagnosticMode],
     queryFn: async () => {
       if (!session?.user?.id) return [];
       try {
-          const selectStr = '*, assessment_questions(*)';
-          
-          if (diagnosticMode) {
-              const { data, error } = await applySupabaseAssessmentOrder(
-                supabase.from('assessments').select(selectStr).eq('user_id', session.user.id)
-              );
-              if (error) throw error;
-              return sortAssessmentsDeterministically(
-                (data || []).map(a => ({ ...a, questions: a.assessment_questions }))
-              );
-          }
-          
-          const termId = currentClassFilter?.termId || activeTerm?.id;
-          const classId = currentClassFilter?.classId;
+        const selectStr = '*, assessment_questions(*)';
 
-          if (!classId || classId === 'undefined' || !termId || termId === 'undefined') return [];
-          
-          const { data, error } = await applySupabaseAssessmentOrder(
-            supabase.from('assessments')
+        if (diagnosticMode) {
+          const { data, error } = await withTimeout(
+            applySupabaseAssessmentOrder(
+              supabase.from('assessments').select(selectStr).eq('user_id', session.user.id)
+            ),
+            ACADEMIC_QUERY_TIMEOUT_MS,
+            'assessments.diagnostic'
+          );
+          if (error) throw error;
+          return sortAssessmentsDeterministically(
+            (data || []).map((a) => ({ ...a, questions: a.assessment_questions }))
+          );
+        }
+
+        const termId = currentClassFilter?.termId || activeTerm?.id;
+        const classId = currentClassFilter?.classId;
+
+        if (!classId || classId === 'undefined' || !termId || termId === 'undefined') return [];
+
+        const { data, error } = await withTimeout(
+          applySupabaseAssessmentOrder(
+            supabase
+              .from('assessments')
               .select(selectStr)
               .eq('class_id', classId)
               .eq('term_id', termId)
               .eq('user_id', session.user.id)
-          );
-          
-          if (error) throw error;
-          return sortAssessmentsDeterministically(
-            (data || []).map(a => ({ ...a, questions: a.assessment_questions }))
-          );
+          ),
+          ACADEMIC_QUERY_TIMEOUT_MS,
+          'assessments.class_term'
+        );
+
+        if (error) throw error;
+        return sortAssessmentsDeterministically(
+          (data || []).map((a) => ({ ...a, questions: a.assessment_questions }))
+        );
       } catch (e) {
-          console.error("AdminLess error: Failed to fetch assessments", e);
-          return [];
+        logAdminLessError('academic_assessments_fetch', e);
+        throw e;
       }
     },
-    enabled: !!session?.user?.id && (diagnosticMode || (isContextReady && !!currentClassFilter?.classId))
+    enabled: !!session?.user?.id && (diagnosticMode || (isContextReady && !!currentClassFilter?.classId)),
+    placeholderData: keepPreviousData,
+    retry: queryRetry,
   });
 
-  const { data: marks = [], isLoading: loadingMarks, isFetching: fetchingMarks } = useQuery({
-    queryKey: ['assessment_marks', session?.user?.id, assessments.map((a: any) => a.id).join(',')],
+  const assessments = assessmentsData ?? [];
+
+  const sortedAssessmentIdsKey = useMemo(
+    () => [...assessments.map((a) => a.id).filter(Boolean)].sort().join(','),
+    [assessments]
+  );
+
+  const {
+    data: marksData,
+    error: marksQueryError,
+    isLoading: loadingMarks,
+    isFetching: fetchingMarks,
+  } = useQuery({
+    queryKey: ['assessment_marks', session?.user?.id, sortedAssessmentIdsKey],
     queryFn: async () => {
       if (!session?.user?.id || assessments.length === 0) return [];
       try {
-          const assessmentById = new Map(assessments.map((assessment) => [assessment.id, assessment]));
-          const assIds = assessments.map((a: any) => a.id);
-          const { data, error } = await supabase.from('assessment_marks')
-            .select('*')
-            .in('assessment_id', assIds)
-            .eq('user_id', session.user.id);
-          if (error) throw error;
+        const assessmentById = new Map(assessments.map((assessment) => [assessment.id, assessment]));
+        const assIds = assessments.map((a) => a.id);
+        const { data, error } = await withTimeout(
+          supabase.from('assessment_marks').select('*').in('assessment_id', assIds).eq('user_id', session.user.id),
+          ACADEMIC_QUERY_TIMEOUT_MS,
+          'assessment_marks.fetch'
+        );
+        if (error) throw error;
 
-          const rows = (data || []) as AssessmentMark[];
-          const migratedRows: AssessmentMark[] = [];
-          const persistenceUpdates: Promise<unknown>[] = [];
+        const rows = (data || []) as AssessmentMark[];
+        const migratedRows: AssessmentMark[] = [];
+        const persistenceUpdates: Promise<unknown>[] = [];
 
-          rows.forEach((row) => {
-            const assessment = assessmentById.get(row.assessment_id);
-            const questions = assessment?.questions || [];
-            if (questions.length === 0) {
-              migratedRows.push(row);
-              return;
-            }
-
-            const { mapped, changed } = remapQuestionMarksByIndexToQuestionIds(row.question_marks, questions);
-            const questionIds = new Set(questions.map((question) => question.id).filter(Boolean));
-            const nextQuestionMarks = changed ? mapped : (row.question_marks as Record<string, number | null> | undefined) || {};
-            const nonCanonicalKeys = Object.keys(nextQuestionMarks).filter((key) => !questionIds.has(key));
-            if (nonCanonicalKeys.length > 0) {
-              console.warn("[marks] non-canonical keys after read", nonCanonicalKeys);
-            }
-
-            migratedRows.push({
-              ...row,
-              question_marks: nextQuestionMarks
-            });
-
-            if (!changed || !row.id) return;
-            if (questionMarkMigrationPersistedRef.current.has(row.id)) return;
-
-            persistenceUpdates.push(
-              supabase
-                .from('assessment_marks')
-                .update({ question_marks: mapped })
-                .eq('id', row.id)
-                .eq('user_id', session.user.id)
-                .then(() => {
-                  questionMarkMigrationPersistedRef.current.add(row.id);
-                })
-            );
-          });
-
-          if (persistenceUpdates.length > 0) {
-            const persistenceResults = await Promise.allSettled(persistenceUpdates);
-            const failed = persistenceResults.filter((result) => result.status === 'rejected');
-            if (failed.length > 0) {
-              console.error("[academic] question_marks migration persistence failures", {
-                failedCount: failed.length,
-                attempted: persistenceUpdates.length
-              });
-            }
+        rows.forEach((row) => {
+          const assessment = assessmentById.get(row.assessment_id);
+          const questions = assessment?.questions || [];
+          if (questions.length === 0) {
+            migratedRows.push(row);
+            return;
           }
 
-          return migratedRows;
+          const { mapped, changed } = remapQuestionMarksByIndexToQuestionIds(row.question_marks, questions);
+          const questionIds = new Set(questions.map((question) => question.id).filter(Boolean));
+          const nextQuestionMarks = changed ? mapped : (row.question_marks as Record<string, number | null> | undefined) || {};
+          const nonCanonicalKeys = Object.keys(nextQuestionMarks).filter((key) => !questionIds.has(key));
+          if (nonCanonicalKeys.length > 0) {
+            console.warn('[marks] non-canonical keys after read', nonCanonicalKeys);
+          }
+
+          migratedRows.push({
+            ...row,
+            question_marks: nextQuestionMarks,
+          });
+
+          if (!changed || !row.id) return;
+          if (questionMarkMigrationPersistedRef.current.has(row.id)) return;
+
+          persistenceUpdates.push(
+            supabase
+              .from('assessment_marks')
+              .update({ question_marks: mapped })
+              .eq('id', row.id)
+              .eq('user_id', session.user.id)
+              .then(() => {
+                questionMarkMigrationPersistedRef.current.add(row.id);
+              })
+          );
+        });
+
+        if (persistenceUpdates.length > 0) {
+          try {
+            const persistenceResults = await withTimeout(
+              Promise.allSettled(persistenceUpdates),
+              MARKS_MIGRATION_TIMEOUT_MS,
+              'assessment_marks.migration'
+            );
+            const failed = persistenceResults.filter((result) => result.status === 'rejected');
+            if (failed.length > 0) {
+              logAdminLessError('academic_marks_migration_persist', new Error('Some migration writes failed'), {
+                failedCount: failed.length,
+                attempted: persistenceUpdates.length,
+              });
+            }
+          } catch (migrationErr) {
+            logAdminLessError('academic_marks_migration_timeout', migrationErr);
+          }
+        }
+
+        return migratedRows;
       } catch (e) {
-          console.error("AdminLess error: Failed to fetch marks", e);
-          return [];
+        logAdminLessError('academic_marks_fetch', e);
+        throw e;
       }
     },
-    enabled: !!session?.user?.id && assessments.length > 0
+    enabled: !!session?.user?.id && assessments.length > 0,
+    placeholderData: keepPreviousData,
+    retry: queryRetry,
   });
+
+  const marks = marksData ?? [];
 
   const { updateLearnerActiveAverages, recalculateAllActiveAverages, runDataVacuum } = useAcademicAverages();
   
@@ -273,7 +324,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ['activities'] });
     } catch (e) {
-        console.error("AdminLess error: Failed to log activity", e);
+        logAdminLessError('academic_log_internal_activity', e);
     }
   }, [session?.user?.id, activeYear?.id, activeTerm?.id, queryClient]);
 
@@ -295,7 +346,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
         await queryClient.invalidateQueries({ queryKey: ['terms'] });
     } catch (e: any) {
-        console.error("AdminLess error: Failed to create year", e);
+        logAdminLessError('academic_create_year', e);
         showError("Failed to initialize academic year: " + e.message);
         throw e;
     }
@@ -312,7 +363,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         await queryClient.invalidateQueries({ queryKey: ['terms'] });
         showSuccess("Academic year deleted.");
     } catch (e: any) {
-        console.error("AdminLess error: Failed to delete year", e);
+        logAdminLessError('academic_delete_year', e);
         showError("Failed to delete academic year. Make sure it is empty.");
         throw e;
     }
@@ -326,7 +377,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['terms'] });
     } catch (e: any) {
-        console.error("AdminLess error: Failed to update term", e);
+        logAdminLessError('academic_update_term', e);
         showError("Failed to update term settings: " + e.message);
         throw e;
     }
@@ -394,7 +445,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         showSuccess(`Assessment "${assessment.title}" recorded.`);
         return id;
     } catch (e: any) {
-        console.error("FAT Save Failure:", e);
+        logAdminLessError('academic_create_assessment', e);
         showError("Failed to record assessment: " + e.message);
         throw e;
     }
@@ -434,7 +485,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         await queryClient.invalidateQueries({ queryKey: ['assessments'] });
         showSuccess("Assessment settings updated.");
     } catch (e: any) {
-        console.error("AdminLess error: Failed to update assessment", e);
+        logAdminLessError('academic_update_assessment', e);
         showError("Failed to update assessment: " + e.message);
         throw e;
     }
@@ -471,7 +522,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         await queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
         showSuccess("Assessment deleted.");
     } catch (e: any) {
-        console.error("AdminLess error: Failed to delete assessment", e);
+        logAdminLessError('academic_delete_assessment', e);
         showError("Failed to delete assessment: " + e.message);
         throw e;
     }
@@ -644,7 +695,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                   missingQuestionIds,
                   unexpectedKeys,
                 };
-                console.error("[marks] invalid question_marks on save", invalidPayload);
+                logAdminLessError(
+                  'marks_invalid_question_marks_payload',
+                  new Error('Invalid question marks payload.'),
+                  invalidPayload
+                );
                 throw new Error("Invalid question marks payload.");
               }
 
@@ -654,7 +709,6 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                 return sum;
               }, 0);
               nextScore = Object.keys(nextQuestionMarksForSave).length > 0 ? parseFloat(summedScore.toFixed(1)) : null;
-              console.log("Saving:", nextQuestionMarksForSave);
             }
 
             const payload = {
@@ -690,7 +744,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
         return { success: true };
     } catch (e: any) {
-        console.error("AdminLess error: Failed to update marks", e);
+        logAdminLessError('academic_update_marks', e);
         const message = formatMarkSaveError(e?.message);
         showError(message);
         return { success: false, message };
@@ -713,13 +767,17 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     const run = (async () => {
       try {
         const selectStr = '*, assessment_questions(*)';
-        const { data: assData, error: assError } = await applySupabaseAssessmentOrder(
-          supabase
-            .from('assessments')
-            .select(selectStr)
-            .eq('class_id', classId)
-            .eq('term_id', termId)
-            .eq('user_id', session.user.id)
+        const { data: assData, error: assError } = await withTimeout(
+          applySupabaseAssessmentOrder(
+            supabase
+              .from('assessments')
+              .select(selectStr)
+              .eq('class_id', classId)
+              .eq('term_id', termId)
+              .eq('user_id', session.user.id)
+          ),
+          ACADEMIC_QUERY_TIMEOUT_MS,
+          'preload.assessments'
         );
         if (assError) throw assError;
 
@@ -730,11 +788,15 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
         let mappedMarks: AssessmentMark[] = [];
         if (assIds.length > 0) {
-          const { data: markData, error: markError } = await supabase
-            .from('assessment_marks')
-            .select('*')
-            .in('assessment_id', assIds)
-            .eq('user_id', session.user.id);
+          const { data: markData, error: markError } = await withTimeout(
+            supabase
+              .from('assessment_marks')
+              .select('*')
+              .in('assessment_id', assIds)
+              .eq('user_id', session.user.id),
+            ACADEMIC_QUERY_TIMEOUT_MS,
+            'preload.assessment_marks'
+          );
           if (markError) throw markError;
           mappedMarks = (markData || []) as AssessmentMark[];
         }
@@ -745,12 +807,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         markSheetPreloadsRef.current = { ...markSheetPreloadsRef.current, [key]: entry };
         setMarkSheetPreloads(prev => ({ ...prev, [key]: entry }));
 
-        const assKey = ['assessments', session.user.id, classId, termId, activeTerm?.id, diagnosticMode];
-        const marksKey = ['assessment_marks', session.user.id, assIds.join(',')];
+        const assKey = ['assessments', session?.user?.id, classId, termId, activeTerm?.id, diagnosticMode];
+        const marksKey = ['assessment_marks', session?.user?.id, [...assIds].sort().join(',')];
         queryClient.setQueryData(assKey, mappedAssessments, { updatedAt: loadedAt });
         queryClient.setQueryData(marksKey, mappedMarks, { updatedAt: loadedAt });
       } catch (e) {
-        console.error("AdminLess error: Marksheet preload failed", e);
+        logAdminLessError('academic_preload_marksheet', e);
       }
     })();
     preloadInFlightRef.current[key] = run;
@@ -800,13 +862,26 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     (fetchingAss && !loadingAss) ||
     (fetchingMarks && !loadingMarks);
 
+  const assessmentsQueryErrorNormalized: Error | null =
+    assessmentsQueryError == null
+      ? null
+      : assessmentsQueryError instanceof Error
+        ? assessmentsQueryError
+        : new Error(String(assessmentsQueryError));
+  const marksQueryErrorNormalized: Error | null =
+    marksQueryError == null
+      ? null
+      : marksQueryError instanceof Error
+        ? marksQueryError
+        : new Error(String(marksQueryError));
+
   const toggleTermStatus = useCallback(async (termId: string, finalised: boolean) => {
     try {
         const { error } = await supabase.from('terms').update({ closed: finalised }).eq('id', termId);
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['terms'] });
     } catch (e: any) {
-        console.error("AdminLess error: Failed to toggle term status", e);
+        logAdminLessError('academic_toggle_term_status', e);
         showError("Failed to update term status: " + e.message);
         throw e;
     }
@@ -818,7 +893,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['academic_years'] });
     } catch (e: any) {
-        console.error("AdminLess error: Failed to close year", e);
+        logAdminLessError('academic_close_year', e);
         showError("Failed to finalise academic year: " + e.message);
         throw e;
     }
@@ -828,14 +903,16 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
       try {
           await doRollForward(activeYear?.id || '', s, t, d, setActiveTerm);
       } catch (e: any) {
-          console.error("AdminLess error: Roll forward failed", e);
+          logAdminLessError('academic_roll_forward', e);
           showError("Failed to roll forward classes: " + e.message);
           throw e;
       }
   }, [doRollForward, activeYear?.id, setActiveTerm]);
 
   const value = useMemo(() => ({
-    years, terms, assessments, marks, 
+    years, terms, assessments, marks,
+    assessmentsQueryError: assessmentsQueryErrorNormalized,
+    marksQueryError: marksQueryErrorNormalized,
     loading,
     isRefreshing,
     activeYear, activeTerm, setActiveYear, setActiveTerm, 
@@ -845,7 +922,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     recalculateAllActiveAverages, runDataVacuum, rollForwardClasses,
     diagnosticMode, setDiagnosticMode
   }), [
-    years, terms, assessments, marks, activeYear, activeTerm, 
+    years, terms, assessments, marks, assessmentsQueryErrorNormalized, marksQueryErrorNormalized, activeYear, activeTerm, 
     setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm, 
     createAssessment, updateAssessment, deleteAssessment, optimisticReorderAssessments, updateMarks, 
     refreshAssessments, preloadMarkSheetData, getPreloadedMarkSheetData, hasPreloadedMarkSheetData, toggleTermStatus, closeYear, recalculateAllActiveAverages, 

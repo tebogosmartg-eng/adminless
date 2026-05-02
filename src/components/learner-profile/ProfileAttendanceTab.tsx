@@ -4,6 +4,8 @@ import { useMemo, useState, useEffect } from "react";
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from "@/lib/supabaseClient";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { showError } from '@/utils/toast';
 
 interface ProfileAttendanceTabProps {
   learnerId?: string;
@@ -22,17 +24,20 @@ interface AttendanceStats {
 export const ProfileAttendanceTab = ({ learnerId, classId, termId }: ProfileAttendanceTabProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<Error | null>(null);
 
   useEffect(() => {
     const fetchLearnerData = async () => {
       if (!learnerId) {
         setRecords([]);
+        setFetchError(null);
         setLoading(false);
         return;
       }
 
+      setLoading(true);
+      setFetchError(null);
       try {
-        setLoading(true);
         const { data: sessionData } = await supabase.auth.getSession();
         const user = sessionData?.session?.user;
         if (!user) {
@@ -59,12 +64,14 @@ export const ProfileAttendanceTab = ({ learnerId, classId, termId }: ProfileAtte
         setRecords(data || []);
       } catch (error) {
         console.error("Learner profile error:", error);
-        setRecords([]);
+        const err = error instanceof Error ? error : new Error(String(error));
+        setFetchError(err);
+        showError("Failed to load data");
       } finally {
         setLoading(false);
       }
     };
-    fetchLearnerData();
+    void fetchLearnerData();
   }, [learnerId, classId, termId]);
 
   const stats = useMemo(() => {
@@ -96,7 +103,19 @@ export const ProfileAttendanceTab = ({ learnerId, classId, termId }: ProfileAtte
     );
   }
 
-  if (!records || stats.total === 0) {
+  if (fetchError && stats.total === 0) {
+    return (
+      <div className="space-y-4 pt-4">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Failed to load data</AlertTitle>
+          <AlertDescription>Connection issue, please retry.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (!fetchError && (!records || stats.total === 0)) {
     return (
       <EmptyState
         title="No attendance records"
@@ -112,6 +131,13 @@ export const ProfileAttendanceTab = ({ learnerId, classId, termId }: ProfileAtte
 
   return (
     <div className="space-y-6 pt-4 h-full overflow-y-auto">
+      {fetchError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Failed to load data</AlertTitle>
+          <AlertDescription>Connection issue, please retry.</AlertDescription>
+        </Alert>
+      )}
       <div className="flex items-center justify-center p-6 bg-muted/30 rounded-xl border">
         <div className="text-center">
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">

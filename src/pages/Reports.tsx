@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, FileDown, FileSpreadsheet, LayoutGrid, GraduationCap, Globe } from 'lucide-react';
+import { Loader2, FileDown, FileSpreadsheet, LayoutGrid, GraduationCap, Globe, AlertCircle } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { SchoolProfile, generateTermSummaryPDF, generateYearSummaryPDF } from '@/utils/pdfGenerator';
 import { checkClassTermIntegrity } from '@/utils/integrity';
@@ -26,6 +26,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAsyncState } from '@/hooks/useAsyncState';
 import { AsyncStatus } from '@/components/ui/AsyncStatus';
 import { PASS_THRESHOLD } from '@/constants/diagnostics';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useQueryClient } from '@tanstack/react-query';
+import { logAdminLessError } from '@/utils/logAdminLessError';
 
 const ReportsTableSkeleton = ({ columns = 6, rows = 8 }: { columns?: number; rows?: number }) => (
   <div className="w-full h-full p-4 space-y-3">
@@ -51,9 +54,20 @@ const ReportsTableSkeleton = ({ columns = 6, rows = 8 }: { columns?: number; row
 );
 
 const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
+  const queryClient = useQueryClient();
   const { classes } = useClasses();
   const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
-  const { terms, years, activeYear, activeTerm, assessments, marks } = useAcademic();
+  const {
+    terms,
+    years,
+    activeYear,
+    activeTerm,
+    assessments,
+    marks,
+    assessmentsQueryError,
+    marksQueryError,
+  } = useAcademic();
+  const reportsContextError = assessmentsQueryError ?? marksQueryError;
 
   const profile: SchoolProfile = {
     name: schoolName,
@@ -186,8 +200,8 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
       }, { status: "loading", userInitiated: false });
       showSuccess("PDF generated.");
     } catch (error) {
-      console.error(error);
-      showError("Failed to generate PDF.");
+      logAdminLessError('reports_export_term_pdf', error);
+      showError("Failed to load data");
     } finally {
       setIsExportingTermPdf(false);
     }
@@ -218,8 +232,8 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
         }, { status: "loading", userInitiated: false });
         showSuccess("Year End PDF generated.");
       } catch (error) {
-        console.error(error);
-        showError("Failed to generate PDF.");
+        logAdminLessError('reports_export_year_pdf', error);
+        showError("Failed to load data");
       } finally {
         setIsExportingYearPdf(false);
       }
@@ -259,6 +273,27 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
           retry: exportState.retry,
         }}
       />
+      {reportsContextError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Failed to load data</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm">Connection issue, please retry.</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit shrink-0"
+              onClick={() => {
+                void queryClient.invalidateQueries({ queryKey: ['assessments'] });
+                void queryClient.invalidateQueries({ queryKey: ['assessment_marks'] });
+              }}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {!embedded && (
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
@@ -373,7 +408,12 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                                     Loading trend...
                                   </span>
                                 ) : (
-                                  <>Trend {analytics.trend} | Avg {analytics.weightedAverage}% | N {analytics.totalAssessments}</>
+                                  <span className="flex items-center gap-2">
+                                    {analytics.isFetching && (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-muted-foreground" aria-hidden />
+                                    )}
+                                    Trend {analytics.trend} | Avg {analytics.weightedAverage}% | N {analytics.totalAssessments}
+                                  </span>
                                 )}
                               </Badge>
                             )}
