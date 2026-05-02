@@ -1,7 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { 
@@ -14,15 +13,17 @@ import {
     Eraser, 
     Copy, 
     Coffee,
-    ArrowRightLeft,
-    Clock
+    ArrowRightLeft
 } from "lucide-react";
 import { useTimetable } from '@/hooks/useTimetable';
 import { useClasses } from '@/context/ClassesContext';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from "@/lib/utils";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AsyncStatus } from "@/components/ui/AsyncStatus";
+import { useSafeForm } from "@/hooks/useSafeForm";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { SafeInput } from "@/components/safe-form/SafeInput";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const TIMETABLE_FIELDS = ["subject", "start_time", "end_time", "class_id"] as const;
+type TimetableField = (typeof TIMETABLE_FIELDS)[number];
+
+const buildFieldKey = (day: string, period: number, field: TimetableField) =>
+  `${day}_${period}_${field}`;
 
 export const TimetableSettings = () => {
   const { timetable, updateEntry, clearEntry } = useTimetable();
@@ -46,18 +52,73 @@ export const TimetableSettings = () => {
     return Math.max(...timetable.map(t => t.period));
   }, [timetable]);
 
-  // Track how many rows the user wants to see
-  const [numRows, setNumRows] = useState(0);
+  const initialFormValues = useMemo(() => {
+    const values: Record<string, string> = {
+      numRows: Math.max(maxPeriodInData, 0).toString(),
+    };
+    for (const day of DAYS) {
+      for (const entry of timetable.filter((t) => t.day === day)) {
+        values[buildFieldKey(day, entry.period, "subject")] = entry.subject ?? "";
+        values[buildFieldKey(day, entry.period, "start_time")] = entry.start_time ?? "";
+        values[buildFieldKey(day, entry.period, "end_time")] = entry.end_time ?? "";
+        values[buildFieldKey(day, entry.period, "class_id")] = entry.class_id ?? "";
+      }
+    }
+    return values;
+  }, [maxPeriodInData, timetable]);
+
+  const form = useSafeForm({ initialValues: initialFormValues });
+  const initializedRef = useRef(false);
+  const { reset } = form;
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const pendingUpdatesRef = useRef<Record<string, { day: string; period: number; payload: Record<string, string | number | null | undefined> }>>({});
+  const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState<{ type: "day" | "row" | "remove"; value: string | number } | null>(null);
+  const numRows = Number(form.values.numRows || "0");
 
-  // Sync numRows with data when it loads or changes
+  const markTouched = useCallback((name: string) => {
+    setTouched((prev) => (prev[name] ? prev : { ...prev, [name]: true }));
+  }, []);
+
+  const rowValidationRules = useMemo(
+    () => ({
+      numRows: [
+        { type: "required" as const, message: "Number of periods is required." },
+        { type: "number" as const, message: "Number of periods must be a number." },
+      ],
+      subject: [{ type: "required" as const, message: "Subject is required." }],
+      start_time: [{ type: "required" as const, message: "Start time is required." }],
+      end_time: [{ type: "required" as const, message: "End time is required." }],
+      class_id: [{ type: "required" as const, message: "Class is required." }],
+    }),
+    [],
+  );
+
   useEffect(() => {
-    if (maxPeriodInData > numRows) {
-        setNumRows(maxPeriodInData);
+    if (!timetable || initializedRef.current) return;
+    if (Object.keys(pendingUpdatesRef.current).length > 0) return;
+
+    const mappedValues: Record<string, string> = {
+      numRows: Math.max(
+        timetable.length ? Math.max(...timetable.map((entry) => entry.period)) : 0,
+        0,
+      ).toString(),
+    };
+
+    for (const day of DAYS) {
+      for (const entry of timetable.filter((item) => item.day === day)) {
+        mappedValues[buildFieldKey(day, entry.period, "subject")] = entry.subject ?? "";
+        mappedValues[buildFieldKey(day, entry.period, "start_time")] = entry.start_time ?? "";
+        mappedValues[buildFieldKey(day, entry.period, "end_time")] = entry.end_time ?? "";
+        mappedValues[buildFieldKey(day, entry.period, "class_id")] = entry.class_id ?? "";
+      }
     }
-  }, [maxPeriodInData, numRows]);
+
+    reset(mappedValues);
+    initializedRef.current = true;
+  }, [timetable, reset]);
 
   const periods = useMemo(() => {
     const p = [];
@@ -68,28 +129,78 @@ export const TimetableSettings = () => {
   const getEntry = (day: string, period: number) => 
     timetable.find(t => t.day === day && t.period === period);
 
-  const handleUpdate = (day: string, period: number, field: string, value: string) => {
+  const queueEntryUpdate = useCallback((day: string, period: number, payload: Record<string, string | number | null | undefined>) => {
+    pendingUpdatesRef.current[`${day}_${period}`] = { day, period, payload };
+  }, []);
+
+  const handleUpdate = (day: string, period: number, field: TimetableField, value: string) => {
     const current = getEntry(day, period);
-    
-    if (field === 'class_id') {
-       const cls = classes.find(c => c.id === value);
-       if (cls) {
-           updateEntry({
-               day, period,
-               class_id: cls.id,
-               class_name: cls.className,
-               subject: current?.subject || cls.subject
-           });
-           return;
-       }
+
+    if (field === "class_id") {
+      const cls = classes.find((c) => c.id === value);
+      if (cls) {
+        form.setFieldValue(buildFieldKey(day, period, "class_id"), cls.id, rowValidationRules.class_id);
+        const currentSubject = form.values[buildFieldKey(day, period, "subject")] || current?.subject || "";
+        const nextSubject = currentSubject.trim() ? currentSubject : (cls.subject ?? "");
+        form.setFieldValue(buildFieldKey(day, period, "subject"), nextSubject, rowValidationRules.subject);
+        queueEntryUpdate(day, period, {
+          day,
+          period,
+          class_id: cls.id,
+          class_name: cls.className,
+          subject: nextSubject,
+        });
+        return;
+      }
     }
 
-    updateEntry({
-        ...current,
-        day, period,
-        [field]: value
+    form.setFieldValue(buildFieldKey(day, period, field), value, rowValidationRules[field]);
+    queueEntryUpdate(day, period, {
+      ...current,
+      day,
+      period,
+      [field]: value,
     });
   };
+
+  const handleSaveTimetable = useCallback(async () => {
+    const pending = Object.values(pendingUpdatesRef.current);
+    if (pending.length === 0) return;
+    setIsSaving(true);
+    setErrorMessage(null);
+    setStatusMessage("Saving...");
+    try {
+      for (const item of pending) {
+        await updateEntry(item.payload);
+      }
+      pendingUpdatesRef.current = {};
+      form.reset(form.values);
+      setStatusMessage("Saved ✓");
+    } catch {
+      setErrorMessage("Failed to auto-save timetable changes.");
+      setStatusMessage(null);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [form, updateEntry]);
+
+  const autoSave = useAutoSave({
+    isDirty: form.isDirty,
+    onSave: () => handleSaveTimetable(),
+    delayMs: 1200,
+    enabled: true,
+  });
+  const feedbackPhase =
+    isSaving || autoSave.isSaving
+      ? "saving"
+      : errorMessage || autoSave.saveError
+        ? "error"
+        : statusMessage || autoSave.didSave
+          ? "success"
+          : "idle";
+  const feedbackMessage =
+    statusMessage ?? (isSaving || autoSave.isSaving ? "Saving..." : autoSave.didSave ? "Saved ✓" : null);
+  const feedbackError = errorMessage ?? autoSave.saveError;
 
   const handleCloneDay = async (sourceDay: string, targetDay: string) => {
       if (sourceDay === targetDay) return;
@@ -160,7 +271,10 @@ export const TimetableSettings = () => {
           }
           for (const day of DAYS) await clearEntry(day, lastPeriod);
       }
-      setNumRows(prev => prev - 1);
+      const nextRows = Math.max(lastPeriod - 1, 0);
+      form.setFieldValue("numRows", String(nextRows), rowValidationRules.numRows);
+      markTouched("numRows");
+      void form.validateField("numRows", rowValidationRules.numRows, String(nextRows));
       setStatusMessage(`Saved ✓ Period ${lastPeriod} removed.`);
       setConfirmState(null);
   };
@@ -178,29 +292,44 @@ export const TimetableSettings = () => {
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
                 {numRows > 0 && <Button variant="outline" size="sm" onClick={() => handleRemoveLastRow()} className="flex-1 sm:flex-none h-10 sm:h-9"><Trash2 className="h-4 w-4 mr-2" /> Remove Row</Button>}
-                <Button size="sm" onClick={() => setNumRows(prev => prev + 1)} className="flex-1 sm:flex-none h-10 sm:h-9 font-bold"><Plus className="h-4 w-4 mr-2" /> Add Period</Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const nextRows = numRows + 1;
+                    form.setFieldValue("numRows", String(nextRows), rowValidationRules.numRows);
+                    markTouched("numRows");
+                    void form.validateField("numRows", rowValidationRules.numRows, String(nextRows));
+                  }}
+                  className="flex-1 sm:flex-none h-10 sm:h-9 font-bold"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Add Period
+                </Button>
             </div>
         </div>
       </CardHeader>
       <CardContent className="w-full min-w-0 space-y-4">
-        {statusMessage && (
-          <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
-            <Clock className="h-4 w-4" />
-            <AlertDescription>{statusMessage}</AlertDescription>
-          </Alert>
-        )}
-        {errorMessage && (
-          <Alert variant="destructive">
-            <Clock className="h-4 w-4" />
-            <AlertDescription>{errorMessage}</AlertDescription>
-          </Alert>
-        )}
+        <AsyncStatus
+          state={{
+            status: feedbackPhase,
+            error: feedbackError,
+            retry: autoSave.retryLastSave,
+          }}
+        />
         {numRows === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-xl bg-white dark:bg-card mx-2">
                 <div className="p-4 bg-primary/5 rounded-full mb-4"><CalendarDays className="h-10 w-10 text-primary/40" /></div>
                 <h3 className="text-lg font-bold">Your Timetable is Empty</h3>
                 <p className="text-sm text-muted-foreground max-w-xs mb-6">Add your first period to start planning.</p>
-                <Button onClick={() => setNumRows(1)} className="gap-2"><Plus className="h-4 w-4" /> Define Period 1</Button>
+                <Button
+                  onClick={() => {
+                    form.setFieldValue("numRows", "1", rowValidationRules.numRows);
+                    markTouched("numRows");
+                    void form.validateField("numRows", rowValidationRules.numRows, "1");
+                  }}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" /> Define Period 1
+                </Button>
             </div>
         ) : (
             <div className="overflow-x-auto border rounded-xl shadow-sm bg-background w-full no-scrollbar max-w-[calc(100vw-2.5rem)] md:max-w-full">
@@ -250,8 +379,34 @@ export const TimetableSettings = () => {
                                                 <span className="font-black text-2xl text-primary">{period}</span>
                                             </div>
                                             <div className="space-y-1.5 w-full bg-white dark:bg-background p-2 rounded-md border border-muted shadow-sm">
-                                                <Input type="time" className="h-7 text-[9px] px-1 border-none focus-visible:ring-0 bg-muted/30" onChange={(e) => DAYS.forEach(d => handleUpdate(d, period, 'start_time', e.target.value))} />
-                                                <Input type="time" className="h-7 text-[9px] px-1 border-none focus-visible:ring-0 bg-muted/30" onChange={(e) => DAYS.forEach(d => handleUpdate(d, period, 'end_time', e.target.value))} />
+                                                <SafeInput
+                                                  type="time"
+                                                  name={buildFieldKey(DAYS[0], period, "start_time")}
+                                                  form={form}
+                                                  rules={rowValidationRules.start_time}
+                                                  error={touched[buildFieldKey(DAYS[0], period, "start_time")] ? form.errors[buildFieldKey(DAYS[0], period, "start_time")] : undefined}
+                                                  className="h-7 text-[9px] px-1 border-none focus-visible:ring-0 bg-muted/30"
+                                                  onChange={(e) => DAYS.forEach(d => handleUpdate(d, period, "start_time", e.target.value))}
+                                                  onBlur={() => {
+                                                    const key = buildFieldKey(DAYS[0], period, "start_time");
+                                                    markTouched(key);
+                                                    void form.validateField(key, rowValidationRules.start_time);
+                                                  }}
+                                                />
+                                                <SafeInput
+                                                  type="time"
+                                                  name={buildFieldKey(DAYS[0], period, "end_time")}
+                                                  form={form}
+                                                  rules={rowValidationRules.end_time}
+                                                  error={touched[buildFieldKey(DAYS[0], period, "end_time")] ? form.errors[buildFieldKey(DAYS[0], period, "end_time")] : undefined}
+                                                  className="h-7 text-[9px] px-1 border-none focus-visible:ring-0 bg-muted/30"
+                                                  onChange={(e) => DAYS.forEach(d => handleUpdate(d, period, "end_time", e.target.value))}
+                                                  onBlur={() => {
+                                                    const key = buildFieldKey(DAYS[0], period, "end_time");
+                                                    markTouched(key);
+                                                    void form.validateField(key, rowValidationRules.end_time);
+                                                  }}
+                                                />
                                             </div>
                                             <div className="flex flex-col gap-1 w-full opacity-0 group-hover/row:opacity-100 transition-opacity">
                                                 <Button variant="outline" size="sm" className={cn("h-7 text-[8px] font-black uppercase gap-1 shadow-sm", isRowBreak ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-white")} onClick={() => handleToggleBreak(period)}>
@@ -276,7 +431,20 @@ export const TimetableSettings = () => {
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <Select value={entry?.class_id || ""} onValueChange={(val) => { if (val === "clear") { clearEntry(day, period); return; } handleUpdate(day, period, 'class_id', val); }}>
+                                                            <Select
+                                                              value={form.values[buildFieldKey(day, period, "class_id")] ?? entry?.class_id ?? ""}
+                                                              onValueChange={(val) => {
+                                                                if (val === "clear") {
+                                                                  clearEntry(day, period);
+                                                                  form.setFieldValue(buildFieldKey(day, period, "class_id"), "", rowValidationRules.class_id);
+                                                                  return;
+                                                                }
+                                                                const key = buildFieldKey(day, period, "class_id");
+                                                                markTouched(key);
+                                                                void form.validateField(key, rowValidationRules.class_id, val);
+                                                                handleUpdate(day, period, "class_id", val);
+                                                              }}
+                                                            >
                                                                 <SelectTrigger className="h-8 text-[10px] uppercase font-bold border-none bg-muted/40 hover:bg-muted/60 transition-colors"><SelectValue placeholder="SET CLASS" /></SelectTrigger>
                                                                 <SelectContent>
                                                                     <SelectItem value="clear" className="text-destructive font-bold">-- Clear Slot --</SelectItem>
@@ -285,12 +453,51 @@ export const TimetableSettings = () => {
                                                             </Select>
                                                             <div className="relative">
                                                                 <BookOpen className="absolute left-1.5 top-1.5 h-3 w-3 text-muted-foreground/50" />
-                                                                <Input placeholder="Subject..." className="h-8 text-[11px] pl-6 border-muted bg-transparent focus-visible:ring-primary/30" value={entry?.subject || ''} onChange={(e) => handleUpdate(day, period, 'subject', e.target.value)} />
+                                                                <SafeInput
+                                                                  name={buildFieldKey(day, period, "subject")}
+                                                                  form={form}
+                                                                  rules={rowValidationRules.subject}
+                                                                  error={touched[buildFieldKey(day, period, "subject")] ? form.errors[buildFieldKey(day, period, "subject")] : undefined}
+                                                                  placeholder="Subject..."
+                                                                  className="h-8 text-[11px] pl-6 border-muted bg-transparent focus-visible:ring-primary/30"
+                                                                  onChange={(e) => handleUpdate(day, period, "subject", e.target.value)}
+                                                                  onBlur={() => {
+                                                                    const key = buildFieldKey(day, period, "subject");
+                                                                    markTouched(key);
+                                                                    void form.validateField(key, rowValidationRules.subject);
+                                                                  }}
+                                                                />
                                                             </div>
                                                             <div className="flex items-center gap-1 mt-auto pt-2 border-t border-dashed border-muted">
-                                                                <Input type="time" value={entry?.start_time || ''} onChange={(e) => handleUpdate(day, period, 'start_time', e.target.value)} className="h-6 text-[8px] p-1 border-none bg-muted/20" />
+                                                                <SafeInput
+                                                                  type="time"
+                                                                  name={buildFieldKey(day, period, "start_time")}
+                                                                  form={form}
+                                                                  rules={rowValidationRules.start_time}
+                                                                  error={touched[buildFieldKey(day, period, "start_time")] ? form.errors[buildFieldKey(day, period, "start_time")] : undefined}
+                                                                  className="h-6 text-[8px] p-1 border-none bg-muted/20"
+                                                                  onChange={(e) => handleUpdate(day, period, "start_time", e.target.value)}
+                                                                  onBlur={() => {
+                                                                    const key = buildFieldKey(day, period, "start_time");
+                                                                    markTouched(key);
+                                                                    void form.validateField(key, rowValidationRules.start_time);
+                                                                  }}
+                                                                />
                                                                 <span className="text-[8px] opacity-30">-</span>
-                                                                <Input type="time" value={entry?.end_time || ''} onChange={(e) => handleUpdate(day, period, 'end_time', e.target.value)} className="h-6 text-[8px] p-1 border-none bg-muted/20" />
+                                                                <SafeInput
+                                                                  type="time"
+                                                                  name={buildFieldKey(day, period, "end_time")}
+                                                                  form={form}
+                                                                  rules={rowValidationRules.end_time}
+                                                                  error={touched[buildFieldKey(day, period, "end_time")] ? form.errors[buildFieldKey(day, period, "end_time")] : undefined}
+                                                                  className="h-6 text-[8px] p-1 border-none bg-muted/20"
+                                                                  onChange={(e) => handleUpdate(day, period, "end_time", e.target.value)}
+                                                                  onBlur={() => {
+                                                                    const key = buildFieldKey(day, period, "end_time");
+                                                                    markTouched(key);
+                                                                    void form.validateField(key, rowValidationRules.end_time);
+                                                                  }}
+                                                                />
                                                             </div>
                                                         </>
                                                     )}

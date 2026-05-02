@@ -1,4 +1,5 @@
 import { Learner } from "@/lib/types";
+import { PASS_THRESHOLD } from "@/constants/diagnostics";
 
 export const calculateClassStats = (learners: Learner[]) => {
   const marks = learners
@@ -18,7 +19,7 @@ export const calculateClassStats = (learners: Learner[]) => {
 
   const sum = marks.reduce((acc, mark) => acc + mark, 0);
   const average = parseFloat((sum / marks.length).toFixed(2));
-  const passes = marks.filter(m => m >= 50).length;
+  const passes = marks.filter(m => m >= PASS_THRESHOLD).length;
   const passRate = Math.round((passes / marks.length) * 100);
   const highestMark = Math.max(...marks);
   const lowestMark = Math.min(...marks);

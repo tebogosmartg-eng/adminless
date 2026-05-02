@@ -4,6 +4,7 @@ import { GradeSymbol } from '@/lib/types';
 import { getGradeSymbol } from '../grading';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { t } from '@/lib/useTranslation';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 export const generateTermSummaryPDF = (
     reportData: any[],
@@ -13,7 +14,7 @@ export const generateTermSummaryPDF = (
     subject: string,
     gradingScheme: GradeSymbol[],
     profile: SchoolProfile,
-    atRiskThreshold: number = 50,
+    atRiskThreshold: number = PASS_THRESHOLD,
     lang: string = 'en'
 ) => {
     const doc = new jsPDF('l', 'mm', 'a4');
@@ -23,13 +24,13 @@ export const generateTermSummaryPDF = (
     
     const averages = reportData.map(r => r.termAverage).filter(a => a > 0);
     const classAvg = averages.length > 0 ? (averages.reduce((a, b) => a + b, 0) / averages.length).toFixed(1) : "0.0";
-    const passRate = averages.length > 0 ? Math.round((averages.filter(a => a >= 50).length / averages.length) * 100) : 0;
+    const passRate = averages.length > 0 ? Math.round((averages.filter(a => a >= PASS_THRESHOLD).length / averages.length) * 100) : 0;
 
     const bands = {
         "0-29%": averages.filter(a => a < 30).length,
         "30-39%": averages.filter(a => a >= 30 && a < 40).length,
-        "40-49%": averages.filter(a => a >= 40 && a < 50).length,
-        "50-59%": averages.filter(a => a >= 50 && a < 60).length,
+        "40-49%": averages.filter(a => a >= 40 && a < PASS_THRESHOLD).length,
+        "50-59%": averages.filter(a => a >= PASS_THRESHOLD && a < 60).length,
         "60-69%": averages.filter(a => a >= 60 && a < 70).length,
         "70-79%": averages.filter(a => a >= 70 && a < 80).length,
         "80-100%": averages.filter(a => a >= 80).length,

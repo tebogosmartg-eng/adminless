@@ -3,11 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus, RotateCcw, Save, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Trash2, Plus, RotateCcw, Save, AlertTriangle } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { GradeSymbol } from "@/lib/types";
 import { showSuccess, showError } from "@/utils/toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AsyncStatus } from "@/components/ui/AsyncStatus";
+import { useAsyncState } from "@/hooks/useAsyncState";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +28,7 @@ export const GradingSystemSettings = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const actionState = useAsyncState();
 
   const handleSchemeChange = (index: number, field: keyof GradeSymbol, value: any) => {
     const updated = [...localScheme];
@@ -33,8 +36,7 @@ export const GradingSystemSettings = () => {
     setLocalScheme(updated);
   };
 
-  const handleSaveScheme = () => {
-    setStatusMessage(null);
+  const handleSaveScheme = async () => {
     setErrorMessage(null);
     const isValid = localScheme.every(g => 
       !isNaN(g.min) && !isNaN(g.max) && g.symbol && !isNaN(g.level)
@@ -46,18 +48,25 @@ export const GradingSystemSettings = () => {
       return;
     }
 
-    updateGradingScheme(localScheme);
-    showSuccess("Grading scheme updated successfully.");
-    setStatusMessage("Saved ✓ Grading scheme updated.");
+    try {
+      await actionState.run(() => updateGradingScheme(localScheme), { status: "saving" });
+      showSuccess("Saved ✓");
+      setStatusMessage("Saved ✓ Grading scheme updated.");
+    } catch {
+      // AsyncStatus handles details.
+    }
   };
 
-  const handleResetScheme = () => {
+  const handleResetScheme = async () => {
     setResetDialogOpen(false);
-    resetGradingScheme();
-    showSuccess("Default grading scheme restored.");
-    setStatusMessage("Saved ✓ Default scheme restored.");
-    // Sync local state as well
-    window.location.reload();
+    try {
+      await actionState.run(() => resetGradingScheme(), { status: "saving" });
+      showSuccess("Saved ✓");
+      setStatusMessage("Saved ✓ Default scheme restored.");
+      window.location.reload();
+    } catch {
+      // AsyncStatus handles details.
+    }
   };
   
   const handleDeleteRow = (index: number) => {
@@ -94,9 +103,9 @@ export const GradingSystemSettings = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4 min-w-0">
+          <AsyncStatus state={{ status: actionState.status, error: actionState.error, retry: actionState.retry }} />
           {statusMessage && (
             <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
-              <CheckCircle2 className="h-4 w-4" />
               <AlertDescription>{statusMessage}</AlertDescription>
             </Alert>
           )}
@@ -169,7 +178,7 @@ export const GradingSystemSettings = () => {
                 <Button variant="outline" size="sm" onClick={() => setResetDialogOpen(true)} className="w-full sm:w-auto h-10 sm:h-9">
                   <RotateCcw className="mr-2 h-4 w-4" /> Reset
                 </Button>
-                <Button size="sm" onClick={handleSaveScheme} className="w-full sm:w-auto h-10 sm:h-9 font-bold">
+                <Button size="sm" onClick={() => void handleSaveScheme()} disabled={actionState.status === "saving"} className="w-full sm:w-auto h-10 sm:h-9 font-bold">
                   <Save className="mr-2 h-4 w-4" /> Save
                 </Button>
              </div>
@@ -185,7 +194,7 @@ export const GradingSystemSettings = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleResetScheme}>Reset</AlertDialogAction>
+              <AlertDialogAction onClick={() => void handleResetScheme()}>Reset</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

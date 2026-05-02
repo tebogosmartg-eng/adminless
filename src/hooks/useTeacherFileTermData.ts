@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '@/db';
 import { calculateWeightedAverage } from '@/utils/calculations';
+import { sortAssessmentsDeterministically } from '@/utils/assessmentOrdering';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 export const useTeacherFileTermData = (termId: string, yearId: string) => {
   const [data, setData] = useState<any>(null);
@@ -57,11 +59,12 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
 
         if (!isMounted.current) return;
 
-        const assessmentIds = new Set(assessments.map(a => a.id));
+        const orderedAssessments = sortAssessmentsDeterministically(assessments);
+        const assessmentIds = new Set(orderedAssessments.map(a => a.id));
         const relevantMarks = marks.filter(m => assessmentIds.has(m.assessment_id));
 
         const classAnalytics = classes.map(cls => {
-            const clsAss = assessments.filter(a => a.class_id === cls.id);
+            const clsAss = orderedAssessments.filter(a => a.class_id === cls.id);
             const clsLearners = learners.filter(l => l.class_id === cls.id);
             const clsMarks = relevantMarks.filter(m => clsAss.some(a => a.id === m.assessment_id));
             const clsEvidence = evidence.filter(e => e.class_id === cls.id);
@@ -77,7 +80,7 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
                 : 0;
             
             const passRate = learnerAvgs.length > 0
-                ? (learnerAvgs.filter(a => a >= 50).length / learnerAvgs.length) * 100
+                ? (learnerAvgs.filter(a => a >= PASS_THRESHOLD).length / learnerAvgs.length) * 100
                 : 0;
 
             const sampleNames = classSample 
@@ -101,7 +104,7 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
             };
         });
 
-        const diagnosticSummaries = assessments
+        const diagnosticSummaries = orderedAssessments
             .map(ass => {
                 const diag = diagnostics.find(d => d.assessment_id === ass.id);
                 if (!diag) return null;
@@ -121,7 +124,7 @@ export const useTeacherFileTermData = (termId: string, yearId: string) => {
         setData({
             empty: false,
             classes: classAnalytics,
-            assessments: assessments.sort((a, b) => (a.date || '').localeCompare(b.date || '')),
+            assessments: orderedAssessments,
             curriculum: curriculum || [],
             totalEvidence: evidence.length,
             totalLearners: learners.length,

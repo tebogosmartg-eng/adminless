@@ -1,9 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Lock, Unlock, Plus, Loader2, Archive, Trash2, ArrowRightCircle, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useAcademic } from '@/context/AcademicContext';
@@ -13,6 +11,9 @@ import { TermClosureDialog } from '@/components/dialogs/TermClosureDialog';
 import { RollForwardDialog } from '@/components/dialogs/RollForwardDialog';
 import { showError } from '@/utils/toast';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useSafeForm } from "@/hooks/useSafeForm";
+import { SafeInput } from "@/components/safe-form/SafeInput";
+import { SafeSelect } from "@/components/safe-form/SafeSelect";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +27,15 @@ import {
 
 export const AcademicYearSettings = () => {
   const { years, terms, activeYear, setActiveYear, createYear, deleteYear, toggleTermStatus, closeYear, rollForwardClasses } = useAcademic();
-  const [newYearName, setNewYearName] = useState("");
+  const form = useSafeForm({
+    initialValues: {
+      activeYearId: activeYear?.id ?? "",
+      newYearName: "",
+    },
+  });
+  const { reset } = form;
+  const initializedRef = useRef(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   
   const { validateTerm, validating } = useTermValidation();
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
@@ -40,12 +49,39 @@ export const AcademicYearSettings = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteYearDialogOpen, setDeleteYearDialogOpen] = useState(false);
   const [closeYearDialogOpen, setCloseYearDialogOpen] = useState(false);
+  const validationRules = useMemo(
+    () => ({
+      newYearName: [
+        { type: "required" as const, message: "Academic year is required." },
+        { type: "number" as const, message: "Academic year must be a number." },
+      ],
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    if (initializedRef.current) return;
+    reset({
+      activeYearId: activeYear?.id ?? "",
+      newYearName: "",
+    });
+    initializedRef.current = true;
+  }, [activeYear?.id, reset]);
 
   const handleCreateYear = async () => {
-    if (newYearName.trim()) {
-      await createYear(newYearName.trim());
-      setNewYearName("");
+    const nextYearName = form.values.newYearName.trim();
+    if (!nextYearName) {
+      setTouched((prev) => ({ ...prev, newYearName: true }));
+      await form.validateField("newYearName", validationRules.newYearName);
+      return;
     }
+
+    const isValid = await form.validateField("newYearName", validationRules.newYearName, nextYearName);
+    if (!isValid) return;
+
+    await createYear(nextYearName);
+    form.setFieldValue("newYearName", "", validationRules.newYearName);
+    setTouched((prev) => ({ ...prev, newYearName: false }));
   };
 
   const handleDeleteYear = async () => {
@@ -155,15 +191,34 @@ export const AcademicYearSettings = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
              <div className="space-y-1.5 w-full flex-1 min-w-0">
                 <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block truncate">Active Academic Cycle</label>
-                <Select value={activeYear?.id} onValueChange={(val) => setActiveYear(years.find(y => y.id === val) || null)}>
-                    <SelectTrigger className="w-full sm:w-[240px] h-10"><SelectValue placeholder="Select Year" /></SelectTrigger>
-                    <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name} {y.closed ? "(Finalized)" : ""}</SelectItem>)}</SelectContent>
-                </Select>
+                <SafeSelect
+                  form={form}
+                  name="activeYearId"
+                  placeholder="Select Year"
+                  triggerClassName="w-full sm:w-[240px] h-10"
+                  options={years.map((y) => ({
+                    value: y.id,
+                    label: `${y.name}${y.closed ? " (Finalized)" : ""}`,
+                  }))}
+                  onValueChange={(val) => setActiveYear(years.find(y => y.id === val) || null)}
+                />
              </div>
              <div className="space-y-1.5 w-full sm:ml-auto shrink-0">
                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block truncate">Initialise New Year</label>
                  <div className="flex flex-col sm:flex-row gap-2 w-full">
-                    <Input placeholder="e.g. 2026" value={newYearName} onChange={(e) => setNewYearName(e.target.value)} className="w-full sm:w-[120px] h-10" />
+                    <SafeInput
+                      form={form}
+                      name="newYearName"
+                      rules={validationRules.newYearName}
+                      error={touched.newYearName ? form.errors.newYearName : undefined}
+                      placeholder="e.g. 2026"
+                      className="w-full sm:w-[120px] h-10"
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, newYearName: true }));
+                        void form.validateField("newYearName", validationRules.newYearName);
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && void handleCreateYear()}
+                    />
                     <Button onClick={handleCreateYear} variant="secondary" className="w-full sm:w-auto shrink-0 h-10"><Plus className="mr-2 h-4 w-4" /> Initialise</Button>
                  </div>
              </div>

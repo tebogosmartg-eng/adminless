@@ -5,6 +5,8 @@ import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { db } from '@/db';
 import { format } from 'date-fns';
 import { calculateWeightedAverage } from '../calculations';
+import { sortAssessmentsDeterministically } from '../assessmentOrdering';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 const fetchTeacherFileData = async (yearId: string, termId?: string) => {
     try {
@@ -34,8 +36,9 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 .equals(term.id)
                 .filter(a => classIds.includes(a.class_id))
                 .toArray();
+            const orderedAssessments = sortAssessmentsDeterministically(assessments);
             
-            const assessmentIds = assessments.map(a => a.id);
+            const assessmentIds = orderedAssessments.map(a => a.id);
 
             const [learners, marks, evidence, remediationTasks, attachments, lessonLogs, topics, diagnostics, samples] = await Promise.all([
                 db.learners.where('class_id').anyOf(classIds).toArray(),
@@ -49,11 +52,11 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
                 db.moderation_samples.where('term_id').equals(term.id).toArray()
             ]);
 
-            const assessmentIdsSet = new Set(assessments.map(a => a.id));
+            const assessmentIdsSet = new Set(orderedAssessments.map(a => a.id));
             const relevantMarks = marks.filter(m => assessmentIdsSet.has(m.assessment_id));
 
             const classAnalytics = classes.map(cls => {
-                const clsAss = assessments.filter(a => a.class_id === cls.id);
+                const clsAss = orderedAssessments.filter(a => a.class_id === cls.id);
                 const clsLearners = learners.filter(l => l.class_id === cls.id);
                 const clsMarks = relevantMarks.filter(m => clsAss.some(a => a.id === m.assessment_id));
                 const clsEvidence = evidence.filter(e => e.class_id === cls.id);
@@ -61,7 +64,7 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
 
                 const avgs = clsLearners.map(l => l.id ? calculateWeightedAverage(clsAss, clsMarks, l.id) : 0).filter(a => a > 0);
                 const avg = avgs.length > 0 ? (avgs.reduce((s, a) => s + a, 0) / avgs.length).toFixed(1) : "0.0";
-                const passRate = avgs.length > 0 ? Math.round((avgs.filter(a => a >= 50).length / avgs.length) * 100) : 0;
+                const passRate = avgs.length > 0 ? Math.round((avgs.filter(a => a >= PASS_THRESHOLD).length / avgs.length) * 100) : 0;
 
                 const sampleNames = classSample 
                     ? clsLearners
@@ -104,7 +107,7 @@ const fetchTeacherFileData = async (yearId: string, termId?: string) => {
             return {
                 term,
                 classes: classAnalytics,
-                assessments: assessments.sort((a, b) => (a.date || '').localeCompare(b.date || '')),
+                assessments: orderedAssessments,
                 evidence: evidence.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')),
                 annotations: annotations.filter(a => a.term_id === term.id),
                 attachments: attachments || [],

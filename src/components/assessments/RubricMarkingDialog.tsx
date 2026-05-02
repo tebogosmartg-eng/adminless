@@ -13,7 +13,7 @@ interface RubricMarkingDialogProps {
   onOpenChange: (open: boolean) => void;
   rubric: Rubric;
   learner: Learner;
-  onSave: (score: number, selections: Record<string, string>) => void;
+  onSave: (score: number, selections: Record<string, string>) => void | Promise<{ success: boolean; message?: string } | void>;
   initialSelections?: Record<string, string>;
   onNext?: () => void;
   onPrev?: () => void;
@@ -30,6 +30,7 @@ export const RubricMarkingDialog = ({
   onPrev
 }: RubricMarkingDialogProps) => {
   const [selections, setSelections] = useState<Record<string, string>>(initialSelections);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -53,10 +54,18 @@ export const RubricMarkingDialog = ({
     setSelections(prev => ({ ...prev, [criterionId]: levelId }));
   };
 
-  const handleSave = () => {
-    onSave(currentScore, selections);
-    if (!onNext) onOpenChange(false);
-    else onNext();
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const result = await Promise.resolve(onSave(currentScore, selections));
+      if (result && typeof result === "object" && "success" in result && result.success === false) {
+        return;
+      }
+      if (!onNext) onOpenChange(false);
+      else onNext();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -87,8 +96,8 @@ export const RubricMarkingDialog = ({
                         Next <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
                 </div>
-                <Button variant="secondary" size="sm" onClick={handleSave} className="font-bold">
-                    <Save className="h-4 w-4 mr-2" /> Save & Continue
+                <Button variant="secondary" size="sm" onClick={() => void handleSave()} disabled={isSaving} className="font-bold">
+                    <Save className="h-4 w-4 mr-2" /> {isSaving ? "Saving..." : "Save & Continue"}
                 </Button>
             </div>
         </div>

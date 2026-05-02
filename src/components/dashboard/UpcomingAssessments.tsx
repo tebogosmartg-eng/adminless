@@ -6,6 +6,7 @@ import { useAcademic } from "@/context/AcademicContext";
 import { useClasses } from "@/context/ClassesContext";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { sortAssessmentsDeterministically } from "@/utils/assessmentOrdering";
 
 export const UpcomingAssessments = () => {
   const { assessments, activeTerm } = useAcademic();
@@ -18,7 +19,7 @@ export const UpcomingAssessments = () => {
     const relevant = assessments.filter(a => a.term_id === activeTerm?.id && a.date);
     
     // Enrich with class names
-    const enriched = relevant.map(a => {
+    const enriched = sortAssessmentsDeterministically(relevant).map(a => {
         const cls = classes.find(c => c.id === a.class_id);
         return {
             ...a,
@@ -30,7 +31,6 @@ export const UpcomingAssessments = () => {
 
     // Sort by date ascending
     return enriched
-        .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
         .filter(a => !isPast(a.dateObj) || isToday(a.dateObj)) // Only show today or future
         .slice(0, 5); // Limit to 5
   }, [assessments, activeTerm, classes]);

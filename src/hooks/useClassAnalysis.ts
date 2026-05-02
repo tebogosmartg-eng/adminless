@@ -1,9 +1,75 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { calculateWeightedAverage } from "@/utils/calculations";
 import { useAcademic } from "@/context/AcademicContext";
+import { applySupabaseAssessmentOrder, sortAssessmentsDeterministically } from "@/utils/assessmentOrdering";
+import { PASS_THRESHOLD } from "@/constants/diagnostics";
+
+type ClassInsightsPayload = {
+  marks: any[];
+  assessments: any[];
+  attendance: any[];
+};
+
+export const fetchClassInsights = async (
+  classId: string,
+  termId: string | undefined,
+  activeYearId: string | undefined
+): Promise<ClassInsightsPayload> => {
+  if (!classId || !termId || !activeYearId) {
+    return { marks: [], assessments: [], attendance: [] };
+  }
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData?.session?.user;
+  if (!user) {
+    return { marks: [], assessments: [], attendance: [] };
+  }
+
+  // Run all three calls together to reduce wait time.
+  const [marksResult, assessmentsResult, attendanceResult] = await Promise.all([
+    supabase
+      .from("assessment_marks")
+      .select("*")
+      .eq("class_id", classId)
+      .eq("term_id", termId)
+      .eq("academic_year_id", activeYearId)
+      .eq("user_id", user.id),
+    applySupabaseAssessmentOrder(
+      supabase
+        .from("assessments")
+        .select("*")
+        .eq("class_id", classId)
+        .eq("term_id", termId)
+        .eq("user_id", user.id)
+    ),
+    supabase
+      .from("attendance")
+      .select("*")
+      .eq("class_id", classId)
+      .eq("term_id", termId)
+      .eq("user_id", user.id),
+  ]);
+
+  if (marksResult.error) {
+    throw marksResult.error;
+  }
+  if (assessmentsResult.error) {
+    throw assessmentsResult.error;
+  }
+  if (attendanceResult.error) {
+    throw attendanceResult.error;
+  }
+
+  return {
+    marks: marksResult.data ?? [],
+    assessments: sortAssessmentsDeterministically(assessmentsResult.data ?? []),
+    attendance: attendanceResult.data ?? [],
+  };
+};
 
 export const useClassAnalysis = (
   classId: string,
@@ -11,74 +77,16 @@ export const useClassAnalysis = (
   learnersCount: number = 0
 ) => {
   const { activeYear } = useAcademic();
+  const { data, isLoading } = useQuery({
+    queryKey: ["insights", classId],
+    queryFn: () => fetchClassInsights(classId, termId, activeYear?.id),
+    enabled: !!classId && !!termId && !!activeYear?.id,
+    staleTime: 60_000,
+  });
 
-  const [marks, setMarks] = useState<any[]>([]);
-  const [assessments, setAssessments] = useState<any[]>([]);
-  const [attendance, setAttendance] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // ===============================
-  // 🔥 FETCH DATA FROM SUPABASE
-  // ===============================
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!classId || !termId || !activeYear?.id) return;
-
-      setLoading(true);
-
-      try {
-        // 1. MARKS
-        const { data: marksData, error: marksError } = await supabase
-          .from("assessment_marks")
-          .select("*")
-          .eq("class_id", classId)
-          .eq("term_id", termId)
-          .eq("academic_year_id", activeYear.id);
-
-        if (marksError) {
-          console.error("❌ Marks error:", marksError);
-        } else {
-          console.log("✅ MARKS:", marksData);
-          setMarks(marksData || []);
-        }
-
-        // 2. ASSESSMENTS
-        const { data: assessmentsData, error: assessmentsError } =
-          await supabase
-            .from("assessments")
-            .select("*")
-            .eq("class_id", classId)
-            .eq("term_id", termId);
-
-        if (assessmentsError) {
-          console.error("❌ Assessments error:", assessmentsError);
-        } else {
-          console.log("✅ ASSESSMENTS:", assessmentsData);
-          setAssessments(assessmentsData || []);
-        }
-
-        // 3. ATTENDANCE
-        const { data: attendanceData, error: attendanceError } =
-          await supabase
-            .from("attendance")
-            .select("*")
-            .eq("class_id", classId)
-            .eq("term_id", termId);
-
-        if (attendanceError) {
-          console.error("❌ Attendance error:", attendanceError);
-        } else {
-          setAttendance(attendanceData || []);
-        }
-      } catch (err) {
-        console.error("❌ Unexpected error:", err);
-      }
-
-      setLoading(false);
-    };
-
-    fetchData();
-  }, [classId, termId, activeYear?.id]);
+  const marks = data?.marks ?? [];
+  const assessments = data?.assessments ?? [];
+  const attendance = data?.attendance ?? [];
 
   // ===============================
   // 🔥 ANALYTICS ENGINE
@@ -196,7 +204,7 @@ export const useClassAnalysis = (
     const passRate =
       learnerPerformance.length > 0
         ? Math.round(
-            (learnerPerformance.filter((l) => l.average >= 50).length /
+            (learnerPerformance.filter((l) => l.average >= PASS_THRESHOLD).length /
               learnerPerformance.length) *
               100
           )
@@ -226,6 +234,6 @@ export const useClassAnalysis = (
 
   return {
     analysisData,
-    loading,
+    loading: isLoading,
   };
 };

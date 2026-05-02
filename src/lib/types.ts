@@ -107,6 +107,8 @@ export interface LearnerComment {
 }
 
 export interface AggregatedLearner {
+  /** Stable roster id — aggregation key across selected classes */
+  learnerId: string;
   name: string;
   marks: { [classId: string]: number | null };
   finalMark: number;
@@ -188,8 +190,11 @@ export interface TimetableEntry {
 }
 
 export interface AssessmentResult {
+  id: string;
   termName: string;
   termId: string;
+  classId?: string | null;
+  academicYearId?: string | null;
   assessmentTitle: string;
   assessmentType: string;
   date: string;

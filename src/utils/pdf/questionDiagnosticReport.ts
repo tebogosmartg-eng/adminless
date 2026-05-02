@@ -5,6 +5,7 @@ import { QuestionStat } from '@/hooks/useQuestionAnalysis';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { format } from 'date-fns';
 import { t, translateText } from '@/lib/useTranslation';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 export const generateQuestionDiagnosticPDF = async (
   assessment: Assessment,
@@ -55,7 +56,7 @@ export const generateQuestionDiagnosticPDF = async (
     didParseCell: (data) => {
         if (data.section === 'body' && data.column.index === 3) {
             const val = parseFloat(data.cell.text[0]);
-            if (val < 50) data.cell.styles.textColor = [220, 38, 38];
+            if (val < PASS_THRESHOLD) data.cell.styles.textColor = [220, 38, 38];
         }
     }
   });

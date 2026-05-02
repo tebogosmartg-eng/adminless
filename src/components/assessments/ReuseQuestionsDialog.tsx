@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { applySupabaseAssessmentOrder, sortAssessmentsDeterministically } from "@/utils/assessmentOrdering";
 
 import {
   Dialog, DialogContent, DialogDescription,
@@ -63,14 +64,14 @@ export const ReuseQuestionsDialog = ({
       setLoading(true);
 
       const [assRes, classRes] = await Promise.all([
-        supabase.from("assessments").select("*"),
+        applySupabaseAssessmentOrder(supabase.from("assessments").select("*")),
         supabase.from("classes").select("*")
       ]);
 
       if (assRes.error) console.error(assRes.error);
       if (classRes.error) console.error(classRes.error);
 
-      setAssessments(assRes.data || []);
+      setAssessments(sortAssessmentsDeterministically(assRes.data || []));
       setClasses(classRes.data || []);
       setLoading(false);
     };
@@ -234,7 +235,7 @@ export const ReuseQuestionsDialog = ({
                 <ChevronLeft className="h-4 w-4 mr-1" /> Back
               </Button>
 
-              <Select value={importMode} onValueChange={(v: any) => setImportMode(v)}>
+              <Select value={importMode ?? ""} onValueChange={(v: any) => setImportMode(v)}>
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>

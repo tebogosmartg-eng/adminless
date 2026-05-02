@@ -1,10 +1,14 @@
-import { Loader2, Clock, Check, X, AlertCircle } from "lucide-react";
-import { db } from '@/db';
+import { Clock, Check, X, AlertCircle } from "lucide-react";
 import { AttendanceStatus } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from "@/lib/supabaseClient";
 
 interface ProfileAttendanceTabProps {
   learnerId?: string;
+  classId?: string;
+  termId?: string;
 }
 
 interface AttendanceStats {
@@ -15,7 +19,7 @@ interface AttendanceStats {
   total: number;
 }
 
-export const ProfileAttendanceTab = ({ learnerId }: ProfileAttendanceTabProps) => {
+export const ProfileAttendanceTab = ({ learnerId, classId, termId }: ProfileAttendanceTabProps) => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +33,29 @@ export const ProfileAttendanceTab = ({ learnerId }: ProfileAttendanceTabProps) =
 
       try {
         setLoading(true);
-        const data = await db.attendance.where('learner_id').equals(learnerId).toArray();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData?.session?.user;
+        if (!user) {
+          setRecords([]);
+          return;
+        }
+
+        let query = supabase
+          .from("attendance")
+          .select("*")
+          .eq("learner_id", learnerId)
+          .eq("user_id", user.id);
+
+        if (classId) {
+          query = query.eq("class_id", classId);
+        }
+
+        if (termId) {
+          query = query.eq("term_id", termId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
         setRecords(data || []);
       } catch (error) {
         console.error("Learner profile error:", error);
@@ -39,7 +65,7 @@ export const ProfileAttendanceTab = ({ learnerId }: ProfileAttendanceTabProps) =
       }
     };
     fetchLearnerData();
-  }, [learnerId]);
+  }, [learnerId, classId, termId]);
 
   const stats = useMemo(() => {
     const initial: AttendanceStats = { present: 0, absent: 0, late: 0, excused: 0, total: 0 };
@@ -57,19 +83,32 @@ export const ProfileAttendanceTab = ({ learnerId }: ProfileAttendanceTabProps) =
   }, [records]);
 
   if (loading) {
-    return <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
-  }
-
-  if (!records || stats.total === 0) {
     return (
-      <div className="text-center py-10 text-muted-foreground">
-        <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
-        <p>No attendance records found for this learner.</p>
+      <div className="space-y-4 pt-4">
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <div className="grid grid-cols-2 gap-4">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
 
-  const attendanceRate = Math.round(((stats.present + stats.late) / stats.total) * 100);
+  if (!records || stats.total === 0) {
+    return (
+      <EmptyState
+        title="No attendance records"
+        description="Attendance will appear here once records are captured."
+        icon={<Clock className="h-12 w-12 opacity-20" />}
+      />
+    );
+  }
+
+  const attendedLessons = stats.present + stats.late;
+  const rateDenominator = Math.max(1, stats.present + stats.absent + stats.late);
+  const attendanceRate = Math.round((attendedLessons / rateDenominator) * 100);
 
   return (
     <div className="space-y-6 pt-4 h-full overflow-y-auto">

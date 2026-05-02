@@ -5,9 +5,10 @@ import { showSuccess, showError } from '@/utils/toast';
 import { calculateClassStats } from '@/utils/stats';
 import { useSettings } from '@/context/SettingsContext';
 import { useAcademic } from '@/context/AcademicContext';
-import { db } from '@/db';
 import { calculateWeightedAverage } from '@/utils/calculations';
 import { t } from '@/lib/useTranslation';
+import { supabase } from '@/lib/supabaseClient';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 export const useClassExport = (
   classInfo: ClassInfo | undefined,
@@ -27,14 +28,29 @@ export const useClassExport = (
     if (!classInfo) return {};
     
     try {
-        const records = await db.attendance.where('class_id').equals(classInfo.id).toArray();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData?.session?.user;
+        if (!user) return {};
+
+        let query = supabase
+          .from("attendance")
+          .select("learner_id,status")
+          .eq("class_id", classInfo.id)
+          .eq("user_id", user.id);
+
+        if (activeTerm?.id) {
+          query = query.eq("term_id", activeTerm.id);
+        }
+
+        const { data: records, error } = await query;
+        if (error) throw error;
         const map: Record<string, AttendanceStats> = {};
         
         learners.forEach(l => {
             if (l.id) map[l.id] = { present: 0, absent: 0, late: 0, total: 0, rate: 0 };
         });
 
-        records.forEach(r => {
+        (records || []).forEach(r => {
             if (map[r.learner_id]) {
                 const s = map[r.learner_id];
                 if (r.status === 'present') s.present++;
@@ -127,7 +143,7 @@ ${t('lowestMark', lang)}: ${stats.lowestMark}%
     });
 
     const classAvg = learnerAvgs.length > 0 ? (learnerAvgs.reduce((a, b) => a + b, 0) / learnerAvgs.length).toFixed(1) : "0.0";
-    const passCount = learnerAvgs.filter(a => a >= 50).length;
+    const passCount = learnerAvgs.filter(a => a >= PASS_THRESHOLD).length;
     const passRate = learnerAvgs.length > 0 ? Math.round((passCount / learnerAvgs.length) * 100) : 0;
     
     const analyticsBlock = [
@@ -142,8 +158,8 @@ ${t('lowestMark', lang)}: ${stats.lowestMark}%
         `"${t('markDistribution', lang)}"`,
         `"0-29%","${learnerAvgs.filter(a => a < 30).length}"`,
         `"30-39%","${learnerAvgs.filter(a => a >= 30 && a < 40).length}"`,
-        `"40-49%","${learnerAvgs.filter(a => a >= 40 && a < 50).length}"`,
-        `"50-59%","${learnerAvgs.filter(a => a >= 50 && a < 60).length}"`,
+        `"40-49%","${learnerAvgs.filter(a => a >= 40 && a < PASS_THRESHOLD).length}"`,
+        `"50-59%","${learnerAvgs.filter(a => a >= PASS_THRESHOLD && a < 60).length}"`,
         `"60-69%","${learnerAvgs.filter(a => a >= 60 && a < 70).length}"`,
         `"70-79%","${learnerAvgs.filter(a => a >= 70 && a < 80).length}"`,
         `"80-100%","${learnerAvgs.filter(a => a >= 80).length}"`,

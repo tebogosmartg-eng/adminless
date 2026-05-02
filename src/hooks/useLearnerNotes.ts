@@ -3,12 +3,16 @@ import { supabase } from "@/lib/supabaseClient";
 import { LearnerNote } from "@/lib/types";
 import { showSuccess, showError } from "@/utils/toast";
 import { useAcademic } from "@/context/AcademicContext";
+import { useClasses } from "@/context/ClassesContext";
 
-export const useLearnerNotes = (learnerId: string | undefined) => {
+export const useLearnerNotes = (learnerId: string | undefined, isLockedOverride: boolean = false) => {
   const { activeYear, activeTerm } = useAcademic();
+  const { classes } = useClasses();
 
   const [notes, setNotes] = useState<LearnerNote[]>([]);
   const [loading, setLoading] = useState(true);
+  const learnerClass = classes.find((item) => item.learners.some((learner) => learner.id === learnerId));
+  const isLocked = isLockedOverride || !!activeTerm?.closed || !!learnerClass?.is_finalised;
 
   // 🔥 FETCH NOTES
   useEffect(() => {
@@ -57,6 +61,10 @@ export const useLearnerNotes = (learnerId: string | undefined) => {
     category: LearnerNote["category"],
     date: string
   ) => {
+    if (isLocked) {
+      showError("Learner notes are locked for this finalized term.");
+      return;
+    }
     if (!learnerId || !activeYear?.id || !activeTerm?.id) {
       showError("Note creation blocked: Academic context not loaded.");
       return;
@@ -98,6 +106,10 @@ export const useLearnerNotes = (learnerId: string | undefined) => {
 
   // 🔥 DELETE NOTE
   const deleteNote = async (id: string) => {
+    if (isLocked) {
+      showError("Learner notes are locked for this finalized term.");
+      return;
+    }
     try {
       const { error } = await supabase
         .from("learner_notes")

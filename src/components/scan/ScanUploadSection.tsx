@@ -83,7 +83,7 @@ export const ScanUploadSection = ({
         <div className="space-y-4 p-4 rounded-xl bg-muted/20 border border-dashed">
             <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Target Class</Label>
-                <Select value={selectedClassId} onValueChange={onClassChange}>
+                <Select value={selectedClassId ?? ""} onValueChange={onClassChange}>
                     <SelectTrigger className="bg-background">
                         <SelectValue placeholder="Select class..." />
                     </SelectTrigger>
@@ -103,7 +103,7 @@ export const ScanUploadSection = ({
             {needsAssessment && (
                 <div className="space-y-2 animate-in slide-in-from-top-2">
                     <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Target Assessment Task</Label>
-                    <Select value={selectedAssessmentId} onValueChange={onAssessmentChange} disabled={!selectedClassId}>
+                    <Select value={selectedAssessmentId ?? ""} onValueChange={onAssessmentChange} disabled={!selectedClassId}>
                         <SelectTrigger className="bg-background">
                             <SelectValue placeholder="Select task..." />
                         </SelectTrigger>

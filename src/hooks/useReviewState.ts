@@ -8,6 +8,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { getSignedFileUrl } from '@/services/storage';
 import { showError, showSuccess } from '@/utils/toast';
 import { generateReviewPackPDF } from '@/utils/pdfGenerator';
+import { useDebounce } from '@/hooks/useDebounce';
 
 export const useReviewState = (classId: string, termId: string) => {
   const { classes } = useClasses();
@@ -27,6 +28,7 @@ export const useReviewState = (classId: string, termId: string) => {
   const snapshots: any[] = [];
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [selectedSectionId, setSelectedSectionId] = useState<string>("all");
   const [portfolioOnly, setPortfolioOnly] = useState(true);
   const [activeSnapshotId, setActiveSnapshotId] = useState<string | null>(null);
@@ -43,6 +45,7 @@ export const useReviewState = (classId: string, termId: string) => {
 
   // 🔥 FILTER ENTRIES
   const filteredEntries = useMemo(() => {
+    const normalizedSearch = debouncedSearch.toLowerCase();
     if (activeSnapshotId) {
       const snap = snapshots.find(s => s.id === activeSnapshotId);
       if (snap) {
@@ -52,9 +55,9 @@ export const useReviewState = (classId: string, termId: string) => {
 
     return entries.filter(e => {
       const matchesSearch =
-        !search ||
-        (e.title || "").toLowerCase().includes(search.toLowerCase()) ||
-        (e.content || "").toLowerCase().includes(search.toLowerCase());
+        !normalizedSearch ||
+        (e.title || "").toLowerCase().includes(normalizedSearch) ||
+        (e.content || "").toLowerCase().includes(normalizedSearch);
 
       const matchesSection =
         selectedSectionId === 'all' || e.section_id === selectedSectionId;
@@ -64,7 +67,7 @@ export const useReviewState = (classId: string, termId: string) => {
 
       return matchesSearch && matchesSection && matchesPortfolio;
     });
-  }, [entries, search, selectedSectionId, portfolioOnly, activeSnapshotId, snapshots]);
+  }, [entries, debouncedSearch, selectedSectionId, portfolioOnly, activeSnapshotId, snapshots]);
 
   const groupedBySection = useMemo(() => {
     const groups: Record<string, typeof filteredEntries> = {};

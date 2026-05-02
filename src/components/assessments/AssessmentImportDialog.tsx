@@ -6,18 +6,21 @@ import { useState, useMemo } from 'react';
 import { Learner, Assessment } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { Upload, AlertCircle } from 'lucide-react';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
 interface AssessmentImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   assessments: Assessment[];
   learners: Learner[];
-  onImport: (assessmentId: string, marks: { learnerId: string; score: number }[]) => void;
+  onImport: (assessmentId: string, marks: { learnerId: string; score: number }[]) => Promise<void> | void;
 }
 
 export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learners, onImport }: AssessmentImportDialogProps) => {
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("");
   const [text, setText] = useState('');
+  const importState = useAsyncState();
 
   const targetAssessment = useMemo(() => 
     assessments.find(a => a.id === selectedAssessmentId), 
@@ -31,7 +34,7 @@ export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learne
     return map;
   }, [learners]);
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!selectedAssessmentId || !text.trim() || !targetAssessment) {
         showError("Please select an assessment and enter data.");
         return;
@@ -74,19 +77,24 @@ export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learne
       }
     });
 
-    if (updates.length > 0) {
-      onImport(selectedAssessmentId, updates);
+    if (updates.length === 0) {
+      showError("No valid matching data found that passed validation.");
+      return;
+    }
+
+    try {
+      await importState.run(async () => {
+        await onImport(selectedAssessmentId, updates);
+      }, { status: "saving" });
       showSuccess(`Imported ${updates.length} marks.`);
-      
       if (errors.length > 0) {
-          console.warn("Import issues:", errors);
-          showError(`Skipped ${errors.length} rows due to validation errors. Check console for details.`);
+        console.warn("Import issues:", errors);
+        showError(`Skipped ${errors.length} rows due to validation errors. Check console for details.`);
       }
-      
       setText('');
       onOpenChange(false);
-    } else {
-      showError("No valid matching data found that passed validation.");
+    } catch {
+      showError("Import failed. Please retry.");
     }
   };
 
@@ -100,11 +108,17 @@ export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learne
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <AsyncStatus state={{ status: importState.status, error: importState.error, retry: importState.retry }} />
           <div className="space-y-2">
               <label className="text-sm font-medium">Select Assessment</label>
-              <Select value={selectedAssessmentId} onValueChange={setSelectedAssessmentId}>
+              <Select value={selectedAssessmentId ?? ""} onValueChange={setSelectedAssessmentId}>
                   <SelectTrigger><SelectValue placeholder="Choose assessment..." /></SelectTrigger>
                   <SelectContent>
+                      {assessments.length === 0 && (
+                          <SelectItem value="__loading_assessments" disabled>
+                            Loading assessments...
+                          </SelectItem>
+                      )}
                       {assessments.map(a => (
                           <SelectItem key={a.id} value={a.id}>{a.title} (Max: {a.max_mark})</SelectItem>
                       ))}
@@ -128,7 +142,7 @@ export const AssessmentImportDialog = ({ open, onOpenChange, assessments, learne
           
           <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancel</Button>
-            <Button onClick={handleImport} disabled={!selectedAssessmentId || !text.trim()} className="w-full sm:w-auto">
+            <Button onClick={() => void handleImport()} disabled={!selectedAssessmentId || !text.trim() || importState.status === "saving"} className="w-full sm:w-auto">
                 <Upload className="mr-2 h-4 w-4" /> Validate & Import
             </Button>
           </DialogFooter>

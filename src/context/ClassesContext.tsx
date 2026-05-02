@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 interface ClassesContextType {
   classes: ClassInfo[];
   loading: boolean;
+  isLoading: boolean;
   isRefreshing: boolean;
   hasLoadedOnce: boolean;
   preloadClasses: () => Promise<void>;
@@ -21,6 +22,7 @@ interface ClassesContextType {
   toggleClassArchive: (classId: string, archived: boolean) => Promise<void>;
   updateClassNotes: (classId: string, notes: string) => Promise<void>;
   renameLearner: (learnerId: string, newName: string) => Promise<void>;
+  updateLearnerComment: (learnerId: string, comment: string) => Promise<void>;
   finalizeClassTerm: (classId: string) => Promise<void>;
 }
 
@@ -162,6 +164,47 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const updateLearners = async (classId: string, updatedLearners: Learner[]) => {
     if (!session?.user.id) return;
     try {
+        const loadedClass = classes.find((item) => item.id === classId);
+        const isLockedFromCache =
+          (!!activeTerm?.closed && loadedClass?.term_id === activeTerm.id) || !!loadedClass?.is_finalised;
+        if (isLockedFromCache) {
+          throw new Error("This class is locked for the finalized term.");
+        }
+
+        if (!loadedClass) {
+          let classRow: { id?: string; is_finalised?: boolean | null; term_id?: string | null } | null = null;
+          const primary = await supabase
+            .from('classes')
+            .select('id, is_finalised, term_id')
+            .eq('id', classId)
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          if (primary.error) {
+            const msg = String(primary.error.message || '').toLowerCase();
+            const missingFinalised =
+              primary.error.code === '42703' ||
+              msg.includes('is_finalised') ||
+              (msg.includes('column') && msg.includes('does not exist'));
+            if (!missingFinalised) throw primary.error;
+            const fb = await supabase
+              .from('classes')
+              .select('id, term_id')
+              .eq('id', classId)
+              .eq('user_id', session.user.id)
+              .maybeSingle();
+            if (fb.error) throw fb.error;
+            classRow = fb.data;
+          } else {
+            classRow = primary.data;
+          }
+          const isLockedFromDb =
+            !!classRow?.is_finalised ||
+            (!!activeTerm?.closed && !!classRow?.term_id && classRow.term_id === activeTerm.id);
+          if (isLockedFromDb) {
+            throw new Error("This class is locked for the finalized term.");
+          }
+        }
+
         const { data: currentDbLearners, error: fetchErr } = await supabase.from('learners').select('id').eq('class_id', classId);
         if (fetchErr) throw fetchErr;
         
@@ -210,6 +253,28 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     } catch (e: any) {
         console.error("AdminLess error:", e);
         showError("Failed to rename learner: " + e.message);
+        throw e;
+    }
+  };
+
+  const updateLearnerComment = async (learnerId: string, comment: string) => {
+    try {
+        const owningClass = classes.find((item) => item.learners.some((learner) => learner.id === learnerId));
+        const isLocked = !!activeTerm?.closed || !!owningClass?.is_finalised;
+        if (isLocked) {
+          showError("Learner profile is locked for this finalized term.");
+          return;
+        }
+        const normalizedComment = comment.trim();
+        const { error } = await supabase
+          .from('learners')
+          .update({ comment: normalizedComment.length > 0 ? normalizedComment : null })
+          .eq('id', learnerId);
+        if (error) throw error;
+        await queryClient.invalidateQueries({ queryKey: ['classes'] });
+    } catch (e: any) {
+        console.error("AdminLess error:", e);
+        showError("Failed to save learner comment: " + e.message);
         throw e;
     }
   };
@@ -291,6 +356,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     <ClassesContext.Provider value={{ 
       classes, 
       loading,
+      isLoading: loading,
       isRefreshing,
       hasLoadedOnce: isFetched,
       preloadClasses,
@@ -302,6 +368,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
       toggleClassArchive,
       updateClassNotes,
       renameLearner,
+      updateLearnerComment,
       finalizeClassTerm
     }}>
       {children}

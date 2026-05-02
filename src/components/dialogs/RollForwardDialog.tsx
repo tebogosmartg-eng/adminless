@@ -22,6 +22,8 @@ import {
 import { db } from '@/db';
 import { ClassInfo, Learner } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
 interface StagedClass extends Omit<ClassInfo, 'learners'> {
     learners: Learner[];
@@ -52,6 +54,7 @@ export const RollForwardDialog = ({
   const [stagedClasses, setStagedClasses] = useState<StagedClass[]>([]);
   const [loading, setLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const rollForwardState = useAsyncState();
   
   // For adding a learner in preview
   const [newLearnerName, setNewLearnerName] = useState("");
@@ -110,9 +113,17 @@ export const RollForwardDialog = ({
 
   const handleConfirm = async () => {
     setIsProcessing(true);
-    await onConfirm(stagedClasses);
-    setIsProcessing(false);
-    onOpenChange(false);
+    try {
+      await rollForwardState.run(
+        async () => onConfirm(stagedClasses),
+        { status: "saving" },
+      );
+      onOpenChange(false);
+    } catch {
+      // Inline state handles error and retry.
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -140,6 +151,15 @@ export const RollForwardDialog = ({
                         ? "Choose which class rosters you want to carry over to the next term."
                         : "Verify and clean up learner lists before finalizing the migration."}
                 </DialogDescription>
+                <div className="pt-2">
+                  <AsyncStatus
+                    state={{
+                      status: isProcessing ? "saving" : rollForwardState.status,
+                      error: rollForwardState.error,
+                      retry: rollForwardState.retry,
+                    }}
+                  />
+                </div>
             </DialogHeader>
         </div>
 

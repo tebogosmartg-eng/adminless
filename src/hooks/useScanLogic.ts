@@ -148,6 +148,10 @@ export const useScanLogic = (defaultClassId?: string) => {
 
   const commitMarksToDatabase = async (updates: any[]) => {
       if (!activeTerm || !activeYear || !selectedClassId || !targetClass || !targetAssessment) return;
+      if (activeTerm.closed || targetClass.is_finalised) {
+          showError("This term is locked. Scanned marks cannot be saved.");
+          return;
+      }
       
       try {
           await updateMarks(updates);

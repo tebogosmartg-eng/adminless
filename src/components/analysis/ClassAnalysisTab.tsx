@@ -11,6 +11,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from "@/lib/utils";
+import { PASS_THRESHOLD } from "@/constants/diagnostics";
 
 interface ClassAnalysisTabProps {
   classId: string;
@@ -234,7 +235,7 @@ export const ClassAnalysisTab = ({ classId, termId, learners }: ClassAnalysisTab
                 <div className="text-3xl font-black text-foreground">
                     {analysisData.passRate}%
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">Learners meeting 50% target</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Learners meeting {PASS_THRESHOLD}% pass threshold</p>
               </CardContent>
             </Card>
           </div>

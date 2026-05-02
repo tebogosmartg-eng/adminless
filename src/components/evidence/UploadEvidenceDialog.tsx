@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { FileUp, Loader2, FileText, Camera, Image as ImageIcon } from 'lucide-react';
+import { FileUp, Loader2, FileText, Camera } from 'lucide-react';
 import { Evidence } from '@/lib/types';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
 interface UploadEvidenceDialogProps {
   open: boolean;
@@ -21,6 +23,7 @@ export const UploadEvidenceDialog = ({ open, onOpenChange, onUpload, isUploading
   const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState<Evidence['category']>('general');
   const [notes, setNotes] = useState('');
+  const uploadState = useAsyncState();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) setFile(e.target.files[0]);
@@ -28,10 +31,17 @@ export const UploadEvidenceDialog = ({ open, onOpenChange, onUpload, isUploading
 
   const handleSubmit = async () => {
     if (!file) return;
-    await onUpload(file, category, notes, learnerId);
-    setFile(null);
-    setNotes('');
-    onOpenChange(false);
+    try {
+      await uploadState.run(
+        async () => onUpload(file, category, notes, learnerId),
+        { status: "saving" },
+      );
+      setFile(null);
+      setNotes('');
+      onOpenChange(false);
+    } catch {
+      // Inline error + retry is handled by AsyncStatus.
+    }
   };
 
   return (
@@ -44,13 +54,20 @@ export const UploadEvidenceDialog = ({ open, onOpenChange, onUpload, isUploading
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          <AsyncStatus
+            state={{
+              status: isUploading ? "saving" : uploadState.status,
+              error: uploadState.error,
+              retry: uploadState.retry,
+            }}
+          />
           <div className="space-y-2">
             <Label>Source File</Label>
             <Input type="file" onChange={handleFileChange} className="h-10 cursor-pointer" />
           </div>
           <div className="space-y-2">
             <Label>Category</Label>
-            <Select value={category} onValueChange={(v: any) => setCategory(v)}>
+            <Select value={category ?? ""} onValueChange={(v: any) => setCategory(v)}>
               <SelectTrigger className="h-10">
                 <SelectValue />
               </SelectTrigger>
@@ -75,7 +92,7 @@ export const UploadEvidenceDialog = ({ open, onOpenChange, onUpload, isUploading
         </div>
         <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto h-10">Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!file || isUploading} className="w-full sm:w-auto h-10 font-bold">
+          <Button onClick={() => void handleSubmit()} disabled={!file || isUploading || uploadState.status === "saving"} className="w-full sm:w-auto h-10 font-bold">
             {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
             Upload & Link
           </Button>

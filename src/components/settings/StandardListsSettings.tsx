@@ -3,10 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, BookOpen, GraduationCap, CheckCircle2, AlertTriangle } from "lucide-react";
+import { X, Plus, BookOpen, GraduationCap, AlertTriangle } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { showSuccess } from "@/utils/toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AsyncStatus } from "@/components/ui/AsyncStatus";
+import { useAsyncState } from "@/hooks/useAsyncState";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,32 +24,36 @@ export const StandardListsSettings = () => {
   const { savedSubjects, addSubject, removeSubject, savedGrades, addGrade, removeGrade } = useSettings();
   const [newSubject, setNewSubject] = useState("");
   const [newGrade, setNewGrade] = useState("");
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [subjectToDelete, setSubjectToDelete] = useState<string | null>(null);
   const [gradeToDelete, setGradeToDelete] = useState<string | null>(null);
+  const actionState = useAsyncState();
 
-  const handleAddSubject = () => {
-    setStatusMessage(null);
+  const handleAddSubject = async () => {
     setErrorMessage(null);
     if (newSubject.trim()) {
-      addSubject(newSubject.trim());
-      setNewSubject("");
-      showSuccess("Subject added.");
-      setStatusMessage("Saved ✓ Subject added.");
+      try {
+        await actionState.run(() => addSubject(newSubject.trim()), { status: "saving" });
+        setNewSubject("");
+        showSuccess("Saved ✓");
+      } catch {
+        // Errors are handled via AsyncStatus and shared toast.
+      }
       return;
     }
     setErrorMessage("Enter a subject name before adding.");
   };
 
-  const handleAddGrade = () => {
-    setStatusMessage(null);
+  const handleAddGrade = async () => {
     setErrorMessage(null);
     if (newGrade.trim()) {
-      addGrade(newGrade.trim());
-      setNewGrade("");
-      showSuccess("Grade added.");
-      setStatusMessage("Saved ✓ Grade added.");
+      try {
+        await actionState.run(() => addGrade(newGrade.trim()), { status: "saving" });
+        setNewGrade("");
+        showSuccess("Saved ✓");
+      } catch {
+        // Errors are handled via AsyncStatus and shared toast.
+      }
       return;
     }
     setErrorMessage("Enter a grade name before adding.");
@@ -55,12 +61,7 @@ export const StandardListsSettings = () => {
 
   return (
     <div className="space-y-4">
-      {statusMessage && (
-        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
-          <CheckCircle2 className="h-4 w-4" />
-          <AlertDescription>{statusMessage}</AlertDescription>
-        </Alert>
-      )}
+      <AsyncStatus state={{ status: actionState.status, error: actionState.error, retry: actionState.retry }} />
       {errorMessage && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
@@ -84,10 +85,10 @@ export const StandardListsSettings = () => {
               placeholder="e.g. Mathematics" 
               value={newSubject}
               onChange={(e) => setNewSubject(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddSubject()}
+              onKeyDown={(e) => e.key === 'Enter' && void handleAddSubject()}
               className="w-full h-10 sm:col-span-2"
             />
-            <Button onClick={handleAddSubject} disabled={!newSubject.trim()} className="w-full sm:w-auto h-10 sm:justify-self-end">
+            <Button onClick={() => void handleAddSubject()} disabled={!newSubject.trim() || actionState.status === "saving"} className="w-full sm:w-auto h-10 sm:justify-self-end">
                 <Plus className="h-4 w-4" />
                 <span className="sm:hidden ml-2">Add Subject</span>
             </Button>
@@ -129,10 +130,10 @@ export const StandardListsSettings = () => {
               placeholder="e.g. Grade 10" 
               value={newGrade}
               onChange={(e) => setNewGrade(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddGrade()}
+              onKeyDown={(e) => e.key === 'Enter' && void handleAddGrade()}
               className="w-full h-10 sm:col-span-2"
             />
-            <Button onClick={handleAddGrade} disabled={!newGrade.trim()} className="w-full sm:w-auto h-10 sm:justify-self-end">
+            <Button onClick={() => void handleAddGrade()} disabled={!newGrade.trim() || actionState.status === "saving"} className="w-full sm:w-auto h-10 sm:justify-self-end">
                 <Plus className="h-4 w-4" />
                 <span className="sm:hidden ml-2">Add Grade</span>
             </Button>
@@ -169,12 +170,15 @@ export const StandardListsSettings = () => {
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => {
+            onClick={async () => {
               if (!subjectToDelete) return;
-              removeSubject(subjectToDelete);
-              showSuccess("Subject removed.");
-              setStatusMessage("Saved ✓ Subject removed.");
-              setSubjectToDelete(null);
+              try {
+                await actionState.run(() => removeSubject(subjectToDelete), { status: "saving" });
+                showSuccess("Saved ✓");
+                setSubjectToDelete(null);
+              } catch {
+                // Errors are handled via AsyncStatus and shared toast.
+              }
             }}
           >
             Remove
@@ -193,12 +197,15 @@ export const StandardListsSettings = () => {
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => {
+            onClick={async () => {
               if (!gradeToDelete) return;
-              removeGrade(gradeToDelete);
-              showSuccess("Grade removed.");
-              setStatusMessage("Saved ✓ Grade removed.");
-              setGradeToDelete(null);
+              try {
+                await actionState.run(() => removeGrade(gradeToDelete), { status: "saving" });
+                showSuccess("Saved ✓");
+                setGradeToDelete(null);
+              } catch {
+                // Errors are handled via AsyncStatus and shared toast.
+              }
             }}
           >
             Remove

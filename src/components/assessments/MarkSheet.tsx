@@ -8,7 +8,7 @@ import { MarkSheetDialogs } from './MarkSheetDialogs';
 import { EditAssessmentDialog } from './EditAssessmentDialog';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
-import { CalendarClock, Loader2, ShieldCheck } from 'lucide-react';
+import { CalendarClock, ShieldCheck } from 'lucide-react';
 import { RapidEntryDialog } from '@/components/dialogs/RapidEntryDialog';
 import { VoiceEntryDialog } from '@/components/dialogs/VoiceEntryDialog';
 import { RubricMarkingDialog } from './RubricMarkingDialog';
@@ -19,6 +19,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { checkClassTermIntegrity } from '@/utils/integrity';
 import { IntegrityGuard } from '@/components/IntegrityGuard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAcademic } from '@/context/AcademicContext';
+import { cn } from '@/lib/utils';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
@@ -55,8 +57,10 @@ const MarkSheetSkeleton = () => (
 );
 
 export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, isRefreshing = false }: MarkSheetProps) => {
+  const { isRefreshing: academicRefreshing } = useAcademic();
   const { state, actions } = useMarkSheetLogic(classInfo);
   const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(!isLoading);
+  const isDataRefreshing = isRefreshing || academicRefreshing;
 
   useEffect(() => {
     if (!isLoading) {
@@ -107,19 +111,54 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
     setQGrid({ open: true, assessmentId: assId });
   };
 
+  const validateQuestionMarkKeys = (assessmentId: string, marks: Record<string, number | null>) => {
+    const assessment = state.assessments.find(a => a.id === assessmentId);
+    if (!assessment) return marks;
+
+    const validIds = new Set((assessment.questions || []).map(q => q.id));
+    const sanitized: Record<string, number | null> = {};
+    const invalidKeys: string[] = [];
+
+    Object.entries(marks || {}).forEach(([key, value]) => {
+      if (validIds.has(key)) {
+        sanitized[key] = value;
+      } else {
+        invalidKeys.push(key);
+      }
+    });
+
+    if (invalidKeys.length > 0) {
+      console.error("[marksheet] question_marks key mismatch", {
+        assessmentId,
+        invalidKeys,
+        expectedQuestionIds: Array.from(validIds),
+      });
+    }
+
+    return sanitized;
+  };
+
   const handleQuestionSave = async (score: number, questionMarks: Record<string, number | null>) => {
     if (qMarking.assessmentId && qMarking.learner?.id) {
+        const validatedQuestionMarks = validateQuestionMarkKeys(qMarking.assessmentId, questionMarks);
         await actions.updateMarks([{
             assessment_id: qMarking.assessmentId,
             learner_id: qMarking.learner.id,
             score,
-            question_marks: questionMarks
+            question_marks: validatedQuestionMarks
         } as any]);
     }
   };
 
   const handleGridSave = async (updates: any[]) => {
-      return await actions.updateMarks(updates);
+      const validatedUpdates = updates.map((update) => {
+        if (!update?.assessment_id || update?.question_marks === undefined) return update;
+        return {
+          ...update,
+          question_marks: validateQuestionMarkKeys(update.assessment_id, update.question_marks),
+        };
+      });
+      return await actions.updateMarks(validatedUpdates);
   };
 
   const handleOpenDiagnostic = (ass: Assessment) => {
@@ -143,8 +182,6 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
   };
 
   const showInitialSkeleton = isLoading && !hasResolvedInitialLoad;
-  const showRefreshOverlay = isRefreshing && hasResolvedInitialLoad;
-
   if (showInitialSkeleton) {
       return <MarkSheetSkeleton />;
   }
@@ -173,18 +210,20 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
   );
 
   const currentIndex = state.filteredLearners.findIndex(l => l.id === state.rubricMarking.learner?.id);
+  const selectedGridAssessment = qGrid.assessmentId
+    ? state.assessments.find((assessment) => assessment.id === qGrid.assessmentId) ?? null
+    : null;
+  const selectedQuestionAssessment = qMarking.assessmentId
+    ? state.assessments.find((assessment) => assessment.id === qMarking.assessmentId) ?? null
+    : null;
 
   return (
-    <div className="relative space-y-4">
-       {showRefreshOverlay && (
-           <div className="pointer-events-none absolute inset-0 z-50 rounded-md bg-background/45 backdrop-blur-[1px]">
-               <div className="flex h-full items-start justify-end p-3">
-                   <div className="inline-flex items-center gap-2 rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
-                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                       Updating marksheet...
-                   </div>
-               </div>
-           </div>
+    <div className={cn("relative space-y-4", isDataRefreshing && "motion-safe:transition-opacity motion-safe:duration-200")}>
+       {isDataRefreshing && (
+         <div
+           className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 rounded-full bg-primary/30 animate-pulse"
+           aria-hidden
+         />
        )}
        {integrityReport && (
            <div className="bg-muted/20 border rounded-lg p-4 animate-in fade-in slide-in-from-top-1">
@@ -203,6 +242,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
           viewTermId={state.viewTermId}
           setViewTermId={actions.setViewTermId}
           currentViewTerm={state.currentViewTerm}
+          isDataRefreshing={isDataRefreshing}
           isWeightValid={state.isWeightValid}
           currentTotalWeight={state.currentTotalWeight}
           isLocked={state.isLocked}
@@ -222,6 +262,7 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
           recalculateTotal={state.recalculateTotal}
           setRecalculateTotal={actions.setRecalculateTotal}
           isAutoSaving={state.isAutoSaving}
+          saveSuccessTick={state.saveSuccessTick}
           availableRubrics={state.availableRubrics}
           classInfo={classInfo}
        />
@@ -229,9 +270,12 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
        <MarkSheetTable 
           assessments={state.assessments}
           visibleAssessments={state.visibleAssessments}
+          classId={classInfo.id}
+          termId={state.currentViewTerm.id}
           filteredLearners={state.filteredLearners}
           currentViewTermName={state.currentViewTerm.name}
           isLocked={state.isLocked}
+          isReorderingAssessments={state.isReorderingAssessments}
           isUsingVisibleTotal={state.isUsingVisibleTotal}
           atRiskThreshold={state.atRiskThreshold}
           sortConfig={state.sortConfig}
@@ -258,6 +302,9 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
           validateAndCommitMark={actions.validateAndCommitMark}
           onOpenQuestions={handleOpenQuestions}
           onApplyModeration={actions.handleApplyModeration}
+          onReorderAssessments={actions.reorderAssessments}
+          onUndoLastReorder={actions.undoLastReorder}
+          cellSaveStatus={state.cellSaveStatus}
        />
 
        <MarkSheetDialogs 
@@ -317,11 +364,11 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
            />
        )}
 
-       {qGrid.open && qGrid.assessmentId && (
+       {qGrid.open && selectedGridAssessment && (
            <QuestionGridDialog
               open={qGrid.open}
               onOpenChange={(open) => setQGrid(prev => ({ ...prev, open }))}
-              assessment={state.assessments.find(a => a.id === qGrid.assessmentId)!}
+              assessment={selectedGridAssessment}
               learners={state.filteredLearners}
               existingMarks={state.marks}
               onSave={handleGridSave}
@@ -329,11 +376,11 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
            />
        )}
 
-       {qMarking.open && qMarking.learner && qMarking.assessmentId && (
+       {qMarking.open && qMarking.learner && selectedQuestionAssessment && (
            <QuestionMarkingDialog 
               open={qMarking.open}
               onOpenChange={(open) => setQMarking(prev => ({ ...prev, open }))}
-              assessment={state.assessments.find(a => a.id === qMarking.assessmentId)!}
+              assessment={selectedQuestionAssessment}
               learner={qMarking.learner}
               onSave={handleQuestionSave}
               initialMarks={currentQMark?.question_marks}
@@ -350,6 +397,11 @@ export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, 
                 assessment={qDiagnostic.assessment}
                 learners={state.filteredLearners}
                 classSubject={classInfo.subject}
+                classGrade={classInfo.grade}
+                learnerId={state.filteredLearners[0]?.id}
+                academicYearId={classInfo.year_id}
+                termId={classInfo.term_id}
+                classId={classInfo.id}
            />
        )}
     </div>

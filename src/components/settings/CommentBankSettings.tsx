@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MessageSquareQuote, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { MessageSquareQuote, Trash2, AlertTriangle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSettings } from "@/context/SettingsContext";
 import { showSuccess } from "@/utils/toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AsyncStatus } from "@/components/ui/AsyncStatus";
+import { useAsyncState } from "@/hooks/useAsyncState";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,18 +23,20 @@ import {
 export const CommentBankSettings = () => {
   const { commentBank, addToCommentBank, removeFromCommentBank } = useSettings();
   const [newComment, setNewComment] = useState("");
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+  const actionState = useAsyncState();
 
-  const handleAddComment = () => {
-    setStatusMessage(null);
+  const handleAddComment = async () => {
     setErrorMessage(null);
     if (newComment.trim()) {
-      addToCommentBank(newComment.trim());
-      setNewComment("");
-      showSuccess("Comment added to bank.");
-      setStatusMessage("Saved ✓ Comment added to bank.");
+      try {
+        await actionState.run(() => addToCommentBank(newComment.trim()), { status: "saving" });
+        setNewComment("");
+        showSuccess("Saved ✓");
+      } catch {
+        // Errors are handled via AsyncStatus and shared toast.
+      }
       return;
     }
     setErrorMessage("Enter a comment before adding.");
@@ -50,12 +54,7 @@ export const CommentBankSettings = () => {
            </CardDescription>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col gap-4 min-w-0">
-           {statusMessage && (
-            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertDescription>{statusMessage}</AlertDescription>
-            </Alert>
-           )}
+           <AsyncStatus state={{ status: actionState.status, error: actionState.error, retry: actionState.retry }} />
            {errorMessage && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
@@ -69,10 +68,10 @@ export const CommentBankSettings = () => {
                 placeholder="Type a new comment..." 
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+                onKeyDown={(e) => e.key === 'Enter' && void handleAddComment()}
                 className="w-full h-10 sm:col-span-2"
               />
-              <Button onClick={handleAddComment} disabled={!newComment.trim()} className="w-full sm:w-auto h-10 sm:justify-self-end">Add</Button>
+              <Button onClick={() => void handleAddComment()} disabled={!newComment.trim() || actionState.status === "saving"} className="w-full sm:w-auto h-10 sm:justify-self-end">Add</Button>
             </div>
            </section>
            
@@ -109,12 +108,15 @@ export const CommentBankSettings = () => {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => {
+                onClick={async () => {
                   if (!commentToDelete) return;
-                  removeFromCommentBank(commentToDelete);
-                  showSuccess("Comment removed.");
-                  setStatusMessage("Saved ✓ Comment removed.");
-                  setCommentToDelete(null);
+                  try {
+                    await actionState.run(() => removeFromCommentBank(commentToDelete), { status: "saving" });
+                    showSuccess("Saved ✓");
+                    setCommentToDelete(null);
+                  } catch {
+                    // Errors are handled via AsyncStatus and shared toast.
+                  }
                 }}
               >
                 Remove

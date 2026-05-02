@@ -5,7 +5,11 @@ import { Learner, ClassInfo, Assessment, Rubric, AssessmentMark } from '@/lib/ty
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
 import { validateMarkEntry } from '@/utils/integrity';
+import { isLocked } from '@/utils/termLock';
 import { supabase } from "@/lib/supabaseClient";
+import { useDebounce } from '@/hooks/useDebounce';
+
+type CellSaveStatus = 'saving' | 'saved' | 'error';
 
 
 export const useMarkSheetLogic = (classInfo: ClassInfo) => {
@@ -19,6 +23,7 @@ export const useMarkSheetLogic = (classInfo: ClassInfo) => {
     createAssessment,
     updateAssessment,
     deleteAssessment, 
+    optimisticReorderAssessments,
     refreshAssessments,
     updateMarks,
     getPreloadedMarkSheetData
@@ -83,27 +88,59 @@ useEffect(() => {
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
   
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [saveSuccessTick, setSaveSuccessTick] = useState(0);
   const [editedMarks, setEditedMarks] = useState<{ [key: string]: string }>({});
   const [editedComments, setEditedComments] = useState<{ [key: string]: string }>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
   const [visibleAssessmentIds, setVisibleAssessmentIds] = useState<string[]>([]);
   const [recalculateTotal, setRecalculateTotal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
+  const [isReorderingAssessments, setIsReorderingAssessments] = useState(false);
   const markSaveSequenceRef = useRef<Record<string, number>>({});
   const markSaveInFlightRef = useRef<Record<string, string>>({});
   const pendingMarkSaveCountRef = useRef(0);
+  const cellStatusTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [cellSaveStatus, setCellSaveStatus] = useState<Record<string, CellSaveStatus>>({});
+  const sheetLocked = isLocked(activeYear, activeTerm) || !!classInfo.is_finalised;
 
-  // STABILISATION: Sync assessments only when essential dependencies change
+  const clearCellStatusTimer = useCallback((key: string) => {
+    const timer = cellStatusTimersRef.current[key];
+    if (!timer) return;
+    clearTimeout(timer);
+    delete cellStatusTimersRef.current[key];
+  }, []);
+
+  const scheduleCellStatusReset = useCallback((key: string, status: CellSaveStatus, delayMs: number) => {
+    clearCellStatusTimer(key);
+    cellStatusTimersRef.current[key] = setTimeout(() => {
+      setCellSaveStatus((prev) => {
+        if (prev[key] !== status) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      delete cellStatusTimersRef.current[key];
+    }, delayMs);
+  }, [clearCellStatusTimer]);
+
+  // Term picker default — ClassDetails owns refreshAssessments / filter alignment for this class.
   useEffect(() => {
     if (activeTerm?.id && classInfo.id && activeTerm.id !== 'undefined') {
-        refreshAssessments(classInfo.id, activeTerm.id);
         setNewAss(prev => {
             if (prev.termId === activeTerm.id) return prev;
             return { ...prev, termId: activeTerm.id };
         });
     }
-  }, [activeTerm?.id, classInfo.id, refreshAssessments]);
+  }, [activeTerm?.id, classInfo.id]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(cellStatusTimersRef.current).forEach((timer) => clearTimeout(timer));
+      cellStatusTimersRef.current = {};
+    };
+  }, []);
 
   useEffect(() => {
     if (resolvedAssessments.length > 0 && visibleAssessmentIds.length === 0) {
@@ -122,6 +159,10 @@ useEffect(() => {
     value: string,
     previousValue: string
   ) => {
+    if (sheetLocked) {
+      console.warn("[marks] blocked edit on locked term");
+      return;
+    }
     const key = `${assessmentId}::${learnerId}`;
     if (markSaveInFlightRef.current[key] === value) return;
     const nextSeq = (markSaveSequenceRef.current[key] || 0) + 1;
@@ -129,16 +170,21 @@ useEffect(() => {
     markSaveInFlightRef.current[key] = value;
     pendingMarkSaveCountRef.current += 1;
     setIsAutoSaving(true);
+    clearCellStatusTimer(key);
+    setCellSaveStatus(prev => ({ ...prev, [key]: 'saving' }));
     try {
         const score = value === "" ? null : parseFloat(value);
         const existingMark = resolvedMarks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
         
-        await updateMarks([{ 
+        const result = await updateMarks([{ 
             assessment_id: assessmentId, 
             learner_id: learnerId, 
             score,
             comment: editedComments[key] || existingMark?.comment || ""
         }]);
+        if (!result?.success) {
+            throw new Error(result?.message || "Failed to save mark.");
+        }
         
         setEditedMarks(prev => {
             if (markSaveSequenceRef.current[key] !== nextSeq) return prev;
@@ -149,6 +195,9 @@ useEffect(() => {
             }
             return prev;
         });
+        setCellSaveStatus(prev => ({ ...prev, [key]: 'saved' }));
+        setSaveSuccessTick((prev) => prev + 1);
+        scheduleCellStatusReset(key, 'saved', 1600);
     } catch (e) {
         console.error("Persistence failed:", e);
         if (markSaveSequenceRef.current[key] === nextSeq) {
@@ -156,6 +205,8 @@ useEffect(() => {
                 if (prev[key] !== value) return prev;
                 return { ...prev, [key]: previousValue };
             });
+            setCellSaveStatus(prev => ({ ...prev, [key]: 'error' }));
+            scheduleCellStatusReset(key, 'error', 2200);
             showError("Failed to save mark.");
         }
     } finally {
@@ -167,9 +218,13 @@ useEffect(() => {
             setIsAutoSaving(false);
         }
     }
-  }, [updateMarks, editedComments, resolvedMarks]);
+  }, [updateMarks, editedComments, resolvedMarks, clearCellStatusTimer, scheduleCellStatusReset, sheetLocked]);
 
   const validateAndCommitMark = useCallback(async (assessmentId: string, learnerId: string, input: string) => {
+    if (sheetLocked) {
+      console.warn("[marks] blocked edit on locked term");
+      return false;
+    }
     const assessment = resolvedAssessments.find(a => a.id === assessmentId);
     if (!assessment) return false;
 
@@ -202,12 +257,15 @@ useEffect(() => {
     setEditedMarks(prev => ({ ...prev, [key]: result.value }));
     persistMark(assessmentId, learnerId, result.value, persistedValue);
     return true;
-  }, [resolvedAssessments, persistMark, resolvedMarks]);
+  }, [resolvedAssessments, persistMark, resolvedMarks, sheetLocked]);
 
   const handleMarkChange = useCallback((assessmentId: string, learnerId: string, value: string) => {
-    if (activeYear?.closed || activeTerm?.closed) return;
+    if (sheetLocked) {
+      console.warn("[marks] blocked edit on locked term");
+      return;
+    }
     setEditedMarks(prev => ({ ...prev, [`${assessmentId}::${learnerId}`]: value }));
-  }, [activeYear?.closed, activeTerm?.closed]);
+  }, [sheetLocked]);
 
   const visibleAssessments = useMemo(() => resolvedAssessments.filter(a => visibleAssessmentIds.includes(a.id)), [resolvedAssessments, visibleAssessmentIds]);
 
@@ -236,37 +294,60 @@ useEffect(() => {
   }, [recalculateTotal, visibleAssessments, resolvedAssessments, editedMarks, resolvedMarks]);
 
   const sortedAndFilteredLearners = useMemo(() => {
-    const filtered = classInfo.learners.filter(l => l.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const normalizedSearch = debouncedSearchQuery.toLowerCase();
+    const filtered = classInfo.learners.filter(l => l.name.toLowerCase().includes(normalizedSearch));
     return filtered.sort((a, b) => {
         if (sortConfig.key === 'name') return sortConfig.direction === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
         return 0;
     });
-  }, [classInfo.learners, searchQuery, sortConfig]);
+  }, [classInfo.learners, debouncedSearchQuery, sortConfig]);
 
   const handleCommentChange = useCallback(async (assessmentId: string, learnerId: string, value: string) => {
-    setEditedComments(prev => ({ ...prev, [`${assessmentId}::${learnerId}`]: value }));
+    if (sheetLocked) {
+      console.warn("[marks] blocked edit on locked term");
+      return;
+    }
+    const key = `${assessmentId}::${learnerId}`;
+    setEditedComments(prev => ({ ...prev, [key]: value }));
     
     setIsAutoSaving(true);
+    clearCellStatusTimer(key);
+    setCellSaveStatus(prev => ({ ...prev, [key]: 'saving' }));
     try {
         const mark = resolvedMarks.find(m => m.assessment_id === assessmentId && m.learner_id === learnerId);
-        await updateMarks([{ 
+        const result = await updateMarks([{ 
             assessment_id: assessmentId, 
             learner_id: learnerId, 
             score: mark?.score ?? null,
             comment: value
         }]);
+        if (!result?.success) {
+            throw new Error(result?.message || "Failed to save note.");
+        }
         
         setEditedComments(prev => {
             const next = { ...prev };
-            delete next[`${assessmentId}::${learnerId}`];
+            delete next[key];
             return next;
         });
+        setCellSaveStatus(prev => ({ ...prev, [key]: 'saved' }));
+        setSaveSuccessTick((prev) => prev + 1);
+        scheduleCellStatusReset(key, 'saved', 1600);
+    } catch (error) {
+        console.error("Comment persistence failed:", error);
+        setCellSaveStatus(prev => ({ ...prev, [key]: 'error' }));
+        scheduleCellStatusReset(key, 'error', 2200);
+        showError("Failed to save note.");
     } finally {
         setIsAutoSaving(false);
     }
-  }, [updateMarks, resolvedMarks]);
+  }, [updateMarks, resolvedMarks, clearCellStatusTimer, scheduleCellStatusReset, sheetLocked]);
 
   const handleAddAssessment = useCallback(async () => {
+      if (sheetLocked) {
+        console.warn("[marks] blocked edit on locked term");
+        return;
+      }
       const targetTermId = newAss.termId || activeTerm?.id;
       if (!targetTermId || targetTermId === 'undefined') {
           showError("Target term missing.");
@@ -300,7 +381,86 @@ useEffect(() => {
       } finally {
           setIsAddOpen(false);
       }
-  }, [newAss, activeTerm, classInfo.id, createAssessment]);
+  }, [newAss, activeTerm, classInfo.id, createAssessment, sheetLocked]);
+
+  const reorderAssessments = useCallback(async (payload: { id: string; position: number }[], termId: string) => {
+    if (sheetLocked) {
+      console.warn("[marks] blocked edit on locked term");
+      return;
+    }
+    const scopedAssessments = resolvedAssessments.filter(
+      (assessment) => assessment.class_id === classInfo.id && assessment.term_id === termId
+    );
+
+    if (scopedAssessments.length === 0) return;
+
+    const validScopedIds = new Set(scopedAssessments.map((assessment) => assessment.id));
+    const sanitizedPayload = payload
+      .filter((item) => validScopedIds.has(item.id))
+      .map((item) => ({ id: item.id, position: item.position }));
+
+    if (sanitizedPayload.length !== scopedAssessments.length) {
+      throw new Error("Invalid reorder payload: all current class/term assessments must be included.");
+    }
+
+    const uniquePositions = new Set(sanitizedPayload.map((item) => item.position));
+    if (uniquePositions.size !== sanitizedPayload.length) {
+      throw new Error("Invalid reorder payload: duplicate positions are not allowed.");
+    }
+
+    const orderedPositions = [...uniquePositions].sort((a, b) => a - b);
+    const isContiguous = orderedPositions.every((position, index) => position === index + 1);
+    if (!isContiguous) {
+      throw new Error("Invalid reorder payload: positions must be sequential without gaps.");
+    }
+
+    setIsReorderingAssessments(true);
+    const rollbackOptimisticOrder = optimisticReorderAssessments(classInfo.id, termId, sanitizedPayload);
+    try {
+      const { error } = await supabase.rpc("reorder_assessments", {
+        payload: sanitizedPayload,
+        target_class_id: classInfo.id,
+        target_term_id: termId,
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      rollbackOptimisticOrder();
+      throw error;
+    } finally {
+      setIsReorderingAssessments(false);
+    }
+  }, [resolvedAssessments, classInfo.id, optimisticReorderAssessments, sheetLocked]);
+
+  const undoLastReorder = useCallback(async (termId: string) => {
+    if (sheetLocked) {
+      console.warn("[marks] blocked edit on locked term");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("assessment_reorder_log")
+      .select("payload")
+      .eq("class_id", classInfo.id)
+      .eq("term_id", termId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data?.payload || !Array.isArray(data.payload)) {
+      throw new Error("No reorder history found for this class and term.");
+    }
+
+    const payload = data.payload
+      .filter((entry: any) => entry && typeof entry.id === "string" && typeof entry.position === "number")
+      .map((entry: any) => ({ id: entry.id, position: entry.position }));
+
+    if (payload.length === 0) {
+      throw new Error("Latest reorder history entry is empty.");
+    }
+
+    await reorderAssessments(payload, termId);
+  }, [classInfo.id, reorderAssessments, sheetLocked]);
 
   const actions = useMemo(() => ({
       setViewTermId: handleTermChange, 
@@ -311,7 +471,13 @@ useEffect(() => {
       handleMarkChange, 
       handleCommentChange,
       handleAddAssessment,
+      reorderAssessments,
+      undoLastReorder,
       handleUpdateAssessment: async (assessment: Assessment) => {
+        if (sheetLocked) {
+          console.warn("[marks] blocked edit on locked term");
+          return;
+        }
         await updateAssessment(assessment);
         setIsEditOpen(false);
       },
@@ -325,7 +491,13 @@ useEffect(() => {
       },
       openAnalytics: (ass: Assessment) => { setSelectedAssessment(ass); setAnalyticsOpen(true); },
       toggleAssessmentVisibility: (id: string) => setVisibleAssessmentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]),
-      deleteAssessment, 
+      deleteAssessment: async (id: string) => {
+        if (sheetLocked) {
+          console.warn("[marks] blocked edit on locked term");
+          return;
+        }
+        await deleteAssessment(id);
+      }, 
       refreshAssessments, 
       handleSort: (key: string) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
       openTool: (type: 'rapid' | 'voice', id: string) => setActiveTool({ type, assessmentId: id, termId: resolvedAssessments.find(a => a.id === id)?.term_id || null }),
@@ -338,14 +510,23 @@ useEffect(() => {
       validateAndCommitMark,
       setRubricMarkingOpen: (open: boolean) => setRubricMarking(prev => ({ ...prev, open })),
       handleBulkColumnUpdate: async (assessmentId: string, value: string) => {
+          if (sheetLocked) {
+              console.warn("[marks] blocked edit on locked term");
+              return { success: false as const, message: "This class or term is locked." };
+          }
           const updates = classInfo.learners.filter(l => l.id).map(l => ({
               assessment_id: assessmentId,
               learner_id: l.id!,
               score: value === "" ? null : parseFloat(value)
           }));
-          if (updates.length > 0) await updateMarks(updates);
+          if (updates.length > 0) return await updateMarks(updates);
+          return { success: true as const };
       },
       handleApplyModeration: async (assessmentId: string, adjustment: number) => {
+          if (sheetLocked) {
+              console.warn("[marks] blocked edit on locked term");
+              return;
+          }
           const ass = resolvedAssessments.find(a => a.id === assessmentId);
           if (!ass) return;
 
@@ -369,12 +550,21 @@ useEffect(() => {
             .filter(Boolean) as any[];
 
           if (updates.length > 0) {
-              await updateMarks(updates);
-              showSuccess(`Applied ${adjustment > 0 ? '+' : ''}${adjustment}% adjustment to all marks.`);
+              const result = await updateMarks(updates);
+              if (result?.success) {
+                showSuccess(`Applied ${adjustment > 0 ? '+' : ''}${adjustment}% adjustment to all marks.`);
+              }
           }
       },
-      handleBulkImport: (assessmentId: string, updates: { learnerId: string; score: number }[]) => {
-          updateMarks(updates.map(u => ({ assessment_id: assessmentId, learner_id: u.learnerId, score: u.score })));
+      handleBulkImport: async (assessmentId: string, updates: { learnerId: string; score: number }[]) => {
+          if (sheetLocked) {
+              console.warn("[marks] blocked edit on locked term");
+              throw new Error("This class or term is locked.");
+          }
+          const result = await updateMarks(updates.map(u => ({ assessment_id: assessmentId, learner_id: u.learnerId, score: u.score })));
+          if (!result?.success) {
+            throw new Error(result?.message || "Failed to save imported marks.");
+          }
       },
       openRubricForLearner: (assessmentId: string, learner: Learner) => {
           const assessment = resolvedAssessments.find(a => a.id === assessmentId);
@@ -382,9 +572,14 @@ useEffect(() => {
           if (rubric) setRubricMarking({ open: true, rubric, learner, assessmentId });
       },
       handleRubricSave: async (score: number, selections: Record<string, string>) => {
-          if (rubricMarking.assessmentId && rubricMarking.learner?.id) {
-              await updateMarks([{ assessment_id: rubricMarking.assessmentId, learner_id: rubricMarking.learner.id, score, rubric_selections: selections } as any]);
+          if (sheetLocked) {
+              console.warn("[marks] blocked edit on locked term");
+              return { success: false as const, message: "This class or term is locked." };
           }
+          if (rubricMarking.assessmentId && rubricMarking.learner?.id) {
+              return await updateMarks([{ assessment_id: rubricMarking.assessmentId, learner_id: rubricMarking.learner.id, score, rubric_selections: selections } as any]);
+          }
+          return { success: false as const, message: "Nothing to save." };
       },
       handleNextRubric: () => {
           const idx = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
@@ -394,12 +589,18 @@ useEffect(() => {
           const idx = sortedAndFilteredLearners.findIndex(l => l.id === rubricMarking.learner?.id);
           if (idx > 0) setRubricMarking(p => ({ ...p, learner: sortedAndFilteredLearners[idx - 1] }));
       },
-      updateMarks 
+      updateMarks: async (...args: Parameters<typeof updateMarks>) => {
+          if (sheetLocked) {
+              console.warn("[marks] blocked edit on locked term");
+              return { success: false as const, message: "This class or term is locked." };
+          }
+          return updateMarks(...args);
+      }
   }), [
     handleTermChange, handleMarkChange, handleCommentChange, handleAddAssessment, 
     updateAssessment, calculateLearnerTotal, resolvedMarks, resolvedAssessments, deleteAssessment, 
     refreshAssessments, activeTool, sortedAndFilteredLearners, validateAndCommitMark, 
-    classInfo.learners, updateMarks, availableRubrics, rubricMarking
+    classInfo.learners, updateMarks, availableRubrics, rubricMarking, reorderAssessments, undoLastReorder, sheetLocked
   ]);
 
   return {
@@ -408,7 +609,7 @@ useEffect(() => {
       isAddOpen, isEditOpen, isImportOpen, isCopyOpen, analyticsOpen,
       newAss, editingAssessment, editedMarks, editedComments, searchQuery, selectedAssessment,
       visibleAssessmentIds, recalculateTotal, currentViewTerm: activeTerm, visibleAssessments,
-      isLocked: activeYear?.closed || activeTerm?.closed, 
+      isLocked: sheetLocked,
       filteredLearners: sortedAndFilteredLearners,
       assessments: resolvedAssessments, marks: resolvedMarks, terms, activeTerm, activeYear,
       atRiskThreshold, sortConfig, activeTool, 
@@ -416,6 +617,9 @@ useEffect(() => {
       isWeightValid: resolvedAssessments.reduce((acc, a) => acc + (a.weight || 0), 0) === 100, 
       isUsingVisibleTotal: recalculateTotal,
       isAutoSaving, availableRubrics, rubricMarking,
+      saveSuccessTick,
+      cellSaveStatus,
+      isReorderingAssessments,
       activeAssessmentMax: resolvedAssessments.find(a => a.id === activeTool.assessmentId)?.max_mark,
       learnersForTools: sortedAndFilteredLearners.map(l => ({
           ...l,

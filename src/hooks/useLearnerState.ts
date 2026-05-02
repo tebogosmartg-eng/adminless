@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabaseClient';
 
 export const useLearnerState = (
   classInfo: ClassInfo | undefined,
-  updateLearnersContext: (classId: string, learners: Learner[]) => Promise<void>
+  updateLearnersContext: (classId: string, learners: Learner[]) => Promise<void>,
+  isLocked: boolean = false
 ) => {
   const [learners, setLearners] = useState<Learner[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -55,23 +56,32 @@ export const useLearnerState = (
     }, 250);
   };
 
+  const ensureUnlocked = useCallback(() => {
+    if (!isLocked) return true;
+    showError("This class is locked for the finalized term.");
+    return false;
+  }, [isLocked]);
+
   const handleMarkChange = useCallback((index: number, mark: string) => {
+    if (!ensureUnlocked()) return;
     setLearners(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], mark };
       return updated;
     });
-  }, []);
+  }, [ensureUnlocked]);
 
   const handleCommentChange = useCallback((index: number, comment: string) => {
+    if (!ensureUnlocked()) return;
     setLearners(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], comment };
       return updated;
     });
-  }, []);
+  }, [ensureUnlocked]);
   
   const handleRenameLearner = useCallback(async (index: number, newName: string) => {
+    if (!ensureUnlocked()) return;
     const learner = learners[index];
     if (!learner || !learner.id) return;
     try {
@@ -86,9 +96,10 @@ export const useLearnerState = (
       showError("Failed to rename learner: " + err.message);
       throw err;
     }
-  }, [learners]);
+  }, [learners, ensureUnlocked]);
 
   const handleRemoveLearner = useCallback(async (index: number) => {
+    if (!ensureUnlocked()) return;
     const learner = learners[index];
     if (!learner || !learner.id) return;
     if (confirm("Are you sure you want to remove this learner?")) {
@@ -102,9 +113,10 @@ export const useLearnerState = (
         throw err;
       }
     }
-  }, [learners]);
+  }, [learners, ensureUnlocked]);
 
   const handleBatchDelete = useCallback(async (indices: number[]) => {
+    if (!ensureUnlocked()) return;
     const toDeleteIds = indices.map(i => learners[i]?.id).filter(Boolean) as string[];
     if (toDeleteIds.length === 0) return;
     try {
@@ -116,9 +128,10 @@ export const useLearnerState = (
       showError("Failed to delete learners: " + e.message);
       throw e;
     }
-  }, [learners]);
+  }, [learners, ensureUnlocked]);
 
   const handleBatchComment = useCallback((indices: number[], comment: string) => {
+    if (!ensureUnlocked()) return;
     setLearners(prev => {
       const updated = [...prev];
       indices.forEach(index => {
@@ -129,9 +142,10 @@ export const useLearnerState = (
       return updated;
     });
     showSuccess(`Updated comments for ${indices.length} learners.`);
-  }, []);
+  }, [ensureUnlocked]);
 
   const handleBatchClearMarks = useCallback((indices: number[]) => {
+    if (!ensureUnlocked()) return;
     setLearners(prev => {
       const updated = [...prev];
       indices.forEach(index => {
@@ -142,9 +156,10 @@ export const useLearnerState = (
       return updated;
     });
     showSuccess(`Cleared marks for ${indices.length} learners.`);
-  }, []);
+  }, [ensureUnlocked]);
 
   const handleAddLearners = useCallback(async (input: string[] | Learner[]) => {
+    if (!ensureUnlocked()) return;
     if (!classInfo?.id) return;
     
     let newLearners: Learner[] = [];
@@ -173,16 +188,18 @@ export const useLearnerState = (
       showError("Failed to add learners: " + e.message);
       throw e;
     }
-  }, [classInfo?.id]);
+  }, [classInfo?.id, ensureUnlocked]);
 
   const handleClearMarks = useCallback(() => {
+    if (!ensureUnlocked()) return;
     if (confirm("Clear ALL marks and comments? This cannot be undone once saved.")) {
       setLearners(prev => prev.map(l => ({ ...l, mark: "", comment: "" })));
       showSuccess("All marks cleared. Click 'Save Changes' to confirm.");
     }
-  }, []);
+  }, [ensureUnlocked]);
 
   const handleUpdateLearners = useCallback(async (updatedLearners: Learner[]) => {
+    if (!ensureUnlocked()) return;
     if (!classInfo?.id) return;
     try {
       await updateLearnersContext(classInfo.id, updatedLearners);
@@ -192,9 +209,10 @@ export const useLearnerState = (
       showError("Failed to save changes: " + err.message);
       throw err;
     }
-  }, [classInfo?.id, updateLearnersContext]);
+  }, [classInfo?.id, updateLearnersContext, ensureUnlocked]);
 
   const handleSaveChanges = useCallback(async () => {
+    if (!ensureUnlocked()) return;
     if (classInfo?.id) {
       try {
         await updateLearnersContext(classInfo.id, learners);
@@ -205,7 +223,7 @@ export const useLearnerState = (
         throw err;
       }
     }
-  }, [classInfo?.id, learners, updateLearnersContext]);
+  }, [classInfo?.id, learners, updateLearnersContext, ensureUnlocked]);
 
   return {
     learners,

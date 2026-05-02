@@ -12,6 +12,8 @@ import { useSettings } from "@/context/SettingsContext";
 import { checkClassTermIntegrity } from "@/utils/integrity";
 import { generateAndDownloadExportPack } from "@/services/exportPack";
 import { showSuccess, showError } from "@/utils/toast";
+import { useAsyncState } from "@/hooks/useAsyncState";
+import { AsyncStatus } from "@/components/ui/AsyncStatus";
 
 interface TermFinalizationCardProps {
   classInfo: ClassInfo;
@@ -24,6 +26,7 @@ export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) =
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const actionState = useAsyncState();
 
   const integrityReport = useMemo(() => {
     const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm?.id);
@@ -39,7 +42,10 @@ export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) =
     
     setIsProcessing(true);
     try {
-        await finalizeClassTerm(classInfo.id);
+        await actionState.run(
+          async () => finalizeClassTerm(classInfo.id),
+          { status: "saving" },
+        );
     } finally {
         setIsProcessing(false);
     }
@@ -49,7 +55,10 @@ export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) =
     if (!activeTerm || !activeYear) return;
     setIsExporting(true);
     try {
-        await generateAndDownloadExportPack(classInfo.id, activeTerm.id, activeYear.id, settings);
+        await actionState.run(
+          async () => generateAndDownloadExportPack(classInfo.id, activeTerm.id, activeYear.id, settings),
+          { status: "loading", userInitiated: false },
+        );
         showSuccess("Export Pack downloaded successfully.");
     } catch (e: any) {
         showError("Failed to assemble export pack.");
@@ -79,6 +88,13 @@ export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) =
         )}
       </CardHeader>
       <CardContent>
+        <AsyncStatus
+          state={{
+            status: actionState.status,
+            error: actionState.error,
+            retry: actionState.retry,
+          }}
+        />
         {isFinalised ? (
             <div className="space-y-4">
                <div className="flex items-center gap-2 p-3 bg-green-50 text-green-800 rounded-lg border border-green-200 text-sm font-bold">

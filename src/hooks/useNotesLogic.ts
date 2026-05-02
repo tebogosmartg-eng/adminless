@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LearnerNote } from "@/lib/types";
-import { showSuccess, showError } from "@/utils/toast";
+import { showError } from "@/utils/toast";
 import { useAcademic } from "@/context/AcademicContext";
 
 export interface AlertWithLearner extends LearnerNote {
@@ -35,19 +35,12 @@ export const useNotesLogic = () => {
       return false;
     }
 
-    try {
-      void learnerId;
-      void content;
-      void category;
-      void date;
-
-      showSuccess("Note added successfully.");
-      return true;
-    } catch (e) {
-      console.error(e);
-      showError("Failed to add note.");
-      return false;
-    }
+    void learnerId;
+    void content;
+    void category;
+    void date;
+    showError("Global note saving is temporarily unavailable.");
+    return false;
   };
 
   return { recentAlerts, loadingAlerts, addNoteGlobal };

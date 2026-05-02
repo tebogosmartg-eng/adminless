@@ -30,7 +30,7 @@ const DashboardContent = () => {
   if (!onboardingCompleted) {
     return (
       <div className="flex min-h-[calc(100vh-6rem)] w-full items-center justify-center p-4 animate-in fade-in duration-500">
-        <OnboardingWizard onComplete={() => setOnboardingCompleted(true)} />
+        <OnboardingWizard onComplete={() => void setOnboardingCompleted(true)} />
       </div>
     );
   }

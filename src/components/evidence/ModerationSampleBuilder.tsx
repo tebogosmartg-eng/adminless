@@ -29,6 +29,8 @@ import { useModerationSample } from '@/hooks/useModerationSample';
 import { ClassInfo, Assessment, AssessmentMark, Learner, Evidence } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { showSuccess } from '@/utils/toast';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
 interface ModerationSampleBuilderProps {
   classInfo: ClassInfo;
@@ -56,6 +58,7 @@ export const ModerationSampleBuilder = ({
   const [rules, setRules] = useState({ top: 3, mid: 3, bottom: 3, random: 0 });
   const [selectedLearnerIds, setSelectedLearnerIds] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const sampleState = useAsyncState();
 
   useEffect(() => {
     if (sample) {
@@ -87,17 +90,21 @@ export const ModerationSampleBuilder = ({
   };
 
   const handleGenerate = async () => {
-    const ids = await generateSample(
-      basis,
-      assessmentId === 'none' ? null : assessmentId,
-      rules,
-      classInfo.learners,
-      assessments,
-      marks
-    );
-    setSelectedLearnerIds(ids);
-    setIsEditing(false);
-    showSuccess(`Generated sample of ${ids.length} learners.`);
+    try {
+      const ids = await sampleState.run(async () => generateSample(
+        basis,
+        assessmentId === 'none' ? null : assessmentId,
+        rules,
+        classInfo.learners,
+        assessments,
+        marks
+      ), { status: "loading" });
+      setSelectedLearnerIds(ids);
+      setIsEditing(false);
+      showSuccess(`Generated sample of ${ids.length} learners.`);
+    } catch {
+      // Inline error shown by AsyncStatus.
+    }
   };
 
   const toggleLearner = (lId: string) => {
@@ -106,13 +113,17 @@ export const ModerationSampleBuilder = ({
     );
   };
 
-  const handleSave = () => {
-    saveSample(
-        selectedLearnerIds, 
-        basis, 
-        assessmentId === 'none' ? null : assessmentId, 
+  const handleSave = async () => {
+    try {
+      await sampleState.run(async () => saveSample(
+        selectedLearnerIds,
+        basis,
+        assessmentId === 'none' ? null : assessmentId,
         rules
-    );
+      ), { status: "saving" });
+    } catch {
+      // Inline error shown by AsyncStatus.
+    }
   };
 
   // Grouping Logic for results
@@ -249,12 +260,19 @@ export const ModerationSampleBuilder = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-6 print:px-0">
+        <AsyncStatus
+          state={{
+            status: loading ? "loading" : sampleState.status,
+            error: sampleState.error,
+            retry: sampleState.retry,
+          }}
+        />
         {/* Controls */}
         <div className="grid gap-4 p-4 rounded-xl border bg-background shadow-sm no-print">
             <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label className="text-[10px] uppercase font-black">Sampling Basis</Label>
-                    <Select value={basis} onValueChange={(v: any) => setBasis(v)}>
+                    <Select value={basis ?? ""} onValueChange={(v: any) => setBasis(v)}>
                         <SelectTrigger className="h-8 text-xs font-bold"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="term_overall">Term Overall Average</SelectItem>
@@ -265,7 +283,7 @@ export const ModerationSampleBuilder = ({
                 {basis === 'assessment' && (
                     <div className="space-y-2 animate-in slide-in-from-top-2">
                         <Label className="text-[10px] uppercase font-black">Choose Task</Label>
-                        <Select value={assessmentId} onValueChange={setAssessmentId}>
+                        <Select value={assessmentId ?? ""} onValueChange={setAssessmentId}>
                             <SelectTrigger className="h-8 text-xs font-bold"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">-- Select Assessment --</SelectItem>
@@ -298,7 +316,7 @@ export const ModerationSampleBuilder = ({
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                <Button onClick={handleGenerate} disabled={loading} size="sm" className="flex-1 font-bold">
+                <Button onClick={() => void handleGenerate()} disabled={loading || sampleState.status === "loading" || sampleState.status === "saving"} size="sm" className="flex-1 font-bold">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
                     Generate Smart Sample
                 </Button>
@@ -320,7 +338,7 @@ export const ModerationSampleBuilder = ({
                             {isEditing ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Edit3 className="h-3 w-3 mr-1" />}
                             {isEditing ? "Finish Editing" : "Edit Selection"}
                         </Button>
-                        <Button variant="outline" size="sm" onClick={handleSave} className="h-6 gap-1 px-2 border-primary text-primary text-[9px] font-black uppercase">
+                        <Button variant="outline" size="sm" onClick={() => void handleSave()} className="h-6 gap-1 px-2 border-primary text-primary text-[9px] font-black uppercase">
                             <Save className="h-3 w-3" /> Save Sample
                         </Button>
                     </div>

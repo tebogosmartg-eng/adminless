@@ -16,10 +16,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MonthlyAttendanceGrid } from './MonthlyAttendanceGrid';
 import { useAcademic } from '@/context/AcademicContext';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
 interface AttendanceViewProps {
   classId: string;
   learners: Learner[];
+  isLocked?: boolean;
 }
 
 interface StatusButtonProps {
@@ -31,27 +33,42 @@ interface StatusButtonProps {
   disabled?: boolean;
 }
 
-const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
+const AttendanceViewContent = ({ classId, learners, isLocked: classLocked = false }: AttendanceViewProps) => {
   const { activeTerm } = useAcademic();
-  const isLocked = !!activeTerm?.closed;
+  const isLocked = !!activeTerm?.closed || classLocked;
 
   const {
-    date, setDate,
+    date,
+    requestDateChange,
     attendanceData,
+    dailyAttendanceByLearnerId,
     safeLearners,
     loading,
     saving,
     hasChanges,
     isExporting,
+    loadState,
+    saveState,
+    exportState,
     stats,
     handleStatusChange,
     handleMarkAll,
     saveAttendance,
     handleExportReport
-  } = useAttendance(classId, learners);
+  } = useAttendance(classId, learners, isLocked);
+  const [loadingTimeoutReached, setLoadingTimeoutReached] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingTimeoutReached(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setLoadingTimeoutReached(true), 3000);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
 
   const StatusButton = ({ lId, status, icon: Icon, colorClass, label, disabled }: StatusButtonProps) => {
-    const isSelected = lId ? attendanceData[lId]?.status === status : false;
+    const isSelected = lId ? dailyAttendanceByLearnerId[lId]?.status === status : false;
     return (
       <Button
         variant={isSelected ? "default" : "outline"}
@@ -71,9 +88,31 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
   };
 
   const isReady = !loading && safeLearners?.length > 0 && classId && activeTerm?.id;
+  const asyncBannerState =
+    saveState.status !== "idle"
+      ? saveState
+      : exportState.status !== "idle"
+        ? exportState
+        : loadState;
+  const isExportBanner = saveState.status === "idle" && exportState.status !== "idle";
 
   return (
     <div className="space-y-6 w-full">
+      <AsyncStatus
+        state={{
+          status: asyncBannerState.status,
+          error: asyncBannerState.error,
+          retry: asyncBannerState.retry,
+        }}
+        loadingLabel={isExportBanner ? "Generating..." : "Loading..."}
+        savingLabel="Saving..."
+        successLabel={isExportBanner ? "Download ready" : "Saved ✓"}
+      />
+      {loadingTimeoutReached && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Attendance is taking longer than expected. Please wait or change date/class to retry.
+        </div>
+      )}
       {isLocked && (
           <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-800 text-xs rounded border border-amber-100 mb-2">
             <Lock className="h-4 w-4 shrink-0" />
@@ -83,7 +122,7 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
 
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-muted/20 p-4 rounded-lg border w-full">
         <div className="flex items-center gap-2 w-full md:w-auto">
-            <Button variant="outline" size="icon" onClick={() => setDate(subDays(date, 1))} className="shrink-0 h-10 w-10">
+            <Button variant="outline" size="icon" onClick={() => requestDateChange(subDays(date, 1))} className="shrink-0 h-10 w-10">
                 <ChevronLeft className="h-4 w-4" />
             </Button>
             
@@ -95,11 +134,11 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus />
+                <Calendar mode="single" selected={date} onSelect={(d) => d && requestDateChange(d)} initialFocus />
               </PopoverContent>
             </Popover>
 
-            <Button variant="outline" size="icon" onClick={() => setDate(addDays(date, 1))} disabled={isSameDay(date, new Date())} className="shrink-0 h-10 w-10">
+            <Button variant="outline" size="icon" onClick={() => requestDateChange(addDays(date, 1))} disabled={isSameDay(date, new Date())} className="shrink-0 h-10 w-10">
                 <ChevronRight className="h-4 w-4" />
             </Button>
         </div>
@@ -218,15 +257,15 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right pr-4">
-                                        {learner.id && attendanceData[learner.id] ? (
+                                        {learner.id && dailyAttendanceByLearnerId[learner.id] ? (
                                             <Badge variant="outline" className={cn(
                                                 "capitalize",
-                                                attendanceData[learner.id].status === 'present' && "border-green-200 bg-green-50 text-green-700",
-                                                attendanceData[learner.id].status === 'absent' && "border-red-200 bg-red-50 text-red-700",
-                                                attendanceData[learner.id].status === 'late' && "border-orange-200 bg-orange-50 text-orange-700",
-                                                attendanceData[learner.id].status === 'excused' && "border-blue-200 bg-blue-50 text-blue-700",
+                                                dailyAttendanceByLearnerId[learner.id].status === 'present' && "border-green-200 bg-green-50 text-green-700",
+                                                dailyAttendanceByLearnerId[learner.id].status === 'absent' && "border-red-200 bg-red-50 text-red-700",
+                                                dailyAttendanceByLearnerId[learner.id].status === 'late' && "border-orange-200 bg-orange-50 text-orange-700",
+                                                dailyAttendanceByLearnerId[learner.id].status === 'excused' && "border-blue-200 bg-blue-50 text-blue-700",
                                             )}>
-                                                {attendanceData[learner.id].status}
+                                                {dailyAttendanceByLearnerId[learner.id].status}
                                             </Badge>
                                         ) : (
                                             <span className="text-muted-foreground text-xs italic">Unmarked</span>
@@ -271,7 +310,10 @@ const AttendanceViewContent = ({ classId, learners }: AttendanceViewProps) => {
                     classId={classId} 
                     learners={safeLearners} 
                     currentDate={date} 
-                    onDayClick={setDate}
+                    attendanceData={attendanceData}
+                    onStatusChange={handleStatusChange}
+                    onDayClick={requestDateChange}
+                    isLocked={isLocked}
                  />
               </CardContent>
            </Card>

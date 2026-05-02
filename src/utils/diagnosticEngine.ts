@@ -1,11 +1,12 @@
 import { AssessmentQuestion, DiagnosticRow, CognitiveLevel } from '@/lib/types';
 import { QuestionStat } from '@/hooks/useQuestionAnalysis';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 type PerformanceBand = 'severe' | 'partial' | 'developing' | 'secure';
 
 const determineBand = (avg: number): PerformanceBand => {
   if (avg < 30) return 'severe';
-  if (avg < 50) return 'partial';
+  if (avg < PASS_THRESHOLD) return 'partial';
   if (avg < 70) return 'developing';
   return 'secure';
 };

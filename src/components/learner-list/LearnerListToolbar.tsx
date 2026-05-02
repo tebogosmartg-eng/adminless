@@ -92,7 +92,7 @@ export const LearnerListToolbar = ({
           )}
           
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-             <Select value={statusFilter} onValueChange={setStatusFilter}>
+             <Select value={statusFilter ?? ""} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[140px] shrink-0 h-10">
                 <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
                 <SelectValue placeholder="Filter" />

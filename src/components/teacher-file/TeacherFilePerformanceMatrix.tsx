@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 interface ClassData {
     id: string;
@@ -42,7 +43,7 @@ export const TeacherFilePerformanceMatrix = ({ classes }: TeacherFilePerformance
               <TableBody>
                   {classes.map((cls) => {
                       const avgNum = parseFloat(cls.average);
-                      const isLow = avgNum < 50;
+                      const isLow = avgNum < PASS_THRESHOLD;
                       const isHigh = avgNum >= 75;
 
                       return (
@@ -66,7 +67,7 @@ export const TeacherFilePerformanceMatrix = ({ classes }: TeacherFilePerformance
                                       <span className="text-xs font-bold">{cls.passRate}%</span>
                                       <div className="w-12 h-1 bg-slate-100 rounded-full overflow-hidden">
                                           <div 
-                                            className={cn("h-full", cls.passRate < 50 ? "bg-red-500" : "bg-green-500")}
+                                            className={cn("h-full", cls.passRate < PASS_THRESHOLD ? "bg-red-500" : "bg-green-500")}
                                             style={{ width: `${cls.passRate}%` }}
                                           />
                                       </div>
@@ -93,11 +94,11 @@ export const TeacherFilePerformanceMatrix = ({ classes }: TeacherFilePerformance
           </Table>
       </div>
 
-      {classes.some(c => parseFloat(c.average) < 50) && (
+      {classes.some(c => parseFloat(c.average) < PASS_THRESHOLD) && (
           <div className="p-3 bg-red-50/50 rounded-xl border border-red-100 flex items-start gap-3">
               <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
               <p className="text-[9px] text-red-800 leading-tight font-medium">
-                  <strong>Moderation Alert:</strong> One or more classes are achieving below 50% term average. Ensure the Subject Improvement Plan (Section 5.6) includes specific root-cause analysis for these groups.
+                  <strong>Moderation Alert:</strong> One or more classes are achieving below {PASS_THRESHOLD}% term average. Ensure the Subject Improvement Plan (Section 5.6) includes specific root-cause analysis for these groups.
               </p>
           </div>
       )}

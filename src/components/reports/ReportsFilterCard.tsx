@@ -27,7 +27,7 @@ export const ReportsFilterCard = ({
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Grade</label>
-          <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+          <Select value={selectedGrade ?? ""} onValueChange={setSelectedGrade}>
             <SelectTrigger>
               <SelectValue placeholder="Select Grade" />
             </SelectTrigger>
@@ -39,7 +39,7 @@ export const ReportsFilterCard = ({
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Subject</label>
-          <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+          <Select value={selectedSubject ?? ""} onValueChange={setSelectedSubject}>
             <SelectTrigger>
               <SelectValue placeholder="Select Subject" />
             </SelectTrigger>

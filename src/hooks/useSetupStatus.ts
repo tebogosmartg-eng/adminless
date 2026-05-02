@@ -5,6 +5,7 @@ import { useAcademic } from "@/context/AcademicContext";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
 import { supabase } from "@/lib/supabaseClient";
+import { applySupabaseAssessmentOrder } from "@/utils/assessmentOrdering";
 
 export type StepStatus = "not-started" | "in-progress" | "completed";
 
@@ -64,10 +65,12 @@ export const useSetupStatus = () => {
           .select("*", { count: "exact", head: true })
           .in("class_id", classIds);
 
-        const { data: assessments } = await supabase
-          .from("assessments")
-          .select("id")
-          .eq("term_id", activeTerm.id);
+        const { data: assessments } = await applySupabaseAssessmentOrder(
+          supabase
+            .from("assessments")
+            .select("id")
+            .eq("term_id", activeTerm.id)
+        );
 
         const assessmentIds = assessments?.map(a => a.id) || [];
 
@@ -113,10 +116,12 @@ export const useSetupStatus = () => {
       }
 
       try {
-        const { data: termAss } = await supabase
-          .from("assessments")
-          .select("class_id, weight")
-          .eq("term_id", activeTerm.id);
+        const { data: termAss } = await applySupabaseAssessmentOrder(
+          supabase
+            .from("assessments")
+            .select("class_id, weight")
+            .eq("term_id", activeTerm.id)
+        );
 
           const activeClassesInTerm = (classes || []).filter(
           c => !c.archived && c.term_id === activeTerm.id

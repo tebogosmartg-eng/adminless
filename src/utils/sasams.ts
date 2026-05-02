@@ -1,5 +1,6 @@
 import { Learner } from "@/lib/types";
 import { format } from "date-fns";
+import { PASS_THRESHOLD } from "@/constants/diagnostics";
 
 export const generateSASAMSExport = (
   learners: Learner[],
@@ -35,7 +36,7 @@ export const generateSASAMSExport = (
     const firstName = nameParts.join(" ");
     
     const markValue = parseFloat(learner.mark) || 0;
-    const isPass = markValue >= 50;
+    const isPass = markValue >= PASS_THRESHOLD;
     const result = isPass ? "Pass" : "Fail";
     
     const dateFinalised = format(new Date(), 'yyyy-MM-dd');

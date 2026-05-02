@@ -104,7 +104,7 @@ export const ReportsResults = ({
                             {aggregatedData.map((learner, idx) => {
                                 const symbol = getGradeSymbol(learner.finalMark, gradingScheme);
                                 return (
-                                    <TableRow key={idx}>
+                                    <TableRow key={learner.learnerId}>
                                         <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                                         <TableCell className="font-medium sticky left-0 bg-background z-10 border-r">{learner.name}</TableCell>
                                         {selectedClassIds.map(id => (

@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { calculateWeightedAverage, formatDisplayMark } from '@/utils/calculations';
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/lib/supabaseClient';
+import { applySupabaseAssessmentOrder, sortAssessmentsDeterministically } from '@/utils/assessmentOrdering';
 import { useQueryClient } from '@tanstack/react-query';
 
 export const useAcademicAverages = () => {
@@ -20,10 +21,12 @@ export const useAcademicAverages = () => {
             const { data: classInfo, error: cErr } = await supabase.from('classes').select('*').eq('id', learner.class_id).single();
             if (cErr || !classInfo || !classInfo.term_id) continue;
 
-            const { data: termAssessments, error: aErr } = await supabase.from('assessments')
-                .select('*')
-                .eq('class_id', learner.class_id)
-                .eq('term_id', classInfo.term_id);
+            const { data: termAssessments, error: aErr } = await applySupabaseAssessmentOrder(
+                supabase.from('assessments')
+                    .select('*')
+                    .eq('class_id', learner.class_id)
+                    .eq('term_id', classInfo.term_id)
+            );
             
             if (aErr || !termAssessments || termAssessments.length === 0) {
                 await supabase.from('learners').update({ mark: "" }).eq('id', learnerId);
@@ -38,7 +41,8 @@ export const useAcademicAverages = () => {
 
             if (mErr) continue;
 
-            const avg = calculateWeightedAverage(termAssessments as any, learnerMarks as any || [], learnerId);
+            const stableAssessments = sortAssessmentsDeterministically((termAssessments as any) || []);
+            const avg = calculateWeightedAverage(stableAssessments as any, learnerMarks as any || [], learnerId);
             const newAverage = formatDisplayMark(avg);
 
             await supabase.from('learners').update({ mark: newAverage }).eq('id', learnerId);

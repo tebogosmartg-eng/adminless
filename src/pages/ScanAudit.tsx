@@ -26,6 +26,10 @@ import {
 
 import { format } from "date-fns";
 import { getSignedFileUrl } from "@/services/storage";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useAsyncState } from "@/hooks/useAsyncState";
+import { AsyncStatus } from "@/components/ui/AsyncStatus";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const ScanAuditContent = () => {
   const [loading, setLoading] = useState(true);
@@ -35,26 +39,35 @@ const ScanAuditContent = () => {
   const [terms, setTerms] = useState<any[]>([]);
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
+  const loadState = useAsyncState();
+  const fileState = useAsyncState();
 
   // 🔥 FETCH FROM SUPABASE
   useEffect(() => {
     const load = async () => {
       setLoading(true);
 
-      const [logsRes, classRes, termRes] = await Promise.all([
-        supabase.from("scan_history").select("*").order("timestamp", { ascending: false }),
-        supabase.from("classes").select("*"),
-        supabase.from("terms").select("*"),
-      ]);
+      try {
+        await loadState.run(async () => {
+          const [logsRes, classRes, termRes] = await Promise.all([
+            supabase.from("scan_history").select("*").order("timestamp", { ascending: false }),
+            supabase.from("classes").select("*"),
+            supabase.from("terms").select("*"),
+          ]);
 
-      if (logsRes.error) console.error(logsRes.error);
-      if (classRes.error) console.error(classRes.error);
-      if (termRes.error) console.error(termRes.error);
+          if (logsRes.error) throw logsRes.error;
+          if (classRes.error) throw classRes.error;
+          if (termRes.error) throw termRes.error;
 
-      setLogs(logsRes.data || []);
-      setClasses(classRes.data || []);
-      setTerms(termRes.data || []);
+          setLogs(logsRes.data || []);
+          setClasses(classRes.data || []);
+          setTerms(termRes.data || []);
+        }, { status: "loading" });
+      } catch (error) {
+        console.error(error);
+      }
 
       setLoading(false);
     };
@@ -78,18 +91,22 @@ const ScanAuditContent = () => {
 
   // 🔥 FILTER
   const filtered = useMemo(() => {
+    const normalizedSearch = debouncedSearch.toLowerCase();
     return enriched.filter((l) =>
-      l.className.toLowerCase().includes(search.toLowerCase()) ||
-      l.scan_type.toLowerCase().includes(search.toLowerCase())
+      l.className.toLowerCase().includes(normalizedSearch) ||
+      l.scan_type.toLowerCase().includes(normalizedSearch)
     );
-  }, [enriched, search]);
+  }, [enriched, debouncedSearch]);
 
   const handleViewFile = async (item: any) => {
     if (!item.file_path) return;
 
     setLoadingFileId(item.id);
     try {
-      const url = await getSignedFileUrl(item.file_path);
+      const url = await fileState.run(
+        async () => getSignedFileUrl(item.file_path),
+        { status: "loading" },
+      );
       window.open(url, "_blank");
     } finally {
       setLoadingFileId(null);
@@ -111,14 +128,22 @@ const ScanAuditContent = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-40">
-        <Loader2 className="animate-spin" />
+      <div className="space-y-3 p-4">
+        <Skeleton className="h-11 w-full max-w-md" />
+        <Skeleton className="h-64 w-full" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      <AsyncStatus
+        state={{
+          status: loading ? "loading" : (fileState.status !== "idle" ? fileState.status : loadState.status),
+          error: fileState.error ?? loadState.error,
+          retry: fileState.status === "error" ? fileState.retry : loadState.retry,
+        }}
+      />
 
       {/* Search */}
       <Card>

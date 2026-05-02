@@ -14,22 +14,22 @@ export const generateAttendancePDF = (
     const doc = new jsPDF('l', 'mm', 'a4');
     const startY = addHeader(doc, profile, `Attendance Register: ${monthName}`);
     
-    const head = [['Name', ...dates.map(d => format(new Date(d), 'dd')), 'P', 'A', 'L']];
+    const head = [['Name', ...dates.map(d => format(new Date(d), 'dd')), 'P', 'A', 'L', 'E']];
     const body = learners.map(l => {
        if (!l.id) return [];
        const records = recordMap[l.id] || {};
-       let present = 0, absent = 0, late = 0;
+       let present = 0, absent = 0, late = 0, excused = 0;
        
        const statuses = dates.map(d => {
           const s = records[d];
           if (s === 'present') { present++; return 'P'; }
           if (s === 'absent') { absent++; return 'A'; }
           if (s === 'late') { late++; return 'L'; }
-          if (s === 'excused') return 'E';
+          if (s === 'excused') { excused++; return 'E'; }
           return '-';
        });
        
-       return [l.name, ...statuses, present, absent, late];
+       return [l.name, ...statuses, present, absent, late, excused];
     }).filter(row => row.length > 0);
 
     autoTable(doc, {

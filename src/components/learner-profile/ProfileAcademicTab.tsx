@@ -1,70 +1,88 @@
-import { useLearnerAssessmentData, AssessmentResult } from '@/hooks/useLearnerAssessmentData';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, TrendingUp, Calendar, FileText, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Calendar, FileText, AlertTriangle } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { useSettings } from '@/context/SettingsContext';
+import { useLearnerAnalytics } from '@/hooks/useLearnerAnalytics';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ProfileAcademicTabProps {
   learnerId?: string;
+  academicYearId?: string;
+  termId?: string;
+  classId?: string;
 }
 
-export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
-  const { loading, results } = useLearnerAssessmentData(learnerId);
+export const ProfileAcademicTab = ({ learnerId, academicYearId, termId, classId }: ProfileAcademicTabProps) => {
   const { atRiskThreshold } = useSettings();
+  const analytics = useLearnerAnalytics({ learnerId, academicYearId, termId, classId });
+  const safeAssessments = analytics.assessments ?? [];
+  const safeChartData = analytics.chartData ?? [];
+  const safeAssessmentsByTerm = analytics.assessmentsByTerm ?? [];
 
-  if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
-  }
-
-  if (!results || results.length === 0) {
+  if (analytics.isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-10">
-        <FileText className="h-12 w-12 mb-3 opacity-20" />
-        <p>No detailed assessment data found.</p>
-        <p className="text-xs">Use the "Assessments" tab in Class Details to capture marks.</p>
+      <div className="space-y-4 pt-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </div>
+        <Skeleton className="h-[240px] w-full rounded-xl" />
+        <div className="space-y-2">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
 
-  // Group by Term
-  const byTerm: Record<string, AssessmentResult[]> = {};
-  results.forEach(r => {
-    if (!byTerm[r.termName]) byTerm[r.termName] = [];
-    byTerm[r.termName].push(r);
-  });
+  if (safeAssessments.length === 0) {
+    return (
+      <EmptyState
+        title="No assessments yet"
+        description='Use the "Assessments" tab in Class Details to capture marks.'
+        icon={<FileText className="h-12 w-12 opacity-20" />}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 pt-4 h-full overflow-y-auto pr-2">
       {/* Trend Chart */}
-      <Card className="p-4 border shadow-sm">
+      <Card className="p-4 border shadow-sm animate-in fade-in duration-500">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="h-4 w-4 text-primary" />
           <h4 className="font-semibold text-sm">Performance Trend</h4>
         </div>
         <div className="h-[200px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={results.filter(r => r.percentage !== null)}>
+            <LineChart data={safeChartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis 
-                dataKey="assessmentTitle" 
+                dataKey="date" 
                 hide 
               />
               <YAxis domain={[0, 100]} width={30} tick={{fontSize: 10}} />
               <Tooltip 
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
-                    const data = payload[0].payload as AssessmentResult;
+                    const data = payload[0].payload as { id: string; date: string; score: number };
+                    const detail = safeAssessments.find((assessment) => assessment.id === data.id);
                     return (
                       <div className="bg-popover border rounded-md p-2 shadow-md text-xs">
-                        <p className="font-bold mb-1">{data.assessmentTitle}</p>
+                        <p className="font-bold mb-1">{detail?.assessmentTitle ?? 'Assessment'}</p>
                         <div className="space-y-1">
-                            <p className="text-primary font-bold">Learner: {data.percentage}%</p>
-                            {data.classAverage && <p className="text-muted-foreground">Class Avg: {data.classAverage}%</p>}
+                            <p className="text-primary font-bold">Learner: {data.score}%</p>
+                            {detail?.classAverage && <p className="text-muted-foreground">Class Avg: {detail.classAverage}%</p>}
                         </div>
-                        <p className="text-muted-foreground mt-1 text-[10px]">{format(new Date(data.date), 'MMM d')}</p>
+                        <p className="text-muted-foreground mt-1 text-[10px]">
+                          {data.date ? format(new Date(data.date), 'MMM d') : 'Unknown date'}
+                        </p>
                       </div>
                     );
                   }
@@ -76,12 +94,15 @@ export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
               
               <Line 
                 type="monotone" 
-                dataKey="percentage" 
+                dataKey="score" 
                 name="Learner"
                 stroke="hsl(var(--primary))" 
                 strokeWidth={2} 
                 dot={{ r: 4, fill: "hsl(var(--background))", strokeWidth: 2 }}
                 activeDot={{ r: 6 }} 
+                isAnimationActive
+                animationDuration={900}
+                animationEasing="ease-out"
               />
               
               <Line 
@@ -92,6 +113,9 @@ export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
                 strokeDasharray="5 5"
                 strokeWidth={2}
                 dot={false}
+                isAnimationActive
+                animationDuration={1100}
+                animationEasing="ease-out"
               />
             </LineChart>
           </ResponsiveContainer>
@@ -100,14 +124,14 @@ export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
 
       {/* Term Breakdowns */}
       <div className="space-y-6">
-        {Object.entries(byTerm).map(([term, items]) => (
-          <div key={term} className="space-y-3">
+        {safeAssessmentsByTerm.map(({ termName, items }) => (
+          <div key={termName} className="space-y-3">
             <div className="flex items-center justify-between border-b pb-1">
-               <h4 className="font-semibold text-sm">{term}</h4>
+               <h4 className="font-semibold text-sm">{termName}</h4>
                <Badge variant="outline" className="text-[10px]">{items.length} assessments</Badge>
             </div>
             <div className="grid gap-2">
-              {items.map((item, idx) => {
+              {(items ?? []).map((item, idx) => {
                 const isHighRisk = item.trend === 'Declining' && item.percentage !== null && item.percentage < atRiskThreshold;
 
                 return (
@@ -122,7 +146,9 @@ export const ProfileAcademicTab = ({ learnerId }: ProfileAcademicTabProps) => {
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {format(new Date(item.date), 'dd MMM')}</span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" /> {item.date ? format(new Date(item.date), 'dd MMM') : 'Unknown'}
+                          </span>
                           <span>•</span>
                           <span>{item.assessmentType}</span>
                           <span>•</span>

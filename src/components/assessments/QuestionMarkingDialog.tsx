@@ -9,6 +9,9 @@ import { ChevronRight, ChevronLeft, Save, ListChecks } from 'lucide-react';
 import { Assessment, Learner } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
+import { normalizeQuestionMarksForAssessment } from '@/utils/questionMarks';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -43,6 +46,7 @@ export const QuestionMarkingDialog = ({
   isLocked = false
 }: QuestionMarkingDialogProps) => {
   const [qMarks, setQMarks] = useState<Record<string, string>>({});
+  const markSaveState = useAsyncState({ successDurationMs: 1200 });
   const qMarksRef = useRef<Record<string, string>>({});
   const saveSequenceRef = useRef<Record<string, number>>({});
   const inFlightValueRef = useRef<Record<string, string>>({});
@@ -51,9 +55,10 @@ export const QuestionMarkingDialog = ({
 
   useEffect(() => {
     if (open) {
+        const normalizedInitialMarks = normalizeQuestionMarksForAssessment(initialMarks, assessment.questions || []);
         const map: Record<string, string> = {};
         assessment.questions?.forEach(q => {
-            const existing = initialMarks?.[q.id];
+            const existing = normalizedInitialMarks?.[q.id];
             map[q.id] = existing !== undefined && existing !== null ? existing.toString() : "";
         });
         setQMarks(map);
@@ -126,7 +131,10 @@ export const QuestionMarkingDialog = ({
     try {
       const { finalMarks, score, hasInvalid } = buildFinalMarks(nextMarks);
       if (hasInvalid) return;
-      const result = await onSave(score, finalMarks);
+      const result = await markSaveState.run(
+        async () => onSave(score, finalMarks),
+        { status: "saving" },
+      );
       if (saveSequenceRef.current[key] !== seq) return;
       if (result?.success === false) {
         throw new Error(result.message || "Failed to save marks");
@@ -142,7 +150,7 @@ export const QuestionMarkingDialog = ({
         delete inFlightValueRef.current[key];
       }
     }
-  }, [buildFinalMarks, onSave]);
+  }, [buildFinalMarks, markSaveState, onSave]);
 
   const handleUpdate = (qId: string, val: string) => {
     if (val !== "" && !/^\d*\.?\d*$/.test(val)) return;
@@ -279,6 +287,11 @@ export const QuestionMarkingDialog = ({
                 <ListChecks className="h-3 w-3" />
                 Data is auto-summed. Totals are synced to the main marksheet.
             </p>
+            {(markSaveState.status !== "idle" || markSaveState.error) && (
+              <div className="mt-2 text-left">
+                <AsyncStatus state={{ status: markSaveState.status, error: markSaveState.error, retry: markSaveState.retry }} />
+              </div>
+            )}
         </div>
       </DialogContent>
     </Dialog>

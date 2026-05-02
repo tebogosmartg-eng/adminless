@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TopicCombobox } from "./TopicCombobox";
 import { useTopicSuggestions } from "@/hooks/useTopicSuggestions";
 import { normalizeTopic } from '@/utils/topic';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
 interface ParsedRow {
   id: string;
@@ -75,6 +77,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
   const [previewData, setPreviewData] = useState<ParsedRow[]>([]);
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importState = useAsyncState();
   
   const topicSuggestions = useTopicSuggestions();
 
@@ -195,7 +198,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
       setPreviewData(prev => prev.filter(r => r.id !== id));
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
       const validRows = previewData.filter(r => r.isValid);
       if (validRows.length === 0) {
           showError("No valid questions to import.");
@@ -211,10 +214,16 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
           max_mark: parseFloat(r.max_mark)
       }));
 
-      onImport(finalQuestions, importMode);
-      showSuccess(`Imported ${finalQuestions.length} questions.`);
-      onOpenChange(false);
-      reset();
+      try {
+        await importState.run(async () => {
+          await onImport(finalQuestions, importMode);
+        }, { status: "saving" });
+        showSuccess(`Imported ${finalQuestions.length} questions.`);
+        onOpenChange(false);
+        reset();
+      } catch {
+        showError("Import failed. Please retry.");
+      }
   };
 
   return (
@@ -239,6 +248,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
 
         {step === 'input' ? (
             <div className="p-6 space-y-6">
+                <AsyncStatus state={{ status: importState.status, error: importState.error, retry: importState.retry }} />
                 <div className="flex items-center justify-between">
                     <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Data Source</label>
                     <div className="flex items-center gap-2">
@@ -288,7 +298,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                     </div>
                     <div className="flex items-center gap-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground shrink-0">Import Mode:</label>
-                        <Select value={importMode} onValueChange={(v: any) => setImportMode(v)}>
+                        <Select value={importMode ?? ""} onValueChange={(v: any) => setImportMode(v)}>
                             <SelectTrigger className="w-40 h-8 bg-background font-bold text-xs">
                                 <SelectValue />
                             </SelectTrigger>
@@ -339,7 +349,7 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                                             />
                                         </TableCell>
                                         <TableCell className="p-2">
-                                            <Select value={row.cognitive_level} onValueChange={(v: any) => updateRow(row.id, 'cognitive_level', v)}>
+                                            <Select value={row.cognitive_level ?? ""} onValueChange={(v: any) => updateRow(row.id, 'cognitive_level', v)}>
                                                 <SelectTrigger className="h-8 text-xs w-full">
                                                     <SelectValue />
                                                 </SelectTrigger>
@@ -392,8 +402,8 @@ export const BulkQuestionImportDialog = ({ open, onOpenChange, onImport, existin
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button variant="ghost" onClick={() => setStep('input')} className="flex-1 sm:flex-none">Back</Button>
                         <Button 
-                            onClick={handleConfirm} 
-                            disabled={previewData.length === 0 || previewData.filter(r => !r.isValid).length > 0}
+                            onClick={() => void handleConfirm()} 
+                            disabled={importState.status === "saving" || previewData.length === 0 || previewData.filter(r => !r.isValid).length > 0}
                             className="font-bold flex-1 sm:flex-none"
                         >
                             Import {previewData.filter(r => r.isValid).length} Questions

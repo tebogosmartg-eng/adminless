@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { t } from '@/lib/useTranslation';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 export const generateYearSummaryPDF = (
     reportData: any[],
@@ -27,7 +28,7 @@ export const generateYearSummaryPDF = (
         r.learnerName,
         ...termNames.map(tName => r.termMarks[tName] !== null ? `${r.termMarks[tName]}%` : "-"),
         `${r.finalYearMark}%`,
-        r.finalYearMark >= 50 ? 'Pass' : 'Fail'
+        r.finalYearMark >= PASS_THRESHOLD ? 'Pass' : 'Fail'
     ]);
 
     autoTable(doc, {

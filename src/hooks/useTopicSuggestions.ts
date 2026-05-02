@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { applySupabaseAssessmentOrder } from "@/utils/assessmentOrdering";
 import { normalizeTopic } from "@/utils/topic";
 
 export const useTopicSuggestions = (subject?: string, grade?: string) => {
@@ -47,10 +48,12 @@ export const useTopicSuggestions = (subject?: string, grade?: string) => {
 
         if (classIds.length > 0) {
           // 🔥 3. Assessments with questions
-          const { data: assessments } = await supabase
-            .from("assessments")
-            .select("questions, class_id")
-            .in("class_id", Array.isArray(classIds) ? classIds : [classIds]);
+          const { data: assessments } = await applySupabaseAssessmentOrder(
+            supabase
+              .from("assessments")
+              .select("questions, class_id")
+              .in("class_id", Array.isArray(classIds) ? classIds : [classIds])
+          );
 
           assessments?.forEach((a: any) => {
             a.questions?.forEach((q: any) => {
@@ -62,7 +65,11 @@ export const useTopicSuggestions = (subject?: string, grade?: string) => {
         }
 
         if (isMounted) {
-          setTopics(Array.from(suggestions).sort());
+          setTopics(
+            Array.from(suggestions).sort((a, b) =>
+              a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+            )
+          );
         }
       } catch (error) {
         console.error("Error fetching topic suggestions:", error);

@@ -16,6 +16,8 @@ import { ReuseQuestionsDialog } from "./ReuseQuestionsDialog";
 import { useSetupStatus } from "@/hooks/useSetupStatus";
 import { useTopicSuggestions } from "@/hooks/useTopicSuggestions";
 import { QuestionBuilder } from "./QuestionBuilder";
+import { useAsyncState } from "@/hooks/useAsyncState";
+import { AsyncStatus } from "@/components/ui/AsyncStatus";
 
 interface MarkSheetToolbarProps {
   terms: Term[];
@@ -43,8 +45,11 @@ interface MarkSheetToolbarProps {
   recalculateTotal: boolean;
   setRecalculateTotal: (recalc: boolean) => void;
   isAutoSaving?: boolean;
+  saveSuccessTick?: number;
   availableRubrics?: Rubric[];
   classInfo?: ClassInfo;
+  /** Background assessments/marks fetch — non-blocking indicator */
+  isDataRefreshing?: boolean;
 }
 
 export const MarkSheetToolbar = ({
@@ -54,41 +59,40 @@ export const MarkSheetToolbar = ({
   isAddOpen, setIsAddOpen, setIsImportOpen, setIsCopyOpen,
   newAss, setNewAss, handleAddAssessment,
   assessments, visibleAssessmentIds, toggleAssessmentVisibility, recalculateTotal, setRecalculateTotal,
-  isAutoSaving, availableRubrics = [],
-  classInfo
+  isAutoSaving, saveSuccessTick = 0, availableRubrics = [],
+  classInfo,
+  isDataRefreshing = false,
 }: MarkSheetToolbarProps) => {
 
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isReuseOpen, setIsReuseOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
-  const wasAutoSavingRef = useRef(false);
+  const addAssessmentState = useAsyncState();
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { progress, missingRequired } = useSetupStatus();
   
   const topicSuggestions = useTopicSuggestions(classInfo?.subject, classInfo?.grade);
 
   useEffect(() => {
-    const isSaving = Boolean(isAutoSaving);
-    const wasSaving = wasAutoSavingRef.current;
-
-    if (isSaving) {
+    if (isAutoSaving) {
       setShowSaved(false);
       if (savedTimerRef.current) {
         clearTimeout(savedTimerRef.current);
         savedTimerRef.current = null;
       }
-    } else if (wasSaving) {
-      setShowSaved(true);
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-      savedTimerRef.current = setTimeout(() => {
-        setShowSaved(false);
-        savedTimerRef.current = null;
-      }, 1800);
     }
-
-    wasAutoSavingRef.current = isSaving;
   }, [isAutoSaving]);
+
+  useEffect(() => {
+    if (!saveSuccessTick || isAutoSaving) return;
+    setShowSaved(true);
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => {
+      setShowSaved(false);
+      savedTimerRef.current = null;
+    }, 1800);
+  }, [saveSuccessTick, isAutoSaving]);
 
   useEffect(() => {
     return () => {
@@ -130,7 +134,10 @@ export const MarkSheetToolbar = ({
   const onRecordClick = async () => {
       setIsRecording(true);
       try {
-          await handleAddAssessment();
+          await addAssessmentState.run(
+            async () => Promise.resolve(handleAddAssessment()),
+            { status: "saving" },
+          );
       } finally {
           setIsRecording(false);
       }
@@ -149,6 +156,11 @@ export const MarkSheetToolbar = ({
               <SelectValue placeholder="Select Term" />
             </SelectTrigger>
             <SelectContent>
+              {terms.length === 0 && (
+                <SelectItem value="__loading_terms" disabled>
+                  Loading terms...
+                </SelectItem>
+              )}
               {terms.map(t => (
                 <SelectItem key={t.id} value={t.id}>
                   {t.name} {t.id === activeTerm?.id ? "(Active)" : ""}
@@ -158,7 +170,12 @@ export const MarkSheetToolbar = ({
           </Select>
 
           {currentViewTerm?.closed && <Badge variant="secondary"><Eye className="mr-1 h-3 w-3" /> Read Only</Badge>}
-          
+          {isDataRefreshing && (
+            <Badge variant="outline" className="gap-1.5 font-normal text-muted-foreground border-primary/25 bg-background/80">
+              <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />
+              <span className="text-[11px] font-medium">Syncing marks…</span>
+            </Badge>
+          )}
           <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
@@ -261,6 +278,13 @@ export const MarkSheetToolbar = ({
 
             <ScrollArea className="flex-1 p-6 pt-0">
                 <div className="grid gap-6 py-4">
+                  <AsyncStatus
+                    state={{
+                      status: isRecording ? "saving" : addAssessmentState.status,
+                      error: addAssessmentState.error,
+                      retry: addAssessmentState.retry,
+                    }}
+                  />
                   <div className="grid gap-4">
                       <div className="grid grid-cols-4 items-center gap-4">
                           <Label className="text-right text-xs">Task Title</Label>

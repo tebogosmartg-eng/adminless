@@ -9,6 +9,8 @@ import { useClasses } from '@/context/ClassesContext';
 import { useNotesLogic } from '@/hooks/useNotesLogic';
 import { LearnerNote } from '@/lib/types';
 import { Search } from 'lucide-react';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
 interface GlobalAddNoteDialogProps {
   open: boolean;
@@ -25,6 +27,7 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [content, setContent] = useState("");
   const [learnerSearch, setLearnerSearch] = useState("");
+  const noteState = useAsyncState();
 
   const activeClasses = useMemo(() => classes.filter(c => !c.archived), [classes]);
   
@@ -48,11 +51,19 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
 
   const handleSubmit = async () => {
     if (!selectedLearnerId || !content.trim()) return;
-    
-    const success = await addNoteGlobal(selectedLearnerId, content, category, date);
-    if (success) {
-        setContent("");
-        onOpenChange(false);
+    try {
+      const success = await noteState.run(
+        async () => addNoteGlobal(selectedLearnerId, content, category, date),
+        { status: "saving" },
+      );
+      if (success) {
+          setContent("");
+          onOpenChange(false);
+      } else {
+        throw new Error("Failed to add note.");
+      }
+    } catch {
+      // Inline error is shown via AsyncStatus.
     }
   };
 
@@ -73,9 +84,10 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
+            <AsyncStatus state={{ status: noteState.status, error: noteState.error, retry: noteState.retry }} />
             <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
                 <Label className="sm:text-right">Class</Label>
-                <Select value={selectedClassId} onValueChange={(val) => { setSelectedClassId(val); setSelectedLearnerId(""); }}>
+                <Select value={selectedClassId ?? ""} onValueChange={(val) => { setSelectedClassId(val); setSelectedLearnerId(""); }}>
                     <SelectTrigger className="sm:col-span-3">
                         <SelectValue placeholder="Filter by Class (Optional)" />
                     </SelectTrigger>
@@ -102,7 +114,7 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
                             />
                         </div>
                     )}
-                    <Select value={selectedLearnerId} onValueChange={setSelectedLearnerId} disabled={!selectedClass && availableLearners.length === 0}>
+                    <Select value={selectedLearnerId ?? ""} onValueChange={setSelectedLearnerId} disabled={!selectedClass && availableLearners.length === 0}>
                         <SelectTrigger>
                             <SelectValue placeholder="Select Learner" />
                         </SelectTrigger>
@@ -120,7 +132,7 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
             <div className="flex flex-col sm:grid sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
                 <Label className="sm:text-right">Details</Label>
                 <div className="sm:col-span-3 flex gap-2">
-                    <Select value={category} onValueChange={(v: any) => setCategory(v)}>
+                    <Select value={category ?? ""} onValueChange={(v: any) => setCategory(v)}>
                         <SelectTrigger className="flex-1">
                             <SelectValue />
                         </SelectTrigger>
@@ -155,7 +167,7 @@ export const GlobalAddNoteDialog = ({ open, onOpenChange }: GlobalAddNoteDialogP
 
         <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancel</Button>
-            <Button onClick={handleSubmit} disabled={!selectedLearnerId || !content.trim()} className="w-full sm:w-auto">Save Note</Button>
+            <Button onClick={() => void handleSubmit()} disabled={noteState.status === "saving" || !selectedLearnerId || !content.trim()} className="w-full sm:w-auto">Save Note</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

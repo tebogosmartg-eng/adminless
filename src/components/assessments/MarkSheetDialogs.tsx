@@ -8,7 +8,7 @@ interface MarkSheetDialogsProps {
   setIsImportOpen: (open: boolean) => void;
   assessments: Assessment[];
   classInfo: ClassInfo;
-  handleBulkImport: (assId: string, marks: { learnerId: string; score: number }[]) => void;
+  handleBulkImport: (assId: string, marks: { learnerId: string; score: number }[]) => Promise<void>;
   
   analyticsOpen: boolean;
   setAnalyticsOpen: (open: boolean) => void;

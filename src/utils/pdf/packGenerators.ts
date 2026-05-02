@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { Assessment, Learner, ModerationSample, Evidence } from '@/lib/types';
 import { addHeader, addFooter, addSignatures, SchoolProfile } from './base';
 import { format } from 'date-fns';
+import { sortAssessmentsDeterministically } from '../assessmentOrdering';
 
 export const generatePOAPDF = (
     assessments: Assessment[],
@@ -19,10 +20,12 @@ export const generatePOAPDF = (
     doc.setTextColor(80);
     doc.text(`Class: ${className} | Term: ${termName}`, margin, startY + 5);
 
+    const orderedAssessments = sortAssessmentsDeterministically(assessments);
+
     autoTable(doc, {
         startY: startY + 10,
         head: [['#', 'Task Title', 'Type', 'Max Mark', 'Weighting', 'Date Recorded']],
-        body: assessments.map((a, i) => [
+        body: orderedAssessments.map((a, i) => [
             i + 1,
             a.title,
             a.type,

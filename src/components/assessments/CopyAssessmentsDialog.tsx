@@ -11,6 +11,9 @@ import { db } from '@/db';
 import { showSuccess, showError } from '@/utils/toast';
 import { Assessment } from '@/lib/types';
 import { Loader2, Copy } from 'lucide-react';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface CopyAssessmentsDialogProps {
   open: boolean;
@@ -35,6 +38,8 @@ export const CopyAssessmentsDialog = ({
   const [sourceAssessments, setSourceAssessments] = useState<Assessment[]>([]);
   const [selectedAssessmentIds, setSelectedAssessmentIds] = useState<string[]>([]);
   const [isCopying, setIsCopying] = useState(false);
+  const loadState = useAsyncState();
+  const copyState = useAsyncState();
 
   // Filter out current class and only show active classes
   const availableClasses = useMemo(() => {
@@ -48,11 +53,14 @@ export const CopyAssessmentsDialog = ({
 
     try {
       // Query Local DB instead of Supabase
-      const data = await db.assessments
-        .where('class_id')
-        .equals(classId)
-        .filter(a => a.term_id === currentTermId)
-        .toArray();
+      const data = await loadState.run(
+        async () => db.assessments
+          .where('class_id')
+          .equals(classId)
+          .filter(a => a.term_id === currentTermId)
+          .toArray(),
+        { status: "loading" },
+      );
 
       setSourceAssessments(data || []);
       // Auto-select all by default
@@ -80,19 +88,19 @@ export const CopyAssessmentsDialog = ({
 
     try {
       const toCopy = sourceAssessments.filter(a => selectedAssessmentIds.includes(a.id));
-      
-      // Execute sequentially to ensure order or just parallel
-      await Promise.all(toCopy.map(ass => 
-        createAssessment({
-          class_id: currentClassId,
-          term_id: currentTermId,
-          title: ass.title,
-          type: ass.type,
-          max_mark: ass.max_mark,
-          weight: ass.weight,
-          date: ass.date || new Date().toISOString()
-        })
-      ));
+      await copyState.run(async () => {
+        await Promise.all(toCopy.map(ass =>
+          createAssessment({
+            class_id: currentClassId,
+            term_id: currentTermId,
+            title: ass.title,
+            type: ass.type,
+            max_mark: ass.max_mark,
+            weight: ass.weight,
+            date: ass.date || new Date().toISOString()
+          })
+        ));
+      }, { status: "saving" });
 
       showSuccess(`Copied ${toCopy.length} assessments.`);
       onSuccess();
@@ -119,13 +127,25 @@ export const CopyAssessmentsDialog = ({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          <AsyncStatus
+            state={{
+              status: copyState.status === "error" ? "error" : loadState.status === "loading" ? "loading" : copyState.status,
+              error: copyState.error ?? loadState.error,
+              retry: copyState.status === "error" ? copyState.retry : loadState.retry,
+            }}
+          />
           <div className="space-y-2">
             <Label>Source Class</Label>
-            <Select value={selectedSourceClassId} onValueChange={handleClassSelect}>
+            <Select value={selectedSourceClassId ?? ""} onValueChange={handleClassSelect}>
               <SelectTrigger className="h-10">
                 <SelectValue placeholder="Select a class..." />
               </SelectTrigger>
               <SelectContent>
+                {availableClasses.length === 0 && (
+                  <SelectItem value="__no_classes_available" disabled>
+                    No classes available
+                  </SelectItem>
+                )}
                 {availableClasses.map(c => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.subject} - {c.className} ({c.grade})
@@ -136,8 +156,10 @@ export const CopyAssessmentsDialog = ({
           </div>
 
           {loadingAssessments && (
-            <div className="flex justify-center p-4">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground opacity-30" />
+            <div className="space-y-2 p-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
             </div>
           )}
 

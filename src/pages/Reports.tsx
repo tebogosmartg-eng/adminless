@@ -21,6 +21,34 @@ import { cn } from '@/lib/utils';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { t } from '@/lib/useTranslation';
 import { LANGUAGES } from '@/lib/translations';
+import { useLearnerAnalytics } from '@/hooks/useLearnerAnalytics';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
+
+const ReportsTableSkeleton = ({ columns = 6, rows = 8 }: { columns?: number; rows?: number }) => (
+  <div className="w-full h-full p-4 space-y-3">
+    <div className="grid gap-3" style={{ gridTemplateColumns: `220px repeat(${Math.max(columns - 2, 1)}, minmax(110px, 1fr)) 120px` }}>
+      {Array.from({ length: Math.max(columns, 3) }).map((_, idx) => (
+        <Skeleton key={`head-${idx}`} className="h-8 w-full rounded-md" />
+      ))}
+    </div>
+    <div className="space-y-2">
+      {Array.from({ length: rows }).map((_, rowIdx) => (
+        <div
+          key={`row-${rowIdx}`}
+          className="grid gap-3"
+          style={{ gridTemplateColumns: `220px repeat(${Math.max(columns - 2, 1)}, minmax(110px, 1fr)) 120px` }}
+        >
+          {Array.from({ length: Math.max(columns, 3) }).map((_, colIdx) => (
+            <Skeleton key={`cell-${rowIdx}-${colIdx}`} className="h-10 w-full rounded-md" />
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
   const { classes } = useClasses();
@@ -46,6 +74,9 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
   const [selectedSubject, setSelectedSubject] = useState(defaultClass?.subject || "all");
   const [selectedClassId, setSelectedClassId] = useState(defaultClassId || "all");
   const [exportLanguage, setExportLanguage] = useState("en");
+  const [isExportingTermPdf, setIsExportingTermPdf] = useState(false);
+  const [isExportingYearPdf, setIsExportingYearPdf] = useState(false);
+  const exportState = useAsyncState();
 
   const uniqueGrades = useMemo(() => Array.from(new Set(classes.map(c => c.grade))).sort(), [classes]);
   const uniqueSubjects = useMemo(() => Array.from(new Set(classes.map(c => c.subject))).sort(), [classes]);
@@ -79,6 +110,16 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
   }, [selectedGrade, selectedSubject, selectedTermId, defaultClassId]);
 
   const selectedTerm = useMemo(() => terms.find(t => t.id === selectedTermId), [terms, selectedTermId]);
+  const selectedLearnerId = useMemo(() => {
+    const selectedClass = classes.find((classInfo) => classInfo.id === selectedClassId);
+    return selectedClass?.learners[0]?.id;
+  }, [classes, selectedClassId]);
+  const analytics = useLearnerAnalytics({
+    learnerId: selectedLearnerId,
+    academicYearId: selectedYearId && selectedYearId !== 'all' ? selectedYearId : undefined,
+    termId: selectedTermId && selectedTermId !== 'all' ? selectedTermId : undefined,
+    classId: selectedClassId && selectedClassId !== 'all' ? selectedClassId : undefined
+  });
 
   const isContextComplete = selectedYearId && selectedTermId && selectedGrade !== 'all' && selectedSubject !== 'all' && selectedClassId !== 'all';
 
@@ -93,7 +134,7 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
 
   const handleGenerateTerm = () => {
     if (!isContextComplete) return;
-    generateTermReport(selectedTermId, selectedGrade, selectedSubject);
+    generateTermReport(selectedTermId, selectedGrade, selectedSubject, selectedClassId);
   };
 
   const handleGenerateYear = () => {
@@ -105,7 +146,7 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
     if (!termData || !selectedClassId) return;
     const targetClassName = classes.find(c => c.id === selectedClassId)?.className || "Class";
     const termName = selectedTerm?.name || "Term";
-    const displayData = termData.filter(r => r.className === targetClassName);
+    const displayData = termData.filter((r) => r.classId === selectedClassId);
     const header = [t('learnerName', exportLanguage), t('class', exportLanguage), ...allAssessmentTitles, t('termAverage', exportLanguage), t('symbol', exportLanguage)].join(",");
     const rows = displayData.map(r => {
         const symbol = getGradeSymbol(r.termAverage, gradingScheme)?.symbol || "-";
@@ -113,50 +154,75 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
     });
     const blob = new Blob([header + "\n" + rows.join("\n")], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    link.href = url;
     link.download = `${selectedGrade}_${selectedSubject}_${termName}_Summary.csv`;
     link.click();
+    URL.revokeObjectURL(url);
     showSuccess("CSV exported.");
   };
 
-  const handleExportTermPDF = () => {
+  const handleExportTermPDF = async () => {
     if (!termData || !selectedTermId) return;
     const termName = selectedTerm?.name || "Term Report";
-    const targetClassName = classes.find(c => c.id === selectedClassId)?.className;
-    const displayData = termData.filter(r => r.className === targetClassName);
-
-    generateTermSummaryPDF(
-        displayData,
-        allAssessmentTitles,
-        termName,
-        selectedGrade,
-        selectedSubject,
-        gradingScheme,
-        profile,
-        50,
-        exportLanguage
-    );
-    showSuccess("PDF generated.");
+    const displayData = termData.filter((r) => r.classId === selectedClassId);
+    setIsExportingTermPdf(true);
+    try {
+      await exportState.run(async () => {
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        });
+        generateTermSummaryPDF(
+          displayData,
+          allAssessmentTitles,
+          termName,
+          selectedGrade,
+          selectedSubject,
+          gradingScheme,
+          profile,
+          PASS_THRESHOLD,
+          exportLanguage
+        );
+      }, { status: "loading", userInitiated: false });
+      showSuccess("PDF generated.");
+    } catch (error) {
+      console.error(error);
+      showError("Failed to generate PDF.");
+    } finally {
+      setIsExportingTermPdf(false);
+    }
   };
 
-  const handleExportYearPDF = () => {
+  const handleExportYearPDF = async () => {
       if (!yearData || !selectedYearId) return;
       const yearName = years.find(y => y.id === selectedYearId)?.name || "Year";
       const termNames = terms
         .filter(t => t.year_id === selectedYearId)
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
         .map(t => t.name);
-
-      generateYearSummaryPDF(
-          yearData,
-          termNames,
-          yearName,
-          selectedGrade,
-          selectedSubject,
-          profile,
-          exportLanguage
-      );
-      showSuccess("Year End PDF generated.");
+      setIsExportingYearPdf(true);
+      try {
+        await exportState.run(async () => {
+          await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => resolve());
+          });
+          generateYearSummaryPDF(
+            yearData,
+            termNames,
+            yearName,
+            selectedGrade,
+            selectedSubject,
+            profile,
+            exportLanguage
+          );
+        }, { status: "loading", userInitiated: false });
+        showSuccess("Year End PDF generated.");
+      } catch (error) {
+        console.error(error);
+        showError("Failed to generate PDF.");
+      } finally {
+        setIsExportingYearPdf(false);
+      }
   };
 
   const handleSASAMSExportAction = () => {
@@ -167,9 +233,11 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
     const targetClass = classes.find(c => c.id === selectedClassId);
     if (!targetClass) return;
 
+    const classRows = termData.filter((d) => d.classId === targetClass.id);
+    const avgByLearnerId = new Map(classRows.map((row) => [row.learnerId, row.termAverage]));
     const exportLearners = targetClass.learners.map(l => {
-        const match = termData.find(d => d.learnerName === l.name && d.className === targetClass.className);
-        return { ...l, mark: match ? match.termAverage.toString() : "0" };
+        const average = l.id ? avgByLearnerId.get(l.id) : undefined;
+        return { ...l, mark: average !== undefined ? average.toString() : "0" };
     });
 
     generateSASAMSExport(exportLearners, targetClass.className, targetClass.grade, selectedSubject, selectedTerm.name, activeYear.name, teacherName, schoolCode);
@@ -184,6 +252,13 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
 
   return (
     <div className={`space-y-6 w-full ${embedded ? 'pb-2' : 'pb-10'}`}>
+      <AsyncStatus
+        state={{
+          status: (isExportingTermPdf || isExportingYearPdf) ? "loading" : exportState.status,
+          error: exportState.error,
+          retry: exportState.retry,
+        }}
+      />
       {!embedded && (
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
@@ -210,11 +285,25 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                               <div className="flex flex-col gap-2 w-full">
                                   <Select value={selectedYearId} onValueChange={setSelectedYearId}>
                                       <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Year" /></SelectTrigger>
-                                      <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
+                                      <SelectContent>
+                                        {years.length === 0 && (
+                                          <SelectItem value="__loading_years" disabled>
+                                            Loading years...
+                                          </SelectItem>
+                                        )}
+                                        {years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}
+                                      </SelectContent>
                                   </Select>
                                   <Select value={selectedTermId} onValueChange={setSelectedTermId}>
                                       <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Term" /></SelectTrigger>
-                                      <SelectContent>{sequencedTerms.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                                      <SelectContent>
+                                        {sequencedTerms.length === 0 && (
+                                          <SelectItem value="__loading_terms" disabled>
+                                            Loading terms...
+                                          </SelectItem>
+                                        )}
+                                        {sequencedTerms.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                      </SelectContent>
                                   </Select>
                               </div>
                           </div>
@@ -223,11 +312,27 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                               <div className="flex flex-col gap-2 w-full">
                                   <Select value={selectedGrade} onValueChange={setSelectedGrade}>
                                       <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Grade" /></SelectTrigger>
-                                      <SelectContent>{uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                                      <SelectContent>
+                                        <SelectItem value="all">All Grades</SelectItem>
+                                        {uniqueGrades.length === 0 && (
+                                          <SelectItem value="__loading_grades" disabled>
+                                            Loading grades...
+                                          </SelectItem>
+                                        )}
+                                        {uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                                      </SelectContent>
                                   </Select>
                                   <Select value={selectedSubject} onValueChange={setSelectedSubject}>
                                       <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Subject" /></SelectTrigger>
-                                      <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                                      <SelectContent>
+                                        <SelectItem value="all">All Subjects</SelectItem>
+                                        {uniqueSubjects.length === 0 && (
+                                          <SelectItem value="__loading_subjects" disabled>
+                                            Loading subjects...
+                                          </SelectItem>
+                                        )}
+                                        {uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                      </SelectContent>
                                   </Select>
                               </div>
                           </div>
@@ -235,7 +340,15 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Specific Class</label>
                               <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={selectedSubject === 'all' || selectedGrade === 'all'}>
                                   <SelectTrigger className="h-10"><SelectValue placeholder="Choose Class..." /></SelectTrigger>
-                                  <SelectContent>{availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}</SelectContent>
+                                  <SelectContent>
+                                    <SelectItem value="all">All Classes</SelectItem>
+                                    {availableClasses.length === 0 && (
+                                      <SelectItem value="__loading_classes" disabled>
+                                        Loading classes...
+                                      </SelectItem>
+                                    )}
+                                    {availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}
+                                  </SelectContent>
                               </Select>
                           </div>
                           
@@ -249,10 +362,22 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                 )}
 
                 <Card className={`${embedded ? 'md:col-span-4' : 'md:col-span-3'} min-h-[600px] flex flex-col border-none shadow-sm overflow-hidden w-full`}>
-                    <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-muted/5 border-b gap-4">
-                        <CardTitle className="text-lg">Class Results Summary</CardTitle>
-                        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
-                            <div className="w-40 flex items-center gap-2 mr-2">
+                    <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-muted/5 border-b gap-4 min-w-0">
+                        <CardTitle className="text-lg min-w-0 shrink">Class Results Summary</CardTitle>
+                        <div className="flex flex-wrap gap-3 sm:gap-2 w-full sm:w-auto min-w-0 items-stretch sm:items-center">
+                            {selectedLearnerId && (
+                              <Badge variant="outline" className="h-auto min-h-9 max-w-full py-1.5 px-3 text-[10px] font-black uppercase tracking-wider whitespace-normal sm:whitespace-nowrap sm:max-w-[min(100%,28rem)]">
+                                {analytics.isLoading ? (
+                                  <span className="flex items-center gap-2">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    Loading trend...
+                                  </span>
+                                ) : (
+                                  <>Trend {analytics.trend} | Avg {analytics.weightedAverage}% | N {analytics.totalAssessments}</>
+                                )}
+                              </Badge>
+                            )}
+                            <div className="w-full min-w-0 sm:w-40 sm:flex-shrink-0 flex items-center gap-2 sm:mr-2">
                               <Globe className="h-4 w-4 text-muted-foreground" />
                               <Select value={exportLanguage} onValueChange={setExportLanguage}>
                                 <SelectTrigger className="h-9">
@@ -275,13 +400,18 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                             {termData && isContextComplete && (
                                 <>
                                     <Button variant="outline" size="sm" onClick={handleExportTermCSV} className="h-10 sm:h-9 gap-2 flex-1 sm:flex-none"><FileSpreadsheet className="h-4 w-4 text-green-600"/> CSV</Button>
-                                    <Button variant="outline" size="sm" onClick={handleExportTermPDF} className="h-10 sm:h-9 gap-2 flex-1 sm:flex-none"><FileDown className="h-4 w-4 text-blue-600"/> PDF</Button>
+                                    <Button variant="outline" size="sm" onClick={handleExportTermPDF} disabled={isExportingTermPdf} className="h-10 sm:h-9 gap-2 flex-1 sm:flex-none">
+                                      {isExportingTermPdf ? <Loader2 className="h-4 w-4 animate-spin text-blue-600" /> : <FileDown className="h-4 w-4 text-blue-600"/>}
+                                      {isExportingTermPdf ? "Generating PDF..." : "PDF"}
+                                    </Button>
                                 </>
                             )}
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1 p-0 overflow-hidden">
-                        {termData && isContextComplete ? (
+                        {termLoading ? (
+                            <ReportsTableSkeleton columns={Math.max(4, allAssessmentTitles.length + 3)} rows={8} />
+                        ) : termData && isContextComplete ? (
                             <div className="overflow-x-auto w-full h-full no-scrollbar pb-2">
                                 <Table className="min-w-[800px] w-full table-fixed">
                                     <TableHeader className="bg-muted/30">
@@ -297,8 +427,7 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                                     <TableBody>
                                         {termData
                                           .filter(r => {
-                                              const cls = classes.find(c => c.id === selectedClassId);
-                                              return r.className === cls?.className;
+                                              return r.classId === selectedClassId;
                                           })
                                           .map((r, i) => (
                                             <TableRow key={i} className="hover:bg-muted/30 h-12 border-b">
@@ -345,7 +474,14 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                               <label className="text-xs font-bold uppercase text-muted-foreground">Academic Cycle</label>
                               <Select value={selectedYearId} onValueChange={setSelectedYearId}>
                                   <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Year" /></SelectTrigger>
-                                  <SelectContent>{years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}</SelectContent>
+                                  <SelectContent>
+                                    {years.length === 0 && (
+                                      <SelectItem value="__loading_years" disabled>
+                                        Loading years...
+                                      </SelectItem>
+                                    )}
+                                    {years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}
+                                  </SelectContent>
                               </Select>
                           </div>
                           <div className="space-y-2">
@@ -353,11 +489,27 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                               <div className="flex flex-col gap-2 w-full">
                                   <Select value={selectedGrade} onValueChange={setSelectedGrade}>
                                       <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Grade" /></SelectTrigger>
-                                      <SelectContent>{uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                                      <SelectContent>
+                                        <SelectItem value="all">All Grades</SelectItem>
+                                        {uniqueGrades.length === 0 && (
+                                          <SelectItem value="__loading_grades" disabled>
+                                            Loading grades...
+                                          </SelectItem>
+                                        )}
+                                        {uniqueGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                                      </SelectContent>
                                   </Select>
                                   <Select value={selectedSubject} onValueChange={setSelectedSubject}>
                                       <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Subject" /></SelectTrigger>
-                                      <SelectContent>{uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                                      <SelectContent>
+                                        <SelectItem value="all">All Subjects</SelectItem>
+                                        {uniqueSubjects.length === 0 && (
+                                          <SelectItem value="__loading_subjects" disabled>
+                                            Loading subjects...
+                                          </SelectItem>
+                                        )}
+                                        {uniqueSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                      </SelectContent>
                                   </Select>
                               </div>
                           </div>
@@ -365,7 +517,15 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                               <label className="text-[10px] font-black uppercase text-muted-foreground">Specific Class</label>
                               <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={selectedSubject === 'all' || selectedGrade === 'all'}>
                                   <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Choose Class..." /></SelectTrigger>
-                                  <SelectContent>{availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}</SelectContent>
+                                  <SelectContent>
+                                    <SelectItem value="all">All Classes</SelectItem>
+                                    {availableClasses.length === 0 && (
+                                      <SelectItem value="__loading_classes" disabled>
+                                        Loading classes...
+                                      </SelectItem>
+                                    )}
+                                    {availableClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.className}</SelectItem>)}
+                                  </SelectContent>
                               </Select>
                           </div>
                           <Button className="w-full mt-4 h-12 font-bold" onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'}>
@@ -376,23 +536,26 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                 )}
 
                 <Card className={`${embedded ? 'md:col-span-4' : 'md:col-span-3'} min-h-[500px] flex flex-col border-none shadow-sm overflow-hidden w-full`}>
-                    <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-muted/5 border-b gap-4">
-                        <CardTitle>Year End Consolidation</CardTitle>
-                        <div className="flex gap-2 w-full sm:w-auto">
+                    <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-muted/5 border-b gap-4 min-w-0">
+                        <CardTitle className="min-w-0 shrink">Year End Consolidation</CardTitle>
+                        <div className="flex flex-wrap gap-3 sm:gap-2 w-full sm:w-auto min-w-0 items-stretch sm:items-center">
                             {embedded && (
                                 <Button onClick={handleGenerateYear} disabled={yearLoading || selectedClassId === 'all'} className="font-bold h-10 sm:h-9 flex-1 sm:flex-none w-full sm:w-auto">
                                     {yearLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Consolidate Year Data"}
                                 </Button>
                             )}
                             {yearData && selectedClassId !== 'all' && (
-                                 <Button variant="outline" size="sm" onClick={handleExportYearPDF} className="h-10 sm:h-9 gap-2 flex-1 sm:flex-none">
-                                    <FileDown className="h-4 w-4 text-blue-600"/> Export PDF
+                                 <Button variant="outline" size="sm" onClick={handleExportYearPDF} disabled={isExportingYearPdf} className="h-10 sm:h-9 gap-2 flex-1 sm:flex-none">
+                                    {isExportingYearPdf ? <Loader2 className="h-4 w-4 animate-spin text-blue-600" /> : <FileDown className="h-4 w-4 text-blue-600"/>}
+                                    {isExportingYearPdf ? "Generating PDF..." : "Export PDF"}
                                  </Button>
                             )}
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1 p-0 overflow-hidden">
-                        {yearData && selectedClassId !== 'all' ? (
+                        {yearLoading ? (
+                            <ReportsTableSkeleton columns={Math.max(4, sequencedTerms.length + 3)} rows={8} />
+                        ) : yearData && selectedClassId !== 'all' ? (
                             <div className="overflow-x-auto w-full h-full no-scrollbar pb-2">
                                 <Table className="min-w-[800px] w-full table-fixed">
                                     <TableHeader className="bg-muted/30">
@@ -413,7 +576,7 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
                                             ))}
                                             <TableCell className="text-right font-bold text-primary bg-primary/[0.02] border-l text-base">{r.finalYearMark}%</TableCell>
                                             <TableCell className="text-center bg-primary/[0.02] border-l">
-                                                <Badge variant={r.finalYearMark >= 50 ? "outline" : "destructive"} className={r.finalYearMark >= 50 ? "bg-green-50 text-green-700 border-green-200" : ""}>{r.finalYearMark >= 50 ? "Pass" : "Fail"}</Badge>
+                                                <Badge variant={r.finalYearMark >= PASS_THRESHOLD ? "outline" : "destructive"} className={r.finalYearMark >= PASS_THRESHOLD ? "bg-green-50 text-green-700 border-green-200" : ""}>{r.finalYearMark >= PASS_THRESHOLD ? "Pass" : "Fail"}</Badge>
                                             </TableCell>
                                         </TableRow>
                                     ))}</TableBody>
@@ -440,10 +603,15 @@ const Reports = () => {
 
   if (!authReady || !user) {
     return (
-      <div className="flex h-[50vh] w-full items-center justify-center animate-in fade-in duration-500">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Verifying Session...</p>
+      <div className="w-full animate-in fade-in duration-500 p-4 sm:p-6 space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <Skeleton className="h-12 w-full rounded-xl" />
+        <div className="grid gap-6 md:grid-cols-4">
+          <Skeleton className="h-[520px] w-full rounded-xl md:col-span-1" />
+          <Skeleton className="h-[520px] w-full rounded-xl md:col-span-3" />
         </div>
       </div>
     );

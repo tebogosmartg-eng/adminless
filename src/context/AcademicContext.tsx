@@ -1,13 +1,15 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { AcademicYear, Term, Assessment, AssessmentMark, AssessmentQuestion } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/lib/supabaseClient';
+import { applySupabaseAssessmentOrder, sortAssessmentsDeterministically } from '@/utils/assessmentOrdering';
 import { useAcademicSelection } from '@/hooks/useAcademicSelection';
 import { useAcademicMigration } from '@/hooks/useAcademicMigration';
 import { useAcademicAverages } from '@/hooks/useAcademicAverages';
+import { canonicalizeQuestionMarksForSave, remapQuestionMarksByIndexToQuestionIds } from '@/utils/questionMarks';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface AcademicContextType {
@@ -27,6 +29,11 @@ interface AcademicContextType {
   createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<string | undefined>;
   updateAssessment: (assessment: Assessment) => Promise<void>;
   deleteAssessment: (id: string) => Promise<void>;
+  optimisticReorderAssessments: (
+    classId: string,
+    termId: string,
+    payload: { id: string; position: number }[]
+  ) => () => void;
   updateMarks: (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => Promise<{ success: boolean; message?: string }>;
   refreshAssessments: (classId: string, termId?: string, forceRefresh?: boolean) => Promise<void>;
   preloadMarkSheetData: (classId: string, termId: string, forceRefresh?: boolean) => Promise<void>;
@@ -52,10 +59,12 @@ type MarkSheetPreloadEntry = {
 };
 
 const formatMarkSaveError = (errorMessage?: string) => {
-  const message = (errorMessage || "").toLowerCase();
+  const raw = (errorMessage || "").trim();
+  const message = raw.toLowerCase();
+  if (message.includes("locked")) return raw || "This record is locked.";
   if (message.includes("exceeds max")) return "Mark exceeds allowed maximum";
   if (message.includes("invalid input syntax")) return "Invalid mark entered";
-  return "Failed to save marks";
+  return raw || "Failed to save marks";
 };
 
 const sanitizeQuestionMarks = (input: unknown): Record<string, number> => {
@@ -79,7 +88,13 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
   const preloadInFlightRef = useRef<Record<string, Promise<void>>>({});
   const refreshingRef = useRef<Record<string, boolean>>({});
   const preloadRequestIdRef = useRef<Record<string, number>>({});
+  /** Avoid repeating question_marks canonicalization UPDATEs on every marks refetch for the same row. */
+  const questionMarkMigrationPersistedRef = useRef<Set<string>>(new Set());
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    questionMarkMigrationPersistedRef.current.clear();
+  }, [session?.user?.id]);
 
   const { data: years = [], isLoading: loadingYears, isFetching: fetchingYears } = useQuery({
     queryKey: ['academic_years', session?.user?.id],
@@ -131,9 +146,13 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           const selectStr = '*, assessment_questions(*)';
           
           if (diagnosticMode) {
-              const { data, error } = await supabase.from('assessments').select(selectStr).eq('user_id', session.user.id);
+              const { data, error } = await applySupabaseAssessmentOrder(
+                supabase.from('assessments').select(selectStr).eq('user_id', session.user.id)
+              );
               if (error) throw error;
-              return (data || []).map(a => ({ ...a, questions: a.assessment_questions }));
+              return sortAssessmentsDeterministically(
+                (data || []).map(a => ({ ...a, questions: a.assessment_questions }))
+              );
           }
           
           const termId = currentClassFilter?.termId || activeTerm?.id;
@@ -141,14 +160,18 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
 
           if (!classId || classId === 'undefined' || !termId || termId === 'undefined') return [];
           
-          const { data, error } = await supabase.from('assessments')
-            .select(selectStr)
-            .eq('class_id', classId)
-            .eq('term_id', termId)
-            .eq('user_id', session.user.id);
+          const { data, error } = await applySupabaseAssessmentOrder(
+            supabase.from('assessments')
+              .select(selectStr)
+              .eq('class_id', classId)
+              .eq('term_id', termId)
+              .eq('user_id', session.user.id)
+          );
           
           if (error) throw error;
-          return (data || []).map(a => ({ ...a, questions: a.assessment_questions }));
+          return sortAssessmentsDeterministically(
+            (data || []).map(a => ({ ...a, questions: a.assessment_questions }))
+          );
       } catch (e) {
           console.error("AdminLess error: Failed to fetch assessments", e);
           return [];
@@ -162,13 +185,66 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     queryFn: async () => {
       if (!session?.user?.id || assessments.length === 0) return [];
       try {
+          const assessmentById = new Map(assessments.map((assessment) => [assessment.id, assessment]));
           const assIds = assessments.map((a: any) => a.id);
           const { data, error } = await supabase.from('assessment_marks')
             .select('*')
             .in('assessment_id', assIds)
             .eq('user_id', session.user.id);
           if (error) throw error;
-          return data || [];
+
+          const rows = (data || []) as AssessmentMark[];
+          const migratedRows: AssessmentMark[] = [];
+          const persistenceUpdates: Promise<unknown>[] = [];
+
+          rows.forEach((row) => {
+            const assessment = assessmentById.get(row.assessment_id);
+            const questions = assessment?.questions || [];
+            if (questions.length === 0) {
+              migratedRows.push(row);
+              return;
+            }
+
+            const { mapped, changed } = remapQuestionMarksByIndexToQuestionIds(row.question_marks, questions);
+            const questionIds = new Set(questions.map((question) => question.id).filter(Boolean));
+            const nextQuestionMarks = changed ? mapped : (row.question_marks as Record<string, number | null> | undefined) || {};
+            const nonCanonicalKeys = Object.keys(nextQuestionMarks).filter((key) => !questionIds.has(key));
+            if (nonCanonicalKeys.length > 0) {
+              console.warn("[marks] non-canonical keys after read", nonCanonicalKeys);
+            }
+
+            migratedRows.push({
+              ...row,
+              question_marks: nextQuestionMarks
+            });
+
+            if (!changed || !row.id) return;
+            if (questionMarkMigrationPersistedRef.current.has(row.id)) return;
+
+            persistenceUpdates.push(
+              supabase
+                .from('assessment_marks')
+                .update({ question_marks: mapped })
+                .eq('id', row.id)
+                .eq('user_id', session.user.id)
+                .then(() => {
+                  questionMarkMigrationPersistedRef.current.add(row.id);
+                })
+            );
+          });
+
+          if (persistenceUpdates.length > 0) {
+            const persistenceResults = await Promise.allSettled(persistenceUpdates);
+            const failed = persistenceResults.filter((result) => result.status === 'rejected');
+            if (failed.length > 0) {
+              console.error("[academic] question_marks migration persistence failures", {
+                failedCount: failed.length,
+                attempted: persistenceUpdates.length
+              });
+            }
+          }
+
+          return migratedRows;
       } catch (e) {
           console.error("AdminLess error: Failed to fetch marks", e);
           return [];
@@ -256,6 +332,27 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     }
   }, [queryClient]);
 
+  const assertWritableClassTerm = useCallback(async (classId: string | undefined, termId: string | undefined) => {
+    if (!session?.user?.id) throw new Error("Session context lost.");
+    if (!classId || !termId) throw new Error("Missing class or term for this operation.");
+
+    const termRow = allTerms.find((t) => t.id === termId);
+    if (termRow?.closed) {
+      throw new Error("This term is locked. Assessments and marks cannot be changed.");
+    }
+
+    const { data: cls, error } = await supabase
+      .from("classes")
+      .select("is_finalised")
+      .eq("id", classId)
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    if (error) throw error;
+    if (cls?.is_finalised) {
+      throw new Error("This class is locked for the finalized term.");
+    }
+  }, [session?.user?.id, allTerms]);
+
   const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
     if (!session?.user?.id || !activeYear) {
       showError("Session context lost. Please refresh.");
@@ -263,6 +360,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     }
 
     try {
+        await assertWritableClassTerm(assessment.class_id, assessment.term_id);
         const id = crypto.randomUUID();
         const { questions, ...headerData } = assessment;
         
@@ -300,10 +398,11 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         showError("Failed to record assessment: " + e.message);
         throw e;
     }
-  }, [session?.user?.id, activeYear, queryClient]);
+  }, [session?.user?.id, activeYear, queryClient, assertWritableClassTerm]);
 
   const updateAssessment = useCallback(async (a: Assessment) => {
     try {
+        await assertWritableClassTerm(a.class_id, a.term_id);
         const { questions, ...headerData } = a;
         
         const payload = {
@@ -339,12 +438,31 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         showError("Failed to update assessment: " + e.message);
         throw e;
     }
-  }, [session?.user?.id, queryClient]);
+  }, [session?.user?.id, queryClient, assertWritableClassTerm]);
 
   const deleteAssessment = useCallback(async (id: string) => {
     if (!confirm("Delete this assessment? This will permanently remove all marks and data.")) return;
 
     try {
+        let classId: string | undefined;
+        let termId: string | undefined;
+        const local = assessments.find((x) => x.id === id);
+        if (local?.class_id && local?.term_id) {
+          classId = local.class_id;
+          termId = local.term_id;
+        } else if (session?.user?.id) {
+          const { data, error } = await supabase
+            .from("assessments")
+            .select("class_id, term_id")
+            .eq("id", id)
+            .eq("user_id", session.user.id)
+            .maybeSingle();
+          if (error) throw error;
+          classId = data?.class_id;
+          termId = data?.term_id;
+        }
+        await assertWritableClassTerm(classId, termId);
+
         await supabase.from('assessment_marks').delete().eq('assessment_id', id); 
         const { error: aErr } = await supabase.from('assessments').delete().eq('id', id);
         if (aErr) throw aErr;
@@ -357,34 +475,193 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         showError("Failed to delete assessment: " + e.message);
         throw e;
     }
-  }, [queryClient]);
+  }, [queryClient, assessments, session?.user?.id, assertWritableClassTerm]);
+
+  const optimisticReorderAssessments = useCallback((
+    classId: string,
+    termId: string,
+    payload: { id: string; position: number }[]
+  ) => {
+    if (!session?.user?.id || payload.length === 0) {
+      return () => {};
+    }
+
+    const positionById = new Map(payload.map((item) => [item.id, item.position]));
+    const previousQueryData = queryClient.getQueriesData<Assessment[]>({
+      queryKey: ['assessments', session.user.id],
+    });
+
+    const applyPositions = (items: Assessment[]) => {
+      const next = items.map((assessment) => {
+        if (assessment.class_id !== classId || assessment.term_id !== termId) {
+          return assessment;
+        }
+        const nextPosition = positionById.get(assessment.id);
+        if (!nextPosition) return assessment;
+        return { ...assessment, position: nextPosition };
+      });
+      return sortAssessmentsDeterministically(next);
+    };
+
+    queryClient.setQueriesData<Assessment[]>(
+      { queryKey: ['assessments', session.user.id] },
+      (existing) => {
+        if (!Array.isArray(existing)) return existing;
+        return applyPositions(existing);
+      }
+    );
+
+    const preloadKey = `${classId}::${termId}`;
+    const previousPreloadEntry = markSheetPreloadsRef.current[preloadKey];
+    if (previousPreloadEntry) {
+      const nextPreloadEntry: MarkSheetPreloadEntry = {
+        ...previousPreloadEntry,
+        assessments: applyPositions(previousPreloadEntry.assessments),
+      };
+      markSheetPreloadsRef.current = {
+        ...markSheetPreloadsRef.current,
+        [preloadKey]: nextPreloadEntry,
+      };
+      setMarkSheetPreloads((prev) => ({ ...prev, [preloadKey]: nextPreloadEntry }));
+    }
+
+    return () => {
+      previousQueryData.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+      if (previousPreloadEntry) {
+        markSheetPreloadsRef.current = {
+          ...markSheetPreloadsRef.current,
+          [preloadKey]: previousPreloadEntry,
+        };
+        setMarkSheetPreloads((prev) => ({ ...prev, [preloadKey]: previousPreloadEntry }));
+      }
+    };
+  }, [session?.user?.id, queryClient]);
 
   const updateMarks = useCallback(async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
     if (!session?.user?.id || updates.length === 0) return { success: true };
     try {
+        const assessmentIds = Array.from(new Set(updates.map((update) => update.assessment_id)));
+        const assessmentById = new Map(assessments.map((assessment) => [assessment.id, assessment]));
+        const missingAssessmentIds = assessmentIds.filter((id) => !assessmentById.has(id));
+
+        if (missingAssessmentIds.length > 0) {
+          const { data: fetchedAssessments, error: assessmentLookupError } = await supabase
+            .from('assessments')
+            .select('id, term_id, class_id, assessment_questions(*)')
+            .eq('user_id', session.user.id)
+            .in('id', missingAssessmentIds);
+          if (assessmentLookupError) throw assessmentLookupError;
+          (fetchedAssessments || []).forEach((assessment) => {
+            assessmentById.set(assessment.id, { ...assessment, questions: assessment.assessment_questions } as Assessment);
+          });
+        }
+
+        const termIds = Array.from(
+          new Set(
+            assessmentIds
+              .map((id) => assessmentById.get(id)?.term_id)
+              .filter((termId): termId is string => !!termId)
+          )
+        );
+        const lockedTermIds = new Set(allTerms.filter((term) => !!term.closed).map((term) => term.id));
+        const unresolvedTermIds = termIds.filter((termId) => !lockedTermIds.has(termId));
+        if (unresolvedTermIds.length > 0) {
+          const { data: termRows, error: termLookupError } = await supabase
+            .from('terms')
+            .select('id, closed')
+            .eq('user_id', session.user.id)
+            .in('id', unresolvedTermIds);
+          if (termLookupError) throw termLookupError;
+          (termRows || []).forEach((term) => {
+            if (term.closed) lockedTermIds.add(term.id);
+          });
+        }
+
+        const classIds = Array.from(
+          new Set(
+            assessmentIds
+              .map((aid) => assessmentById.get(aid)?.class_id)
+              .filter((cid): cid is string => !!cid)
+          )
+        );
+        if (classIds.length > 0) {
+          const { data: classRows, error: classLookupError } = await supabase
+            .from("classes")
+            .select("id, is_finalised")
+            .eq("user_id", session.user.id)
+            .in("id", classIds);
+          if (classLookupError) throw classLookupError;
+          const finalisedClassIds = new Set(
+            (classRows || []).filter((row) => row.is_finalised).map((row) => row.id)
+          );
+          const blockedByClass = updates.find((update) => {
+            const assessment = assessmentById.get(update.assessment_id);
+            return assessment && finalisedClassIds.has(assessment.class_id);
+          });
+          if (blockedByClass) {
+            throw new Error("This class is locked for the finalized term. Marks and comments cannot be changed.");
+          }
+        }
+
+        const blockedUpdate = updates.find((update) => {
+          const assessment = assessmentById.get(update.assessment_id);
+          if (!assessment) return true;
+          return lockedTermIds.has(assessment.term_id);
+        });
+        if (blockedUpdate) {
+          throw new Error("This term is locked. Marks and comments cannot be changed.");
+        }
+
         for (const update of updates) {
             const existing = marks.find(
               m => m.assessment_id === update.assessment_id && m.learner_id === update.learner_id
             );
+            const assessment = assessmentById.get(update.assessment_id);
+            const validQuestionIds = new Set((assessment?.questions || []).map(q => q.id));
 
             let nextScore = update.score ?? existing?.score ?? null;
-            const cleanedQuestionMarks = sanitizeQuestionMarks(update.question_marks);
-            const hasQuestionMarks = Object.keys(cleanedQuestionMarks).length > 0;
+            let nextQuestionMarksForSave = update.question_marks !== undefined
+              ? sanitizeQuestionMarks(update.question_marks)
+              : sanitizeQuestionMarks(existing?.question_marks);
+            const hasQuestionMarks = Object.keys(nextQuestionMarksForSave).length > 0;
 
             if (update.question_marks !== undefined) {
-              const summedScore = Object.values(cleanedQuestionMarks).reduce((sum, value) => {
+              const { canonical, missingQuestionIds, unexpectedKeys } = canonicalizeQuestionMarksForSave(
+                update.question_marks,
+                assessment?.questions || []
+              );
+              if (missingQuestionIds.length > 0 || unexpectedKeys.length > 0) {
+                const invalidPayload = {
+                  assessmentId: update.assessment_id,
+                  learnerId: update.learner_id,
+                  incomingKeys:
+                    update.question_marks && typeof update.question_marks === "object"
+                      ? Object.keys(update.question_marks as Record<string, unknown>)
+                      : [],
+                  expectedQuestionIds: Array.from(validQuestionIds),
+                  missingQuestionIds,
+                  unexpectedKeys,
+                };
+                console.error("[marks] invalid question_marks on save", invalidPayload);
+                throw new Error("Invalid question marks payload.");
+              }
+
+              nextQuestionMarksForSave = canonical;
+              const summedScore = Object.values(nextQuestionMarksForSave).reduce((sum, value) => {
                 if (!isNaN(value)) return sum + value;
                 return sum;
               }, 0);
-              nextScore = hasQuestionMarks ? parseFloat(summedScore.toFixed(1)) : null;
-              console.log("Saving:", cleanedQuestionMarks);
+              nextScore = Object.keys(nextQuestionMarksForSave).length > 0 ? parseFloat(summedScore.toFixed(1)) : null;
+              console.log("Saving:", nextQuestionMarksForSave);
             }
 
             const payload = {
               user_id: session.user.id,
               score: nextScore,
               comment: update.comment ?? existing?.comment ?? "",
-              question_marks: update.question_marks !== undefined ? cleanedQuestionMarks : (existing?.question_marks ?? {}),
+              question_marks: update.question_marks !== undefined ? nextQuestionMarksForSave : (existing?.question_marks ?? {}),
               rubric_selections: update.rubric_selections ?? existing?.rubric_selections ?? null
             };
 
@@ -418,7 +695,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         showError(message);
         return { success: false, message };
     }
-  }, [session?.user?.id, updateLearnerActiveAverages, queryClient, marks]);
+  }, [session?.user?.id, updateLearnerActiveAverages, queryClient, marks, assessments, allTerms]);
 
   const preloadMarkSheetData = useCallback(async (classId: string, termId: string, forceRefresh = false) => {
     if (!session?.user?.id || !classId || !termId || termId === 'undefined') return;
@@ -436,15 +713,19 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     const run = (async () => {
       try {
         const selectStr = '*, assessment_questions(*)';
-        const { data: assData, error: assError } = await supabase
-          .from('assessments')
-          .select(selectStr)
-          .eq('class_id', classId)
-          .eq('term_id', termId)
-          .eq('user_id', session.user.id);
+        const { data: assData, error: assError } = await applySupabaseAssessmentOrder(
+          supabase
+            .from('assessments')
+            .select(selectStr)
+            .eq('class_id', classId)
+            .eq('term_id', termId)
+            .eq('user_id', session.user.id)
+        );
         if (assError) throw assError;
 
-        const mappedAssessments = (assData || []).map(a => ({ ...a, questions: a.assessment_questions })) as Assessment[];
+        const mappedAssessments = sortAssessmentsDeterministically(
+          (assData || []).map(a => ({ ...a, questions: a.assessment_questions })) as Assessment[]
+        );
         const assIds = mappedAssessments.map(a => a.id);
 
         let mappedMarks: AssessmentMark[] = [];
@@ -560,13 +841,13 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     activeYear, activeTerm, setActiveYear, setActiveTerm, 
     createYear, deleteYear, updateTerm,
     createAssessment, updateAssessment, deleteAssessment,
-    updateMarks, refreshAssessments, preloadMarkSheetData, getPreloadedMarkSheetData, hasPreloadedMarkSheetData, toggleTermStatus, closeYear,
+    optimisticReorderAssessments, updateMarks, refreshAssessments, preloadMarkSheetData, getPreloadedMarkSheetData, hasPreloadedMarkSheetData, toggleTermStatus, closeYear,
     recalculateAllActiveAverages, runDataVacuum, rollForwardClasses,
     diagnosticMode, setDiagnosticMode
   }), [
     years, terms, assessments, marks, activeYear, activeTerm, 
     setActiveYear, setActiveTerm, createYear, deleteYear, updateTerm, 
-    createAssessment, updateAssessment, deleteAssessment, updateMarks, 
+    createAssessment, updateAssessment, deleteAssessment, optimisticReorderAssessments, updateMarks, 
     refreshAssessments, preloadMarkSheetData, getPreloadedMarkSheetData, hasPreloadedMarkSheetData, toggleTermStatus, closeYear, recalculateAllActiveAverages, 
     runDataVacuum, rollForwardClasses, diagnosticMode, loading, isRefreshing
   ]);

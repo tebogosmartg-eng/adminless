@@ -27,13 +27,15 @@ import {
     Globe,
     ChevronRight
 } from 'lucide-react';
-import { Assessment, Learner, DiagnosticRow, FullDiagnostic } from '@/lib/types';
+import { Assessment, Learner, DiagnosticRow } from '@/lib/types';
 import { useQuestionAnalysis } from '@/hooks/useQuestionAnalysis';
+import { useLearnerAnalytics } from '@/hooks/useLearnerAnalytics';
 import { useSettings } from '@/context/SettingsContext';
 import { generateQuestionDiagnosticPDF } from '@/utils/pdf/questionDiagnosticReport';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import { LANGUAGES } from '@/lib/translations';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface QuestionDiagnosticDialogProps {
   open: boolean;
@@ -41,10 +43,40 @@ interface QuestionDiagnosticDialogProps {
   assessment: Assessment;
   learners: Learner[];
   classSubject?: string;
+  /** Grade label for AI context (e.g. from class profile) */
+  classGrade?: string;
+  learnerId?: string;
+  academicYearId?: string;
+  termId?: string;
+  classId?: string;
 }
 
-export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learners, classSubject = "General" }: QuestionDiagnosticDialogProps) => {
+function parseStoredFindings(val: unknown): unknown {
+  if (val == null) return null;
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val);
+    } catch {
+      return null;
+    }
+  }
+  return val;
+}
+
+export const QuestionDiagnosticDialog = ({
+  open,
+  onOpenChange,
+  assessment,
+  learners,
+  classSubject = "General",
+  classGrade = "General",
+  learnerId,
+  academicYearId,
+  termId,
+  classId
+}: QuestionDiagnosticDialogProps) => {
   const { stats, loading, saveDiagnostic, generateAIAnalysis } = useQuestionAnalysis(assessment, learners, classSubject);
+  const analytics = useLearnerAnalytics({ learnerId, academicYearId, termId, classId });
   const { schoolName, teacherName, schoolLogo, contactEmail, contactPhone } = useSettings();
   
   const [rows, setRows] = useState<DiagnosticRow[]>([]);
@@ -54,6 +86,9 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showRowsAfterAnalyze, setShowRowsAfterAnalyze] = useState(true);
+  const [analysisFallbackNotice, setAnalysisFallbackNotice] = useState<string | null>(null);
   const [exportLanguage, setExportLanguage] = useState("en");
   
   const initializedRef = useRef(false);
@@ -65,22 +100,18 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
         let loadedOverallInt: string[] = [];
         
         if (stats.savedDiagnostic?.findings) {
-            try {
-                const parsed = JSON.parse(stats.savedDiagnostic.findings);
-                loadedRows = Array.isArray(parsed) ? parsed : stats.initialRows;
-            } catch (e) {
-                loadedRows = stats.initialRows;
-            }
+            const parsed = parseStoredFindings(stats.savedDiagnostic.findings);
+            loadedRows = Array.isArray(parsed) ? parsed : stats.initialRows;
         } else {
             loadedRows = stats.initialRows;
         }
 
         if (stats.savedDiagnostic?.interventions) {
-            try {
-                const parsed = JSON.parse(stats.savedDiagnostic.interventions);
-                loadedThemes = parsed.themes || [];
-                loadedOverallInt = parsed.interventions || [];
-            } catch (e) {}
+            const parsed = parseStoredFindings(stats.savedDiagnostic.interventions);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                loadedThemes = (parsed as { themes?: string[] }).themes || [];
+                loadedOverallInt = (parsed as { interventions?: string[] }).interventions || [];
+            }
         }
 
         setRows(loadedRows);
@@ -93,6 +124,9 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
   useEffect(() => {
       if (!open) {
           initializedRef.current = false;
+          setIsAnalyzing(false);
+          setShowRowsAfterAnalyze(true);
+          setAnalysisFallbackNotice(null);
       }
   }, [open, assessment.id]);
 
@@ -115,20 +149,131 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
   };
 
   const handleRunAI = async () => {
+      if (isGeneratingAI) return;
+      console.log('[diagnostic] handleRunAI invoked', { classSubject, classGrade, assessmentId: assessment.id });
+      setIsAnalyzing(true);
       setIsGeneratingAI(true);
+      setShowRowsAfterAnalyze(false);
+      setAnalysisFallbackNotice(null);
+      const applyRuleBasedFallback = () => {
+        const safeWeakAreas = analytics.weakAreas ?? [];
+        const statsInitialRows = stats?.initialRows ?? [];
+        const weakAreaTitles = safeWeakAreas
+          .map((area) => area.assessmentTitle)
+          .filter(Boolean)
+          .slice(0, 3);
+        const fallbackRows = rows.length > 0
+          ? rows
+          : statsInitialRows.length > 0
+            ? statsInitialRows
+            : [{
+                id: `fallback-${assessment.id}`,
+                question: assessment.title || "Overall Assessment",
+                performance_summary: "System analysis fallback applied while AI insights are unavailable.",
+                possible_root_causes: [
+                  analytics.trend === 'down'
+                    ? "Performance trend is declining in recent assessments."
+                    : analytics.trend === 'up'
+                      ? "Performance is improving but still needs consolidation."
+                      : "Performance trend is stable with pockets of inconsistency."
+                ],
+                targeted_interventions: [
+                  "Prioritize revision of weak skill areas from recent results.",
+                  "Use focused remediation tasks with short formative checks."
+                ]
+              }];
+
+        const fallbackThemes = [
+          `System trend signal: ${analytics.trend}.`,
+          safeWeakAreas.length > 0
+            ? `Weak areas identified in ${safeWeakAreas.length} assessment(s).`
+            : "No explicit weak areas identified from current records."
+        ];
+
+        const fallbackInterventions = [
+          weakAreaTitles.length > 0
+            ? `Target reinforcement for: ${weakAreaTitles.join(", ")}.`
+            : "Run a short diagnostic activity to identify current weak skills.",
+          analytics.trend === 'down'
+            ? "Increase remediation frequency and monitor weekly."
+            : "Maintain structured feedback and monitor progress."
+        ];
+
+        setRows(fallbackRows);
+        setThemes(fallbackThemes);
+        setOverallInterventions(fallbackInterventions);
+        setAnalysisFallbackNotice("System analysis available. AI insights unavailable.");
+        showError("System analysis available. AI insights unavailable.");
+      };
       try {
-          // Attempt to get subject/grade context from the first learner's class
-          const fullDiag = await generateAIAnalysis(classSubject, learners[0]?.class_id || "N/A");
-          if (fullDiag) {
-              setRows(fullDiag.rows);
-              setThemes(fullDiag.overall_class_themes);
-              setOverallInterventions(fullDiag.overall_interventions);
-              showSuccess("Differentiated diagnostic generated by AI.");
+          const fullDiag = await generateAIAnalysis(classSubject, classGrade);
+          if (!fullDiag) {
+              console.error("[diagnostic] Invalid AI diagnostic response.", fullDiag);
+              applyRuleBasedFallback();
+              return;
           }
+
+          const rowsFromAI = Array.isArray(fullDiag.rows) ? fullDiag.rows : [];
+          const themesFromAI = Array.isArray(fullDiag.overall_class_themes) ? fullDiag.overall_class_themes : [];
+          const interventionsFromAI = Array.isArray(fullDiag.overall_interventions) ? fullDiag.overall_interventions : [];
+
+          if (rowsFromAI.length === 0 || (themesFromAI.length === 0 && interventionsFromAI.length === 0)) {
+              console.error("[diagnostic] AI returned empty diagnostic payload.");
+              applyRuleBasedFallback();
+              return;
+          }
+
+          setRows(rowsFromAI);
+          setThemes(themesFromAI);
+          setOverallInterventions(interventionsFromAI);
+          showSuccess("Differentiated diagnostic generated by AI.");
+      } catch (error) {
+          console.error("[diagnostic] AI analysis failed:", error);
+          applyRuleBasedFallback();
       } finally {
+          // Render summary first, then row-level content.
+          setTimeout(() => {
+            setShowRowsAfterAnalyze(true);
+            setIsAnalyzing(false);
+          }, 250);
           setIsGeneratingAI(false);
       }
   };
+
+  const DiagnosticRowsSkeleton = () => (
+    <div className="space-y-4">
+      <div className="hidden lg:block border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xl w-full p-4">
+        <div className="grid grid-cols-4 gap-4 mb-4">
+          <Skeleton className="h-8 w-full rounded-md" />
+          <Skeleton className="h-8 w-full rounded-md" />
+          <Skeleton className="h-8 w-full rounded-md" />
+          <Skeleton className="h-8 w-full rounded-md" />
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={`desktop-row-${index}`} className="grid grid-cols-4 gap-4">
+              <Skeleton className="h-24 w-full rounded-md" />
+              <Skeleton className="h-24 w-full rounded-md" />
+              <Skeleton className="h-24 w-full rounded-md" />
+              <Skeleton className="h-24 w-full rounded-md" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="grid lg:hidden gap-4 w-full">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Card key={`mobile-row-${index}`} className="bg-white border-border shadow-md rounded-2xl overflow-hidden">
+            <div className="p-4 space-y-3">
+              <Skeleton className="h-6 w-32 rounded-md" />
+              <Skeleton className="h-16 w-full rounded-md" />
+              <Skeleton className="h-16 w-full rounded-md" />
+              <Skeleton className="h-16 w-full rounded-md" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 
   const handleExport = async () => {
     if (!stats) return;
@@ -144,6 +289,9 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
             exportLanguage
         );
         showSuccess("Detailed diagnostic report exported.");
+    } catch (error) {
+        console.error(error);
+        showError("Failed to generate PDF.");
     } finally {
         setIsExporting(false);
     }
@@ -182,16 +330,39 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                     <DialogDescription className="text-xs sm:text-sm font-medium">
                         Analyze skill-specific barriers for <span className="text-foreground font-bold">{learners.length} learners</span>.
                     </DialogDescription>
+                    {learnerId && (
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        {analytics.isLoading ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <span>Loading learner analytics...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Assessments: {analytics.totalAssessments}</span>
+                            <span>•</span>
+                            <span>Trend: {analytics.trend}</span>
+                            <span>•</span>
+                            <span>Weighted Avg: {analytics.weightedAverage}%</span>
+                          </>
+                        )}
+                      </div>
+                    )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-stretch sm:items-center">
                     <div className="flex items-center gap-2 bg-white dark:bg-card px-3 py-1.5 rounded-lg border shadow-sm">
                       <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <Select value={exportLanguage} onValueChange={setExportLanguage}>
+                      <Select value={exportLanguage ?? ""} onValueChange={setExportLanguage}>
                         <SelectTrigger className="h-7 border-none shadow-none focus:ring-0 p-0 w-24 text-xs font-bold">
                           <SelectValue placeholder="Language" />
                         </SelectTrigger>
                         <SelectContent>
+                          {LANGUAGES.length === 0 && (
+                            <SelectItem value="__loading_languages" disabled>
+                              Loading languages...
+                            </SelectItem>
+                          )}
                           {LANGUAGES.map((lang) => (
                             <SelectItem key={lang.code} value={lang.code}>
                               {lang.label}
@@ -228,7 +399,7 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         className="flex-1 sm:flex-none font-black gap-2 h-10 bg-blue-600 hover:bg-blue-700 text-white px-6 text-xs shadow-lg shadow-blue-500/20"
                       >
                           {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                          Export PDF
+                          {isExporting ? "Generating PDF..." : "Export PDF"}
                       </Button>
                     </div>
                 </div>
@@ -244,6 +415,16 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
             </div>
           ) : stats ? (
             <div className="space-y-10 pb-20">
+                {(isAnalyzing || analysisFallbackNotice) && (
+                  <div className={cn(
+                    "rounded-xl border px-4 py-3 text-sm font-semibold",
+                    analysisFallbackNotice
+                      ? "bg-amber-50 border-amber-200 text-amber-800"
+                      : "bg-purple-50 border-purple-200 text-purple-800"
+                  )}>
+                    {analysisFallbackNotice ?? "Analyzing performance..."}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                     {stats.qStats.map(s => (
                         <div key={s.id} className={cn(
@@ -338,141 +519,147 @@ export const QuestionDiagnosticDialog = ({ open, onOpenChange, assessment, learn
                         <Badge variant="secondary" className="h-6 font-black uppercase text-[10px]">{rows.length} Items Analysed</Badge>
                     </div>
 
-                    {/* Desktop Table View */}
-                    <div className="hidden lg:block border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xl w-full">
-                        <Table className="table-fixed w-full">
-                            <TableHeader className="bg-slate-50 border-b-2">
-                                <TableRow>
-                                    <TableHead className="w-[18%] font-black text-[10px] uppercase tracking-widest py-4">Question / Skill</TableHead>
-                                    <TableHead className="w-[20%] font-black text-[10px] uppercase tracking-widest py-4">Result Summary</TableHead>
-                                    <TableHead className="w-[31%] font-black text-[10px] uppercase tracking-widest py-4">Specific Root Causes</TableHead>
-                                    <TableHead className="w-[31%] font-black text-[10px] uppercase tracking-widest py-4">Targeted Interventions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {rows.map((row) => (
-                                    <TableRow key={row.id} className="group hover:bg-primary/[0.01] transition-colors align-top border-b last:border-0">
-                                        <TableCell className="p-4 border-r space-y-3">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="min-w-0 flex-1">
-                                                    <Input 
-                                                        value={row.question}
-                                                        onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
-                                                        className="border-none shadow-none font-black text-sm bg-transparent p-0 focus-visible:ring-0 h-auto mb-1"
-                                                    />
-                                                    <Badge className={cn("text-[8px] uppercase font-black px-1.5 h-4 border-none", getCognitiveColor(row.cognitive_level))}>
-                                                        {row.cognitive_level || 'unknown'}
-                                                    </Badge>
+                    {isAnalyzing || !showRowsAfterAnalyze ? (
+                      <DiagnosticRowsSkeleton />
+                    ) : (
+                      <>
+                        {/* Desktop Table View */}
+                        <div className="hidden lg:block border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xl w-full">
+                            <Table className="table-fixed w-full">
+                                <TableHeader className="bg-slate-50 border-b-2">
+                                    <TableRow>
+                                        <TableHead className="w-[18%] font-black text-[10px] uppercase tracking-widest py-4">Question / Skill</TableHead>
+                                        <TableHead className="w-[20%] font-black text-[10px] uppercase tracking-widest py-4">Result Summary</TableHead>
+                                        <TableHead className="w-[31%] font-black text-[10px] uppercase tracking-widest py-4">Specific Root Causes</TableHead>
+                                        <TableHead className="w-[31%] font-black text-[10px] uppercase tracking-widest py-4">Targeted Interventions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {rows.map((row) => (
+                                        <TableRow key={row.id} className="group hover:bg-primary/[0.01] transition-colors align-top border-b last:border-0">
+                                            <TableCell className="p-4 border-r space-y-3">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0 flex-1">
+                                                        <Input 
+                                                            value={row.question}
+                                                            onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
+                                                            className="border-none shadow-none font-black text-sm bg-transparent p-0 focus-visible:ring-0 h-auto mb-1"
+                                                        />
+                                                        <Badge className={cn("text-[8px] uppercase font-black px-1.5 h-4 border-none", getCognitiveColor(row.cognitive_level))}>
+                                                            {row.cognitive_level || 'unknown'}
+                                                        </Badge>
+                                                    </div>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                                        onClick={() => handleDeleteRow(row.id)}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
                                                 </div>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                                                    onClick={() => handleDeleteRow(row.id)}
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="p-4 border-r">
+                                            </TableCell>
+                                            <TableCell className="p-4 border-r">
+                                                <Textarea 
+                                                    value={row.performance_summary}
+                                                    onChange={(e) => handleUpdateRow(row.id, 'performance_summary', e.target.value)}
+                                                    className="border-none shadow-none resize-none bg-transparent min-h-[80px] text-xs p-0 focus-visible:ring-0 leading-relaxed font-medium text-slate-600"
+                                                />
+                                            </TableCell>
+                                            <TableCell className="p-4 border-r">
+                                                <div className="relative group/list">
+                                                    <Textarea 
+                                                        value={row.possible_root_causes.join('\n')}
+                                                        onChange={(e) => handleUpdateRow(row.id, 'possible_root_causes', e.target.value.split('\n'))}
+                                                        className="border-none shadow-none resize-none bg-transparent min-h-[100px] text-xs p-0 focus-visible:ring-0 leading-relaxed text-slate-700"
+                                                        placeholder="Enter skill-based causes..."
+                                                    />
+                                                    <div className="absolute -left-2 top-0 bottom-0 w-0.5 bg-slate-100" />
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="p-4 bg-blue-50/10">
+                                                <div className="relative">
+                                                    <Textarea 
+                                                        value={row.targeted_interventions.join('\n')}
+                                                        onChange={(e) => handleUpdateRow(row.id, 'targeted_interventions', e.target.value.split('\n'))}
+                                                        className="border-none shadow-none resize-none bg-transparent min-h-[100px] text-xs p-0 focus-visible:ring-0 leading-relaxed text-blue-900 font-bold"
+                                                        placeholder="Enter actions..."
+                                                    />
+                                                    <div className="absolute -left-2 top-0 bottom-0 w-0.5 bg-blue-200" />
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        {/* Mobile/Tablet View */}
+                        <div className="grid lg:hidden gap-4 w-full">
+                            {rows.map((row) => (
+                                <Card key={row.id} className="bg-white border-border shadow-md rounded-2xl overflow-hidden">
+                                    <div className="p-4 bg-slate-50 border-b flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <Input 
+                                                value={row.question}
+                                                onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
+                                                className="w-20 font-black text-sm h-8"
+                                            />
+                                            <Badge className={cn("text-[8px] uppercase font-black px-1.5 h-5 border-none", getCognitiveColor(row.cognitive_level))}>
+                                                {row.cognitive_level || 'unknown'}
+                                            </Badge>
+                                        </div>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                            onClick={() => handleDeleteRow(row.id)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+
+                                    <div className="p-4 space-y-5">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                                <ChevronRight className="h-3 w-3" /> Result Summary
+                                            </Label>
                                             <Textarea 
                                                 value={row.performance_summary}
                                                 onChange={(e) => handleUpdateRow(row.id, 'performance_summary', e.target.value)}
-                                                className="border-none shadow-none resize-none bg-transparent min-h-[80px] text-xs p-0 focus-visible:ring-0 leading-relaxed font-medium text-slate-600"
+                                                className="resize-none bg-muted/20 min-h-[60px] text-xs p-3 rounded-xl border-none focus-visible:ring-1 leading-relaxed font-medium"
                                             />
-                                        </TableCell>
-                                        <TableCell className="p-4 border-r">
-                                            <div className="relative group/list">
-                                                <Textarea 
-                                                    value={row.possible_root_causes.join('\n')}
-                                                    onChange={(e) => handleUpdateRow(row.id, 'possible_root_causes', e.target.value.split('\n'))}
-                                                    className="border-none shadow-none resize-none bg-transparent min-h-[100px] text-xs p-0 focus-visible:ring-0 leading-relaxed text-slate-700"
-                                                    placeholder="Enter skill-based causes..."
-                                                />
-                                                <div className="absolute -left-2 top-0 bottom-0 w-0.5 bg-slate-100" />
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="p-4 bg-blue-50/10">
-                                            <div className="relative">
-                                                <Textarea 
-                                                    value={row.targeted_interventions.join('\n')}
-                                                    onChange={(e) => handleUpdateRow(row.id, 'targeted_interventions', e.target.value.split('\n'))}
-                                                    className="border-none shadow-none resize-none bg-transparent min-h-[100px] text-xs p-0 focus-visible:ring-0 leading-relaxed text-blue-900 font-bold"
-                                                    placeholder="Enter actions..."
-                                                />
-                                                <div className="absolute -left-2 top-0 bottom-0 w-0.5 bg-blue-200" />
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+                                        </div>
 
-                    {/* Mobile/Tablet View */}
-                    <div className="grid lg:hidden gap-4 w-full">
-                        {rows.map((row) => (
-                            <Card key={row.id} className="bg-white border-border shadow-md rounded-2xl overflow-hidden">
-                                <div className="p-4 bg-slate-50 border-b flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <Input 
-                                            value={row.question}
-                                            onChange={(e) => handleUpdateRow(row.id, 'question', e.target.value)}
-                                            className="w-20 font-black text-sm h-8"
-                                        />
-                                        <Badge className={cn("text-[8px] uppercase font-black px-1.5 h-5 border-none", getCognitiveColor(row.cognitive_level))}>
-                                            {row.cognitive_level || 'unknown'}
-                                        </Badge>
-                                    </div>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                        onClick={() => handleDeleteRow(row.id)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                                <ChevronRight className="h-3 w-3" /> Root Causes
+                                            </Label>
+                                            <Textarea 
+                                                value={row.possible_root_causes.join('\n')}
+                                                onChange={(e) => handleUpdateRow(row.id, 'possible_root_causes', e.target.value.split('\n'))}
+                                                className="resize-none bg-muted/20 min-h-[80px] text-xs p-3 rounded-xl border-none focus-visible:ring-1 leading-relaxed"
+                                                placeholder="Enter skill-based causes..."
+                                            />
+                                        </div>
 
-                                <div className="p-4 space-y-5">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                                            <ChevronRight className="h-3 w-3" /> Result Summary
-                                        </Label>
-                                        <Textarea 
-                                            value={row.performance_summary}
-                                            onChange={(e) => handleUpdateRow(row.id, 'performance_summary', e.target.value)}
-                                            className="resize-none bg-muted/20 min-h-[60px] text-xs p-3 rounded-xl border-none focus-visible:ring-1 leading-relaxed font-medium"
-                                        />
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[9px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
+                                                <Check className="h-3 w-3" /> Targeted Interventions
+                                            </Label>
+                                            <Textarea 
+                                                value={row.targeted_interventions.join('\n')}
+                                                onChange={(e) => handleUpdateRow(row.id, 'targeted_interventions', e.target.value.split('\n'))}
+                                                className="resize-none bg-blue-50/50 min-h-[80px] text-xs p-3 rounded-xl border-blue-100 focus-visible:ring-1 leading-relaxed text-blue-900 font-bold"
+                                                placeholder="Enter actions..."
+                                            />
+                                        </div>
                                     </div>
-
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                                            <ChevronRight className="h-3 w-3" /> Root Causes
-                                        </Label>
-                                        <Textarea 
-                                            value={row.possible_root_causes.join('\n')}
-                                            onChange={(e) => handleUpdateRow(row.id, 'possible_root_causes', e.target.value.split('\n'))}
-                                            className="resize-none bg-muted/20 min-h-[80px] text-xs p-3 rounded-xl border-none focus-visible:ring-1 leading-relaxed"
-                                            placeholder="Enter skill-based causes..."
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
-                                            <Check className="h-3 w-3" /> Targeted Interventions
-                                        </Label>
-                                        <Textarea 
-                                            value={row.targeted_interventions.join('\n')}
-                                            onChange={(e) => handleUpdateRow(row.id, 'targeted_interventions', e.target.value.split('\n'))}
-                                            className="resize-none bg-blue-50/50 min-h-[80px] text-xs p-3 rounded-xl border-blue-100 focus-visible:ring-1 leading-relaxed text-blue-900 font-bold"
-                                            placeholder="Enter actions..."
-                                        />
-                                    </div>
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                      </>
+                    )}
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4 sm:gap-6 mt-4 no-print">

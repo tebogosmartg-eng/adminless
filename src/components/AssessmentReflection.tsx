@@ -25,10 +25,14 @@ export const AssessmentReflection = ({ classId, initialNotes }: AssessmentReflec
     setIsSaved(false);
   };
 
-  const handleSave = () => {
-    updateClassNotes(classId, notes);
-    setIsSaved(true);
-    showSuccess("Assessment notes saved.");
+  const handleSave = async () => {
+    try {
+      await updateClassNotes(classId, notes);
+      setIsSaved(true);
+      showSuccess("Assessment notes saved.");
+    } catch {
+      setIsSaved(false);
+    }
   };
 
   return (
@@ -44,7 +48,7 @@ export const AssessmentReflection = ({ classId, initialNotes }: AssessmentReflec
                    <CardDescription>Reflections & Reminders</CardDescription>
                 </div>
             </div>
-            <Button size="sm" onClick={handleSave} disabled={isSaved} variant={isSaved ? "outline" : "default"}>
+            <Button size="sm" onClick={() => void handleSave()} disabled={isSaved} variant={isSaved ? "outline" : "default"}>
                 {isSaved ? <Check className="h-4 w-4 mr-1" /> : <Save className="h-4 w-4 mr-1" />}
                 {isSaved ? "Saved" : "Save Notes"}
             </Button>

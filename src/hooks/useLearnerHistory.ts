@@ -1,37 +1,130 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Learner, ClassInfo } from '@/lib/types';
+import { db } from '@/db';
+
+interface LearnerHistoryItem {
+  id: string;
+  subject: string;
+  grade: string;
+  className: string;
+  mark: number;
+  comment?: string;
+  date: string;
+  title: string;
+  type: string;
+  weight: number;
+}
 
 export const useLearnerHistory = (learner: Learner | null, classes: ClassInfo[]) => {
-  const history = useMemo(() => {
-    if (!learner) return [];
+  const [history, setHistory] = useState<LearnerHistoryItem[]>([]);
 
-    const records = classes.flatMap(c => {
-      const match = c.learners.find(l => l.name.toLowerCase() === learner.name.toLowerCase());
-      if (match && match.mark && !isNaN(parseFloat(match.mark))) {
-        return {
-          id: c.id,
-          subject: c.subject,
-          grade: c.grade,
-          className: c.className,
-          mark: parseFloat(match.mark),
-          comment: match.comment,
-          date: c.id
-        };
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadHistory = async () => {
+      if (!learner || classes.length === 0) {
+        if (isMounted) setHistory([]);
+        return;
       }
-      return [];
-    });
 
-    return records.sort((a, b) => a.date.localeCompare(b.date));
+      try {
+        const classIds = classes.map(c => c.id).filter(Boolean);
+        if (classIds.length === 0) {
+          if (isMounted) setHistory([]);
+          return;
+        }
+
+        const learnerIds = new Set<string>();
+        if (learner.id) learnerIds.add(learner.id);
+
+        classes.forEach((c) => {
+          c.learners.forEach((l) => {
+            if (l.id && l.name.toLowerCase() === learner.name.toLowerCase()) {
+              learnerIds.add(l.id);
+            }
+          });
+        });
+
+        const ids = Array.from(learnerIds);
+        if (ids.length === 0) {
+          if (isMounted) setHistory([]);
+          return;
+        }
+
+        const [assessments, marks] = await Promise.all([
+          db.assessments.where('class_id').anyOf(classIds).toArray(),
+          db.assessment_marks.where('learner_id').anyOf(ids).toArray()
+        ]);
+
+        if (!assessments?.length || !marks?.length) {
+          if (isMounted) setHistory([]);
+          return;
+        }
+
+        const classMap = new Map(classes.map(c => [c.id, c]));
+        const marksByAssessment = new Map(
+          marks
+            .filter((m: any) => m?.score !== null && m?.score !== undefined)
+            .map((m: any) => [`${m.assessment_id}::${m.learner_id}`, m])
+        );
+
+        const parsedHistory = assessments
+          .filter((assessment: any) => classMap.has(assessment.class_id))
+          .flatMap((assessment: any) => {
+            for (const learnerId of ids) {
+              const markRecord = marksByAssessment.get(`${assessment.id}::${learnerId}`);
+              if (!markRecord) continue;
+
+              const rawScore = Number(markRecord.score);
+              const maxMark = Number(assessment.max_mark);
+              if (Number.isNaN(rawScore) || Number.isNaN(maxMark) || maxMark <= 0) continue;
+
+              const percentage = parseFloat(((rawScore / maxMark) * 100).toFixed(1));
+              const cls = classMap.get(assessment.class_id);
+              if (!cls) continue;
+
+              return [{
+                id: assessment.id,
+                subject: cls.subject,
+                grade: cls.grade,
+                className: cls.className,
+                mark: percentage,
+                comment: markRecord.comment,
+                date: assessment.date || '',
+                title: assessment.title || 'Untitled Assessment',
+                type: assessment.type || 'assessment',
+                weight: Number(assessment.weight) || 0
+              }];
+            }
+            return [];
+          })
+          .sort((a, b) => {
+            const aTime = a.date ? new Date(a.date).getTime() : 0;
+            const bTime = b.date ? new Date(b.date).getTime() : 0;
+            if (aTime !== bTime) return aTime - bTime;
+            return a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
+          });
+
+        if (isMounted) setHistory(parsedHistory);
+      } catch (error) {
+        console.error('Failed to load learner assessment history:', error);
+        if (isMounted) setHistory([]);
+      }
+    };
+
+    loadHistory();
+    return () => {
+      isMounted = false;
+    };
   }, [learner, classes]);
 
   const stats = useMemo(() => {
-    if (history.length === 0) return null;
-    const total = history.reduce((sum, item) => sum + item.mark, 0);
-    const avg = Math.round(total / history.length);
+    if (history.length === 0 || !learner) return null;
+    const weightedAverage = Number.parseFloat(learner.mark);
+    const avg = Number.isFinite(weightedAverage) ? Math.round(weightedAverage) : 0;
     const max = Math.max(...history.map(i => i.mark));
-    const min = Math.min(...history.map(i => i.mark));
-    return { avg, max, min, count: history.length };
-  }, [history]);
+    return { avg, max, count: history.length };
+  }, [history, learner]);
 
   const subjects = useMemo(() => {
     return Array.from(new Set(history.map(h => h.subject)));

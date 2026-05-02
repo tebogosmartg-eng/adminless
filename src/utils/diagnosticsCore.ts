@@ -1,6 +1,7 @@
 import { ClassInfo, Assessment, AssessmentMark, Learner } from '@/lib/types';
 import { calculateWeightedAverage } from '@/utils/calculations';
 import { DiagnosticData } from '@/hooks/useDiagnosticReportData';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 export const calculateDiagnosticDataCore = (
   classInfo: ClassInfo, 
@@ -19,7 +20,7 @@ export const calculateDiagnosticDataCore = (
   const classAvg = validAvgs.length > 0 ? validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length : 0;
   const highest = validAvgs.length > 0 ? Math.max(...validAvgs) : 0;
   const lowest = validAvgs.length > 0 ? Math.min(...validAvgs) : 0;
-  const passCount = validAvgs.filter(a => a >= 50).length;
+  const passCount = validAvgs.filter(a => a >= PASS_THRESHOLD).length;
   const passRate = validAvgs.length > 0 ? (passCount / validAvgs.length) * 100 : 0;
   const atRisk = learnerResults.filter(l => l.avg > 0 && l.avg < atRiskThreshold);
 
@@ -29,7 +30,7 @@ export const calculateDiagnosticDataCore = (
   validAvgs.forEach(v => {
     if (v < 30) bands["0-29"]++;
     else if (v < 40) bands["30-39"]++;
-    else if (v < 50) bands["40-49"]++;
+    else if (v < PASS_THRESHOLD) bands["40-49"]++;
     else if (v < 60) bands["50-59"]++;
     else if (v < 70) bands["60-69"]++;
     else if (v < 80) bands["70-79"]++;

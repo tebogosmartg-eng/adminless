@@ -5,38 +5,40 @@ import { useActivity } from './ActivityContext';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { showError } from '@/utils/toast';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 interface SettingsContextType {
   gradingScheme: GradeSymbol[];
-  updateGradingScheme: (newScheme: GradeSymbol[]) => void;
-  resetGradingScheme: () => void;
+  updateGradingScheme: (newScheme: GradeSymbol[]) => Promise<void>;
+  resetGradingScheme: () => Promise<void>;
   schoolName: string;
-  setSchoolName: (name: string) => void;
+  setSchoolName: (name: string) => Promise<void>;
   schoolCode: string;
-  setSchoolCode: (code: string) => void;
+  setSchoolCode: (code: string) => Promise<void>;
   saceNumber: string;
-  setSaceNumber: (num: string) => void;
+  setSaceNumber: (num: string) => Promise<void>;
   teacherName: string;
-  setTeacherName: (name: string) => void;
+  setTeacherName: (name: string) => Promise<void>;
   contactEmail: string;
-  setContactEmail: (email: string) => void;
+  setContactEmail: (email: string) => Promise<void>;
   contactPhone: string;
-  setContactPhone: (phone: string) => void;
+  setContactPhone: (phone: string) => Promise<void>;
   schoolLogo: string | null;
-  setSchoolLogo: (logo: string | null) => void;
+  setSchoolLogo: (logo: string | null) => Promise<void>;
   atRiskThreshold: number;
-  setAtRiskThreshold: (threshold: number) => void;
+  setAtRiskThreshold: (threshold: number) => Promise<void>;
   commentBank: string[];
-  addToCommentBank: (comment: string) => void;
-  removeFromCommentBank: (comment: string) => void;
+  addToCommentBank: (comment: string) => Promise<void>;
+  removeFromCommentBank: (comment: string) => Promise<void>;
   savedSubjects: string[];
-  addSubject: (subject: string) => void;
-  removeSubject: (subject: string) => void;
+  addSubject: (subject: string) => Promise<void>;
+  removeSubject: (subject: string) => Promise<void>;
   savedGrades: string[];
-  addGrade: (grade: string) => void;
-  removeGrade: (grade: string) => void;
+  addGrade: (grade: string) => Promise<void>;
+  removeGrade: (grade: string) => Promise<void>;
   onboardingCompleted: boolean;
-  setOnboardingCompleted: (val: boolean) => void;
+  setOnboardingCompleted: (val: boolean) => Promise<void>;
   updateProfileSettings: (updates: {
     schoolName?: string;
     schoolCode?: string;
@@ -85,7 +87,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   const [contactEmail, setContactEmailState] = useState<string>("");
   const [contactPhone, setContactPhoneState] = useState<string>("");
   const [schoolLogo, setSchoolLogoState] = useState<string | null>(null);
-  const [atRiskThreshold, setAtRiskThresholdState] = useState<number>(50);
+  const [atRiskThreshold, setAtRiskThresholdState] = useState<number>(PASS_THRESHOLD);
   const [commentBank, setCommentBankState] = useState<string[]>([]);
   const [savedSubjects, setSavedSubjectsState] = useState<string[]>(DEFAULT_DBE_SUBJECTS);
   const [savedGrades, setSavedGradesState] = useState<string[]>([]);
@@ -134,7 +136,7 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
         if (profile.contact_email !== undefined) setContactEmailState(profile.contact_email || "");
         if (profile.contact_phone !== undefined) setContactPhoneState(profile.contact_phone || "");
         if (profile.school_logo !== undefined) setSchoolLogoState(profile.school_logo || null);
-        if (profile.at_risk_threshold !== undefined) setAtRiskThresholdState(profile.at_risk_threshold ?? 50);
+        if (profile.at_risk_threshold !== undefined) setAtRiskThresholdState(profile.at_risk_threshold ?? PASS_THRESHOLD);
         if (Array.isArray(profile.comment_bank)) setCommentBankState(profile.comment_bank);
         if (Array.isArray(profile.subjects) && profile.subjects.length > 0) setSavedSubjectsState(profile.subjects);
         if (Array.isArray(profile.grades)) setSavedGradesState(profile.grades);
@@ -149,8 +151,23 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
 
   const updateProfile = async (updates: any) => {
     if (!session?.user.id) return;
-    const { error } = await supabase.from('profiles').upsert({ id: session.user.id, ...updates, updated_at: new Date().toISOString() });
-    if (error) console.error("Failed to update profile", error);
+    const payload = { ...updates, updated_at: new Date().toISOString() };
+    console.log("[SettingsContext.updateProfile] user.id:", session.user.id);
+    console.log("[SettingsContext.updateProfile] payload:", payload);
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', session.user.id)
+      .select();
+
+    console.log("[SettingsContext.updateProfile] supabase response:", { data, error });
+
+    if (error) {
+      console.error(error);
+      throw error;
+    }
+
     queryClient.invalidateQueries({ queryKey: ['profile'] });
   };
 
@@ -166,126 +183,247 @@ export const SettingsProvider = ({ children, session }: { children: ReactNode; s
   }) => {
     if (!session?.user.id) return;
     const dbUpdates: any = {};
-    if (updates.schoolName !== undefined) dbUpdates.school_name = updates.schoolName;
-    if (updates.schoolCode !== undefined) dbUpdates.school_code = updates.schoolCode;
-    if (updates.saceNumber !== undefined) dbUpdates.sace_number = updates.saceNumber;
-    if (updates.teacherName !== undefined) dbUpdates.teacher_name = updates.teacherName;
-    if (updates.contactEmail !== undefined) dbUpdates.contact_email = updates.contactEmail;
-    if (updates.contactPhone !== undefined) dbUpdates.contact_phone = updates.contactPhone;
+    const normalizedSchoolName = updates.schoolName !== undefined ? (updates.schoolName || null) : undefined;
+    const normalizedSchoolCode = updates.schoolCode !== undefined ? (updates.schoolCode || null) : undefined;
+    const normalizedSaceNumber = updates.saceNumber !== undefined ? (updates.saceNumber || null) : undefined;
+    const normalizedTeacherName = updates.teacherName !== undefined ? (updates.teacherName || null) : undefined;
+    const normalizedContactEmail = updates.contactEmail !== undefined ? (updates.contactEmail || null) : undefined;
+    const normalizedContactPhone = updates.contactPhone !== undefined ? (updates.contactPhone || null) : undefined;
+
+    if (normalizedSchoolName !== undefined) dbUpdates.school_name = normalizedSchoolName;
+    if (normalizedSchoolCode !== undefined) dbUpdates.school_code = normalizedSchoolCode;
+    if (normalizedSaceNumber !== undefined) dbUpdates.sace_number = normalizedSaceNumber;
+    if (normalizedTeacherName !== undefined) dbUpdates.teacher_name = normalizedTeacherName;
+    if (normalizedContactEmail !== undefined) dbUpdates.contact_email = normalizedContactEmail;
+    if (normalizedContactPhone !== undefined) dbUpdates.contact_phone = normalizedContactPhone;
     if (updates.atRiskThreshold !== undefined) dbUpdates.at_risk_threshold = updates.atRiskThreshold;
     if (updates.onboardingCompleted !== undefined) dbUpdates.onboarding_completed = updates.onboardingCompleted;
 
-    if (updates.schoolName !== undefined) setSchoolNameState(updates.schoolName);
-    if (updates.schoolCode !== undefined) setSchoolCodeState(updates.schoolCode || "");
-    if (updates.saceNumber !== undefined) setSaceNumberState(updates.saceNumber || "");
-    if (updates.teacherName !== undefined) setTeacherNameState(updates.teacherName);
-    if (updates.contactEmail !== undefined) setContactEmailState(updates.contactEmail);
-    if (updates.contactPhone !== undefined) setContactPhoneState(updates.contactPhone);
+    console.log("[SettingsContext.updateProfileSettings] user.id:", session.user.id);
+    console.log("[SettingsContext.updateProfileSettings] payload:", dbUpdates);
+    await updateProfile(dbUpdates);
+
+    if (normalizedSchoolName !== undefined) setSchoolNameState(normalizedSchoolName || "My School");
+    if (normalizedSchoolCode !== undefined) setSchoolCodeState(normalizedSchoolCode || "");
+    if (normalizedSaceNumber !== undefined) setSaceNumberState(normalizedSaceNumber || "");
+    if (normalizedTeacherName !== undefined) setTeacherNameState(normalizedTeacherName || "");
+    if (normalizedContactEmail !== undefined) setContactEmailState(normalizedContactEmail || "");
+    if (normalizedContactPhone !== undefined) setContactPhoneState(normalizedContactPhone || "");
     if (updates.atRiskThreshold !== undefined) setAtRiskThresholdState(updates.atRiskThreshold);
     if (updates.onboardingCompleted !== undefined) setOnboardingCompletedState(updates.onboardingCompleted);
-
-    await updateProfile(dbUpdates);
   };
 
-  const updateGradingScheme = (newScheme: GradeSymbol[]) => {
+  const persistProfile = async (updates: Record<string, unknown>) => {
+    try {
+      await updateProfile(updates);
+    } catch (error) {
+      console.error("Settings update failed:", error);
+      showError("Failed - Retry");
+      throw error;
+    }
+  };
+
+  const updateGradingScheme = async (newScheme: GradeSymbol[]) => {
+    const previousScheme = gradingScheme;
     setGradingSchemeState(newScheme);
-    updateProfile({ grading_scheme: newScheme });
-    logActivity("Updated grading scheme configuration");
+    try {
+      await persistProfile({ grading_scheme: newScheme });
+      logActivity("Updated grading scheme configuration");
+    } catch (error) {
+      setGradingSchemeState(previousScheme);
+      throw error;
+    }
   };
 
-  const resetGradingScheme = () => {
+  const resetGradingScheme = async () => {
+    const previousScheme = gradingScheme;
     setGradingSchemeState(defaultGradingScheme);
-    updateProfile({ grading_scheme: defaultGradingScheme });
-    logActivity("Reset grading scheme to defaults");
+    try {
+      await persistProfile({ grading_scheme: defaultGradingScheme });
+      logActivity("Reset grading scheme to defaults");
+    } catch (error) {
+      setGradingSchemeState(previousScheme);
+      throw error;
+    }
   };
 
-  const setSchoolName = (name: string) => {
+  const setSchoolName = async (name: string) => {
+    const previous = schoolName;
     setSchoolNameState(name);
-    updateProfile({ school_name: name });
+    try {
+      await persistProfile({ school_name: name });
+    } catch (error) {
+      setSchoolNameState(previous);
+      throw error;
+    }
   };
 
-  const setSchoolCode = (code: string) => {
+  const setSchoolCode = async (code: string) => {
+    const previous = schoolCode;
     setSchoolCodeState(code);
-    updateProfile({ school_code: code });
+    try {
+      await persistProfile({ school_code: code });
+    } catch (error) {
+      setSchoolCodeState(previous);
+      throw error;
+    }
   };
 
-  const setSaceNumber = (num: string) => {
+  const setSaceNumber = async (num: string) => {
+    const previous = saceNumber;
     setSaceNumberState(num);
-    updateProfile({ sace_number: num });
+    try {
+      await persistProfile({ sace_number: num });
+    } catch (error) {
+      setSaceNumberState(previous);
+      throw error;
+    }
   };
 
-  const setTeacherName = (name: string) => {
+  const setTeacherName = async (name: string) => {
+    const previous = teacherName;
     setTeacherNameState(name);
-    updateProfile({ teacher_name: name });
+    try {
+      await persistProfile({ teacher_name: name });
+    } catch (error) {
+      setTeacherNameState(previous);
+      throw error;
+    }
   };
 
-  const setContactEmail = (email: string) => {
+  const setContactEmail = async (email: string) => {
+    const previous = contactEmail;
     setContactEmailState(email);
-    updateProfile({ contact_email: email });
+    try {
+      await persistProfile({ contact_email: email });
+    } catch (error) {
+      setContactEmailState(previous);
+      throw error;
+    }
   };
 
-  const setContactPhone = (phone: string) => {
+  const setContactPhone = async (phone: string) => {
+    const previous = contactPhone;
     setContactPhoneState(phone);
-    updateProfile({ contact_phone: phone });
+    try {
+      await persistProfile({ contact_phone: phone });
+    } catch (error) {
+      setContactPhoneState(previous);
+      throw error;
+    }
   };
 
-  const setSchoolLogo = (logo: string | null) => {
+  const setSchoolLogo = async (logo: string | null) => {
+    const previous = schoolLogo;
     setSchoolLogoState(logo);
-    updateProfile({ school_logo: logo });
+    try {
+      await persistProfile({ school_logo: logo });
+    } catch (error) {
+      setSchoolLogoState(previous);
+      throw error;
+    }
   };
 
-  const setAtRiskThreshold = (threshold: number) => {
+  const setAtRiskThreshold = async (threshold: number) => {
+    const previous = atRiskThreshold;
     setAtRiskThresholdState(threshold);
-    updateProfile({ at_risk_threshold: threshold });
+    try {
+      await persistProfile({ at_risk_threshold: threshold });
+    } catch (error) {
+      setAtRiskThresholdState(previous);
+      throw error;
+    }
   };
 
-  const setOnboardingCompleted = (val: boolean) => {
+  const setOnboardingCompleted = async (val: boolean) => {
+    const previous = onboardingCompleted;
     setOnboardingCompletedState(val);
-    updateProfile({ onboarding_completed: val });
+    try {
+      await persistProfile({ onboarding_completed: val });
+    } catch (error) {
+      setOnboardingCompletedState(previous);
+      throw error;
+    }
   };
 
-  const addToCommentBank = (comment: string) => {
+  const addToCommentBank = async (comment: string) => {
     if (!commentBank.includes(comment)) {
+      const previous = commentBank;
       const newBank = [...commentBank, comment];
       setCommentBankState(newBank);
-      updateProfile({ comment_bank: newBank });
+      try {
+        await persistProfile({ comment_bank: newBank });
+      } catch (error) {
+        setCommentBankState(previous);
+        throw error;
+      }
     }
   };
 
-  const removeFromCommentBank = (comment: string) => {
+  const removeFromCommentBank = async (comment: string) => {
+    const previous = commentBank;
     const newBank = commentBank.filter(c => c !== comment);
     setCommentBankState(newBank);
-    updateProfile({ comment_bank: newBank });
-  };
-
-  const addSubject = (subject: string) => {
-    if (!savedSubjects.includes(subject)) {
-      const newList = [...savedSubjects, subject].sort();
-      setSavedSubjectsState(newList);
-      updateProfile({ subjects: newList });
+    try {
+      await persistProfile({ comment_bank: newBank });
+    } catch (error) {
+      setCommentBankState(previous);
+      throw error;
     }
   };
 
-  const removeSubject = (subject: string) => {
-    const newList = savedSubjects.filter(s => s !== subject);
-    setSavedSubjectsState(newList);
-    updateProfile({ subjects: newList });
+  const addSubject = async (subject: string) => {
+    if (!savedSubjects.includes(subject)) {
+      const previous = savedSubjects;
+      const newList = [...savedSubjects, subject].sort();
+      setSavedSubjectsState(newList);
+      try {
+        await persistProfile({ subjects: newList });
+      } catch (error) {
+        setSavedSubjectsState(previous);
+        throw error;
+      }
+    }
   };
 
-  const addGrade = (grade: string) => {
+  const removeSubject = async (subject: string) => {
+    const previous = savedSubjects;
+    const newList = savedSubjects.filter(s => s !== subject);
+    setSavedSubjectsState(newList);
+    try {
+      await persistProfile({ subjects: newList });
+    } catch (error) {
+      setSavedSubjectsState(previous);
+      throw error;
+    }
+  };
+
+  const addGrade = async (grade: string) => {
     if (!savedGrades.includes(grade)) {
+      const previous = savedGrades;
       const newList = [...savedGrades, grade].sort((a, b) => {
          return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
       });
       setSavedGradesState(newList);
-      updateProfile({ grades: newList });
+      try {
+        await persistProfile({ grades: newList });
+      } catch (error) {
+        setSavedGradesState(previous);
+        throw error;
+      }
     }
   };
 
-  const removeGrade = (grade: string) => {
+  const removeGrade = async (grade: string) => {
+    const previous = savedGrades;
     const newList = savedGrades.filter(g => g !== grade);
     setSavedGradesState(newList);
-    updateProfile({ grades: newList });
+    try {
+      await persistProfile({ grades: newList });
+    } catch (error) {
+      setSavedGradesState(previous);
+      throw error;
+    }
   };
 
   return (

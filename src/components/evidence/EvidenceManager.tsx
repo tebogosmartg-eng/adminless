@@ -6,14 +6,17 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileText, Image as ImageIcon, Trash2, ExternalLink, ShieldCheck, History, Plus, FileSearch, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UploadEvidenceDialog } from './UploadEvidenceDialog';
 import { ModerationSampleBuilder } from './ModerationSampleBuilder';
 import { getSignedFileUrl } from '@/services/storage';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useClasses } from '@/context/ClassesContext';
 import { useAcademic } from '@/context/AcademicContext';
 import { showError } from '@/utils/toast';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
 interface EvidenceManagerProps {
   classId: string;
@@ -24,17 +27,39 @@ interface EvidenceManagerProps {
 }
 
 export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerName: initialLearnerName }: EvidenceManagerProps) => {
-  const { evidenceList, addEvidence, deleteEvidence, isUploading } = useEvidence({ classId, learnerId, termId });
+  const { evidenceList, addEvidence, deleteEvidence, isUploading, loading, loadState, uploadState, deleteState } = useEvidence(
+    { classId, learnerId, termId },
+    { isLocked: !!isLocked },
+  );
   const { classes } = useClasses();
   const { assessments, marks } = useAcademic();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
+  const [loadingTimeoutReached, setLoadingTimeoutReached] = useState(false);
+  const evidenceState = useAsyncState();
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingTimeoutReached(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setLoadingTimeoutReached(true), 3000);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
   
   // Selection state for builder upload
   const [targetLearnerId, setTargetLearnerId] = useState<string | undefined>(learnerId);
   const [targetLearnerName, setTargetLearnerName] = useState<string | undefined>(initialLearnerName);
 
   const currentClass = classes.find(c => c.id === classId);
+  const activeEvidenceState =
+    evidenceState.status !== "idle"
+      ? evidenceState
+      : uploadState.status !== "idle"
+        ? uploadState
+        : deleteState.status !== "idle"
+          ? deleteState
+          : loadState;
 
   const getIcon = (cat: string) => {
     switch (cat) {
@@ -48,7 +73,10 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
   const handleViewFile = async (item: Evidence) => {
       setLoadingFileId(item.id);
       try {
-          const url = await getSignedFileUrl(item.file_path);
+          const url = await evidenceState.run(
+            async () => getSignedFileUrl(item.file_path),
+            { status: "loading" },
+          );
           window.open(url, '_blank', 'noreferrer');
       } catch (e) {
           console.error(e);
@@ -102,6 +130,18 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
 
   return (
     <div className="flex flex-col h-full gap-6">
+      <AsyncStatus
+        state={{
+          status: loadingFileId ? "loading" : loading ? "loading" : activeEvidenceState.status,
+          error: evidenceState.error ?? uploadState.error ?? deleteState.error ?? loadState.error,
+          retry: activeEvidenceState.retry,
+        }}
+      />
+      {loadingTimeoutReached && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Evidence is taking longer than expected. Please wait or refresh this class view.
+        </div>
+      )}
       {!learnerId && currentClass && (
           <ModerationSampleBuilder 
             classInfo={currentClass} 
@@ -131,7 +171,19 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[300px]">
-            {evidenceList.length === 0 ? (
+            {loading && evidenceList.length === 0 ? (
+              <div className="space-y-3 p-2 pr-4" aria-busy>
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg border bg-card/50">
+                    <Skeleton className="h-10 w-10 rounded-md shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <Skeleton className="h-4 w-[72%] max-w-md" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : evidenceList.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground space-y-2">
                 <History className="h-10 w-10 mx-auto opacity-20" />
                 <p className="text-sm">Supplementary evidence documentation is optional and may be managed externally.</p>
@@ -159,7 +211,7 @@ export const EvidenceManager = ({ classId, learnerId, termId, isLocked, learnerN
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewFile(item)} disabled={loadingFileId === item.id}>
                          {loadingFileId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteEvidence(item)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => void deleteEvidence(item)} disabled={deleteState.status === "saving"}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

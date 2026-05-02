@@ -10,6 +10,7 @@ import { getGradeSymbol } from '@/utils/grading';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, Users, CheckCircle2, AlertTriangle, AlertCircle, Scale, Target, XCircle } from 'lucide-react';
 import { useMemo } from 'react';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 interface AssessmentAnalyticsDialogProps {
   open: boolean;
@@ -56,7 +57,7 @@ export const AssessmentAnalyticsDialog = ({
     const highest = Math.max(...relevantMarks.map(m => m.percentage));
     const lowest = Math.min(...relevantMarks.map(m => m.percentage));
 
-    const passCount = relevantMarks.filter(m => m.percentage >= 50).length;
+    const passCount = relevantMarks.filter(m => m.percentage >= PASS_THRESHOLD).length;
     const failCount = count - passCount;
     const passRate = (passCount / count) * 100;
 
@@ -112,7 +113,7 @@ export const AssessmentAnalyticsDialog = ({
                 <DialogDescription className="text-xs sm:text-sm">{assessment.type} • Max: {assessment.max_mark} • Weight: {assessment.weight}%</DialogDescription>
              </div>
              {stats && (
-                 <Badge variant={Number(stats.passRate) >= 80 ? "default" : Number(stats.passRate) >= 50 ? "secondary" : "destructive"} className="px-3 py-1 text-xs h-7">
+                 <Badge variant={Number(stats.passRate) >= 80 ? "default" : Number(stats.passRate) >= PASS_THRESHOLD ? "secondary" : "destructive"} className="px-3 py-1 text-xs h-7">
                     Pass Rate: {stats.passRate}%
                  </Badge>
              )}

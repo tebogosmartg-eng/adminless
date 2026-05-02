@@ -15,9 +15,11 @@ import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useClasses } from "@/context/ClassesContext";
 import { useAcademic } from "@/context/AcademicContext";
+import { AsyncStatus } from "@/components/ui/AsyncStatus";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const ClassesContent = () => {
-  const { classes, isRefreshing } = useClasses();
+  const { classes, isRefreshing, loading } = useClasses();
   const { activeTerm, preloadMarkSheetData } = useAcademic();
   const location = useLocation();
   const navigate = useNavigate();
@@ -41,7 +43,8 @@ const ClassesContent = () => {
     handleToggleArchive,
     handleDuplicate,
     handleView,
-    clearFilters
+    clearFilters,
+    actionState
   } = useClassesLogic();
 
   useEffect(() => {
@@ -93,6 +96,13 @@ const ClassesContent = () => {
             <CreateClassDialog onClassCreate={addClass} />
         </div>
       </div>
+      <AsyncStatus
+        state={{
+          status: actionState.status,
+          error: actionState.error,
+          retry: actionState.retry,
+        }}
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-6">
@@ -113,7 +123,7 @@ const ClassesContent = () => {
                 </div>
                 
                 <div className="flex items-stretch gap-2 w-full sm:w-auto">
-                  <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+                  <Select value={selectedGrade ?? ""} onValueChange={setSelectedGrade}>
                       <SelectTrigger className="w-full sm:w-[140px] h-10 bg-background flex-1 sm:flex-none">
                           <Filter className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
                           <SelectValue placeholder="Grade" />
@@ -136,7 +146,19 @@ const ClassesContent = () => {
         </div>
 
         <TabsContent value="active" className="mt-0 focus-visible:outline-none">
-            {activeClasses.length === 0 ? (
+            {loading ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3].map((idx) => (
+                    <Card key={idx}>
+                      <CardContent className="space-y-3 p-6">
+                        <Skeleton className="h-5 w-2/3" />
+                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="h-24 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+            ) : activeClasses.length === 0 ? (
                 <EmptyState 
                     title="No Active Classes" 
                     description={searchQuery || selectedGrade !== 'all' ? "No classes match your current filters." : "You haven't created any classes for this term yet."}
@@ -153,8 +175,8 @@ const ClassesContent = () => {
                                 onView={handleView}
                                 onEdit={handleEdit}
                                 onDelete={handleDeleteClick}
-                                onDuplicate={handleDuplicate}
-                                onToggleArchive={handleToggleArchive}
+                                onDuplicate={(classItem) => void handleDuplicate(classItem)}
+                                onToggleArchive={(classItem) => void handleToggleArchive(classItem)}
                             />
                         </div>
                     ))}
@@ -163,7 +185,19 @@ const ClassesContent = () => {
         </TabsContent>
 
         <TabsContent value="archived" className="mt-0 focus-visible:outline-none">
-            {archivedClasses.length === 0 ? (
+            {loading ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3].map((idx) => (
+                    <Card key={idx}>
+                      <CardContent className="space-y-3 p-6">
+                        <Skeleton className="h-5 w-2/3" />
+                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="h-24 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+            ) : archivedClasses.length === 0 ? (
                 <EmptyState 
                     title="Empty Archive" 
                     description="Classes you archive to declutter your dashboard will appear here."
@@ -178,8 +212,8 @@ const ClassesContent = () => {
                             onView={handleView}
                             onEdit={handleEdit}
                             onDelete={handleDeleteClick}
-                            onDuplicate={handleDuplicate}
-                            onToggleArchive={handleToggleArchive}
+                            onDuplicate={(classItem) => void handleDuplicate(classItem)}
+                            onToggleArchive={(classItem) => void handleToggleArchive(classItem)}
                         />
                     ))}
                 </div>

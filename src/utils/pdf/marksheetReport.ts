@@ -5,6 +5,8 @@ import { getGradeSymbol } from '../grading';
 import { calculateWeightedAverage } from '../calculations';
 import { addHeader, addFooter, addSignatures, SchoolProfile, AttendanceStats } from './base';
 import { t } from '@/lib/useTranslation';
+import { sortAssessmentsDeterministically } from '../assessmentOrdering';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 export const generateClassPDF = (
   classInfo: ClassInfo,
@@ -19,7 +21,7 @@ export const generateClassPDF = (
   assessments: Assessment[] = [],
   marks: AssessmentMark[] = [],
   activeYear?: AcademicYear | null,
-  atRiskThreshold: number = 50,
+  atRiskThreshold: number = PASS_THRESHOLD,
   returnBlob: boolean = false,
   lang: string = 'en'
 ): Blob | void => {
@@ -54,8 +56,10 @@ export const generateClassPDF = (
 
     currentY += 30;
 
+    const orderedAssessments = sortAssessmentsDeterministically(assessments);
+
     const learnerData = (classInfo.learners || []).map(l => {
-        const avg = l.id ? calculateWeightedAverage(assessments, marks, l.id) : 0;
+        const avg = l.id ? calculateWeightedAverage(orderedAssessments, marks, l.id) : 0;
         return { ...l, avg };
     });
 
@@ -63,14 +67,14 @@ export const generateClassPDF = (
     const classAvg = validAvgs.length > 0 ? (validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length).toFixed(1) : "0.0";
     const highest = validAvgs.length > 0 ? Math.max(...validAvgs).toFixed(1) : "0.0";
     const lowest = validAvgs.length > 0 ? Math.min(...validAvgs).toFixed(1) : "0.0";
-    const passCount = validAvgs.filter(a => a >= 50).length;
+    const passCount = validAvgs.filter(a => a >= PASS_THRESHOLD).length;
     const passRate = validAvgs.length > 0 ? Math.round((passCount / validAvgs.length) * 100) : 0;
 
     const bands = {
         "0-29%": validAvgs.filter(a => a < 30).length,
         "30-39%": validAvgs.filter(a => a >= 30 && a < 40).length,
-        "40-49%": validAvgs.filter(a => a >= 40 && a < 50).length,
-        "50-59%": validAvgs.filter(a => a >= 50 && a < 60).length,
+        "40-49%": validAvgs.filter(a => a >= 40 && a < PASS_THRESHOLD).length,
+        "50-59%": validAvgs.filter(a => a >= PASS_THRESHOLD && a < 60).length,
         "60-69%": validAvgs.filter(a => a >= 60 && a < 70).length,
         "70-79%": validAvgs.filter(a => a >= 70 && a < 80).length,
         "80-100%": validAvgs.filter(a => a >= 80).length,
@@ -128,11 +132,11 @@ export const generateClassPDF = (
         currentY = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    if (assessments.length > 0) {
+    if (orderedAssessments.length > 0) {
         doc.setFontSize(11);
         doc.text(t('assessmentAnalysis', lang), margin, currentY);
         
-        const assRows = assessments.map(ass => {
+        const assRows = orderedAssessments.map(ass => {
             const assMarks = marks.filter(m => m.assessment_id === ass.id && m.score !== null);
             const pcts = assMarks.map(m => (Number(m.score) / ass.max_mark) * 100);
             const avg = pcts.length > 0 ? (pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1) : "-";
@@ -155,7 +159,7 @@ export const generateClassPDF = (
     doc.text("LEARNER PERFORMANCE DATA", margin, currentY);
 
     const tableHeaders = ['#', t('learnerName', lang)];
-    assessments.forEach(ass => tableHeaders.push(`${ass.title}\n(${ass.max_mark})`));
+    orderedAssessments.forEach(ass => tableHeaders.push(`${ass.title}\n(${ass.max_mark})`));
     tableHeaders.push(`${t('term', lang)} %`);
     tableHeaders.push(t('level', lang));
     if (attendanceMap) tableHeaders.push('Att %');
@@ -164,7 +168,7 @@ export const generateClassPDF = (
         const symbolObj = getGradeSymbol(learner.avg, gradingScheme);
         const row: any[] = [index + 1, learner.name];
         
-        assessments.forEach(ass => {
+        orderedAssessments.forEach(ass => {
             const markEntry = marks.find(m => m.assessment_id === ass.id && m.learner_id === learner.id);
             row.push(markEntry && markEntry.score !== null ? markEntry.score : '-');
         });

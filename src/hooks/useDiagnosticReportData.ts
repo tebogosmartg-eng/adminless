@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '@/db';
 import { ClassInfo } from '@/lib/types';
 import { calculateWeightedAverage } from '@/utils/calculations';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 export interface DiagnosticData {
   summary: {
@@ -39,10 +40,15 @@ export interface DiagnosticData {
 export const useDiagnosticReportData = (classInfo: ClassInfo, termId: string, atRiskThreshold: number) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DiagnosticData | null>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    let cancelled = false;
+
     const fetchData = async () => {
-      setLoading(true);
+      if (!cancelled) setLoading(true);
       try {
         const assessments = await db.assessments
           .where('[class_id+term_id]')
@@ -66,7 +72,7 @@ export const useDiagnosticReportData = (classInfo: ClassInfo, termId: string, at
         const classAvg = validAvgs.length > 0 ? validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length : 0;
         const highest = validAvgs.length > 0 ? Math.max(...validAvgs) : 0;
         const lowest = validAvgs.length > 0 ? Math.min(...validAvgs) : 0;
-        const passCount = validAvgs.filter(a => a >= 40).length;
+        const passCount = validAvgs.filter(a => a >= PASS_THRESHOLD).length;
         const passRate = validAvgs.length > 0 ? (passCount / validAvgs.length) * 100 : 0;
         const atRisk = learnerResults.filter(l => l.avg > 0 && l.avg < atRiskThreshold);
 
@@ -76,7 +82,7 @@ export const useDiagnosticReportData = (classInfo: ClassInfo, termId: string, at
         validAvgs.forEach(v => {
           if (v < 30) bands["0-29"]++;
           else if (v < 40) bands["30-39"]++;
-          else if (v < 50) bands["40-49"]++;
+          else if (v < PASS_THRESHOLD) bands["40-49"]++;
           else if (v < 60) bands["50-59"]++;
           else if (v < 70) bands["60-69"]++;
           else if (v < 80) bands["70-79"]++;
@@ -105,7 +111,11 @@ export const useDiagnosticReportData = (classInfo: ClassInfo, termId: string, at
             const prevTerm = allTerms[currentIdx - 1];
             const prevClass = await db.classes
               .where('term_id').equals(prevTerm.id)
-              .and(c => (c.className === classInfo.className || (c as any).class_name === classInfo.className) && c.subject === classInfo.subject)
+              .and(c =>
+                c.id === classInfo.id ||
+                (c as any).source_class_id === classInfo.id ||
+                (c as any).origin_class_id === classInfo.id
+              )
               .first();
             
             if (prevClass) {
@@ -124,6 +134,7 @@ export const useDiagnosticReportData = (classInfo: ClassInfo, termId: string, at
         const trend = prevAvg ? (classAvg > prevAvg ? "an improvement" : "a decline") : "consistent performance";
         const autoSummary = `The class achieved an average of ${classAvg.toFixed(1)}% for this term. Performance shows ${trend} compared to previous benchmarks. With a pass rate of ${passRate.toFixed(0)}%, ${atRisk.length} learners have been identified as requiring urgent intervention. The highest achievement was ${highest.toFixed(0)}%, while the lowest recorded was ${lowest.toFixed(0)}%.`;
 
+        if (cancelled || requestId !== requestIdRef.current) return;
         setData({
           summary: {
             classAverage: classAvg,
@@ -147,11 +158,16 @@ export const useDiagnosticReportData = (classInfo: ClassInfo, termId: string, at
       } catch (err) {
         console.error("Diagnostic calc error:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled && requestId === requestIdRef.current) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchData();
+    void fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, [classInfo, termId, atRiskThreshold]);
 
   return { data, loading };

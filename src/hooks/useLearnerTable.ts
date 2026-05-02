@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Learner } from '@/lib/types';
+import { useDebounce } from '@/hooks/useDebounce';
 
 type SortDirection = 'ascending' | 'descending';
 type SortKey = keyof Learner;
@@ -11,15 +12,17 @@ interface SortConfig {
 
 export const useLearnerTable = (learners: Learner[], atRiskThreshold: number) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
   const sortedAndFilteredLearners = useMemo(() => {
+    const normalizedSearchQuery = debouncedSearchQuery.toLowerCase();
     const filtered = learners
       .map((learner, index) => ({ ...learner, originalIndex: index }))
       .filter(learner => {
-        const matchesSearch = learner.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = learner.name.toLowerCase().includes(normalizedSearchQuery);
         
         let matchesStatus = true;
         const markNum = parseFloat(learner.mark);
@@ -60,7 +63,7 @@ export const useLearnerTable = (learners: Learner[], atRiskThreshold: number) =>
       });
     }
     return filtered;
-  }, [learners, sortConfig, searchQuery, statusFilter, atRiskThreshold]);
+  }, [learners, sortConfig, debouncedSearchQuery, statusFilter, atRiskThreshold]);
 
   const requestSort = (key: SortKey) => {
     let direction: SortDirection = 'ascending';

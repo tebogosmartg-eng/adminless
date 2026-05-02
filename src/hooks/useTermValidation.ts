@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { applySupabaseAssessmentOrder, sortAssessmentsDeterministically } from '@/utils/assessmentOrdering';
 
 export interface ValidationError {
   type: 'weight' | 'marks' | 'evidence' | 'sample';
@@ -18,14 +19,17 @@ export const useTermValidation = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      const { data: assessments } = await supabase.from('assessments').select('*').eq('term_id', termId);
+      const { data: assessments } = await applySupabaseAssessmentOrder(
+        supabase.from('assessments').select('*').eq('term_id', termId)
+      );
       if (!assessments || assessments.length === 0) {
         setValidating(false);
         return { isValid: true, errors: [] };
       }
+      const orderedAssessments = sortAssessmentsDeterministically(assessments);
 
       const classGroups: { [classId: string]: any[] } = {};
-      assessments.forEach(ass => {
+      orderedAssessments.forEach(ass => {
         if (!classGroups[ass.class_id]) classGroups[ass.class_id] = [];
         classGroups[ass.class_id].push(ass);
       });

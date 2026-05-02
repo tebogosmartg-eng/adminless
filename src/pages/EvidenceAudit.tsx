@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAcademic } from "@/context/AcademicContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -24,53 +24,101 @@ import {
 
 import { format } from "date-fns";
 import { getSignedFileUrl } from "@/services/storage";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useAsyncState } from "@/hooks/useAsyncState";
+import { AsyncStatus } from "@/components/ui/AsyncStatus";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const EvidenceAuditContent = () => {
   const { activeTerm } = useAcademic();
+  const termId = activeTerm?.id;
 
-  const [loading, setLoading] = useState(true);
   const [evidence, setEvidence] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [learners, setLearners] = useState<any[]>([]);
   const [terms, setTerms] = useState<any[]>([]);
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [termFilter, setTermFilter] = useState("all");
 
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadingTimeoutReached, setLoadingTimeoutReached] = useState(false);
+  const loadInProgressRef = useRef(false);
+  const loadState = useAsyncState();
+  const fileState = useAsyncState();
 
   // 🔥 FETCH EVERYTHING FROM SUPABASE
   useEffect(() => {
     const loadData = async () => {
+      if (!termId) {
+        setEvidence([]);
+        setClasses([]);
+        setLearners([]);
+        setTerms([]);
+        setLoading(false);
+        return;
+      }
+      if (loadInProgressRef.current) return;
+
+      loadInProgressRef.current = true;
       setLoading(true);
+      try {
+        await loadState.run(async () => {
+          console.log("[Evidence] fetch triggered");
+          const { data: sessionData } = await supabase.auth.getSession();
+          const user = sessionData?.session?.user;
+          if (!user) throw new Error("Session expired");
 
-      const [
-        evidenceRes,
-        classRes,
-        learnerRes,
-        termRes
-      ] = await Promise.all([
-        supabase.from("evidence").select("*"),
-        supabase.from("classes").select("*"),
-        supabase.from("learners").select("*"),
-        supabase.from("terms").select("*"),
-      ]);
+          const [
+            evidenceRes,
+            classRes,
+            termRes
+          ] = await Promise.all([
+            supabase.from("evidence").select("*").eq("user_id", user.id),
+            supabase.from("classes").select("*").eq("user_id", user.id),
+            supabase.from("terms").select("*"),
+          ]);
 
-      if (evidenceRes.error) console.error(evidenceRes.error);
-      if (classRes.error) console.error(classRes.error);
-      if (learnerRes.error) console.error(learnerRes.error);
-      if (termRes.error) console.error(termRes.error);
+          if (evidenceRes.error) throw evidenceRes.error;
+          if (classRes.error) throw classRes.error;
+          if (termRes.error) throw termRes.error;
 
-      setEvidence(evidenceRes.data || []);
-      setClasses(classRes.data || []);
-      setLearners(learnerRes.data || []);
-      setTerms(termRes.data || []);
+          const classIds = (classRes.data || []).map((item) => item.id);
+          const learnerRes = classIds.length
+            ? await supabase.from("learners").select("*").in("class_id", classIds)
+            : { data: [], error: null };
+          if (learnerRes.error) throw learnerRes.error;
 
-      setLoading(false);
+          setEvidence(evidenceRes.data || []);
+          setClasses(classRes.data || []);
+          setLearners(learnerRes.data || []);
+          setTerms(termRes.data || []);
+        }, { status: "loading" });
+      } catch (error) {
+        console.error("Evidence audit load failed:", error);
+        setEvidence([]);
+        setClasses([]);
+        setLearners([]);
+        setTerms([]);
+      } finally {
+        loadInProgressRef.current = false;
+        setLoading(false);
+      }
     };
 
-    loadData();
-  }, []);
+    void loadData();
+  }, [termId]);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingTimeoutReached(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setLoadingTimeoutReached(true), 3000);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
 
   // 🔥 AUTO SET TERM
   useEffect(() => {
@@ -99,39 +147,49 @@ const EvidenceAuditContent = () => {
 
   // 🔥 FILTER
   const filtered = useMemo(() => {
+    const normalizedSearch = debouncedSearch.toLowerCase();
     return enriched.filter((e) => {
       const matchesSearch =
-        e.file_name?.toLowerCase().includes(search.toLowerCase()) ||
-        e.learnerName?.toLowerCase().includes(search.toLowerCase()) ||
-        e.className?.toLowerCase().includes(search.toLowerCase());
+        e.file_name?.toLowerCase().includes(normalizedSearch) ||
+        e.learnerName?.toLowerCase().includes(normalizedSearch) ||
+        e.className?.toLowerCase().includes(normalizedSearch);
 
       const matchesTerm =
         termFilter === "all" || e.term_id === termFilter;
 
       return matchesSearch && matchesTerm;
     });
-  }, [enriched, search, termFilter]);
+  }, [enriched, debouncedSearch, termFilter]);
 
   const handleViewFile = async (item: any) => {
     setLoadingFileId(item.id);
     try {
-      const url = await getSignedFileUrl(item.file_path);
+      const url = await fileState.run(
+        () => getSignedFileUrl(item.file_path),
+        { status: "loading" },
+      );
       window.open(url, "_blank");
+    } catch (error) {
+      console.error("Evidence file open failed:", error);
     } finally {
       setLoadingFileId(null);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-40">
-        <Loader2 className="animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
+      <AsyncStatus
+        state={{
+          status: loading ? "loading" : loadState.status,
+          error: loadState.error,
+          retry: loadState.retry,
+        }}
+      />
+      {loadingTimeoutReached && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Evidence is taking longer than expected. Please wait or refresh.
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
@@ -142,7 +200,7 @@ const EvidenceAuditContent = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
 
-          <Select value={termFilter} onValueChange={setTermFilter}>
+          <Select value={termFilter ?? ""} onValueChange={setTermFilter}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Term" />
             </SelectTrigger>
@@ -174,7 +232,18 @@ const EvidenceAuditContent = () => {
             </TableHeader>
 
             <TableBody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <TableRow key={`evidence-loading-${idx}`}>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                  </TableRow>
+                ))
+              ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center">
                     No evidence found
@@ -220,12 +289,38 @@ const EvidenceAuditContent = () => {
 
 const EvidenceAudit = () => {
   const { user, authReady } = useAuthGuard();
+  const [authWaitTimedOut, setAuthWaitTimedOut] = useState(false);
 
-  if (!authReady || !user) {
+  useEffect(() => {
+    if (authReady) {
+      setAuthWaitTimedOut(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setAuthWaitTimedOut(true), 3000);
+    return () => window.clearTimeout(timer);
+  }, [authReady]);
+
+  if (!authReady && !authWaitTimedOut) {
     return (
       <div className="flex justify-center items-center h-40">
         <Loader2 className="animate-spin" />
       </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Authentication required</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            We could not confirm your session. Please retry.
+          </p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </CardContent>
+      </Card>
     );
   }
 

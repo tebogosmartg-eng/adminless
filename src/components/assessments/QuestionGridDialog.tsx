@@ -6,9 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Assessment, Learner, AssessmentMark } from '@/lib/types';
-import { Loader2, Save, AlertCircle, Grid3X3 } from 'lucide-react';
+import { Save, AlertCircle, Grid3X3 } from 'lucide-react';
 import { showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
+import { normalizeQuestionMarksForAssessment } from '@/utils/questionMarks';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -40,7 +43,7 @@ export const QuestionGridDialog = ({
 }: QuestionGridDialogProps) => {
   // state structure: { learnerId: { questionId: "scoreString" } }
   const [gridData, setGridData] = useState<Record<string, Record<string, string>>>({});
-  const [isSaving, setIsSaving] = useState(false);
+  const markSaveState = useAsyncState({ successDurationMs: 1200 });
   const gridDataRef = useRef<Record<string, Record<string, string>>>({});
   const saveSequenceRef = useRef<Record<string, number>>({});
   const inFlightValueRef = useRef<Record<string, string>>({});
@@ -54,9 +57,10 @@ export const QuestionGridDialog = ({
         if (!l.id) return;
         initialData[l.id] = {};
         const markRecord = existingMarks.find(m => m.learner_id === l.id && m.assessment_id === assessment.id);
+        const normalizedQuestionMarks = normalizeQuestionMarksForAssessment(markRecord?.question_marks, assessment.questions || []);
         
         assessment.questions!.forEach(q => {
-          const qMark = markRecord?.question_marks?.[q.id];
+          const qMark = normalizedQuestionMarks[q.id];
           initialData[l.id][q.id] = qMark !== undefined && qMark !== null ? String(qMark) : "";
         });
       });
@@ -122,7 +126,10 @@ export const QuestionGridDialog = ({
 
     try {
       const payload = buildLearnerUpdate(learnerId, rowData);
-      const result = await onSave([payload]);
+      const result = await markSaveState.run(
+        async () => onSave([payload]),
+        { status: "saving" },
+      );
       if (saveSequenceRef.current[key] !== seq) return;
       if (result?.success === false) {
         throw new Error(result.message || "Failed to save marks");
@@ -150,7 +157,7 @@ export const QuestionGridDialog = ({
         delete inFlightValueRef.current[key];
       }
     }
-  }, [buildLearnerUpdate, onSave]);
+  }, [buildLearnerUpdate, markSaveState, onSave]);
 
   const handleCellChange = (
     learnerId: string,
@@ -254,21 +261,13 @@ export const QuestionGridDialog = ({
     return parseFloat(total.toFixed(1));
   };
 
-  const handleSave = async () => {
-    if (isSaving) return;
-
+  const handleSave = () => {
     const validation = validateGrid();
     if (!validation.isValid) {
       showError(validation.errorMessage || "Please fix invalid marks (highlighted in red) before saving.");
       return;
     }
-
-    setIsSaving(true);
-    try {
-      onOpenChange(false);
-    } finally {
-      setIsSaving(false);
-    }
+    onOpenChange(false);
   };
 
   const isGridValid = useMemo(() => {
@@ -392,16 +391,21 @@ export const QuestionGridDialog = ({
                 Fix invalid marks (red cells) before saving.
               </div>
             )}
+            {(markSaveState.status !== "idle" || markSaveState.error) && (
+              <div className="min-w-[260px]">
+                <AsyncStatus state={{ status: markSaveState.status, error: markSaveState.error, retry: markSaveState.retry }} />
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button 
               onClick={handleSave} 
-              disabled={isSaving || isLocked || !isGridValid}
+              disabled={isLocked || !isGridValid}
               className="font-bold gap-2 bg-blue-600 hover:bg-blue-700 w-32"
             >
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {isSaving ? "Saving..." : "Save Grid"}
+              <Save className="h-4 w-4" />
+              Done
             </Button>
           </div>
         </DialogFooter>

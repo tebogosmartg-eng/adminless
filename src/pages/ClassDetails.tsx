@@ -1,8 +1,10 @@
-import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useAcademic } from "@/context/AcademicContext";
+import { ClassInfo } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassHeader } from "@/components/ClassHeader";
 import { MarkSheet } from "@/components/assessments/MarkSheet"; 
@@ -16,47 +18,64 @@ import { useLearnerState } from "@/hooks/useLearnerState";
 import { useAiFeatures } from "@/hooks/useAiFeatures";
 import { useClassExport } from "@/hooks/useClassExport";
 import { useClassDialogs } from "@/hooks/useClassDialogs";
-import { Button } from "@/components/ui/button";
 import { 
-  Loader2, 
   ShieldCheck, 
   BarChart3, 
-  ArrowLeft, 
-  Sparkles, 
-  Dices, 
   FileDown,
   Camera
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { showError } from "@/utils/toast";
 import { generateSASAMSExport } from "@/utils/sasams";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fetchClassInsights } from "@/hooks/useClassAnalysis";
 
 import Scan from "@/pages/Scan";
-import EvidenceAudit from "@/pages/EvidenceAudit";
-import ScanAudit from "@/pages/ScanAudit";
-import Reports from "@/pages/Reports";
 
 const ClassDetailsContent = () => {
   const { classId } = useParams();
+  const { classes, isLoading, hasLoadedOnce } = useClasses();
+
+  if (isLoading || !hasLoadedOnce) {
+    return (
+      <div className="space-y-4 w-full p-4">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-10 w-full max-w-2xl" />
+        <Skeleton className="h-[360px] w-full" />
+      </div>
+    );
+  }
+
+  if (!classId) {
+    return <div className="p-8 text-center text-muted-foreground">Class not found.</div>;
+  }
+
+  const classInfo = classes.find((c) => c.id === classId);
+  if (!classInfo) {
+    return <div className="p-8 text-center text-muted-foreground">Class not found.</div>;
+  }
+
+  return <ClassDetailsLoaded classId={classId} classInfo={classInfo} />;
+};
+
+const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo: ClassInfo }) => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { classes, loading: classesLoading, updateClassLearners, updateClassDetails } = useClasses();
+  const { updateClassLearners, updateClassDetails } = useClasses();
   const {
     assessments,
     activeTerm,
     activeYear,
     marks,
     loading: academicLoading,
-    isRefreshing: academicRefreshing,
     refreshAssessments,
     hasPreloadedMarkSheetData
   } = useAcademic();
   const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo } = useSettings();
-  
-  const classInfo = classes.find((c) => c.id === classId);
-  const isLocked = !!activeTerm?.closed || !!classInfo?.is_finalised;
+  const isLocked = !!activeTerm?.closed || !!classInfo.is_finalised;
 
   const [diagOpen, setDiagOpen] = useState(false);
+  const [isMarkSheetUpdating, setIsMarkSheetUpdating] = useState(false);
+  const marksheetRequestRef = useRef(0);
 
   const {
     learners,
@@ -71,7 +90,7 @@ const ClassDetailsContent = () => {
     handleBatchClearMarks,
     handleUpdateLearners,
     handleSaveChanges
-  } = useLearnerState(classInfo, updateClassLearners);
+  } = useLearnerState(classInfo, updateClassLearners, isLocked);
 
   const {
     isGeneratingInsights,
@@ -104,26 +123,81 @@ const ClassDetailsContent = () => {
   );
 
   const hasCachedMarkSheetData = useMemo(() => {
-    if (!classId || !activeTerm?.id) return false;
+    if (!activeTerm?.id) return false;
     const hasContextData = assessments.some(a => a.class_id === classId && a.term_id === activeTerm.id);
     return hasContextData || hasPreloadedMarkSheetData(classId, activeTerm.id);
   }, [classId, activeTerm?.id, assessments, hasPreloadedMarkSheetData]);
-  const isMarkSheetRefreshing = academicRefreshing && hasCachedMarkSheetData;
+
+  const fetchInsights = () => fetchClassInsights(classId, activeTerm?.id, activeYear?.id);
+
+  const fetchReports = async () => ({ classId, ready: true });
 
   useEffect(() => {
-      if (classId && activeTerm?.id) {
-          void refreshAssessments(classId, activeTerm.id, hasCachedMarkSheetData);
+    queryClient.prefetchQuery({ queryKey: ["insights", classId], queryFn: fetchInsights });
+    queryClient.prefetchQuery({ queryKey: ["reports", classId], queryFn: fetchReports });
+  }, [classId, activeTerm?.id, activeYear?.id, queryClient]);
+
+  useEffect(() => {
+    setIsMarkSheetUpdating(false);
+    marksheetRequestRef.current += 1;
+  }, []);
+
+  useEffect(() => {
+    setIsMarkSheetUpdating(false);
+    marksheetRequestRef.current += 1;
+  }, [classId]);
+
+  useEffect(() => {
+      if (!activeTerm?.id) {
+        setIsMarkSheetUpdating(false);
+        marksheetRequestRef.current += 1;
+        return;
       }
-  }, [classId, activeTerm?.id, refreshAssessments, hasCachedMarkSheetData]);
+
+      let isCancelled = false;
+      const requestId = ++marksheetRequestRef.current;
+      const timeoutId = setTimeout(() => {
+        if (!isCancelled && requestId === marksheetRequestRef.current) {
+          setIsMarkSheetUpdating(false);
+          console.warn("[marksheet] forced reset after timeout");
+        }
+      }, 10000);
+
+      const runRefresh = async () => {
+        setIsMarkSheetUpdating(true);
+
+        try {
+          // Align React Query filter only; assessments/marks load via AcademicContext queries.
+          // Avoid forceRefresh here — it duplicated preloadMarkSheetData + churned when cache appeared.
+          await refreshAssessments(classId, activeTerm.id, false);
+          if (requestId !== marksheetRequestRef.current) return;
+        } catch (err) {
+          console.error("[marksheet update failed]", err);
+        } finally {
+          clearTimeout(timeoutId);
+          if (!isCancelled && requestId === marksheetRequestRef.current) {
+            setIsMarkSheetUpdating(false);
+          }
+        }
+      };
+
+      void runRefresh();
+
+      return () => {
+        isCancelled = true;
+        clearTimeout(timeoutId);
+        if (requestId === marksheetRequestRef.current) {
+          setIsMarkSheetUpdating(false);
+        }
+      };
+  }, [classId, activeTerm?.id, refreshAssessments]);
 
   useEffect(() => {
-    if (classInfo) {
-      document.title = `${classInfo.className} | AdminLess`;
-    }
+    document.title = `${classInfo.className} | AdminLess`;
   }, [classInfo]);
 
   const handleSASAMSExportAction = () => {
-      if (!classInfo || !activeTerm || !activeYear) return;
+      if (!activeTerm || !activeYear) return;
       if (!classInfo.is_finalised && !activeTerm.closed) {
           showError("Export Blocked: Class must be finalised before SA-SAMS export.");
           return;
@@ -139,26 +213,12 @@ const ClassDetailsContent = () => {
       );
   };
 
-  if (classesLoading && !classInfo) {
-    return (
-      <div className="space-y-4 w-full p-4">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-10 w-full max-w-2xl" />
-        <Skeleton className="h-[360px] w-full" />
-      </div>
-    );
-  }
-
-  if (!classId || !classInfo) {
-    return <div className="p-8 text-center text-muted-foreground">Class not found.</div>;
-  }
-
   if (!activeTerm) {
       return <div className="p-8 text-center text-muted-foreground">Academic term not selected. Please select a term in the header.</div>;
   }
 
   return (
-    <div className="container mx-auto p-2 sm:p-4 w-full max-w-7xl space-y-6 pb-20 relative animate-in fade-in duration-700">
+    <div className="container mx-auto p-2 sm:p-4 w-full max-w-7xl space-y-6 pb-20 relative animate-in fade-in duration-200">
       <div className="flex flex-col gap-4 w-full">
         <ClassHeader 
             classInfo={classInfo}
@@ -199,7 +259,7 @@ const ClassDetailsContent = () => {
             <MarkSheet 
                 classInfo={classInfo} 
                 isLoading={academicLoading && !hasCachedMarkSheetData}
-                isRefreshing={isMarkSheetRefreshing}
+                isRefreshing={isMarkSheetUpdating}
                 onViewLearnerProfile={(l) => dialogs.setSelectedProfileLearner(l)}
             />
         </TabsContent>
@@ -241,7 +301,7 @@ const ClassDetailsContent = () => {
         </TabsContent>
         
         <TabsContent value="attendance" className="mt-4">
-           <AttendanceView classId={classInfo.id} learners={learners} />
+           <AttendanceView classId={classInfo.id} learners={learners} isLocked={isLocked} />
         </TabsContent>
       </Tabs>
 

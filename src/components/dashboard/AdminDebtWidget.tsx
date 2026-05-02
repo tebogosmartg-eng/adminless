@@ -19,6 +19,7 @@ import {
 import { useClasses } from "@/context/ClassesContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { usePendingAttendance } from "@/hooks/usePendingAttendance";
+import { applySupabaseAssessmentOrder, sortAssessmentsDeterministically } from "@/utils/assessmentOrdering";
 
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -42,11 +43,13 @@ export const AdminDebtWidget = () => {
       const classIds = activeClasses.map(c => c.id);
 
       // Get assessments
-      const { data: assessments } = await supabase
-        .from("assessments")
-        .select("*")
-        .eq("term_id", activeTerm.id)
-        .in("class_id", Array.isArray(classIds) ? classIds : [classIds]);
+      const { data: assessments } = await applySupabaseAssessmentOrder(
+        supabase
+          .from("assessments")
+          .select("*")
+          .eq("term_id", activeTerm.id)
+          .in("class_id", Array.isArray(classIds) ? classIds : [classIds])
+      );
 
       if (!assessments) {
         setMissingMarksInfo([]);
@@ -56,7 +59,8 @@ export const AdminDebtWidget = () => {
 
       const debts: any[] = [];
 
-      for (const ass of assessments) {
+      const orderedAssessments = sortAssessmentsDeterministically(assessments as any[]);
+      for (const ass of orderedAssessments) {
         const cls = activeClasses.find(c => c.id === ass.class_id);
         if (!cls) continue;
 

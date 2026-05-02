@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '@/db';
 import { calculateWeightedAverage } from '@/utils/calculations';
+import { sortAssessmentsDeterministically } from '@/utils/assessmentOrdering';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 const TEACHER_FILE_CACHE_TTL_MS = 5 * 60 * 1000;
 type TeacherFileCacheEntry = { data: any; loadedAt: number };
@@ -93,17 +95,18 @@ export const useTeacherFileData = (yearId: string, termId: string, classId: stri
               }
             }
 
-          const assessmentIds = new Set(assessments.map(a => a.id));
+          const orderedAssessments = sortAssessmentsDeterministically(assessments);
+          const assessmentIds = new Set(orderedAssessments.map(a => a.id));
           const relevantMarks = marks.filter(m => assessmentIds.has(m.assessment_id));
           const relevantDiagnostics = diagnostics.filter(d => assessmentIds.has(d.assessment_id));
 
-          const learnerAvgs = learners.map(l => l.id ? calculateWeightedAverage(assessments, relevantMarks, l.id) : 0).filter(a => a > 0);
+          const learnerAvgs = learners.map(l => l.id ? calculateWeightedAverage(orderedAssessments, relevantMarks, l.id) : 0).filter(a => a > 0);
           const avg = learnerAvgs.length > 0 ? (learnerAvgs.reduce((a, b) => a + b, 0) / learnerAvgs.length).toFixed(1) : "0.0";
-          const passRate = learnerAvgs.length > 0 ? Math.round((learnerAvgs.filter(a => a >= 50).length / learnerAvgs.length) * 100) : 0;
+          const passRate = learnerAvgs.length > 0 ? Math.round((learnerAvgs.filter(a => a >= PASS_THRESHOLD).length / learnerAvgs.length) * 100) : 0;
 
           const nextData = {
               classInfo: { ...classInfo, learners: learners.sort((a,b) => a.name.localeCompare(b.name)) },
-              assessments: assessments.sort((a,b) => (a.date||'').localeCompare(b.date||'')),
+              assessments: orderedAssessments,
               marks: relevantMarks,
               evidence,
               diagnostics: relevantDiagnostics,

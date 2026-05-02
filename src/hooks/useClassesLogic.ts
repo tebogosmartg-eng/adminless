@@ -4,6 +4,8 @@ import { useClasses } from "@/context/ClassesContext";
 import { useAcademic } from "@/context/AcademicContext";
 import { ClassInfo } from "@/lib/types";
 import { showSuccess, showError } from "@/utils/toast";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useAsyncState } from "@/hooks/useAsyncState";
 
 export const useClassesLogic = () => {
   const { classes, addClass, toggleClassArchive, deleteClass } = useClasses();
@@ -15,8 +17,10 @@ export const useClassesLogic = () => {
   const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
   
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedGrade, setSelectedGrade] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("active");
+  const actionState = useAsyncState();
 
   const handleEdit = (classItem: ClassInfo) => {
     setSelectedClass(classItem);
@@ -28,13 +32,20 @@ export const useClassesLogic = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleToggleArchive = (classItem: ClassInfo) => {
+  const handleToggleArchive = async (classItem: ClassInfo) => {
     const newStatus = !classItem.archived;
-    toggleClassArchive(classItem.id, newStatus);
-    showSuccess(newStatus ? "Class archived." : "Class restored.");
+    try {
+      await actionState.run(
+        () => toggleClassArchive(classItem.id, newStatus),
+        { status: "saving" },
+      );
+      showSuccess(newStatus ? "Class archived." : "Class restored.");
+    } catch {
+      showError("Failed - Retry");
+    }
   };
 
-  const handleDuplicate = (classItem: ClassInfo) => {
+  const handleDuplicate = async (classItem: ClassInfo) => {
     if (activeTerm?.closed) {
         showError("Restricted: Cannot manually duplicate classes in a finalized term. Use the Roll Forward tool in Settings.");
         return;
@@ -53,8 +64,12 @@ export const useClassesLogic = () => {
       }))
     };
     
-    addClass(newClass);
-    showSuccess(`Class duplicated as "${newClass.className}"`);
+    try {
+      await actionState.run(() => addClass(newClass), { status: "saving" });
+      showSuccess(`Class duplicated as "${newClass.className}"`);
+    } catch {
+      showError("Failed - Retry");
+    }
   };
 
   const handleView = (id: string) => {
@@ -68,7 +83,7 @@ export const useClassesLogic = () => {
     return Array.from(grades).sort();
   }, [classes]);
 
-  const normalizedSearchQuery = searchQuery.toLowerCase();
+  const normalizedSearchQuery = debouncedSearchQuery.toLowerCase();
 
   const activeClasses = useMemo(
     () =>
@@ -108,6 +123,6 @@ export const useClassesLogic = () => {
     selectedClass, searchQuery, setSearchQuery, selectedGrade, setSelectedGrade,
     activeTab, setActiveTab, uniqueGrades, activeClasses, archivedClasses,
     hasActiveFilters, handleEdit, handleDeleteClick, handleToggleArchive,
-    handleDuplicate, handleView, clearFilters
+    handleDuplicate, handleView, clearFilters, actionState
   };
 };

@@ -14,16 +14,18 @@ import {
     CalendarClock, 
     Layers, 
     School, 
-    Sparkles,
     ArrowLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSettings } from "@/context/SettingsContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Settings = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const highlightId = location.state?.highlightId;
   const isGuided = location.state?.fromOnboarding;
+  const { isLoadingProfile } = useSettings();
 
   let defaultTab = "academic";
   if (highlightId === 'subject-config' || highlightId === 'profile-settings') defaultTab = "profile";
@@ -41,7 +43,15 @@ const Settings = () => {
           </Button>
         )}
       </div>
-      
+      {isLoadingProfile && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Loading...</p>
+          <div className="space-y-2">
+            <Skeleton className="h-2 w-full rounded-lg" />
+            <Skeleton className="h-2 w-3/4 rounded-lg" />
+          </div>
+        </div>
+      )}
       <Tabs defaultValue={defaultTab} className="space-y-6 min-w-0">
         <div className="overflow-x-auto no-scrollbar">
           <TabsList className="bg-muted/50 border p-1 inline-flex h-auto w-max min-w-full sm:min-w-0 flex-nowrap whitespace-nowrap">
@@ -56,9 +66,6 @@ const Settings = () => {
             </TabsTrigger>
             <TabsTrigger value="system" className="gap-2 px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <Settings2 className="h-4 w-4" /> Preferences
-            </TabsTrigger>
-            <TabsTrigger value="data" className="gap-2 px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-                <Sparkles className="h-4 w-4" /> Demo Data
             </TabsTrigger>
           </TabsList>
         </div>

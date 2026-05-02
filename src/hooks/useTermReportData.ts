@@ -3,9 +3,12 @@ import { Assessment, AssessmentMark, Learner, ClassInfo } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateWeightedAverage } from '@/utils/calculations';
 import { supabase } from '@/lib/supabaseClient';
+import { applySupabaseAssessmentOrder, sortAssessmentsDeterministically } from '@/utils/assessmentOrdering';
 
 interface TermReportResult {
+  learnerId: string;
   learnerName: string;
+  classId: string;
   className: string;
   assessments: { [title: string]: string }; 
   termAverage: number;
@@ -16,7 +19,7 @@ export const useTermReportData = () => {
   const [reportData, setReportData] = useState<TermReportResult[] | null>(null);
   const [allAssessmentTitles, setAllAssessmentTitles] = useState<string[]>([]);
 
-  const generateTermReport = async (termId: string, grade: string, subject: string) => {
+  const generateTermReport = async (termId: string, grade: string, subject: string, classId?: string) => {
     if (!termId || grade === "all" || subject === "all") {
       showError("Please select a specific Term, Grade, and Subject.");
       return;
@@ -37,7 +40,7 @@ export const useTermReportData = () => {
         
       if (classErr) throw classErr;
 
-      const allClasses = (classesData || []).filter(c => !c.archived);
+      const allClasses = (classesData || []).filter((c) => !c.archived && (!classId || c.id === classId));
 
       if (!allClasses || allClasses.length === 0) {
         showError("No active classes found for this selection.");
@@ -52,16 +55,27 @@ export const useTermReportData = () => {
         .select('*')
         .in('class_id', classIds);
 
-      const { data: assessmentsData } = await supabase
-        .from('assessments')
-        .select('*')
-        .eq('term_id', termId)
-        .in('class_id', Array.isArray(classIds) ? classIds : [classIds]);
+      const { data: assessmentsData } = await applySupabaseAssessmentOrder(
+        supabase
+          .from('assessments')
+          .select('*')
+          .eq('term_id', termId)
+          .in('class_id', Array.isArray(classIds) ? classIds : [classIds])
+      );
 
-      const uniqueTitles = Array.from(new Set<string>((assessmentsData || []).map(a => a.title as string))).sort();
+      const orderedAssessments = sortAssessmentsDeterministically(assessmentsData || []);
+
+      const uniqueTitles: string[] = [];
+      const seenTitles = new Set<string>();
+      orderedAssessments.forEach((assessment) => {
+        const title = String(assessment.title || "").trim();
+        if (!title || seenTitles.has(title)) return;
+        seenTitles.add(title);
+        uniqueTitles.push(title);
+      });
       setAllAssessmentTitles(uniqueTitles);
 
-      const assessmentIds = (assessmentsData || []).map(a => a.id);
+      const assessmentIds = orderedAssessments.map(a => a.id);
       const { data: marksData } = await supabase
         .from('assessment_marks')
         .select('*')
@@ -70,7 +84,7 @@ export const useTermReportData = () => {
       const results: TermReportResult[] = [];
 
       allClasses.forEach((cls: any) => {
-        const classAssessments = (assessmentsData || []).filter((a: any) => a.class_id === cls.id);
+        const classAssessments = orderedAssessments.filter((a: any) => a.class_id === cls.id);
         const classLearners = (allLearners || []).filter((l: any) => l.class_id === cls.id);
         const displayClassName = cls.class_name || cls.className || "Class";
         
@@ -97,7 +111,9 @@ export const useTermReportData = () => {
           const avg = calculateWeightedAverage(classAssessments, marksData || [], learner.id);
 
           results.push({
+            learnerId: learner.id,
             learnerName: learner.name,
+            classId: cls.id,
             className: displayClassName,
             assessments: learnerAssessments,
             termAverage: avg
@@ -105,7 +121,7 @@ export const useTermReportData = () => {
         });
       });
 
-      results.sort((a, b) => a.learnerName.localeCompare(b.learnerName));
+      results.sort((a, b) => a.learnerName.localeCompare(b.learnerName, undefined, { numeric: true, sensitivity: 'base' }));
       setReportData(results);
       showSuccess(`Generated report for ${results.length} learners.`);
 

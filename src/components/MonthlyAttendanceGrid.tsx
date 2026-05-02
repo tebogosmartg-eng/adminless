@@ -1,21 +1,73 @@
 import { format, isWeekend, isSameDay } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Learner, AttendanceStatus } from '@/lib/types';
+import { Learner, AttendanceRecord, AttendanceStatus } from '@/lib/types';
 import { useMonthlyAttendance } from '@/hooks/useMonthlyAttendance';
 import { Check, X, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface MonthlyAttendanceGridProps {
   classId: string;
   learners: Learner[];
   currentDate: Date;
+  attendanceData: Record<string, AttendanceRecord>;
+  onStatusChange: (learnerId: string, status: AttendanceStatus, targetDate?: Date) => void;
   onDayClick: (date: Date) => void;
+  isLocked?: boolean;
 }
 
-export const MonthlyAttendanceGrid = ({ classId, learners, currentDate, onDayClick }: MonthlyAttendanceGridProps) => {
-  const { days, loading, getStatus, updateStatus, records } = useMonthlyAttendance(classId, currentDate);
+export const MonthlyAttendanceGrid = ({
+  classId,
+  learners,
+  currentDate,
+  attendanceData,
+  onStatusChange,
+  onDayClick,
+  isLocked = false
+}: MonthlyAttendanceGridProps) => {
+  const { days, loading, updateStatus, records } = useMonthlyAttendance(
+    classId,
+    currentDate,
+    attendanceData,
+    onStatusChange,
+    isLocked
+  );
+
+  const buildGrid = (
+    learnersList: Learner[],
+    dayList: Date[],
+    attendanceRecords: AttendanceRecord[]
+  ) => {
+    const statusByLearnerAndDay = new Map<string, AttendanceStatus>();
+    attendanceRecords.forEach((record) => {
+      statusByLearnerAndDay.set(`${record.learner_id}|${record.date}`, record.status);
+    });
+
+    const rows = learnersList.map((learner) => {
+      const dayStatuses = dayList.map((day) => {
+        if (!learner.id) return null;
+        const dateKey = format(day, "yyyy-MM-dd");
+        return statusByLearnerAndDay.get(`${learner.id}|${dateKey}`) ?? null;
+      });
+
+      const stats = dayStatuses.reduce(
+        (acc, status) => {
+          if (status === "present") acc.present += 1;
+          if (status === "absent") acc.absent += 1;
+          if (status === "late") acc.late += 1;
+          if (status === "excused") acc.excused += 1;
+          return acc;
+        },
+        { present: 0, absent: 0, late: 0, excused: 0 }
+      );
+
+      return { learner, dayStatuses, stats };
+    });
+
+    return { rows };
+  };
 
   const getStatusIcon = (status: string | undefined | null) => {
     switch (status) {
@@ -37,25 +89,61 @@ export const MonthlyAttendanceGrid = ({ classId, learners, currentDate, onDayCli
     }
   };
 
-  // Calculate monthly stats per row
-  const rowStats = useMemo(() => {
-    if (!records) return {};
-    const stats: Record<string, { present: number; absent: number; late: number }> = {};
-    
-    learners.forEach(l => {
-      if (!l.id) return;
-      const lRecs = records.filter(r => r.learner_id === l.id);
-      stats[l.id] = {
-        present: lRecs.filter(r => r.status === 'present').length,
-        absent: lRecs.filter(r => r.status === 'absent').length,
-        late: lRecs.filter(r => r.status === 'late').length
-      };
-    });
-    return stats;
-  }, [records, learners]);
+  const today = useMemo(() => new Date(), []);
+
+  // Build a month grid once per data change.
+  const grid = useMemo(() => buildGrid(learners, days, records), [learners, days, records]);
 
   if (loading) {
-    return <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" /></div>;
+    const skeletonDayCount = Math.min(days.length || 28, 31);
+    const skeletonRowCount = learners.length > 0 ? Math.min(learners.length, 8) : 6;
+    return (
+      <div
+        className="border rounded-md overflow-x-auto bg-background w-full max-w-[calc(100vw-2.5rem)] md:max-w-full min-h-[280px]"
+        aria-busy
+      >
+        <Table className="border-collapse table-fixed w-full min-w-[800px]">
+          <TableHeader>
+            <TableRow className="bg-muted/30">
+              <TableHead className="w-[180px] sticky left-0 bg-background z-20 border-r">
+                <Skeleton className="h-4 w-16 mx-auto" />
+              </TableHead>
+              {Array.from({ length: skeletonDayCount }).map((_, i) => (
+                <TableHead key={i} className="px-0 min-w-[32px] border-r">
+                  <Skeleton className="h-6 w-5 mx-auto rounded" />
+                </TableHead>
+              ))}
+              <TableHead className="w-[40px]" />
+              <TableHead className="w-[40px]" />
+              <TableHead className="w-[40px]" />
+              <TableHead className="w-[40px]" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: skeletonRowCount }).map((_, rowIdx) => (
+              <TableRow key={`monthly-sk-${rowIdx}`}>
+                <TableCell className="sticky left-0 bg-background z-10 border-r py-2">
+                  <Skeleton className="h-4 w-[85%]" />
+                </TableCell>
+                {Array.from({ length: skeletonDayCount }).map((_, i) => (
+                  <TableCell key={i} className="p-1 border-r">
+                    <Skeleton className="h-7 w-full rounded-sm" />
+                  </TableCell>
+                ))}
+                <TableCell><Skeleton className="h-4 w-4 mx-auto" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-4 mx-auto" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-4 mx-auto" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-4 mx-auto" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <div className="flex items-center justify-center gap-2 py-2 border-t bg-muted/10 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+          Loading attendance…
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -72,7 +160,7 @@ export const MonthlyAttendanceGrid = ({ classId, learners, currentDate, onDayCli
                 className={cn(
                   "px-0 text-center min-w-[32px] cursor-pointer hover:bg-muted transition-colors border-r",
                   isWeekend(day) && "bg-muted/30 text-muted-foreground",
-                  isSameDay(day, new Date()) && "text-primary font-bold bg-primary/5"
+                  isSameDay(day, today) && "text-primary font-bold bg-primary/5"
                 )}
                 onClick={() => onDayClick(day)}
               >
@@ -83,14 +171,13 @@ export const MonthlyAttendanceGrid = ({ classId, learners, currentDate, onDayCli
               </TableHead>
             ))}
             <TableHead className="w-[40px] text-center text-[9px] font-bold text-green-600 bg-green-50/50 sticky right-[80px] z-10 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">P</TableHead>
-            <TableHead className="w-[40px] text-center text-[9px] font-bold text-red-600 bg-red-50/50 sticky right-[40px] z-10 border-l">A</TableHead>
-            <TableHead className="w-[40px] text-center text-[9px] font-bold text-orange-600 bg-orange-50/50 sticky right-0 z-10 border-l">L</TableHead>
+            <TableHead className="w-[40px] text-center text-[9px] font-bold text-red-600 bg-red-50/50 sticky right-[80px] z-10 border-l">A</TableHead>
+            <TableHead className="w-[40px] text-center text-[9px] font-bold text-orange-600 bg-orange-50/50 sticky right-[40px] z-10 border-l">L</TableHead>
+            <TableHead className="w-[40px] text-center text-[9px] font-bold text-blue-600 bg-blue-50/50 sticky right-0 z-10 border-l">E</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {learners.map((learner) => {
-            const stats = learner.id ? rowStats[learner.id] : null;
-            
+          {grid.rows.map(({ learner, dayStatuses, stats }) => {
             return (
               <TableRow key={learner.id || learner.name} className="group hover:bg-muted/20">
                 <TableCell 
@@ -99,8 +186,8 @@ export const MonthlyAttendanceGrid = ({ classId, learners, currentDate, onDayCli
                 >
                   {learner.name}
                 </TableCell>
-                {days.map((day) => {
-                  const status = learner.id ? getStatus(learner.id, day) : null;
+                {days.map((day, dayIndex) => {
+                  const status = dayStatuses[dayIndex];
                   const isWknd = isWeekend(day);
                   
                   return (
@@ -109,9 +196,10 @@ export const MonthlyAttendanceGrid = ({ classId, learners, currentDate, onDayCli
                       className={cn(
                         "p-0 text-center border-r transition-colors cursor-pointer relative", 
                         isWknd ? "bg-muted/10" : "bg-transparent",
-                        getStatusClass(status)
+                        getStatusClass(status),
+                        isLocked && "cursor-not-allowed opacity-70"
                       )}
-                      onClick={() => learner.id && updateStatus(learner.id, day, status as AttendanceStatus)}
+                      onClick={() => learner.id && !isLocked && updateStatus(learner.id, day, status)}
                     >
                       <div className="h-9 flex items-center justify-center">
                           {status ? (
@@ -135,14 +223,17 @@ export const MonthlyAttendanceGrid = ({ classId, learners, currentDate, onDayCli
                     </TableCell>
                   );
                 })}
-                <TableCell className="bg-green-50/30 text-center text-xs font-bold text-green-700 sticky right-[80px] z-10 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                    {stats?.present || 0}
+                <TableCell className="bg-green-50/30 text-center text-xs font-bold text-green-700 sticky right-[120px] z-10 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                    {stats.present}
                 </TableCell>
-                <TableCell className="bg-red-50/30 text-center text-xs font-bold text-red-700 sticky right-[40px] z-10 border-l">
-                    {stats?.absent || 0}
+                <TableCell className="bg-red-50/30 text-center text-xs font-bold text-red-700 sticky right-[80px] z-10 border-l">
+                    {stats.absent}
                 </TableCell>
-                <TableCell className="bg-orange-50/30 text-center text-xs font-bold text-orange-700 sticky right-0 z-10 border-l">
-                    {stats?.late || 0}
+                <TableCell className="bg-orange-50/30 text-center text-xs font-bold text-orange-700 sticky right-[40px] z-10 border-l">
+                    {stats.late}
+                </TableCell>
+                <TableCell className="bg-blue-50/30 text-center text-xs font-bold text-blue-700 sticky right-0 z-10 border-l">
+                    {stats.excused}
                 </TableCell>
               </TableRow>
             );
@@ -153,7 +244,10 @@ export const MonthlyAttendanceGrid = ({ classId, learners, currentDate, onDayCli
           <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /> Present</div>
           <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /> Absent</div>
           <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-500" /> Late</div>
-          <span className="ml-auto font-bold uppercase tracking-tighter">Click cell to cycle status</span>
+          <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500" /> Excused</div>
+          <span className="ml-auto font-bold uppercase tracking-tighter">
+            {isLocked ? "Term finalised - grid is read-only" : "Click cell to cycle status"}
+          </span>
       </div>
     </div>
   );

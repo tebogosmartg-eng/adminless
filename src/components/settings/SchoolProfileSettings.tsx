@@ -1,12 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { School, User, AlertCircle, Save, Trash2, ImagePlus, Mail, Phone, Loader2, Hash, ShieldCheck, CheckCircle2, AlertTriangle } from "lucide-react";
+import { School, User, AlertCircle, Save, Trash2, ImagePlus, Mail, Phone, Loader2, Hash, ShieldCheck } from "lucide-react";
 import { useSettings } from "@/context/SettingsContext";
 import { showSuccess, showError } from "@/utils/toast";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AsyncStatus } from "@/components/ui/AsyncStatus";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +16,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useSafeForm } from "@/hooks/useSafeForm";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { SafeInput } from "@/components/safe-form/SafeInput";
 
 export const SchoolProfileSettings = () => {
   const { 
@@ -31,65 +33,135 @@ export const SchoolProfileSettings = () => {
     updateProfileSettings
   } = useSettings();
 
-  const [tempSchoolName, setTempSchoolName] = useState(schoolName);
-  const [tempSchoolCode, setTempSchoolCode] = useState(schoolCode);
-  const [tempSaceNumber, setTempSaceNumber] = useState(saceNumber);
-  const [tempTeacherName, setTempTeacherName] = useState(teacherName);
-  const [tempContactEmail, setTempContactEmail] = useState(contactEmail);
-  const [tempContactPhone, setTempContactPhone] = useState(contactPhone);
-  const [tempThreshold, setTempThreshold] = useState(atRiskThreshold.toString());
+  const form = useSafeForm({
+    initialValues: {
+      schoolName: schoolName ?? "",
+      schoolCode: schoolCode ?? "",
+      saceNumber: saceNumber ?? "",
+      teacherName: teacherName ?? "",
+      contactEmail: contactEmail ?? "",
+      contactPhone: contactPhone ?? "",
+      threshold: (atRiskThreshold ?? 0).toString(),
+    },
+  });
+  const { reset } = form;
+  const initializedRef = useRef(false);
+  const hydrationValues = useMemo(
+    () => ({
+      schoolName: schoolName ?? "",
+      schoolCode: schoolCode ?? "",
+      saceNumber: saceNumber ?? "",
+      teacherName: teacherName ?? "",
+      contactEmail: contactEmail ?? "",
+      contactPhone: contactPhone ?? "",
+      threshold: (atRiskThreshold ?? 0).toString(),
+    }),
+    [schoolName, schoolCode, saceNumber, teacherName, contactEmail, contactPhone, atRiskThreshold],
+  );
+  const profileValidationRules = useMemo(
+    () => ({
+      schoolName: [{ type: "required" as const, message: "School name is required." }],
+      teacherName: [{ type: "required" as const, message: "Teacher name is required." }],
+      contactEmail: [
+        { type: "required" as const, message: "Contact email is required." },
+        { type: "email" as const, message: "Enter a valid email address." },
+      ],
+      threshold: [{ type: "number" as const, message: "Threshold must be a number." }],
+    }),
+    [],
+  );
+
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [removeLogoDialogOpen, setRemoveLogoDialogOpen] = useState(false);
   
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const saveInFlightRef = useRef(false);
 
   useEffect(() => {
-    setTempSchoolName(schoolName);
-    setTempSchoolCode(schoolCode);
-    setTempSaceNumber(saceNumber);
-    setTempTeacherName(teacherName);
-    setTempContactEmail(contactEmail);
-    setTempContactPhone(contactPhone || "");
-    setTempThreshold(atRiskThreshold.toString());
-  }, [schoolName, schoolCode, saceNumber, teacherName, contactEmail, contactPhone, atRiskThreshold]);
+    if (initializedRef.current) return;
+    reset(hydrationValues);
+    initializedRef.current = true;
+  }, [hydrationValues, reset]);
 
-  const handleSaveProfile = async () => {
-    setStatusMessage(null);
+  const handleSaveProfile = useCallback(async (source: "manual" | "auto" = "manual") => {
+    if (saveInFlightRef.current) return false;
+
     setErrorMessage(null);
-    const thresh = parseInt(tempThreshold);
-    if (isNaN(thresh) || thresh < 0 || thresh > 100) {
-      showError("Invalid threshold value. Must be between 0 and 100.");
-      setErrorMessage("Invalid threshold value. It must be between 0 and 100.");
-      return;
-    }
-    if (!tempSchoolName.trim() || !tempTeacherName.trim() || !tempContactEmail.trim()) {
-      setErrorMessage("School name, teacher name, and contact email are required.");
-      showError("Please complete required profile fields.");
-      return;
+    const hasValidFields = form.validateAll(profileValidationRules);
+    if (!hasValidFields) {
+      if (source === "manual") {
+        showError("Please fix the highlighted fields.");
+      }
+      setErrorMessage("Please fix the highlighted fields before saving.");
+      setStatusMessage(null);
+      return false;
     }
 
+    setStatusMessage("Saving...");
+    const thresh = parseInt(form.values.threshold, 10);
+    if (isNaN(thresh) || thresh < 0 || thresh > 100) {
+      if (source === "manual") {
+        showError("Invalid threshold value. Must be between 0 and 100.");
+      }
+      setErrorMessage("Invalid threshold value. It must be between 0 and 100.");
+      setStatusMessage(null);
+      return false;
+    }
+
+    saveInFlightRef.current = true;
     setIsSaving(true);
     try {
         await updateProfileSettings({
-            schoolName: tempSchoolName,
-            schoolCode: tempSchoolCode,
-            saceNumber: tempSaceNumber,
-            teacherName: tempTeacherName,
-            contactEmail: tempContactEmail,
-            contactPhone: tempContactPhone,
+            schoolName: form.values.schoolName,
+            schoolCode: form.values.schoolCode,
+            saceNumber: form.values.saceNumber,
+            teacherName: form.values.teacherName,
+            contactEmail: form.values.contactEmail,
+            contactPhone: form.values.contactPhone,
             atRiskThreshold: thresh
         });
-        showSuccess("Profile settings saved successfully.");
-        setStatusMessage("Saved ✓ Profile settings updated.");
+        form.reset({
+          ...form.values,
+          threshold: thresh.toString(),
+        });
+        if (source === "manual") {
+          showSuccess("Profile settings saved successfully.");
+        }
+        setStatusMessage("Saved ✓");
+        return true;
     } catch (e) {
-        showError("Failed to save settings.");
+        if (source === "manual") {
+          showError("Failed to save settings.");
+        }
         setErrorMessage("Failed to save settings. Please try again.");
+        setStatusMessage(null);
+        return false;
     } finally {
+        saveInFlightRef.current = false;
         setIsSaving(false);
     }
-  };
+  }, [form, profileValidationRules, updateProfileSettings]);
+
+  const autoSave = useAutoSave({
+    isDirty: form.isDirty,
+    onSave: () => handleSaveProfile("auto").then(() => undefined),
+    delayMs: 1200,
+    enabled: true,
+  });
+  const autoSaveError = autoSave.saveError;
+  const feedbackPhase =
+    isSaving || autoSave.isSaving
+      ? "saving"
+      : errorMessage || autoSaveError
+        ? "error"
+        : statusMessage || autoSave.didSave
+          ? "success"
+          : "idle";
+  const feedbackMessage =
+    statusMessage ?? (isSaving || autoSave.isSaving ? "Saving..." : autoSave.didSave ? "Saved ✓" : null);
+  const feedbackError = errorMessage ?? autoSaveError;
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,19 +175,31 @@ export const SchoolProfileSettings = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
-        setSchoolLogo(base64String);
-        showSuccess("School logo updated.");
-        setStatusMessage("Saved ✓ School logo updated.");
+        void setSchoolLogo(base64String)
+          .then(() => {
+            showSuccess("Saved ✓");
+            setStatusMessage("Saved ✓");
+          })
+          .catch(() => {
+            setErrorMessage("Failed - Retry");
+            setStatusMessage(null);
+          });
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleRemoveLogo = () => {
-    setSchoolLogo(null);
-    if (logoInputRef.current) logoInputRef.current.value = "";
-    showSuccess("School logo removed.");
-    setStatusMessage("Saved ✓ School logo removed.");
+    void setSchoolLogo(null)
+      .then(() => {
+        if (logoInputRef.current) logoInputRef.current.value = "";
+        showSuccess("Saved ✓");
+        setStatusMessage("Saved ✓");
+      })
+      .catch(() => {
+        setErrorMessage("Failed - Retry");
+        setStatusMessage(null);
+      });
     setRemoveLogoDialogOpen(false);
   };
 
@@ -131,18 +215,13 @@ export const SchoolProfileSettings = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 min-w-0">
-        {statusMessage && (
-          <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
-            <CheckCircle2 className="h-4 w-4" />
-            <AlertDescription>{statusMessage}</AlertDescription>
-          </Alert>
-        )}
-        {errorMessage && (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{errorMessage}</AlertDescription>
-          </Alert>
-        )}
+        <AsyncStatus
+          state={{
+            status: feedbackPhase,
+            error: feedbackError,
+            retry: () => handleSaveProfile("manual"),
+          }}
+        />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 min-w-0">
           <section className="flex flex-col items-center gap-2 sm:items-start">
              <Label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">School Logo</Label>
@@ -184,11 +263,13 @@ export const SchoolProfileSettings = () => {
                 <Label htmlFor="school-name">School Name</Label>
                 <div className="relative">
                   <School className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <SafeInput
                     id="school-name"
+                    name="schoolName"
+                    form={form}
+                    rules={profileValidationRules.schoolName}
+                    error={form.errors.schoolName}
                     placeholder="e.g. Sunnydale High School"
-                    value={tempSchoolName}
-                    onChange={(e) => setTempSchoolName(e.target.value)}
                     className="pl-9 h-10 w-full"
                   />
                 </div>
@@ -198,11 +279,11 @@ export const SchoolProfileSettings = () => {
                 <Label htmlFor="school-code">School Code (EMIS / Nat. Code)</Label>
                 <div className="relative">
                   <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <SafeInput
                     id="school-code"
+                    name="schoolCode"
+                    form={form}
                     placeholder="e.g. 12345678"
-                    value={tempSchoolCode}
-                    onChange={(e) => setTempSchoolCode(e.target.value)}
                     className="pl-9 h-10 w-full"
                   />
                 </div>
@@ -217,11 +298,13 @@ export const SchoolProfileSettings = () => {
                 <Label htmlFor="teacher-name">Teacher Name</Label>
                 <div className="relative">
                   <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <SafeInput
                     id="teacher-name"
+                    name="teacherName"
+                    form={form}
+                    rules={profileValidationRules.teacherName}
+                    error={form.errors.teacherName}
                     placeholder="e.g. Mr. Smith"
-                    value={tempTeacherName}
-                    onChange={(e) => setTempTeacherName(e.target.value)}
                     className="pl-9 h-10 w-full"
                   />
                 </div>
@@ -231,11 +314,11 @@ export const SchoolProfileSettings = () => {
                 <Label htmlFor="sace-number">SACE Registration Number</Label>
                 <div className="relative">
                   <ShieldCheck className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <SafeInput
                     id="sace-number"
+                    name="saceNumber"
+                    form={form}
                     placeholder="e.g. 1234567"
-                    value={tempSaceNumber}
-                    onChange={(e) => setTempSaceNumber(e.target.value)}
                     className="pl-9 h-10 w-full"
                   />
                 </div>
@@ -245,11 +328,13 @@ export const SchoolProfileSettings = () => {
                 <Label htmlFor="contact-email">Contact Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <SafeInput
                     id="contact-email"
+                    name="contactEmail"
+                    form={form}
+                    rules={profileValidationRules.contactEmail}
+                    error={form.errors.contactEmail}
                     placeholder="info@school.com"
-                    value={tempContactEmail}
-                    onChange={(e) => setTempContactEmail(e.target.value)}
                     className="pl-9 h-10 w-full"
                   />
                 </div>
@@ -259,11 +344,11 @@ export const SchoolProfileSettings = () => {
                 <Label htmlFor="contact-phone">Contact Phone</Label>
                 <div className="relative">
                   <Phone className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <SafeInput
                     id="contact-phone"
+                    name="contactPhone"
+                    form={form}
                     placeholder="e.g. +27 12 345 6789"
-                    value={tempContactPhone}
-                    onChange={(e) => setTempContactPhone(e.target.value)}
                     className="pl-9 h-10 w-full"
                   />
                 </div>
@@ -280,14 +365,16 @@ export const SchoolProfileSettings = () => {
                   <AlertCircle className="h-3 w-3 text-muted-foreground" />
                 </Label>
                 <div className="relative">
-                  <Input
+                  <SafeInput
                     id="threshold"
+                    name="threshold"
+                    form={form}
+                    rules={profileValidationRules.threshold}
+                    error={form.errors.threshold}
                     type="number"
                     placeholder="50"
                     min={0}
                     max={100}
-                    value={tempThreshold}
-                    onChange={(e) => setTempThreshold(e.target.value)}
                     className="w-full h-10"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
@@ -298,7 +385,7 @@ export const SchoolProfileSettings = () => {
               </div>
             </section>
             <div className="flex justify-end gap-2">
-                 <Button onClick={handleSaveProfile} className="w-full sm:w-auto h-10 font-bold" disabled={isSaving}>
+                 <Button onClick={() => void handleSaveProfile("manual")} className="w-full sm:w-auto h-10 font-bold" disabled={isSaving || autoSave.isSaving}>
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Professional Profile
                 </Button>

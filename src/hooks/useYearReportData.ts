@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { db } from '@/db';
 import { showSuccess, showError } from '@/utils/toast';
 import { calculateWeightedAverage } from '@/utils/calculations';
+import { sortAssessmentsDeterministically } from '@/utils/assessmentOrdering';
 
 interface YearReportResult {
   learnerName: string;
@@ -51,9 +52,10 @@ export const useYearReportData = () => {
         .equals(classId)
         .filter(a => termIds.includes(a.term_id))
         .toArray();
+      const orderedAssessments = sortAssessmentsDeterministically(assessmentsData);
 
       // 4. Get Marks
-      const assessmentIds = assessmentsData.map(a => a.id);
+      const assessmentIds = orderedAssessments.map(a => a.id);
       const marksData = await db.assessment_marks
         .where('assessment_id')
         .anyOf(assessmentIds)
@@ -76,7 +78,7 @@ export const useYearReportData = () => {
       const learnerIds = Object.keys(learnerResults);
 
       terms.forEach(term => {
-          const termAssessments = assessmentsData.filter(a => a.term_id === term.id);
+          const termAssessments = orderedAssessments.filter(a => a.term_id === term.id);
 
           learnerIds.forEach(lId => {
               const termAvg = calculateWeightedAverage(termAssessments, marksData, lId);

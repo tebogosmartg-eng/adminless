@@ -26,9 +26,13 @@ import { useDiagnosticReportData } from '@/hooks/useDiagnosticReportData';
 import { useSettings } from '@/context/SettingsContext';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { generateDiagnosticReportPDF } from '@/utils/pdf/diagnosticReport';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import { LANGUAGES } from '@/lib/translations';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAsyncState } from '@/hooks/useAsyncState';
+import { AsyncStatus } from '@/components/ui/AsyncStatus';
+import { PASS_THRESHOLD } from '@/constants/diagnostics';
 
 interface DiagnosticReportDialogProps {
   open: boolean;
@@ -47,6 +51,7 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
   const [interventionPlan, setInterventionPlan] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [exportLanguage, setExportLanguage] = useState("en");
+  const exportState = useAsyncState();
 
   // Critical Guard: Is the data actually ready for a diagnostic?
   const isDataReady = progress >= 80; // Steps 1-8 must be complete
@@ -54,7 +59,7 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
   useEffect(() => {
     if (data && isDataReady) {
       setDiagnosticSummary(data.autoSummary);
-      setInterventionPlan(`Based on the diagnostic findings, the following intervention strategies will be implemented:\n\n1. Small-group support for the ${data.summary.belowThresholdCount} identified learners.\n2. Targeted revision on tasks where average performance was below 50%.\n3. Parental consultation for high-risk individuals.`);
+      setInterventionPlan(`Based on the diagnostic findings, the following intervention strategies will be implemented:\n\n1. Small-group support for the ${data.summary.belowThresholdCount} identified learners.\n2. Targeted revision on tasks where average performance was below ${PASS_THRESHOLD}%.\n3. Parental consultation for high-risk individuals.`);
     }
   }, [data, isDataReady]);
 
@@ -62,21 +67,50 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
     if (!data || !isDataReady) return;
     setIsExporting(true);
     try {
-        await generateDiagnosticReportPDF(
-            data,
-            { className: classInfo.className, subject: classInfo.subject, grade: classInfo.grade },
-            { year: year.name, term: term.name, isLocked: term.closed },
-            { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone },
-            diagnosticSummary,
-            interventionPlan,
-            false,
-            exportLanguage
-        );
+        await exportState.run(async () => generateDiagnosticReportPDF(
+          data,
+          { className: classInfo.className, subject: classInfo.subject, grade: classInfo.grade },
+          { year: year.name, term: term.name, isLocked: term.closed },
+          { name: schoolName, teacher: teacherName, logo: schoolLogo, email: contactEmail, phone: contactPhone },
+          diagnosticSummary,
+          interventionPlan,
+          false,
+          exportLanguage
+        ), { status: "loading", userInitiated: false });
         showSuccess("Diagnostic report exported to PDF.");
+    } catch (error) {
+        console.error(error);
+        showError("Failed to generate PDF.");
     } finally {
         setIsExporting(false);
     }
   };
+
+  const DiagnosticSkeleton = () => (
+    <div className="space-y-6 sm:space-y-8 pb-10">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <Skeleton className="h-20 sm:h-24 w-full rounded-xl" />
+        <Skeleton className="h-20 sm:h-24 w-full rounded-xl" />
+        <Skeleton className="h-20 sm:h-24 w-full rounded-xl" />
+        <Skeleton className="h-20 sm:h-24 w-full rounded-xl" />
+      </div>
+      <Skeleton className="h-10 w-full rounded-lg" />
+      <div className="space-y-3">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+      </div>
+      <div className="space-y-4">
+        <Skeleton className="h-28 w-full rounded-lg" />
+        <Skeleton className="h-32 w-full rounded-lg" />
+      </div>
+      <div className="grid sm:grid-cols-2 gap-2">
+        <Skeleton className="h-10 w-full rounded-md" />
+        <Skeleton className="h-10 w-full rounded-md" />
+        <Skeleton className="h-10 w-full rounded-md" />
+        <Skeleton className="h-10 w-full rounded-md" />
+      </div>
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -94,11 +128,16 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
                 <div className="flex w-full sm:w-auto items-center gap-2">
                     <div className="w-40 flex items-center gap-2 mr-2">
                       <Globe className="h-4 w-4 text-muted-foreground" />
-                      <Select value={exportLanguage} onValueChange={setExportLanguage}>
+                      <Select value={exportLanguage ?? ""} onValueChange={setExportLanguage}>
                         <SelectTrigger className="h-9">
                           <SelectValue placeholder="Language" />
                         </SelectTrigger>
                         <SelectContent>
+                          {LANGUAGES.length === 0 && (
+                            <SelectItem value="__loading_languages" disabled>
+                              Loading languages...
+                            </SelectItem>
+                          )}
                           {LANGUAGES.map((lang) => (
                             <SelectItem key={lang.code} value={lang.code}>
                               {lang.label}
@@ -109,9 +148,18 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
                     </div>
                     <Button onClick={handleExport} disabled={isExporting || !data || !isDataReady} className="w-full sm:w-auto font-bold gap-2 h-9">
                         {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                        Export Official PDF
+                        {isExporting ? "Generating PDF..." : "Export Official PDF"}
                     </Button>
                 </div>
+            </div>
+            <div className="mt-3">
+              <AsyncStatus
+                state={{
+                  status: isExporting ? "loading" : exportState.status,
+                  error: exportState.error,
+                  retry: exportState.retry,
+                }}
+              />
             </div>
           </DialogHeader>
         </div>
@@ -139,10 +187,7 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
                   <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Return to Workspace</Button>
               </div>
           ) : loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin text-primary opacity-20" />
-                <p className="text-xs sm:text-sm font-medium text-muted-foreground animate-pulse">Running Diagnostic Algorithms...</p>
-            </div>
+            <DiagnosticSkeleton />
           ) : data ? (
             <div className="space-y-6 sm:space-y-8 pb-10">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
@@ -244,9 +289,7 @@ export const DiagnosticReportDialog = ({ open, onOpenChange, classInfo, term, ye
                 </div>
             </div>
           ) : (
-            <div className="p-12 text-center text-muted-foreground italic">
-                Could not calculate diagnostic data.
-            </div>
+            <DiagnosticSkeleton />
           )}
         </ScrollArea>
       </DialogContent>

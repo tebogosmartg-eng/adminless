@@ -34,8 +34,8 @@ const safeExtractJson = (text: string) => {
 };
 
 async function callGeminiAPI(prompt: string, imageParts: any[], apiKey: string) {
-    // Explicitly target gemini-2.5-flash via the v1 endpoint (NOT v1beta)
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const model = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
     
     // Retain required payload structure (contents + parts)
     const payload = {
@@ -64,6 +64,12 @@ async function callGeminiAPI(prompt: string, imageParts: any[], apiKey: string) 
 
     const data = await response.json();
     return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
+const ensureJson = (responseText: string, fallbackError: string) => {
+  const extracted = safeExtractJson(responseText);
+  if (!extracted) throw new Error(fallbackError);
+  return extracted;
 }
 
 serve(async (req) => {
@@ -166,6 +172,118 @@ serve(async (req) => {
         if (!extracted || !extracted.learners) throw new Error("AI returned invalid data format");
 
         return new Response(JSON.stringify({ success: true, data: extracted }), { headers: corsHeaders });
+    } else if (action === 'generate-insights') {
+        const { subject, grade, learners, assessmentData } = payload;
+        const prompt = `
+            You are an academic analyst. Return ONLY valid JSON.
+
+            Analyze this class performance dataset and produce concise instructional insights.
+            Subject: ${subject}
+            Grade: ${grade}
+            Learners: ${JSON.stringify(learners)}
+            Assessment data: ${JSON.stringify(assessmentData)}
+
+            RETURN JSON:
+            {
+              "summary": "string",
+              "strengths": ["string"],
+              "areasForImprovement": ["string"],
+              "recommendations": ["string"]
+            }
+        `;
+
+        const responseText = await callGeminiAPI(prompt, [], apiKey);
+        const extracted = ensureJson(responseText, "AI returned invalid insights format");
+        return new Response(JSON.stringify({ success: true, data: extracted }), { headers: corsHeaders });
+    } else if (action === 'generate-diagnostic') {
+        const { assessment, stats, subject, grade } = payload;
+        console.log('[edge] generate-diagnostic payload keys', payload ? Object.keys(payload) : []);
+
+        const prompt = `
+            You are an academic diagnostics engine. Return ONLY valid JSON.
+
+            Subject: ${subject}
+            Grade: ${grade}
+            Assessment: ${JSON.stringify(assessment)}
+            Stats: ${JSON.stringify(stats)}
+
+            RETURN JSON (matches app FullDiagnostic — required shape):
+            {
+              "rows": [
+                {
+                  "id": "string (use question id from stats.qStats[].id when applicable)",
+                  "question": "string (e.g. Q1 or short label)",
+                  "performance_summary": "string",
+                  "cognitive_level": "knowledge|comprehension|application|analysis|evaluation|creation|unknown",
+                  "possible_root_causes": ["string"],
+                  "targeted_interventions": ["string"]
+                }
+              ],
+              "overall_class_themes": ["string"],
+              "overall_interventions": ["string"]
+            }
+        `;
+
+        const responseText = await callGeminiAPI(prompt, [], apiKey);
+        console.log('[edge] gemini raw', responseText);
+
+        const extracted = ensureJson(responseText, "AI returned invalid diagnostic format");
+        if (!Array.isArray(extracted.rows)) throw new Error("AI returned invalid diagnostic format: missing rows[]");
+        return new Response(JSON.stringify({ success: true, data: extracted }), { headers: corsHeaders });
+    } else if (action === 'generate-worksheet') {
+        const { subject, grade, assessmentTitle, findings } = payload;
+        const prompt = `
+            You are an educational worksheet generator.
+            Create a practical remediation worksheet in plain text.
+
+            Subject: ${subject}
+            Grade: ${grade}
+            Assessment title: ${assessmentTitle}
+            Findings: ${JSON.stringify(findings)}
+
+            Output requirements:
+            - Include title, objective, and instructions.
+            - Include at least 8 questions/tasks.
+            - Include a short memo/marking guide.
+            - Return only the worksheet text.
+        `;
+
+        const responseText = await callGeminiAPI(prompt, [], apiKey);
+        return new Response(JSON.stringify({ success: true, data: { worksheet: responseText.trim() } }), { headers: corsHeaders });
+    } else if (action === 'generate-report') {
+        const { learner, classInfo, assessmentData } = payload;
+        const prompt = `
+            You are a formal school report writer.
+            Write a concise learner progress report in professional tone.
+
+            Learner: ${JSON.stringify(learner)}
+            Class info: ${JSON.stringify(classInfo)}
+            Assessment data: ${JSON.stringify(assessmentData)}
+
+            Return only the report text.
+        `;
+
+        const responseText = await callGeminiAPI(prompt, [], apiKey);
+        return new Response(JSON.stringify({ success: true, data: { report: responseText.trim() } }), { headers: corsHeaders });
+    } else if (action === 'generate-bulk-comments') {
+        const { learners, tone } = payload;
+        const prompt = `
+            You are generating report-card comments.
+            Tone: ${tone || "Professional"}
+            Learners: ${JSON.stringify(learners)}
+
+            Return ONLY JSON:
+            {
+              "comments": [
+                { "name": "string", "comment": "string" }
+              ]
+            }
+        `;
+
+        const responseText = await callGeminiAPI(prompt, [], apiKey);
+        const extracted = ensureJson(responseText, "AI returned invalid comments format");
+        if (!Array.isArray(extracted.comments)) throw new Error("AI returned invalid comments format");
+        return new Response(JSON.stringify({ success: true, data: extracted }), { headers: corsHeaders });
     } else if (action === 'translate-text') {
         const { text, languageCode } = payload;
         
@@ -184,7 +302,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: { translatedText: responseText.trim() } }), { headers: corsHeaders });
     }
 
-    return new Response(JSON.stringify({ success: true, message: "Action processed" }), { headers: corsHeaders });
+    return new Response(JSON.stringify({ success: false, error: "Unsupported action" }), { headers: corsHeaders, status: 400 });
 
   } catch (error) {
     return new Response(JSON.stringify({ success: false, error: error.message }), { headers: corsHeaders, status: 500 });
