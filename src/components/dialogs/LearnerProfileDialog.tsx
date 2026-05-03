@@ -164,7 +164,7 @@ export const LearnerProfileDialog = ({
     const newName = prompt("New name:", currentLearner.name);
     if (newName && newName.trim() !== currentLearner.name) {
         await actionState.run(
-          async () => renameLearner(learnerId, newName.trim()),
+          async () => renameLearner(learnerId, newName.trim(), { isAmendmentMode }),
           { status: "saving" },
         );
     }
@@ -272,7 +272,7 @@ export const LearnerProfileDialog = ({
                         showError("Learner profile is locked for this finalized term.");
                         return;
                       }
-                      await updateLearnerComment(learnerId, comment);
+                      await updateLearnerComment(learnerId, comment, { isAmendmentMode });
                     }}
                   />
                 </TabsContent>

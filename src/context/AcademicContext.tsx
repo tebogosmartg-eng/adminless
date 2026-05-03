@@ -9,11 +9,12 @@ import { applySupabaseAssessmentOrder, sortAssessmentsDeterministically } from '
 import { useAcademicSelection } from '@/hooks/useAcademicSelection';
 import { useAcademicMigration } from '@/hooks/useAcademicMigration';
 import { useAcademicAverages } from '@/hooks/useAcademicAverages';
-import { canonicalizeQuestionMarksForSave, remapQuestionMarksByIndexToQuestionIds } from '@/utils/questionMarks';
+import { mergeQuestionMarksForSave, remapQuestionMarksByIndexToQuestionIds } from '@/utils/questionMarks';
 import { withTimeout } from '@/utils/withTimeout';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { logAdminLessError } from '@/utils/logAdminLessError';
+import { logAdminLessError, wasErrorLogged } from '@/utils/logAdminLessError';
 import { queryRetry } from '@/utils/queryDefaults';
+import { isClassFinalisationLocking } from '@/utils/classAmendment';
 
 interface AcademicContextType {
   years: AcademicYear[];
@@ -33,15 +34,21 @@ interface AcademicContextType {
   createYear: (name: string) => Promise<void>;
   deleteYear: (yearId: string) => Promise<void>;
   updateTerm: (term: Term) => Promise<void>;
-  createAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<string | undefined>;
-  updateAssessment: (assessment: Assessment) => Promise<void>;
-  deleteAssessment: (id: string) => Promise<void>;
+  createAssessment: (
+    assessment: Omit<Assessment, 'id'>,
+    options?: { isAmendmentMode?: boolean },
+  ) => Promise<string | undefined>;
+  updateAssessment: (assessment: Assessment, options?: { isAmendmentMode?: boolean }) => Promise<void>;
+  deleteAssessment: (id: string, options?: { isAmendmentMode?: boolean }) => Promise<void>;
   optimisticReorderAssessments: (
     classId: string,
     termId: string,
     payload: { id: string; position: number }[]
   ) => () => void;
-  updateMarks: (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => Promise<{ success: boolean; message?: string }>;
+  updateMarks: (
+    updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[],
+    options?: { isAmendmentMode?: boolean },
+  ) => Promise<{ success: boolean; message?: string }>;
   refreshAssessments: (classId: string, termId?: string, forceRefresh?: boolean) => Promise<void>;
   preloadMarkSheetData: (classId: string, termId: string, forceRefresh?: boolean) => Promise<void>;
   getPreloadedMarkSheetData: (classId: string, termId: string) => { assessments: Assessment[]; marks: AssessmentMark[] } | null;
@@ -383,35 +390,45 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     }
   }, [queryClient]);
 
-  const assertWritableClassTerm = useCallback(async (classId: string | undefined, termId: string | undefined) => {
-    if (!session?.user?.id) throw new Error("Session context lost.");
-    if (!classId || !termId) throw new Error("Missing class or term for this operation.");
+  const assertWritableClassTerm = useCallback(
+    async (
+      classId: string | undefined,
+      termId: string | undefined,
+      options?: { isAmendmentMode?: boolean },
+    ) => {
+      if (!session?.user?.id) throw new Error("Session context lost.");
+      if (!classId || !termId) throw new Error("Missing class or term for this operation.");
 
-    const termRow = allTerms.find((t) => t.id === termId);
-    if (termRow?.closed) {
-      throw new Error("This term is locked. Assessments and marks cannot be changed.");
-    }
+      const termRow = allTerms.find((t) => t.id === termId);
+      if (termRow?.closed) {
+        throw new Error("This term is locked. Assessments and marks cannot be changed.");
+      }
 
-    const { data: cls, error } = await supabase
-      .from("classes")
-      .select("is_finalised")
-      .eq("id", classId)
-      .eq("user_id", session.user.id)
-      .maybeSingle();
-    if (error) throw error;
-    if (cls?.is_finalised) {
-      throw new Error("This class is locked for the finalized term.");
-    }
-  }, [session?.user?.id, allTerms]);
+      const { data: cls, error } = await supabase
+        .from("classes")
+        .select("is_finalised")
+        .eq("id", classId)
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      if (error) throw error;
+      if (isClassFinalisationLocking(cls, !!options?.isAmendmentMode)) {
+        throw new Error("This class is locked for the finalized term.");
+      }
+    },
+    [session?.user?.id, allTerms],
+  );
 
-  const createAssessment = useCallback(async (assessment: Omit<Assessment, 'id'>) => {
+  const createAssessment = useCallback(async (
+    assessment: Omit<Assessment, 'id'>,
+    options?: { isAmendmentMode?: boolean },
+  ) => {
     if (!session?.user?.id || !activeYear) {
       showError("Session context lost. Please refresh.");
       return;
     }
 
     try {
-        await assertWritableClassTerm(assessment.class_id, assessment.term_id);
+        await assertWritableClassTerm(assessment.class_id, assessment.term_id, options);
         const id = crypto.randomUUID();
         const { questions, ...headerData } = assessment;
         
@@ -451,9 +468,9 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     }
   }, [session?.user?.id, activeYear, queryClient, assertWritableClassTerm]);
 
-  const updateAssessment = useCallback(async (a: Assessment) => {
+  const updateAssessment = useCallback(async (a: Assessment, options?: { isAmendmentMode?: boolean }) => {
     try {
-        await assertWritableClassTerm(a.class_id, a.term_id);
+        await assertWritableClassTerm(a.class_id, a.term_id, options);
         const { questions, ...headerData } = a;
         
         const payload = {
@@ -491,7 +508,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     }
   }, [session?.user?.id, queryClient, assertWritableClassTerm]);
 
-  const deleteAssessment = useCallback(async (id: string) => {
+  const deleteAssessment = useCallback(async (id: string, options?: { isAmendmentMode?: boolean }) => {
     if (!confirm("Delete this assessment? This will permanently remove all marks and data.")) return;
 
     try {
@@ -512,7 +529,7 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
           classId = data?.class_id;
           termId = data?.term_id;
         }
-        await assertWritableClassTerm(classId, termId);
+        await assertWritableClassTerm(classId, termId, options);
 
         await supabase.from('assessment_marks').delete().eq('assessment_id', id); 
         const { error: aErr } = await supabase.from('assessments').delete().eq('id', id);
@@ -590,7 +607,10 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
     };
   }, [session?.user?.id, queryClient]);
 
-  const updateMarks = useCallback(async (updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[]) => {
+  const updateMarks = useCallback(async (
+    updates: (Partial<AssessmentMark> & { assessment_id: string; learner_id: string })[],
+    options?: { isAmendmentMode?: boolean },
+  ) => {
     if (!session?.user?.id || updates.length === 0) return { success: true };
     try {
         const assessmentIds = Array.from(new Set(updates.map((update) => update.assessment_id)));
@@ -645,7 +665,9 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             .in("id", classIds);
           if (classLookupError) throw classLookupError;
           const finalisedClassIds = new Set(
-            (classRows || []).filter((row) => row.is_finalised).map((row) => row.id)
+            (classRows || [])
+              .filter((row) => isClassFinalisationLocking(row, !!options?.isAmendmentMode))
+              .map((row) => row.id),
           );
           const blockedByClass = updates.find((update) => {
             const assessment = assessmentById.get(update.assessment_id);
@@ -676,14 +698,15 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
             let nextQuestionMarksForSave = update.question_marks !== undefined
               ? sanitizeQuestionMarks(update.question_marks)
               : sanitizeQuestionMarks(existing?.question_marks);
-            const hasQuestionMarks = Object.keys(nextQuestionMarksForSave).length > 0;
 
             if (update.question_marks !== undefined) {
-              const { canonical, missingQuestionIds, unexpectedKeys } = canonicalizeQuestionMarksForSave(
+              const { canonical, unexpectedKeys } = mergeQuestionMarksForSave(
+                existing?.question_marks,
                 update.question_marks,
                 assessment?.questions || []
               );
-              if (missingQuestionIds.length > 0 || unexpectedKeys.length > 0) {
+
+              if (unexpectedKeys.length > 0) {
                 const invalidPayload = {
                   assessmentId: update.assessment_id,
                   learnerId: update.learner_id,
@@ -692,23 +715,30 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
                       ? Object.keys(update.question_marks as Record<string, unknown>)
                       : [],
                   expectedQuestionIds: Array.from(validQuestionIds),
-                  missingQuestionIds,
                   unexpectedKeys,
                 };
+                const invalidErr = new Error("Invalid question marks payload.");
+                (invalidErr as { __loggedAt?: string }).__loggedAt = "marks_invalid_question_marks_payload";
                 logAdminLessError(
                   'marks_invalid_question_marks_payload',
-                  new Error('Invalid question marks payload.'),
+                  invalidErr,
                   invalidPayload
                 );
-                throw new Error("Invalid question marks payload.");
+                throw invalidErr;
               }
 
               nextQuestionMarksForSave = canonical;
+
               const summedScore = Object.values(nextQuestionMarksForSave).reduce((sum, value) => {
-                if (!isNaN(value)) return sum + value;
+                if (typeof value === "number" && Number.isFinite(value)) return sum + value;
                 return sum;
               }, 0);
-              nextScore = Object.keys(nextQuestionMarksForSave).length > 0 ? parseFloat(summedScore.toFixed(1)) : null;
+
+              if (Object.keys(nextQuestionMarksForSave).length > 0) {
+                nextScore = parseFloat(summedScore.toFixed(1));
+              } else if (update.score === undefined) {
+                nextScore = existing?.score ?? null;
+              }
             }
 
             const payload = {
@@ -744,8 +774,12 @@ export const AcademicProvider = ({ children, session }: { children: ReactNode; s
         updateLearnerActiveAverages(Array.from(new Set(updates.map(u => u.learner_id))));
         return { success: true };
     } catch (e: any) {
-        logAdminLessError('academic_update_marks', e);
-        const message = formatMarkSaveError(e?.message);
+        if (!wasErrorLogged(e)) {
+          logAdminLessError('academic_update_marks', e);
+        }
+        const rawMessage =
+          e?.message ?? (typeof e === "string" ? e : undefined);
+        const message = formatMarkSaveError(rawMessage);
         showError(message);
         return { success: false, message };
     }

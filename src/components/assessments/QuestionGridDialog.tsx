@@ -48,6 +48,17 @@ export const QuestionGridDialog = ({
   const saveSequenceRef = useRef<Record<string, number>>({});
   const inFlightValueRef = useRef<Record<string, string>>({});
   const isMountedRef = useRef(true);
+  const lastMaxToastAtRef = useRef<Record<string, number>>({});
+
+  const MAX_TOAST_THROTTLE_MS = 1500;
+  const notifyMaxExceeded = useCallback((learnerId: string, questionId: string) => {
+    const key = `${learnerId}::${questionId}`;
+    const now = Date.now();
+    const last = lastMaxToastAtRef.current[key] ?? 0;
+    if (now - last < MAX_TOAST_THROTTLE_MS) return;
+    lastMaxToastAtRef.current[key] = now;
+    showError("Mark exceeds allowed maximum");
+  }, []);
 
   // Initialize data when dialog opens
   useEffect(() => {
@@ -124,6 +135,7 @@ export const QuestionGridDialog = ({
     saveSequenceRef.current[key] = seq;
     inFlightValueRef.current[key] = value;
 
+    let upstreamToastShown = false;
     try {
       const payload = buildLearnerUpdate(learnerId, rowData);
       const result = await markSaveState.run(
@@ -132,6 +144,7 @@ export const QuestionGridDialog = ({
       );
       if (saveSequenceRef.current[key] !== seq) return;
       if (result?.success === false) {
+        upstreamToastShown = true;
         throw new Error(result.message || "Failed to save marks");
       }
     } catch (e) {
@@ -151,7 +164,12 @@ export const QuestionGridDialog = ({
           [questionId]: previousValue
         }
       };
-      showError(formatMarkSaveError(e instanceof Error ? e.message : undefined));
+      // updateMarks already surfaces the user-facing toast; only fall back when
+      // the failure came from an unexpected throw (e.g. network) so we don't
+      // double-toast on every save error.
+      if (!upstreamToastShown) {
+        showError(formatMarkSaveError(e instanceof Error ? e.message : undefined));
+      }
     } finally {
       if (saveSequenceRef.current[key] === seq) {
         delete inFlightValueRef.current[key];
@@ -167,11 +185,12 @@ export const QuestionGridDialog = ({
     // Basic validation to allow typing decimals
     if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
 
+    let isInvalid = false;
     if (value !== "") {
       const parsed = parseFloat(value);
       if (!isNaN(parsed) && parsed > question.max_mark) {
-        showError("Mark exceeds allowed maximum");
-        return;
+        notifyMaxExceeded(learnerId, question.id);
+        isInvalid = true;
       }
     }
     const previousValue = gridDataRef.current[learnerId]?.[question.id] || "";
@@ -189,6 +208,9 @@ export const QuestionGridDialog = ({
       ...prev,
       [learnerId]: nextRow
     }));
+    // Skip the autosave round-trip while the cell is invalid; the red highlight
+    // already signals the problem and the server would reject the value anyway.
+    if (isInvalid) return;
     void persistCellChange(learnerId, question.id, value, previousValue, nextRow);
   };
 

@@ -162,14 +162,14 @@ export const useScanLogic = (defaultClassId?: string, isAmendmentMode = false) =
       if (!activeTerm || !activeYear || !selectedClassId || !targetClass || !targetAssessment) return;
       if (
         activeTerm.closed ||
-        isClassFinalisationLocking(!!targetClass.is_finalised, isAmendmentMode)
+        isClassFinalisationLocking(targetClass, isAmendmentMode)
       ) {
           showError("This term is locked. Scanned marks cannot be saved.");
           return;
       }
       
       try {
-          await updateMarks(updates);
+          await updateMarks(updates, { isAmendmentMode });
           
           let archivePath = "";
           if (originalFile) {

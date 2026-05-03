@@ -31,7 +31,7 @@ import {
 interface TermFinalizationCardProps {
   classInfo: ClassInfo;
   isAmendmentMode?: boolean;
-  onEnterAmendmentMode: () => void;
+  onEnterAmendmentMode: () => void | Promise<void>;
 }
 
 export const TermFinalizationCard = ({
@@ -195,7 +195,7 @@ export const TermFinalizationCard = ({
                     type="button"
                     onClick={() => {
                       setAmendDialogOpen(false);
-                      onEnterAmendmentMode();
+                      void onEnterAmendmentMode();
                     }}
                   >
                     Continue

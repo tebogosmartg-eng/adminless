@@ -34,6 +34,11 @@ import { isOfficialTermOrClassExport } from "@/utils/officialExport";
 import { isClassContentEditable } from "@/utils/classAmendment";
 import { logAmendmentEvent } from "@/utils/amendmentLog";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  beginAmendmentSession,
+  endAmendmentSession,
+  getActiveAmendmentSessionId,
+} from "@/services/amendmentSession";
 
 import Scan from "@/pages/Scan";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -194,33 +199,61 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
           classId: endedForClassId,
           userId: amendmentUserId,
         });
+        const staleSessionId = getActiveAmendmentSessionId(endedForClassId);
+        if (staleSessionId) {
+          void endAmendmentSession(staleSessionId, endedForClassId);
+        }
       }
       return false;
     });
     previousClassIdRef.current = classId;
   }, [classId, amendmentUserId]);
 
-  const enterAmendmentMode = useCallback(() => {
+  const enterAmendmentMode = useCallback(async () => {
+    const result = await beginAmendmentSession(classId, "class amendment");
+    if (!result.success) {
+      showError(result.message || "Could not start amendment mode.");
+      return;
+    }
     logAmendmentEvent({
       type: "AMENDMENT_STARTED",
       classId,
       userId: amendmentUserId,
+      payload: { sessionId: result.sessionId },
     });
     setIsAmendmentMode(true);
   }, [classId, amendmentUserId]);
 
-  const exitAmendmentMode = useCallback(() => {
+  const exitAmendmentMode = useCallback(async () => {
+    const sessionId = getActiveAmendmentSessionId(classId);
+    if (sessionId) {
+      const result = await endAmendmentSession(sessionId, classId);
+      if (!result.success) {
+        showError(result.message || "Could not end amendment mode.");
+        return;
+      }
+    }
     setIsAmendmentMode((was) => {
       if (was) {
         logAmendmentEvent({
           type: "AMENDMENT_ENDED",
           classId,
           userId: amendmentUserId,
+          payload: { sessionId },
         });
       }
       return false;
     });
   }, [classId, amendmentUserId]);
+
+  useEffect(() => {
+    return () => {
+      const leakedSessionId = getActiveAmendmentSessionId(classId);
+      if (leakedSessionId) {
+        void endAmendmentSession(leakedSessionId, classId);
+      }
+    };
+  }, [classId]);
 
   useEffect(() => {
       if (!activeTerm?.id) {
@@ -311,7 +344,7 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
               type="button"
               variant="secondary"
               className="shrink-0 w-fit"
-              onClick={exitAmendmentMode}
+              onClick={() => void exitAmendmentMode()}
             >
               Re-finalise Class
             </Button>

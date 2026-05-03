@@ -1,10 +1,10 @@
 /** Class-level finalisation (classes.is_finalised). Term/year locks stay separate. */
 
 export function isClassFinalisationLocking(
-  isFinalised: boolean,
+  classInfo: { is_finalised?: boolean | null } | null | undefined,
   isAmendmentMode: boolean,
 ): boolean {
-  return !!isFinalised && !isAmendmentMode;
+  return !!classInfo?.is_finalised && !isAmendmentMode;
 }
 
 export function isClassContentEditable(

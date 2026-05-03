@@ -42,7 +42,7 @@ export const ClassHeader = ({
   const { activeTerm } = useAcademic();
   const isTermClosed = !!activeTerm?.closed;
   const isLocked =
-    isTermClosed || isClassFinalisationLocking(!!classInfo.is_finalised, isAmendmentMode);
+    isTermClosed || isClassFinalisationLocking(classInfo, isAmendmentMode);
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-card text-card-foreground p-4 md:p-6 rounded-lg border border-border shadow-sm transition-all duration-300 w-full">

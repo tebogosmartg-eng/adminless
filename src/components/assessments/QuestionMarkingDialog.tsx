@@ -13,8 +13,6 @@ import { normalizeQuestionMarksForAssessment } from '@/utils/questionMarks';
 import { useAsyncState } from '@/hooks/useAsyncState';
 import { AsyncStatus } from '@/components/ui/AsyncStatus';
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 const formatMarkSaveError = (errorMessage?: string) => {
   const message = (errorMessage || "").toLowerCase();
   if (message.includes("exceeds max")) return "Mark exceeds allowed maximum";
@@ -91,27 +89,36 @@ export const QuestionMarkingDialog = ({
   }, [qMarks]);
 
   const buildFinalMarks = useCallback((marksToPersist: Record<string, string>) => {
-    const finalMarks: Record<string, number | null> = {};
+    const questions = assessment.questions || [];
+    const finalMarks: Record<string, number> = {};
     let hasInvalid = false;
 
-    Object.entries(marksToPersist).forEach(([qId, val]) => {
-        if (!UUID_REGEX.test(qId) || val.trim() === "") return;
-        const parsed = parseFloat(val);
-        const question = assessment.questions?.find(q => q.id === qId);
-        if (!question || isNaN(parsed) || parsed < 0 || parsed > question.max_mark) {
-            hasInvalid = true;
-            return;
-        }
-        finalMarks[qId] = parsed;
-    });
+    for (const question of questions) {
+      const questionId = question.id;
+      if (!questionId) continue;
+
+      const raw = marksToPersist[questionId];
+      const trimmed = typeof raw === "string" ? raw.trim() : "";
+      let value = trimmed === "" ? 0 : Number(trimmed);
+      if (typeof value !== "number" || Number.isNaN(value)) value = 0;
+
+      if (value < 0 || value > question.max_mark) {
+        hasInvalid = true;
+      }
+
+      finalMarks[questionId] = value;
+    }
 
     const score = parseFloat(
-      Object.values(finalMarks)
-        .reduce((sum, value) => sum + (typeof value === 'number' && !isNaN(value) ? value : 0), 0)
-        .toFixed(1)
+      Object.values(finalMarks).reduce((sum, v) => sum + v, 0).toFixed(1)
     );
 
-    return { finalMarks, score, hasInvalid };
+    const marksArray = Object.keys(finalMarks).map((questionId) => ({
+      questionId,
+      value: finalMarks[questionId],
+    }));
+
+    return { finalMarks, score, hasInvalid, marksArray };
   }, [assessment.questions]);
 
   const persistQuestionChange = useCallback(async (
@@ -129,8 +136,31 @@ export const QuestionMarkingDialog = ({
     inFlightValueRef.current[key] = value;
 
     try {
-      const { finalMarks, score, hasInvalid } = buildFinalMarks(nextMarks);
+      const { finalMarks, score, hasInvalid, marksArray } = buildFinalMarks(nextMarks);
       if (hasInvalid) return;
+
+      const isValid =
+        Array.isArray(marksArray) &&
+        marksArray.length > 0 &&
+        marksArray.every(
+          (m) =>
+            m.questionId &&
+            typeof m.value === "number" &&
+            !Number.isNaN(m.value)
+        );
+
+      if (!isValid) {
+        showError("Please enter valid marks for all questions.");
+        return;
+      }
+
+      if (score > assessment.max_mark) {
+        showError("Total marks exceed allowed maximum.");
+        return;
+      }
+
+      console.log("QUESTION PAYLOAD:", marksArray);
+
       const result = await markSaveState.run(
         async () => onSave(score, finalMarks),
         { status: "saving" },
@@ -150,7 +180,7 @@ export const QuestionMarkingDialog = ({
         delete inFlightValueRef.current[key];
       }
     }
-  }, [buildFinalMarks, markSaveState, onSave]);
+  }, [assessment.max_mark, buildFinalMarks, markSaveState, onSave]);
 
   const handleUpdate = (qId: string, val: string) => {
     if (val !== "" && !/^\d*\.?\d*$/.test(val)) return;
@@ -174,12 +204,33 @@ export const QuestionMarkingDialog = ({
   };
 
   const handleSave = () => {
-    const { hasInvalid } = buildFinalMarks(qMarks);
+    const { hasInvalid, marksArray, score } = buildFinalMarks(qMarks);
 
     if (hasInvalid) {
       showError("Please fix invalid marks before saving.");
       return;
     }
+
+    const isValid =
+      Array.isArray(marksArray) &&
+      marksArray.length > 0 &&
+      marksArray.every(
+        (m) =>
+          m.questionId &&
+          typeof m.value === "number" &&
+          !Number.isNaN(m.value)
+      );
+
+    if (!isValid) {
+      showError("Please enter valid marks for all questions.");
+      return;
+    }
+
+    if (score > assessment.max_mark) {
+      showError("Total marks exceed allowed maximum.");
+      return;
+    }
+
     if (!onNext) onOpenChange(false);
     else onNext();
   };

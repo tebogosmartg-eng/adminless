@@ -13,7 +13,7 @@ import { showError } from "@/utils/toast";
 interface ClassReportsTabProps {
   classInfo: ClassInfo;
   isAmendmentMode?: boolean;
-  onEnterAmendmentMode: () => void;
+  onEnterAmendmentMode: () => void | Promise<void>;
   isLocked: boolean;
   onExportPdf: (lang: string) => void;
   onExportCsv: (lang: string) => void;

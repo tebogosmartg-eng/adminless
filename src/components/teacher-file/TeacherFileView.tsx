@@ -45,7 +45,7 @@ export const TeacherFileView = ({
   const isLocked =
     !!term.closed ||
     !!term.is_finalised ||
-    isClassFinalisationLocking(!!classInfo.is_finalised, isAmendmentMode) ||
+    isClassFinalisationLocking(classInfo, isAmendmentMode) ||
     isBulkMode;
 
   const summaryText = `During the ${term.name} of ${year.name}, ${classInfo.learners.length} learners completed ${assessments.length} formal assessment tasks in ${classInfo.subject}. The class achieved an overall average of ${data.stats.average}% with a pass rate of ${data.stats.passRate}%.` 

@@ -5,6 +5,8 @@ import confetti from 'canvas-confetti';
 import { supabase } from '@/lib/supabaseClient';
 import { logAmendmentEvent } from '@/utils/amendmentLog';
 
+type UpdateLearnersOptions = { isAmendmentMode?: boolean };
+
 export type AmendmentLearnerAudit = {
   isAmendmentMode: boolean;
   classId: string;
@@ -13,7 +15,11 @@ export type AmendmentLearnerAudit = {
 
 export const useLearnerState = (
   classInfo: ClassInfo | undefined,
-  updateLearnersContext: (classId: string, learners: Learner[]) => Promise<void>,
+  updateLearnersContext: (
+    classId: string,
+    learners: Learner[],
+    options?: UpdateLearnersOptions,
+  ) => Promise<void>,
   isLocked: boolean = false,
   amendmentAudit?: AmendmentLearnerAudit | null,
 ) => {
@@ -227,7 +233,9 @@ export const useLearnerState = (
     if (!ensureUnlocked()) return;
     if (!classInfo?.id) return;
     try {
-      await updateLearnersContext(classInfo.id, updatedLearners);
+      await updateLearnersContext(classInfo.id, updatedLearners, {
+        isAmendmentMode: !!amendmentAudit?.isAmendmentMode,
+      });
       setLearners(updatedLearners);
       showSuccess("Class roster updated successfully.");
       logIfAmendment('LEARNER_ROSTER_UPDATED', { learnerCount: updatedLearners.length });
@@ -235,13 +243,15 @@ export const useLearnerState = (
       showError("Failed to save changes: " + err.message);
       throw err;
     }
-  }, [classInfo?.id, updateLearnersContext, ensureUnlocked, logIfAmendment]);
+  }, [classInfo?.id, updateLearnersContext, amendmentAudit?.isAmendmentMode, ensureUnlocked, logIfAmendment]);
 
   const handleSaveChanges = useCallback(async () => {
     if (!ensureUnlocked()) return;
     if (classInfo?.id) {
       try {
-        await updateLearnersContext(classInfo.id, learners);
+        await updateLearnersContext(classInfo.id, learners, {
+          isAmendmentMode: !!amendmentAudit?.isAmendmentMode,
+        });
         showSuccess("Changes have been saved successfully!");
         setHasUnsavedChanges(false);
         logIfAmendment('LEARNER_ROSTER_SAVED', { learnerCount: learners.length });
@@ -250,7 +260,14 @@ export const useLearnerState = (
         throw err;
       }
     }
-  }, [classInfo?.id, learners, updateLearnersContext, ensureUnlocked, logIfAmendment]);
+  }, [
+    classInfo?.id,
+    learners,
+    updateLearnersContext,
+    amendmentAudit?.isAmendmentMode,
+    ensureUnlocked,
+    logIfAmendment,
+  ]);
 
   return {
     learners,

@@ -7,6 +7,7 @@ import { useAcademic } from '@/context/AcademicContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { logAdminLessError } from '@/utils/logAdminLessError';
+import { isClassFinalisationLocking } from '@/utils/classAmendment';
 
 interface ClassesContextType {
   classes: ClassInfo[];
@@ -18,14 +19,30 @@ interface ClassesContextType {
   hasLoadedOnce: boolean;
   preloadClasses: () => Promise<void>;
   addClass: (classInfo: ClassInfo) => Promise<void>;
-  updateLearners: (classId: string, updatedLearners: Learner[]) => Promise<void>;
+  updateLearners: (
+    classId: string,
+    updatedLearners: Learner[],
+    options?: { isAmendmentMode?: boolean },
+  ) => Promise<void>;
   updateClassDetails: (classId: string, details: Partial<Omit<ClassInfo, 'id' | 'learners'>>) => Promise<void>;
   deleteClass: (classId: string) => Promise<void>;
-  updateClassLearners: (classId: string, newLearners: Learner[]) => Promise<void>;
+  updateClassLearners: (
+    classId: string,
+    newLearners: Learner[],
+    options?: { isAmendmentMode?: boolean },
+  ) => Promise<void>;
   toggleClassArchive: (classId: string, archived: boolean) => Promise<void>;
   updateClassNotes: (classId: string, notes: string) => Promise<void>;
-  renameLearner: (learnerId: string, newName: string) => Promise<void>;
-  updateLearnerComment: (learnerId: string, comment: string) => Promise<void>;
+  renameLearner: (
+    learnerId: string,
+    newName: string,
+    options?: { isAmendmentMode?: boolean },
+  ) => Promise<void>;
+  updateLearnerComment: (
+    learnerId: string,
+    comment: string,
+    options?: { isAmendmentMode?: boolean },
+  ) => Promise<void>;
   finalizeClassTerm: (classId: string) => Promise<void>;
 }
 
@@ -171,13 +188,18 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     }
   };
 
-  const updateLearners = async (classId: string, updatedLearners: Learner[]) => {
+  const updateLearners = async (
+    classId: string,
+    updatedLearners: Learner[],
+    options?: { isAmendmentMode?: boolean },
+  ) => {
     if (!session?.user.id) return;
     try {
         const loadedClass = classes.find((item) => item.id === classId);
-        // Client guard uses raw class finalisation; amendment mode will align here when API/RLS supports it.
-        const isLockedFromCache =
-          (!!activeTerm?.closed && loadedClass?.term_id === activeTerm.id) || !!loadedClass?.is_finalised;
+        const termLocksThisClass =
+          !!activeTerm?.closed && loadedClass?.term_id === activeTerm.id;
+        const classFinalisationLocks = isClassFinalisationLocking(loadedClass, !!options?.isAmendmentMode);
+        const isLockedFromCache = termLocksThisClass || classFinalisationLocks;
         if (isLockedFromCache) {
           throw new Error("This class is locked for the finalized term.");
         }
@@ -208,10 +230,10 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
           } else {
             classRow = primary.data;
           }
-          const isLockedFromDb =
-            !!classRow?.is_finalised ||
-            (!!activeTerm?.closed && !!classRow?.term_id && classRow.term_id === activeTerm.id);
-          if (isLockedFromDb) {
+          const termLocksFromDb =
+            !!activeTerm?.closed && !!classRow?.term_id && classRow.term_id === activeTerm.id;
+          const classLocksFromDb = isClassFinalisationLocking(classRow, !!options?.isAmendmentMode);
+          if (termLocksFromDb || classLocksFromDb) {
             throw new Error("This class is locked for the finalized term.");
           }
         }
@@ -256,11 +278,16 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     }
   };
 
-  const renameLearner = async (learnerId: string, newName: string) => {
+  const renameLearner = async (
+    learnerId: string,
+    newName: string,
+    options?: { isAmendmentMode?: boolean },
+  ) => {
     try {
         const owningClass = classes.find((item) => item.learners.some((learner) => learner.id === learnerId));
-        // Amendment mode unlock is UI-only for now; keep server-aligned checks here until mutations support it.
-        const isLocked = !!activeTerm?.closed || !!owningClass?.is_finalised;
+        const isLocked =
+          !!activeTerm?.closed ||
+          isClassFinalisationLocking(owningClass, !!options?.isAmendmentMode);
         if (isLocked) {
           showError("Learner profile is locked for this finalized term.");
           return;
@@ -275,11 +302,16 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     }
   };
 
-  const updateLearnerComment = async (learnerId: string, comment: string) => {
+  const updateLearnerComment = async (
+    learnerId: string,
+    comment: string,
+    options?: { isAmendmentMode?: boolean },
+  ) => {
     try {
         const owningClass = classes.find((item) => item.learners.some((learner) => learner.id === learnerId));
-        // Amendment mode unlock is UI-only for now; keep server-aligned checks here until mutations support it.
-        const isLocked = !!activeTerm?.closed || !!owningClass?.is_finalised;
+        const isLocked =
+          !!activeTerm?.closed ||
+          isClassFinalisationLocking(owningClass, !!options?.isAmendmentMode);
         if (isLocked) {
           showError("Learner profile is locked for this finalized term.");
           return;
@@ -367,8 +399,12 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     }
   };
 
-  const updateClassLearners = async (classId: string, newLearners: Learner[]) => {
-      await updateLearners(classId, newLearners);
+  const updateClassLearners = async (
+    classId: string,
+    newLearners: Learner[],
+    options?: { isAmendmentMode?: boolean },
+  ) => {
+    await updateLearners(classId, newLearners, options);
   };
 
   return (

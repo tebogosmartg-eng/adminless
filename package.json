@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "seed:smoke": "tsx scripts/seedSmokeData.ts",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "db:push": "npx supabase db push"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
