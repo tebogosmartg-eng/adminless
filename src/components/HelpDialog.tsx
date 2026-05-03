@@ -218,7 +218,7 @@ export function HelpDialog() {
                         <h4 className="font-bold">Teacher File Builder</h4>
                       </div>
                       <p className="text-xs text-muted-foreground mb-4 flex-1">
-                        Let the system assemble your ATP, marksheets, moderation samples, and evidence into a single printable PDF portfolio.
+                        Let the system assemble your ATP, marksheets, moderation samples, and documentation into a single printable PDF portfolio.
                       </p>
                       <Button variant="secondary" size="sm" className="w-full font-bold" onClick={() => handleNavigate('/teacher-file')}>
                         View Teacher File
@@ -247,7 +247,7 @@ export function HelpDialog() {
                         <FileText className="h-4 w-4" /> SA-SAMS Integration
                     </h4>
                     <p className="text-sm text-blue-900/80 dark:text-blue-200/80 mb-4 flex-1">
-                        You can only export SA-SAMS aligned CSVs once a term is officially <strong>Finalised</strong>. This prevents draft marks from polluting official systems.
+                        You can only export SA-SAMS aligned CSVs once this class is <strong>finalised for the term</strong> (Class Details → Reports → Term Administration) or the <strong>academic term is closed</strong> in Settings. This prevents draft marks from polluting official systems.
                     </p>
                     <Button variant="outline" size="sm" className="bg-white/50 w-full sm:w-fit" onClick={() => handleNavigate('/settings')}>
                         Go to Term Finalisation
@@ -258,7 +258,7 @@ export function HelpDialog() {
                 <div className="p-5 border rounded-xl bg-card">
                     <h4 className="font-bold mb-2">Moderation Samples</h4>
                     <p className="text-sm text-muted-foreground">
-                        When preparing for HOD moderation, open the <strong>Evidence</strong> tab in any class. AdminLess can automatically select a statistically sound 10% sample (High, Medium, Low performers) for you to upload scripts against.
+                        When preparing for HOD moderation, open the <strong>Moderation</strong> tab in any class. AdminLess can build a statistically sound 10% sample (High, Medium, Low performers). Keep learner scripts offline—AdminLess records the sample selection, not documents.
                     </p>
                 </div>
               </TabsContent>

@@ -84,13 +84,13 @@ export const QuestionBuilder = ({
             <h4 className="text-sm font-bold">Question Builder</h4>
             <Badge className="ml-2" variant="secondary">{questions.length} Qs</Badge>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto sm:justify-end">
             <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={onOpenReuse}
                 disabled={disabled}
-                className="h-8 flex-1 sm:flex-none"
+                className="h-8 w-full sm:w-auto shrink-0"
             >
                 <Library className="h-3 w-3 mr-1.5" /> Reuse
             </Button>
@@ -99,7 +99,7 @@ export const QuestionBuilder = ({
                 size="sm" 
                 onClick={onOpenBulk}
                 disabled={disabled}
-                className="h-8 flex-1 sm:flex-none"
+                className="h-8 w-full sm:w-auto shrink-0"
             >
                 <FileSpreadsheet className="h-3 w-3 mr-1.5" /> Bulk Import
             </Button>
@@ -108,7 +108,7 @@ export const QuestionBuilder = ({
                 size="sm" 
                 onClick={addQuestion}
                 disabled={disabled}
-                className="h-8 w-full sm:w-auto"
+                className="h-8 w-full sm:w-auto shrink-0"
             >
                 <Plus className="h-3 w-3 mr-1.5" /> Add Row
             </Button>

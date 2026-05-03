@@ -175,7 +175,7 @@ export const generateTeacherFilePDF = async (
             doc.setFontSize(14);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(41, 37, 36);
-            doc.text("Additional Evidence", margin, currentY);
+            doc.text("Additional documentation", margin, currentY);
             currentY += 8;
 
             ch.classes.forEach(cls => {
@@ -236,7 +236,7 @@ export const generateTeacherFilePDF = async (
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(0);
-            doc.text("Term Portfolio Commentary & Evidence", margin, currentY);
+            doc.text("Term portfolio commentary & documentation", margin, currentY);
             currentY += 8;
 
             ch.classes.forEach(cls => {

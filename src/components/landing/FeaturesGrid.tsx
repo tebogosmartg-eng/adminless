@@ -9,7 +9,7 @@ const FEATURES = [
   { title: "Aligned Marksheets", icon: FileCheck, desc: "Automatic weighting and totals prepared for official submission." },
   { title: "Class Analytics", icon: BarChart3, desc: "Real-time pass rates and performance trends for every group." },
   { title: "Attendance Registers", icon: ClipboardList, desc: "Daily tracking with automated monthly consolidated logs." },
-  { title: "Evidence & Audit", icon: ShieldCheck, desc: "Attach moderation scripts and maintain a secure audit trail." },
+  { title: "Moderation & audit", icon: ShieldCheck, desc: "Generate and save 10% moderation samples; keep scripts offline while you stay audit-ready." },
   { title: "Personal Timetable", icon: NotebookPen, desc: "Your daily teaching schedule synced with session records." },
   { title: "Offline Sync", icon: WifiOff, desc: "Capture marks anywhere. Data syncs when you reach Wi-Fi." }
 ];

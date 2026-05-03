@@ -9,6 +9,7 @@ import { calculateWeightedAverage } from '@/utils/calculations';
 import { t } from '@/lib/useTranslation';
 import { supabase } from '@/lib/supabaseClient';
 import { PASS_THRESHOLD } from '@/constants/diagnostics';
+import { isOfficialRecordForClassExport } from '@/utils/officialExport';
 
 export const useClassExport = (
   classInfo: ClassInfo | undefined,
@@ -97,7 +98,7 @@ ${t('lowestMark', lang)}: ${stats.lowestMark}%
       return;
     }
 
-    const isDraft = !activeTerm?.closed;
+    const isDraft = !isOfficialRecordForClassExport(activeTerm, classInfo);
     const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm?.id);
     const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
 
@@ -202,7 +203,7 @@ ${t('lowestMark', lang)}: ${stats.lowestMark}%
     try {
       const attMap = await fetchAttendanceMap();
       const exportClassInfo = { ...classInfo, learners };
-      const isDraft = !activeTerm?.closed;
+      const isDraft = !isOfficialRecordForClassExport(activeTerm, classInfo);
       const termAssessments = assessments.filter(a => a.class_id === classInfo.id && a.term_id === activeTerm?.id);
       const termMarks = marks.filter(m => termAssessments.some(a => a.id === m.assessment_id));
 

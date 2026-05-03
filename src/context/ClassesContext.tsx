@@ -257,6 +257,12 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
 
   const renameLearner = async (learnerId: string, newName: string) => {
     try {
+        const owningClass = classes.find((item) => item.learners.some((learner) => learner.id === learnerId));
+        const isLocked = !!activeTerm?.closed || !!owningClass?.is_finalised;
+        if (isLocked) {
+          showError("Learner profile is locked for this finalized term.");
+          return;
+        }
         const { error } = await supabase.from('learners').update({ name: newName }).eq('id', learnerId);
         if (error) throw error;
         await queryClient.invalidateQueries({ queryKey: ['classes'] });

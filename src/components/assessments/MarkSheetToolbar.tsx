@@ -3,9 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { LabeledFieldRow } from "@/components/ui/labeled-field-row";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Calendar, Eye, AlertCircle, Search, Settings2, Plus, Copy, Upload, Loader2, CheckCircle2, Layers, Info, ShieldCheck, XCircle, Trash2, ListChecks, Library } from 'lucide-react';
 import { Assessment, Term, AcademicYear, Rubric, ClassInfo, AssessmentQuestion } from '@/lib/types';
@@ -269,7 +268,7 @@ export const MarkSheetToolbar = ({
         </div>
 
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogContent className="sm:max-w-[700px] max-w-[95vw] w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
             <div className="p-6 pb-2 shrink-0">
                 <DialogHeader>
                 <DialogTitle>New Formal Assessment Task (FAT)</DialogTitle>
@@ -279,7 +278,7 @@ export const MarkSheetToolbar = ({
                 </DialogHeader>
             </div>
 
-            <ScrollArea className="flex-1 p-6 pt-0">
+            <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-6 pt-0">
                 <div className="grid gap-6 py-4">
                   <AsyncStatus
                     state={{
@@ -289,15 +288,13 @@ export const MarkSheetToolbar = ({
                     }}
                   />
                   <div className="grid gap-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                          <Label className="text-right text-xs">Task Title</Label>
-                          <Input value={newAss.title || ""} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="col-span-3 h-9" placeholder="e.g. Investigation 1" />
-                      </div>
+                      <LabeledFieldRow label="Task Title" labelClassName="text-xs">
+                          <Input value={newAss.title || ""} onChange={e => setNewAss({ ...newAss, title: e.target.value })} className="h-9 w-full" placeholder="e.g. Investigation 1" />
+                      </LabeledFieldRow>
                       
-                      <div className="grid grid-cols-4 items-center gap-4">
-                          <Label className="text-right text-xs">Rubric (Opt)</Label>
+                      <LabeledFieldRow label="Rubric (Opt)" labelClassName="text-xs">
                           <Select value={newAss.rubricId || "none"} onValueChange={handleRubricSelect}>
-                              <SelectTrigger className="col-span-3 h-9">
+                              <SelectTrigger className="h-9 w-full">
                                   <SelectValue placeholder="None (Standard Mark)" />
                               </SelectTrigger>
                               <SelectContent>
@@ -312,22 +309,20 @@ export const MarkSheetToolbar = ({
                                   ))}
                               </SelectContent>
                           </Select>
-                      </div>
+                      </LabeledFieldRow>
 
-                      <div className="grid grid-cols-4 items-center gap-4">
-                          <Label className="text-right text-xs">Total Marks</Label>
+                      <LabeledFieldRow label="Total Marks" labelClassName="text-xs">
                           <Input 
                               type="number" 
                               value={newAss.max || ""} 
                               onChange={e => setNewAss({ ...newAss, max: parseInt(e.target.value) || 0 })} 
-                              className="col-span-3 h-9"
+                              className="h-9 w-full"
                               disabled={!!newAss.rubricId && newAss.rubricId !== 'none' || (newAss.questions && newAss.questions.length > 0)}
                           />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                          <Label className="text-right text-xs">Weighting %</Label>
-                          <Input type="number" value={newAss.weight || ""} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) || 0 })} className="col-span-3 h-9" />
-                      </div>
+                      </LabeledFieldRow>
+                      <LabeledFieldRow label="Weighting %" labelClassName="text-xs">
+                          <Input type="number" value={newAss.weight || ""} onChange={e => setNewAss({ ...newAss, weight: parseFloat(e.target.value) || 0 })} className="h-9 w-full" />
+                      </LabeledFieldRow>
                   </div>
 
                   <div className="border-t pt-4 mt-2">
@@ -349,7 +344,7 @@ export const MarkSheetToolbar = ({
                       )}
                   </Button>
                 </div>
-            </ScrollArea>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

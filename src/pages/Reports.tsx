@@ -29,6 +29,7 @@ import { PASS_THRESHOLD } from '@/constants/diagnostics';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useQueryClient } from '@tanstack/react-query';
 import { logAdminLessError } from '@/utils/logAdminLessError';
+import { isOfficialTermOrClassExport } from '@/utils/officialExport';
 
 const ReportsTableSkeleton = ({ columns = 6, rows = 8 }: { columns?: number; rows?: number }) => (
   <div className="w-full h-full p-4 space-y-3">
@@ -241,11 +242,15 @@ const ReportsContent = ({ embedded = false, defaultClassId }: { embedded?: boole
 
   const handleSASAMSExportAction = () => {
     if (!termData || !selectedTerm || !activeYear || selectedClassId === 'all') return;
-    if (!selectedTerm.closed) { showError("Finalize term first."); return; }
-    if (integrityReport && !integrityReport.isValid) { showError("Marks incomplete."); return; }
-    
     const targetClass = classes.find(c => c.id === selectedClassId);
     if (!targetClass) return;
+    if (!isOfficialTermOrClassExport(selectedTerm.closed, targetClass.is_finalised)) {
+      showError(
+        "Export blocked: finalise this class in Class Details (Reports → Term Administration) or close the term in Settings before SA-SAMS export.",
+      );
+      return;
+    }
+    if (integrityReport && !integrityReport.isValid) { showError("Marks incomplete."); return; }
 
     const classRows = termData.filter((d) => d.classId === targetClass.id);
     const avgByLearnerId = new Map(classRows.map((row) => [row.learnerId, row.termAverage]));

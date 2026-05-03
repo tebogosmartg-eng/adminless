@@ -20,96 +20,61 @@ import {
 import { Link } from "react-router-dom";
 import { useClasses } from "@/context/ClassesContext";
 
-export const EvidenceComplianceWidget = () => {
+export const ModerationComplianceWidget = () => {
   const { classes } = useClasses();
 
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<{
+    adequateRulePercent: number;
+    classesWithSample: number;
+    classesAdequateForRule: number;
+    activeTotal: number;
+  } | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       const activeClasses = classes.filter(c => !c.archived);
       if (activeClasses.length === 0) {
         setStats({
-          percent: 0,
-          count: 0,
-          missing: 0,
-          samplePercent: 0,
-          totalRequired: 0,
-          totalUploaded: 0
+          adequateRulePercent: 0,
+          classesWithSample: 0,
+          classesAdequateForRule: 0,
+          activeTotal: 0,
         });
         return;
       }
 
-      // 🔥 Fetch evidence
-      const { data: evidence } = await supabase
-        .from("evidence")
-        .select("*");
-
-      // 🔥 Fetch moderation samples
       const { data: samples } = await supabase
         .from("moderation_samples")
         .select("*");
 
-      const evidenceList = evidence || [];
       const sampleList = samples || [];
 
-      // 🔥 GENERAL COVERAGE
-      const classesWithEvidence = new Set(
-        evidenceList.map((e: any) => e.class_id)
-      );
-
-      const coveredClasses = activeClasses.filter(c =>
-        classesWithEvidence.has(c.id)
-      ).length;
-
-      // 🔥 SAMPLE COMPLIANCE
-      let totalRequired = 0;
-      let totalUploaded = 0;
+      let classesWithSample = 0;
+      let classesAdequateForRule = 0;
 
       activeClasses.forEach(cls => {
         const sample = sampleList.find(
-          (s: any) => s.class_id === cls.id
+          (s: { class_id: string }) => s.class_id === cls.id
         );
-
-        if (sample) {
-          totalRequired += sample.learner_ids.length;
-
-          const classEvidence = evidenceList.filter(
-            (e: any) => e.class_id === cls.id
-          );
-
-          const uploadedIds = new Set(
-            classEvidence
-              .filter((e: any) => e.category === "script")
-              .map((e: any) => e.learner_id)
-          );
-
-          sample.learner_ids.forEach((lId: string) => {
-            if (uploadedIds.has(lId)) totalUploaded++;
-          });
-        }
+        const n = cls.learners?.length ?? 0;
+        const required = Math.max(1, Math.ceil(n * 0.1));
+        const saved = sample?.learner_ids?.length ?? 0;
+        if (saved > 0) classesWithSample++;
+        if (saved >= required) classesAdequateForRule++;
       });
 
-      const percent = Math.round(
-        (coveredClasses / activeClasses.length) * 100
-      );
-
-      const samplePercent =
-        totalRequired > 0
-          ? Math.round((totalUploaded / totalRequired) * 100)
-          : 0;
+      const activeTotal = activeClasses.length;
+      const adequateRulePercent = Math.round((classesAdequateForRule / activeTotal) * 100);
 
       setStats({
-        percent,
-        count: evidenceList.length,
-        missing: activeClasses.length - coveredClasses,
-        samplePercent,
-        totalRequired,
-        totalUploaded
+        adequateRulePercent,
+        classesWithSample,
+        classesAdequateForRule,
+        activeTotal,
       });
     };
 
-    fetchStats();
+    void fetchStats();
   }, [classes]);
 
   if (!stats) return null;
@@ -120,71 +85,68 @@ export const EvidenceComplianceWidget = () => {
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-green-600" />
-            Audit Readiness
+            Moderation readiness
           </CardTitle>
 
           <Link
             to="/evidence-audit"
             className="text-xs text-primary flex items-center gap-1"
           >
-            Logs <ArrowRight className="h-3 w-3" />
+            Moderation overview <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
 
         <CardDescription>
-          Consolidated moderation proof for active classes.
+          Saved moderation samples for active classes (learner selection only—no documents stored).
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
 
-        {/* SAMPLE COMPLETION */}
         <div className="space-y-2">
           <div className="flex justify-between text-xs font-medium">
             <span className="flex items-center gap-1.5">
               <FileCheck className="h-3 w-3 text-blue-600" />
-              Sample Script Completion
+              Classes meeting 10% sample rule
             </span>
 
             <span
               className={
-                stats.samplePercent < 80
+                stats.adequateRulePercent < 80
                   ? "text-amber-600 font-bold"
                   : "text-green-600 font-bold"
               }
             >
-              {stats.samplePercent}%
+              {stats.adequateRulePercent}%
             </span>
           </div>
 
-          <Progress value={stats.samplePercent} className="h-2" />
+          <Progress value={stats.adequateRulePercent} className="h-2" />
         </div>
 
-        {/* STATS */}
         <div className="grid grid-cols-2 gap-2 mt-2">
           <div className="bg-muted/30 p-2 rounded-md border text-center">
-            <p className="text-xl font-bold">{stats.count}</p>
+            <p className="text-xl font-bold">{stats.classesWithSample}</p>
             <p className="text-[10px] uppercase text-muted-foreground">
-              Total Docs
+              With saved sample
             </p>
           </div>
 
           <div className="bg-muted/30 p-2 rounded-md border text-center">
             <p className="text-xl font-bold">
-              {stats.totalUploaded} / {stats.totalRequired}
+              {stats.classesAdequateForRule} / {stats.activeTotal}
             </p>
             <p className="text-[10px] uppercase text-muted-foreground">
-              Sample Scripts
+              Meet 10% rule
             </p>
           </div>
         </div>
 
-        {/* WARNING */}
-        {stats.totalUploaded < stats.totalRequired && (
+        {stats.classesAdequateForRule < stats.activeTotal && (
           <div className="flex items-center gap-2 text-[10px] text-amber-700 bg-amber-50 p-2 rounded border border-amber-100">
-            <AlertCircle className="h-3 w-3" />
+            <AlertCircle className="h-3 w-3 shrink-0" />
             <span>
-              {stats.totalRequired - stats.totalUploaded} selected sample scripts are missing.
+              {stats.activeTotal - stats.classesAdequateForRule} class(es) need a saved moderation sample sized for at least 10% of learners (min 3).
             </span>
           </div>
         )}

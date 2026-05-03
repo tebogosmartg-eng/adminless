@@ -436,3 +436,11 @@ export interface TeacherFileAttachment {
   file_type: string;
   created_at: string;
 }
+
+/** Term / class finalization validation (shared across Settings and Class Details). */
+export interface ValidationError {
+  type: "weight" | "marks" | "evidence" | "sample";
+  className: string;
+  subject: string;
+  details: string;
+}

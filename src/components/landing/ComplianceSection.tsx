@@ -10,7 +10,7 @@ import { showSuccess } from '@/utils/toast';
 const COMPLIANCE_ITEMS = [
   { title: "SA-SAMS Ready", icon: SendHorizonal, desc: "Finalised term marks are exported in formats optimized for easy SA-SAMS entry." },
   { title: "CAPS Aligned", icon: BadgeCheck, desc: "Supports weighting and grading systems required by the national curriculum." },
-  { title: "Moderation Support", icon: FileSearch, desc: "Track and upload the required 10% sample for departmental audit." }
+  { title: "Moderation Support", icon: FileSearch, desc: "Generate and save the required 10% sample for departmental audit—scripts stay offline." }
 ];
 
 export const ComplianceSection = () => {

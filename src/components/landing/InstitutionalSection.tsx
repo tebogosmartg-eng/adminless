@@ -14,7 +14,7 @@ const INSTITUTIONAL_BENEFITS = [
   },
   {
     title: "Live Moderation Visibility",
-    desc: "HODs can view evidence folders and marks in real-time without chasing paper files.",
+    desc: "HODs can view moderation samples and marks in real time without chasing paper files.",
     icon: ShieldAlert
   },
   {

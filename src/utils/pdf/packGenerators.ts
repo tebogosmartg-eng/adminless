@@ -97,7 +97,7 @@ export const generateEvidenceIndexPDF = (
 ): Blob | void => {
     const doc = new jsPDF('p', 'mm', 'a4');
     const margin = 14;
-    const startY = addHeader(doc, profile, `Evidence & Script Register`);
+    const startY = addHeader(doc, profile, `Moderation & script register`);
 
     doc.setFontSize(10);
     doc.setTextColor(80);
@@ -105,13 +105,13 @@ export const generateEvidenceIndexPDF = (
 
     autoTable(doc, {
         startY: startY + 10,
-        head: [['Learner Name', 'Script Attachments', 'Status']],
+        head: [['Learner Name', 'Legacy in-app script rows', 'Status']],
         body: learners.map(l => {
             const count = evidence.filter(e => e.learner_id === l.id && e.category === 'script').length;
             return [
                 l.name,
                 count.toString(),
-                count > 0 ? "Uploaded" : "Pending"
+                count > 0 ? "On file" : "—"
             ];
         }),
         theme: 'grid',
@@ -119,7 +119,7 @@ export const generateEvidenceIndexPDF = (
         styles: { fontSize: 9 },
         didParseCell: (data) => {
             if (data.section === 'body' && data.column.index === 2) {
-                if (data.cell.text[0] === 'Pending') data.cell.styles.textColor = [220, 38, 38];
+                if (data.cell.text[0] === '—') data.cell.styles.textColor = [120, 120, 120];
                 else data.cell.styles.textColor = [22, 163, 74];
             }
         }

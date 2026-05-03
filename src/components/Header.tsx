@@ -25,6 +25,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 
 const Header = () => {
@@ -32,7 +33,7 @@ const Header = () => {
   const { teacherName, isLoadingProfile } = useSettings();
   const { years, activeYear, setActiveYear, terms, activeTerm, setActiveTerm, loading: isAcademicLoading } = useAcademic();
   const { currentPeriod } = useCurrentPeriod();
-  const { isReadyForFinalization } = useSetupStatus();
+  const { isReadyForFinalization, isLoading: setupStatusLoading } = useSetupStatus();
   const [showAcademicSkeleton, setShowAcademicSkeleton] = useState(true);
   const [showProfileSkeleton, setShowProfileSkeleton] = useState(true);
 
@@ -121,6 +122,19 @@ const Header = () => {
                 <span className="text-[10px] font-bold truncate max-w-[120px] text-foreground">{currentPeriod.class_name}</span>
             </div>
         )}
+
+        {!showAcademicSkeleton &&
+          !setupStatusLoading &&
+          isReadyForFinalization &&
+          activeTerm &&
+          !activeTerm.is_finalised && (
+            <Badge
+              variant="outline"
+              className="hidden md:flex border-emerald-300 bg-emerald-50 text-emerald-900 text-[9px] font-bold uppercase tracking-tight px-2 py-1 shrink-0"
+            >
+              Ready to finalise term
+            </Badge>
+          )}
 
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 max-w-full overflow-hidden">
             <DropdownMenu>

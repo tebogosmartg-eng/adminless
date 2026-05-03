@@ -12,13 +12,20 @@ export const useModerationSample = (
 ) => {
   const [loading, setLoading] = useState(false);
   const [sample, setSample] = useState<ModerationSample | null>(null);
+  /** False until the first moderation_samples fetch for this class/term finishes (data may still be null). */
+  const [sampleFetchDone, setSampleFetchDone] = useState(false);
 
   // 🔥 FETCH SAMPLE (replaces useLiveQuery)
   useEffect(() => {
     let isMounted = true;
 
     const fetchSample = async () => {
-      if (!yearId || !termId || !classId) return;
+      if (!yearId || !termId || !classId) {
+        if (isMounted) setSampleFetchDone(false);
+        return;
+      }
+
+      if (isMounted) setSampleFetchDone(false);
 
       const { data, error } = await supabase
         .from("moderation_samples")
@@ -30,11 +37,16 @@ export const useModerationSample = (
 
       if (error) {
         console.error("Fetch sample error:", error);
+        if (isMounted) {
+          setSample(null);
+          setSampleFetchDone(true);
+        }
         return;
       }
 
       if (isMounted) {
         setSample(data || null);
+        setSampleFetchDone(true);
       }
     };
 
@@ -150,5 +162,5 @@ export const useModerationSample = (
     }
   };
 
-  return { sample, generateSample, saveSample, loading };
+  return { sample, sampleFetchDone, generateSample, saveSample, loading };
 };

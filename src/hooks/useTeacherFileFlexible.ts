@@ -88,7 +88,7 @@ export const useTeacherFileFlexible = (classId: string, termId: string) => {
       const defaultSections = [
         { title: "Weekly Notes", type: "notes" },
         { title: "Learner Support", type: "interventions" },
-        { title: "Evidence Tracking", type: "attachments" },
+        { title: "File attachments", type: "attachments" },
         { title: "Parent Communication", type: "observations" },
         { title: "Term Targets", type: "targets" },
         { title: "Interventions", type: "interventions" }

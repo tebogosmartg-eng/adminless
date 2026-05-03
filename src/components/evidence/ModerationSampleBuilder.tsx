@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from '@/components/ui/badge';
 import { 
     Sparkles, 
     ShieldCheck, 
@@ -15,18 +14,16 @@ import {
     Save, 
     Edit3, 
     CheckCircle2, 
-    AlertCircle, 
     Plus, 
     X,
     Loader2,
-    FileUp,
     FileCheck,
     TrendingUp,
     TrendingDown,
     Minus
 } from 'lucide-react';
 import { useModerationSample } from '@/hooks/useModerationSample';
-import { ClassInfo, Assessment, AssessmentMark, Learner, Evidence } from '@/lib/types';
+import { ClassInfo, Assessment, AssessmentMark } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { showSuccess } from '@/utils/toast';
 import { useAsyncState } from '@/hooks/useAsyncState';
@@ -36,16 +33,15 @@ interface ModerationSampleBuilderProps {
   classInfo: ClassInfo;
   assessments: Assessment[];
   marks: AssessmentMark[];
-  evidenceList: Evidence[];
-  onUploadForLearner: (learner: Learner) => void;
+  /** When true, sampling controls and save are disabled (read-only view/print). */
+  isLocked?: boolean;
 }
 
 export const ModerationSampleBuilder = ({ 
   classInfo, 
   assessments, 
   marks, 
-  evidenceList,
-  onUploadForLearner 
+  isLocked = false,
 }: ModerationSampleBuilderProps) => {
   const { sample, generateSample, saveSample, loading } = useModerationSample(
     classInfo.year_id, 
@@ -59,6 +55,10 @@ export const ModerationSampleBuilder = ({
   const [selectedLearnerIds, setSelectedLearnerIds] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const sampleState = useAsyncState();
+
+  useEffect(() => {
+    if (isLocked) setIsEditing(false);
+  }, [isLocked]);
 
   useEffect(() => {
     if (sample) {
@@ -126,12 +126,10 @@ export const ModerationSampleBuilder = ({
     }
   };
 
-  // Grouping Logic for results
   const groupedLearners = useMemo(() => {
       const selected = classInfo.learners
         .filter(l => l.id && selectedLearnerIds.includes(l.id))
         .map(l => {
-            const hasEvidence = evidenceList.some(e => e.learner_id === l.id);
             let score = 0;
             if (basis === 'assessment' && assessmentId !== 'none') {
                 const m = marks.find(m => m.assessment_id === assessmentId && m.learner_id === l.id);
@@ -140,12 +138,10 @@ export const ModerationSampleBuilder = ({
             } else {
                 score = parseFloat(l.mark) || 0;
             }
-            return { ...l, hasEvidence, score };
+            return { ...l, score };
         })
         .sort((a, b) => b.score - a.score);
 
-      // Divide the sorted selection into groups based on the rules that picked them
-      // If manually edited, we just divide by count
       const high = selected.slice(0, rules.top);
       const low = selected.slice(-rules.bottom);
       
@@ -156,11 +152,9 @@ export const ModerationSampleBuilder = ({
       const moderate = selected.filter(l => middleIds.has(l.id!));
 
       return { high, moderate, low, total: selected.length };
-  }, [classInfo.learners, selectedLearnerIds, evidenceList, basis, assessmentId, assessments, marks, rules]);
+  }, [classInfo.learners, selectedLearnerIds, basis, assessmentId, assessments, marks, rules]);
 
-  const completionCount = [...groupedLearners.high, ...groupedLearners.moderate, ...groupedLearners.low].filter(l => l.hasEvidence).length;
-
-  const AchievementGroup = ({ title, learners, icon: Icon, colorClass }: any) => {
+  const AchievementGroup = ({ title, learners, icon: Icon, colorClass }: { title: string; learners: typeof groupedLearners.high; icon: typeof TrendingUp; colorClass: string }) => {
     if (learners.length === 0) return null;
     return (
         <div className="space-y-2 print:mb-4">
@@ -172,25 +166,21 @@ export const ModerationSampleBuilder = ({
                 <span className="text-[10px] font-bold text-muted-foreground opacity-40 print:hidden">({learners.length})</span>
             </div>
             <div className="grid gap-2 print:gap-0">
-                {learners.map((l: any) => (
+                {learners.map((l) => (
                     <div key={l.id} className={cn(
-                        "flex items-center justify-between p-3 rounded-xl border bg-background group hover:border-primary/30 transition-all",
-                        "print:border-none print:p-1.5 print:border-b print:border-slate-100 print:rounded-none",
-                        l.hasEvidence ? "border-green-100 print:bg-transparent" : "border-slate-100 print:bg-transparent"
+                        "flex items-center justify-between p-3 rounded-xl border border-primary/15 bg-background group hover:border-primary/30 transition-all",
+                        "print:border-none print:p-1.5 print:border-b print:border-slate-100 print:rounded-none"
                     )}>
                         <div className="flex items-center gap-3 w-full">
-                            <div className={cn(
-                                "p-1.5 rounded-lg no-print",
-                                l.hasEvidence ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
-                            )}>
-                                {l.hasEvidence ? <FileCheck className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                            <div className="p-1.5 rounded-lg no-print bg-primary/10 text-primary">
+                                <FileCheck className="h-4 w-4" />
                             </div>
                             
                             <div className="flex flex-col min-w-0 flex-1">
                                 <div className="flex justify-between items-center w-full">
                                     <span className="text-sm font-bold text-slate-900 truncate max-w-[150px] print:text-black print:text-xs">{l.name}</span>
                                     <span className="hidden print:block text-[9px] font-bold uppercase text-slate-500">
-                                        {l.hasEvidence ? "Evidence Attached" : "Pending Submission"}
+                                        In sample
                                     </span>
                                 </div>
                                 <span className="text-[9px] font-black uppercase text-muted-foreground tracking-tighter print:text-slate-400">
@@ -198,26 +188,18 @@ export const ModerationSampleBuilder = ({
                                 </span>
                             </div>
                         </div>
+                        {!isLocked && (
                         <div className="flex items-center gap-2 no-print shrink-0">
-                            {!l.hasEvidence ? (
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => onUploadForLearner(l)} 
-                                    className="h-7 text-[10px] font-black uppercase text-blue-600 hover:bg-blue-50 gap-1.5 no-print"
-                                >
-                                    <FileUp className="h-3 w-3" /> Attach Script
-                                </Button>
-                            ) : (
-                                <Badge variant="outline" className="h-5 text-[8px] uppercase font-black border-green-200 text-green-700 bg-green-50/50">Stored</Badge>
-                            )}
                             <button 
+                                type="button"
                                 onClick={() => l.id && toggleLearner(l.id)}
                                 className="p-1 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 no-print"
+                                aria-label="Remove from sample"
                             >
                                 <X className="h-3.5 w-3.5" />
                             </button>
                         </div>
+                        )}
                     </div>
                 ))}
             </div>
@@ -225,11 +207,13 @@ export const ModerationSampleBuilder = ({
     );
   };
 
+  const controlsDisabled = isLocked || loading || sampleState.status === "loading" || sampleState.status === "saving";
+
   return (
     <Card className="border-primary/20 bg-primary/[0.01] shadow-none print:shadow-none print:border-none print:bg-transparent print-avoid-break">
       <CardHeader className="pb-3 print:px-0">
         <div className="flex justify-between items-start">
-            <div className="space-y-1">
+            <div className="space-y-2">
                 <div className="flex items-center gap-2">
                     <ShieldCheck className="h-5 w-5 text-primary no-print" />
                     <CardTitle className="text-base print:text-black">
@@ -240,23 +224,20 @@ export const ModerationSampleBuilder = ({
                 <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest no-print">
                     Recommended sample: 10% of class (min 3)
                 </CardDescription>
+                <p className="text-xs text-muted-foreground font-normal normal-case tracking-normal max-w-xl no-print">
+                  Generate a statistically balanced sample, then save it to record your moderation selection. Learner scripts stay with you; AdminLess does not store documents.
+                </p>
+                {isLocked && (
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5 no-print">
+                    This term is finalized—moderation sample is shown for reference only.
+                  </p>
+                )}
                 {sample && (
                     <p className="hidden print:block text-[10px] uppercase text-slate-500 font-bold mt-1">
                         Basis: {sample.rules_json.basis === 'term_overall' ? 'Term Overall Average' : 'Specific Task Performance'}
                     </p>
                 )}
             </div>
-            {selectedLearnerIds.length > 0 && (
-                <div className="text-right no-print">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Evidence Status</p>
-                    <Badge variant={completionCount === selectedLearnerIds.length ? "default" : "outline"} className={cn(
-                        "h-5 px-2",
-                        completionCount === selectedLearnerIds.length && "bg-green-600 border-none"
-                    )}>
-                        {completionCount} / {selectedLearnerIds.length} Linked
-                    </Badge>
-                </div>
-            )}
         </div>
       </CardHeader>
       <CardContent className="space-y-6 print:px-0">
@@ -267,12 +248,11 @@ export const ModerationSampleBuilder = ({
             retry: sampleState.retry,
           }}
         />
-        {/* Controls */}
         <div className="grid gap-4 p-4 rounded-xl border bg-background shadow-sm no-print">
             <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label className="text-[10px] uppercase font-black">Sampling Basis</Label>
-                    <Select value={basis ?? ""} onValueChange={(v: any) => setBasis(v)}>
+                    <Select value={basis ?? ""} onValueChange={(v: 'term_overall' | 'assessment') => setBasis(v)} disabled={controlsDisabled}>
                         <SelectTrigger className="h-8 text-xs font-bold"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="term_overall">Term Overall Average</SelectItem>
@@ -283,7 +263,7 @@ export const ModerationSampleBuilder = ({
                 {basis === 'assessment' && (
                     <div className="space-y-2 animate-in slide-in-from-top-2">
                         <Label className="text-[10px] uppercase font-black">Choose Task</Label>
-                        <Select value={assessmentId ?? ""} onValueChange={setAssessmentId}>
+                        <Select value={assessmentId ?? ""} onValueChange={setAssessmentId} disabled={controlsDisabled}>
                             <SelectTrigger className="h-8 text-xs font-bold"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">-- Select Assessment --</SelectItem>
@@ -309,48 +289,51 @@ export const ModerationSampleBuilder = ({
                             type="number" 
                             className="h-8 text-center font-bold"
                             value={rules[opt.key as keyof typeof rules]}
-                            onChange={(e) => setRules({ ...rules, [opt.key]: parseInt(e.target.value) || 0 })}
+                            onChange={(e) => setRules({ ...rules, [opt.key]: parseInt(e.target.value, 10) || 0 })}
+                            disabled={controlsDisabled}
                         />
                     </div>
                 ))}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                <Button onClick={() => void handleGenerate()} disabled={loading || sampleState.status === "loading" || sampleState.status === "saving"} size="sm" className="flex-1 font-bold">
+                <Button onClick={() => void handleGenerate()} disabled={controlsDisabled} size="sm" className="flex-1 font-bold">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
                     Generate Smart Sample
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleAutoSet10Percent} className="h-8 text-[10px] font-black uppercase tracking-tighter">
+                <Button variant="outline" size="sm" onClick={handleAutoSet10Percent} disabled={controlsDisabled} className="h-8 text-[10px] font-black uppercase tracking-tighter">
                     Auto-Set 10% Rule
                 </Button>
             </div>
         </div>
 
-        {/* Results / List */}
         {selectedLearnerIds.length > 0 && (
             <div className="space-y-6">
                 <div className="flex items-center justify-between border-b pb-2 no-print">
                     <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
                         <Users className="h-3 w-3" /> Audit Selection ({selectedLearnerIds.length})
                     </h4>
+                    {!isLocked && (
                     <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" className="h-6 text-[9px] uppercase font-black" onClick={() => setIsEditing(!isEditing)}>
+                        <Button variant="ghost" size="sm" className="h-6 text-[9px] uppercase font-black" onClick={() => setIsEditing(!isEditing)} disabled={sampleState.status === "loading" || sampleState.status === "saving"}>
                             {isEditing ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Edit3 className="h-3 w-3 mr-1" />}
                             {isEditing ? "Finish Editing" : "Edit Selection"}
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => void handleSave()} className="h-6 gap-1 px-2 border-primary text-primary text-[9px] font-black uppercase">
+                        <Button variant="outline" size="sm" onClick={() => void handleSave()} disabled={sampleState.status === "loading" || sampleState.status === "saving"} className="h-6 gap-1 px-2 border-primary text-primary text-[9px] font-black uppercase">
                             <Save className="h-3 w-3" /> Save Sample
                         </Button>
                     </div>
+                    )}
                 </div>
 
                 <div className="grid gap-6 print:gap-4">
-                    {isEditing ? (
+                    {isEditing && !isLocked ? (
                         <div className="p-3 border rounded-xl bg-background max-h-[350px] overflow-y-auto shadow-inner no-print">
                             <div className="grid grid-cols-2 gap-2">
                                 {classInfo.learners.map(l => (
                                     <button 
                                         key={l.id}
+                                        type="button"
                                         onClick={() => l.id && toggleLearner(l.id)}
                                         className={cn(
                                             "p-2 rounded-lg border text-left text-[11px] font-bold transition-all flex items-center justify-between",
@@ -394,8 +377,8 @@ export const ModerationSampleBuilder = ({
                 <Target className="h-8 w-8 text-muted-foreground opacity-20 no-print" />
                 <div className="space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground no-print">Moderation Sample Overview</p>
-                    <p className="text-[9px] text-muted-foreground max-w-[200px] mx-auto no-print">Moderation sample selection is managed externally or not required for the current assessment cycle.</p>
-                    <p className="hidden print:block text-sm text-slate-800 font-medium">Moderation sample selection is managed externally or not required for the current assessment cycle.</p>
+                    <p className="text-[9px] text-muted-foreground max-w-[240px] mx-auto no-print">Generate a sample above, or open this class when it has assessments and marks so a sample can be built.</p>
+                    <p className="hidden print:block text-sm text-slate-800 font-medium">No moderation sample recorded for print.</p>
                 </div>
             </div>
         )}

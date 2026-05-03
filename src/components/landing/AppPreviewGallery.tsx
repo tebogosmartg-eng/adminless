@@ -29,8 +29,8 @@ const SCREENSHOTS = [
     image: "/placeholder.svg"
   },
   {
-    title: "Evidence Audit",
-    desc: "Maintain a secure digital folder of moderation scripts for every learner.",
+    title: "Moderation overview",
+    desc: "Review saved moderation samples by class and term—selection only, no document storage.",
     icon: ShieldCheck,
     color: "bg-green-600",
     image: "/placeholder.svg"

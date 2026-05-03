@@ -10,7 +10,7 @@ import { ClassHeader } from "@/components/ClassHeader";
 import { MarkSheet } from "@/components/assessments/MarkSheet"; 
 import { AttendanceView } from "@/components/AttendanceView";
 import { ClassDialogsManager } from "@/components/ClassDialogsManager";
-import { EvidenceManager } from "@/components/evidence/EvidenceManager";
+import { ModerationManager } from "@/components/evidence/ModerationManager";
 import { ClassAnalysisTab } from "@/components/analysis/ClassAnalysisTab";
 import { ClassReportsTab } from "@/components/ClassDetails/ClassReportsTab";
 import { DiagnosticReportDialog } from "@/components/assessments/DiagnosticReportDialog";
@@ -30,6 +30,7 @@ import { generateSASAMSExport } from "@/utils/sasams";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchClassInsights, getClassInsightsQueryKey } from "@/hooks/useClassAnalysis";
 import { logAdminLessError } from "@/utils/logAdminLessError";
+import { isOfficialTermOrClassExport } from "@/utils/officialExport";
 
 import Scan from "@/pages/Scan";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -215,8 +216,10 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
 
   const handleSASAMSExportAction = () => {
       if (!activeTerm || !activeYear) return;
-      if (!classInfo.is_finalised && !activeTerm.closed) {
-          showError("Export Blocked: Class must be finalised before SA-SAMS export.");
+      if (!isOfficialTermOrClassExport(activeTerm.closed, classInfo.is_finalised)) {
+          showError(
+            "Export blocked: finalise this class in Term Administration or close the term in Settings before SA-SAMS export.",
+          );
           return;
       }
       if (hasUnsavedChanges) {
@@ -263,8 +266,8 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
           <TabsTrigger value="insights" className="flex-none shrink-0 h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
             <BarChart3 className="h-3.5 w-3.5" /> Insights
           </TabsTrigger>
-          <TabsTrigger value="evidence" className="flex-none shrink-0 h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
-            <ShieldCheck className="h-3.5 w-3.5" /> Evidence
+          <TabsTrigger value="moderation" className="flex-none shrink-0 h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
+            <ShieldCheck className="h-3.5 w-3.5" /> Moderation
           </TabsTrigger>
           <TabsTrigger value="reports" className="flex-none shrink-0 h-10 px-4 sm:px-6 gap-2 rounded-lg font-bold text-xs sm:text-sm">
             <FileDown className="h-3.5 w-3.5" /> Reports
@@ -305,9 +308,9 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
              />
         </TabsContent>
 
-        <TabsContent value="evidence" className="mt-4 space-y-8">
+        <TabsContent value="moderation" className="mt-4 space-y-8">
              <div className="max-w-2xl mx-auto w-full">
-                <EvidenceManager 
+                <ModerationManager 
                     classId={classId!} 
                     termId={activeTerm?.id}
                     isLocked={isLocked} 

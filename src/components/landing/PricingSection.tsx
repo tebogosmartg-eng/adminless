@@ -38,7 +38,7 @@ export const PricingSection = () => {
                   "SA-SAMS-aligned marksheets",
                   "Daily attendance registers",
                   "Consolidated term reports",
-                  "Secure evidence audit folders",
+                  "Moderation sample tracking & audit views",
                   "Classroom management tools",
                   "Personal teaching timetable"
                 ].map((feature, j) => (

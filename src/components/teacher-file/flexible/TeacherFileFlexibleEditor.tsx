@@ -142,7 +142,7 @@ export const TeacherFileFlexibleEditor = ({ classId, termId, isLocked = false }:
                                 <option value="observations">Observation Logs</option>
                                 <option value="interventions">Intervention Proof</option>
                                 <option value="targets">Term Targets</option>
-                                <option value="attachments">Evidence Folder</option>
+                                <option value="attachments">Attachments folder</option>
                             </select>
                         </div>
                     </div>

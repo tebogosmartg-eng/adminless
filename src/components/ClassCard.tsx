@@ -60,32 +60,20 @@ export const ClassCard = ({
           .eq("class_id", classItem.id)
           .maybeSingle();
 
-        if (!sample) {
+        if (!sample || !sample.learner_ids?.length) {
           setModerationStats({ status: "none" });
           return;
         }
 
-        // Get evidence scripts
-        const { data: evidence } = await supabase
-          .from("evidence")
-          .select("*")
-          .eq("class_id", classItem.id)
-          .eq("category", "script");
-
-        const scriptLearnerIds = new Set(
-          (evidence || []).map((e: any) => e.learner_id)
-        );
-
-        const completedCount = sample.learner_ids.filter((id: string) =>
-          scriptLearnerIds.has(id)
-        ).length;
-
-        const isComplete = completedCount === sample.learner_ids.length;
+        const n = classItem.learners.length;
+        const required = Math.max(1, Math.ceil(n * 0.1));
+        const saved = sample.learner_ids.length;
+        const isComplete = saved >= required;
 
         setModerationStats({
           status: isComplete ? "complete" : "partial",
-          count: completedCount,
-          total: sample.learner_ids.length,
+          count: saved,
+          total: required,
         });
       } catch (e) {
         console.warn("Moderation stats failed", e);
@@ -170,7 +158,7 @@ export const ClassCard = ({
           ) : moderationStats.status === "partial" ? (
             <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 w-fit">
               <AlertCircle className="h-3 w-3" />
-              Scripts: {moderationStats.count}/{moderationStats.total}
+              Sample: {moderationStats.count}/{moderationStats.total} learners
             </div>
           ) : (
             <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-200 w-fit">

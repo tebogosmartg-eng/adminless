@@ -6,101 +6,85 @@ import { useAcademic } from "@/context/AcademicContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 import {
-  Card, CardContent, CardHeader, CardTitle
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 
-import {
-  Search, ExternalLink, Loader2, FileText
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { format } from "date-fns";
-import { getSignedFileUrl } from "@/services/storage";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useAsyncState } from "@/hooks/useAsyncState";
 import { AsyncStatus } from "@/components/ui/AsyncStatus";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { ModerationSample } from "@/lib/types";
 
-const EvidenceAuditContent = () => {
+const ModerationAuditContent = () => {
   const { activeTerm } = useAcademic();
-  const termId = activeTerm?.id;
 
-  const [evidence, setEvidence] = useState<any[]>([]);
+  const [samples, setSamples] = useState<ModerationSample[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
-  const [learners, setLearners] = useState<any[]>([]);
   const [terms, setTerms] = useState<any[]>([]);
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [termFilter, setTermFilter] = useState("all");
 
-  const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingTimeoutReached, setLoadingTimeoutReached] = useState(false);
   const loadInProgressRef = useRef(false);
   const loadState = useAsyncState();
-  const fileState = useAsyncState();
 
-  // 🔥 FETCH EVERYTHING FROM SUPABASE
   useEffect(() => {
     const loadData = async () => {
-      if (!termId) {
-        setEvidence([]);
-        setClasses([]);
-        setLearners([]);
-        setTerms([]);
-        setLoading(false);
-        return;
-      }
       if (loadInProgressRef.current) return;
 
       loadInProgressRef.current = true;
       setLoading(true);
       try {
         await loadState.run(async () => {
-          console.log("[Evidence] fetch triggered");
           const { data: sessionData } = await supabase.auth.getSession();
           const user = sessionData?.session?.user;
           if (!user) throw new Error("Session expired");
 
-          const [
-            evidenceRes,
-            classRes,
-            termRes
-          ] = await Promise.all([
-            supabase.from("evidence").select("*").eq("user_id", user.id),
+          const [samplesRes, classRes, termRes] = await Promise.all([
+            supabase.from("moderation_samples").select("*").eq("user_id", user.id),
             supabase.from("classes").select("*").eq("user_id", user.id),
             supabase.from("terms").select("*"),
           ]);
 
-          if (evidenceRes.error) throw evidenceRes.error;
+          if (samplesRes.error) throw samplesRes.error;
           if (classRes.error) throw classRes.error;
           if (termRes.error) throw termRes.error;
 
-          const classIds = (classRes.data || []).map((item) => item.id);
-          const learnerRes = classIds.length
-            ? await supabase.from("learners").select("*").in("class_id", classIds)
-            : { data: [], error: null };
-          if (learnerRes.error) throw learnerRes.error;
-
-          setEvidence(evidenceRes.data || []);
+          setSamples((samplesRes.data || []) as ModerationSample[]);
           setClasses(classRes.data || []);
-          setLearners(learnerRes.data || []);
           setTerms(termRes.data || []);
         }, { status: "loading" });
       } catch (error) {
-        console.error("Evidence audit load failed:", error);
-        setEvidence([]);
+        console.error("Moderation audit load failed:", error);
+        setSamples([]);
         setClasses([]);
-        setLearners([]);
         setTerms([]);
       } finally {
         loadInProgressRef.current = false;
@@ -109,7 +93,7 @@ const EvidenceAuditContent = () => {
     };
 
     void loadData();
-  }, [termId]);
+  }, []);
 
   useEffect(() => {
     if (!loading) {
@@ -120,64 +104,51 @@ const EvidenceAuditContent = () => {
     return () => window.clearTimeout(timer);
   }, [loading]);
 
-  // 🔥 AUTO SET TERM
   useEffect(() => {
     if (activeTerm?.id) {
       setTermFilter(activeTerm.id);
     }
   }, [activeTerm?.id]);
 
-  // 🔥 ENRICH DATA
   const enriched = useMemo(() => {
-    return evidence.map((e) => {
-      const cls = classes.find((c) => c.id === e.class_id);
-      const learner = learners.find((l) => l.id === e.learner_id);
-      const term = terms.find((t) => t.id === e.term_id);
-
+    return samples.map((s) => {
+      const cls = classes.find((c) => c.id === s.class_id);
+      const term = terms.find((t) => t.id === s.term_id);
       return {
-        ...e,
-        className: cls?.className || "Unknown",
+        ...s,
+        className: cls?.class_name || cls?.className || "Unknown",
         subject: cls?.subject || "",
-        learnerName: learner?.name || "Class Level",
-        termName: term?.name || "General",
-        isLocked: term?.closed || false,
+        termName: term?.name || "—",
       };
     });
-  }, [evidence, classes, learners, terms]);
+  }, [samples, classes, terms]);
 
-  // 🔥 FILTER
   const filtered = useMemo(() => {
     const normalizedSearch = debouncedSearch.toLowerCase();
-    return enriched.filter((e) => {
+    return enriched.filter((row) => {
       const matchesSearch =
-        e.file_name?.toLowerCase().includes(normalizedSearch) ||
-        e.learnerName?.toLowerCase().includes(normalizedSearch) ||
-        e.className?.toLowerCase().includes(normalizedSearch);
+        row.className?.toLowerCase().includes(normalizedSearch) ||
+        row.subject?.toLowerCase().includes(normalizedSearch) ||
+        row.termName?.toLowerCase().includes(normalizedSearch);
 
-      const matchesTerm =
-        termFilter === "all" || e.term_id === termFilter;
+      const matchesTerm = termFilter === "all" || row.term_id === termFilter;
 
       return matchesSearch && matchesTerm;
     });
   }, [enriched, debouncedSearch, termFilter]);
 
-  const handleViewFile = async (item: any) => {
-    setLoadingFileId(item.id);
-    try {
-      const url = await fileState.run(
-        () => getSignedFileUrl(item.file_path),
-        { status: "loading" },
-      );
-      window.open(url, "_blank");
-    } catch (error) {
-      console.error("Evidence file open failed:", error);
-    } finally {
-      setLoadingFileId(null);
-    }
-  };
+  const basisLabel = (b: string | undefined) =>
+    b === "assessment" ? "Assessment task" : "Term overall";
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Moderation overview</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Saved moderation samples by class and term. AdminLess records the learner selection only—not documents.
+        </p>
+      </div>
+
       <AsyncStatus
         state={{
           status: loading ? "loading" : loadState.status,
@@ -187,15 +158,14 @@ const EvidenceAuditContent = () => {
       />
       {loadingTimeoutReached && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Evidence is taking longer than expected. Please wait or refresh.
+          Moderation data is taking longer than expected. Please wait or refresh.
         </div>
       )}
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6 flex gap-4">
           <Input
-            placeholder="Search..."
+            placeholder="Search class or term..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -205,7 +175,7 @@ const EvidenceAuditContent = () => {
               <SelectValue placeholder="Term" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="all">All terms</SelectItem>
               {terms.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
                   {t.name}
@@ -216,65 +186,73 @@ const EvidenceAuditContent = () => {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Saved samples</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>File</TableHead>
-                <TableHead>Learner</TableHead>
                 <TableHead>Class</TableHead>
+                <TableHead>Subject</TableHead>
                 <TableHead>Term</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead />
+                <TableHead>Basis</TableHead>
+                <TableHead className="text-right">Learners in sample</TableHead>
+                <TableHead>Updated</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, idx) => (
-                  <TableRow key={`evidence-loading-${idx}`}>
-                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                  <TableRow key={`moderation-loading-${idx}`}>
+                    <TableCell>
+                      <Skeleton className="h-4 w-40" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-8 ml-auto" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-20" />
+                    </TableCell>
                   </TableRow>
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center">
-                    No evidence found
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
+                    No saved moderation samples match this filter.
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{item.file_name}</TableCell>
-                    <TableCell>{item.learnerName}</TableCell>
-                    <TableCell>{item.className}</TableCell>
+                filtered.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">{row.className}</TableCell>
+                    <TableCell>{row.subject || "—"}</TableCell>
                     <TableCell>
-                      <Badge>{item.termName}</Badge>
+                      <Badge variant="secondary">{row.termName}</Badge>
                     </TableCell>
-                    <TableCell>
-                      {item.created_at
-                        ? format(new Date(item.created_at), "dd MMM yyyy")
-                        : "-"}
+                    <TableCell className="text-sm text-muted-foreground">
+                      {basisLabel(row.rules_json?.basis)}
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleViewFile(item)}
-                      >
-                        {loadingFileId === item.id ? (
-                          <Loader2 className="animate-spin h-4 w-4" />
-                        ) : (
-                          <ExternalLink className="h-4 w-4" />
-                        )}
-                      </Button>
+                    <TableCell className="text-right font-mono text-sm">
+                      {row.learner_ids?.length ?? 0}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {row.updated_at
+                        ? format(new Date(row.updated_at), "dd MMM yyyy HH:mm")
+                        : row.created_at
+                          ? format(new Date(row.created_at), "dd MMM yyyy")
+                          : "—"}
                     </TableCell>
                   </TableRow>
                 ))
@@ -303,7 +281,7 @@ const EvidenceAudit = () => {
   if (!authReady && !authWaitTimedOut) {
     return (
       <div className="flex justify-center items-center h-40">
-        <Loader2 className="animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
@@ -324,7 +302,7 @@ const EvidenceAudit = () => {
     );
   }
 
-  return <EvidenceAuditContent />;
+  return <ModerationAuditContent />;
 };
 
 export default EvidenceAudit;

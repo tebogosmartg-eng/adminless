@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertTriangle, CheckCircle, Lock, XCircle, ShieldAlert, FileWarning, ClipboardCheck } from 'lucide-react';
-import { ValidationError } from '@/hooks/useTermValidation';
+import type { ValidationError } from '@/lib/types';
 import { useSetupStatus } from '@/hooks/useSetupStatus';
 import { cn } from '@/lib/utils';
 

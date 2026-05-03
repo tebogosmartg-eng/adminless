@@ -9,7 +9,7 @@ import { TeacherFileRecordOfWork } from './TeacherFileRecordOfWork';
 import { TeacherFileTasks } from './TeacherFileTasks';
 import { TeacherFileMarkSchedule } from './TeacherFileMarkSchedule';
 import { TeacherFileReports } from './TeacherFileReports';
-import { EvidenceManager } from '@/components/evidence/EvidenceManager';
+import { ModerationManager } from '@/components/evidence/ModerationManager';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useSettings } from '@/context/SettingsContext';
@@ -201,7 +201,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                   </div>
 
                   <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-page-break">
-                      <h4 className="text-sm font-bold mb-4 text-blue-800">4.4 Moderation Evidence</h4>
+                      <h4 className="text-sm font-bold mb-4 text-blue-800">4.4 Moderation</h4>
                       {moderationSample ? (
                           <div className="mb-6 p-4 rounded-xl border border-green-200 bg-green-50 flex items-start gap-4 print:border-none print:bg-transparent print:p-0">
                               <ShieldCheck className="h-6 w-6 text-green-600 mt-1 no-print" />
@@ -229,7 +229,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
                               </div>
                           </div>
                       )}
-                      <EvidenceManager classId={classInfo.id} termId={term.id} isLocked={isLocked} />
+                      <ModerationManager classId={classInfo.id} termId={term.id} isLocked={isLocked} />
                   </div>
 
                   <div className="pt-8 border-t border-slate-100 print:border-slate-300 print-page-break">
@@ -295,7 +295,7 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
       {/* Section 7.1: Subject Meeting Minutes */}
       <TeacherFileLayout pageNumber={8} className="print-page-break">
           <div className="space-y-2 mb-8">
-              <h3 className="text-xl font-black text-slate-900">7. Additional Evidence</h3>
+              <h3 className="text-xl font-black text-slate-900">7. Additional documentation</h3>
               <p className="text-xs text-muted-foreground no-print">Supplementary documentation for this academic period.</p>
           </div>
           <TeacherFileSection yearId={year.id} termId={term.id} sectionKey={`${prefix}meeting_minutes`} title="7.1 Subject Meeting Minutes" isLocked={isLocked} />

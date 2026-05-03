@@ -7,7 +7,7 @@ import { ProfileAttendanceTab } from '@/components/learner-profile/ProfileAttend
 import { ProfileHistoryTab } from '@/components/learner-profile/ProfileHistoryTab';
 import { ProfileAcademicTab } from '@/components/learner-profile/ProfileAcademicTab';
 import { ProfileNotesTab } from '@/components/learner-profile/ProfileNotesTab';
-import { EvidenceManager } from '@/components/evidence/EvidenceManager';
+import { ModerationManager } from '@/components/evidence/ModerationManager';
 import { useSettings } from '@/context/SettingsContext';
 import { useClasses } from '@/context/ClassesContext';
 import { useAcademic } from '@/context/AcademicContext';
@@ -223,7 +223,7 @@ export const LearnerProfileDialog = ({
             <TabsList className="flex w-full overflow-x-auto no-scrollbar justify-start p-1 h-auto min-h-[48px] bg-background border-b rounded-none shrink-0">
                 <TabsTrigger value="academic" className="flex-none shrink-0 h-10 px-4"><GraduationCap className="h-4 w-4 mr-2 hidden sm:block" /> Academic</TabsTrigger>
                 <TabsTrigger value="summary" className="flex-none shrink-0 h-10 px-4">Summary</TabsTrigger>
-                <TabsTrigger value="evidence" className="flex-none shrink-0 h-10 px-4"><ShieldCheck className="h-4 w-4 mr-2 hidden sm:block" /> Evidence</TabsTrigger>
+                <TabsTrigger value="moderation" className="flex-none shrink-0 h-10 px-4"><ShieldCheck className="h-4 w-4 mr-2 hidden sm:block" /> Moderation</TabsTrigger>
                 <TabsTrigger value="history" className="flex-none shrink-0 h-10 px-4">History</TabsTrigger>
                 <TabsTrigger value="attendance" className="flex-none shrink-0 h-10 px-4">Attendance</TabsTrigger>
                 <TabsTrigger value="notes" className="flex-none shrink-0 h-10 px-4"><Book className="h-4 w-4 mr-2 hidden sm:block" /> Notes</TabsTrigger>
@@ -272,9 +272,9 @@ export const LearnerProfileDialog = ({
                     }}
                   />
                 </TabsContent>
-                <TabsContent value="evidence" className="h-full m-0">
+                <TabsContent value="moderation" className="h-full m-0">
                     {currentClassId && learnerId ? (
-                        <EvidenceManager
+                        <ModerationManager
                           classId={currentClassId}
                           learnerId={learnerId}
                           learnerName={currentLearner.name}
@@ -283,7 +283,7 @@ export const LearnerProfileDialog = ({
                         />
                     ) : (
                         <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-10 text-center text-sm text-muted-foreground">
-                            Evidence needs a class record for this learner. If this learner was just added, save the class list and try again.
+                            Moderation needs a class record for this learner. If this learner was just added, save the class list and try again.
                         </div>
                     )}
                 </TabsContent>

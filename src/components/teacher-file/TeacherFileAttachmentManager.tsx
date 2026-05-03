@@ -66,7 +66,7 @@ export const TeacherFileAttachmentManager = ({
       <div className="flex items-center justify-between">
         <h5 className="text-[9px] font-black uppercase flex items-center gap-1.5">
           <Paperclip className="h-3 w-3" />
-          Linked Evidence ({attachments.length})
+          Linked files ({attachments.length})
         </h5>
 
         {!isLocked && (

@@ -61,9 +61,9 @@ export const generateAndDownloadExportPack = async (
         const modBlob = generateModerationSamplePDF(sample || null, learners, classInfo.className, termInfo.name, profile, true) as Blob;
         folder.file('03_Moderation_Sample.pdf', modBlob);
 
-        // 4. Evidence Index
+        // 4. Moderation index (learner register PDF)
         const evBlob = generateEvidenceIndexPDF(learners, evidence, classInfo.className, termInfo.name, profile, true) as Blob;
-        folder.file('04_Evidence_Index.pdf', evBlob);
+        folder.file('04_Moderation_Index.pdf', evBlob);
 
         // 5. Diagnostic Summary
         const diagData = calculateDiagnosticDataCore(fullClassInfo, settings.atRiskThreshold, assessments, marks);
@@ -90,7 +90,7 @@ export const generateAndDownloadExportPack = async (
         )) as Blob;
         folder.file('05_Diagnostic_Summary.pdf', diagBlob);
 
-        // 6. SA-SAMS Ready Export
+        // 6. SA-SAMS export (pack only available after class finalisation — always official context)
         const sasamsCsv = generateSASAMSExport(
             learners, classInfo.className, classInfo.grade, classInfo.subject, termInfo.name, yearInfo.name, profile.teacher, settings.schoolCode, true
         ) as string;

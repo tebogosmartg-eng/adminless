@@ -10,7 +10,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { LabeledFieldRow } from "@/components/ui/labeled-field-row";
 
 import {
   Select, SelectContent, SelectItem,
@@ -148,7 +148,7 @@ export const EditAssessmentDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[700px] max-w-[95vw] w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
 
           <div className="shrink-0 p-6 pb-4 border-b">
             <DialogHeader>
@@ -161,25 +161,22 @@ export const EditAssessmentDialog = ({
             {/* FORM */}
             <div className="grid gap-4 pt-4">
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-xs">Title</Label>
+              <LabeledFieldRow label="Title" labelClassName="text-xs">
                 <Input
                   value={formData.title || ""}
                   onChange={e =>
                     setFormData({ ...formData, title: e.target.value })
                   }
-                  className="col-span-3 h-9"
+                  className="h-9 w-full"
                 />
-              </div>
+              </LabeledFieldRow>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-xs">Rubric</Label>
-
+              <LabeledFieldRow label="Rubric" labelClassName="text-xs">
                 <Select
                   value={formData.rubric_id || "none"}
                   onValueChange={handleRubricSelect}
                 >
-                  <SelectTrigger className="col-span-3 h-9">
+                  <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="None" />
                   </SelectTrigger>
 
@@ -196,10 +193,9 @@ export const EditAssessmentDialog = ({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </LabeledFieldRow>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-xs">Max Mark</Label>
+              <LabeledFieldRow label="Max Mark" labelClassName="text-xs">
                 <Input
                   type="number"
                   value={formData.max_mark || ""}
@@ -209,16 +205,15 @@ export const EditAssessmentDialog = ({
                       max_mark: parseInt(e.target.value)
                     })
                   }
-                  className="col-span-3 h-9"
+                  className="h-9 w-full"
                   disabled={
                     !!formData.rubric_id ||
                     (formData.questions?.length || 0) > 0
                   }
                 />
-              </div>
+              </LabeledFieldRow>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right text-xs">Weight (%)</Label>
+              <LabeledFieldRow label="Weight (%)" labelClassName="text-xs">
                 <Input
                   type="number"
                   value={formData.weight || ""}
@@ -228,9 +223,9 @@ export const EditAssessmentDialog = ({
                       weight: parseFloat(e.target.value)
                     })
                   }
-                  className="col-span-3 h-9"
+                  className="h-9 w-full"
                 />
-              </div>
+              </LabeledFieldRow>
             </div>
           </div>
 

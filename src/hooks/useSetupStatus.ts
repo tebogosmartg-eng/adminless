@@ -175,6 +175,7 @@ export const useSetupStatus = () => {
     const steps: SetupStep[] = [];
     let progress = 0;
     let marksCaptured = false;
+    let step7Done = false;
     let step8Done = false;
 
     if (isDataReady) {
@@ -234,7 +235,7 @@ export const useSetupStatus = () => {
         isLocked: !step5Done,
       });
 
-      const step7Done = weightingReport.isValid && allMarksDone;
+      step7Done = weightingReport.isValid && allMarksDone;
       steps.push({
         id: 7,
         title: "Validate Weightings",
@@ -261,7 +262,8 @@ export const useSetupStatus = () => {
       coreSteps: steps,
       progress,
       isLoading: !isDataReady,
-      isReadyForFinalization: step8Done,
+      // Prep through step 7 complete — teacher may close the term in Settings (TermClosureDialog).
+      isReadyForFinalization: step7Done,
       hasMarksCaptured: marksCaptured,
       missingRequired: steps.filter(s => s.status !== "completed"),
     };

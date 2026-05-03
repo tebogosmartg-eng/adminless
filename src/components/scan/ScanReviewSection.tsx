@@ -167,7 +167,7 @@ export const ScanReviewSection = ({
                                                                                 </div>
                                                                             </TooltipTrigger>
                                                                             <TooltipContent className="max-w-[200px] text-[10px]">
-                                                                                <p className="font-bold mb-1 uppercase tracking-tighter">AI Evidence Found:</p>
+                                                                                <p className="font-bold mb-1 uppercase tracking-tighter">AI signals:</p>
                                                                                 <p className="italic">"{qm.evidenceText || 'No clear text detected.'}"</p>
                                                                             </TooltipContent>
                                                                         </Tooltip>

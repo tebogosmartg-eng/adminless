@@ -150,7 +150,7 @@ export const ReviewDocument = (props: ReviewDocumentProps) => {
                                                                                 <span className="hidden print:inline mr-2">•</span>
                                                                                 {file.file_name}
                                                                             </span>
-                                                                            <span className="text-[8px] font-bold text-slate-400 uppercase no-print">Linked Evidence</span>
+                                                                            <span className="text-[8px] font-bold text-slate-400 uppercase no-print">Linked files</span>
                                                                         </div>
                                                                     </div>
                                                                     <Button 

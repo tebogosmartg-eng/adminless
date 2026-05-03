@@ -74,7 +74,7 @@ export const ModerationChecklist = ({ termId, yearId }: ModerationChecklistProps
                             {step.label}
                         </p>
                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter print:text-[8px] print:text-slate-500">
-                            {step.type === 'required' ? "Mandatory Record" : "Recommended Evidence"}
+                            {step.type === 'required' ? "Mandatory Record" : "Recommended record"}
                         </p>
                     </div>
                     
