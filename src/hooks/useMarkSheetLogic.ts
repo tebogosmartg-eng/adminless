@@ -9,11 +9,21 @@ import { isLocked } from '@/utils/termLock';
 import { supabase } from "@/lib/supabaseClient";
 import { logAdminLessError } from '@/utils/logAdminLessError';
 import { useDebounce } from '@/hooks/useDebounce';
+import { isClassFinalisationLocking } from '@/utils/classAmendment';
+import { logAmendmentEvent } from '@/utils/amendmentLog';
 
 type CellSaveStatus = 'saving' | 'saved' | 'error';
 
+export type AmendmentMarkSheetAudit = {
+  classId: string;
+  userId?: string;
+};
 
-export const useMarkSheetLogic = (classInfo: ClassInfo) => {
+export const useMarkSheetLogic = (
+  classInfo: ClassInfo,
+  isAmendmentMode = false,
+  amendmentAudit?: AmendmentMarkSheetAudit | null,
+) => {
   const { 
     terms,
     activeTerm, 
@@ -104,7 +114,22 @@ useEffect(() => {
   const pendingMarkSaveCountRef = useRef(0);
   const cellStatusTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [cellSaveStatus, setCellSaveStatus] = useState<Record<string, CellSaveStatus>>({});
-  const sheetLocked = isLocked(activeYear, activeTerm) || !!classInfo.is_finalised;
+  const sheetLocked =
+    isLocked(activeYear, activeTerm) ||
+    isClassFinalisationLocking(!!classInfo.is_finalised, isAmendmentMode);
+
+  const logIfAmendment = useCallback(
+    (type: string, payload?: Record<string, unknown>) => {
+      if (!isAmendmentMode || !amendmentAudit) return;
+      logAmendmentEvent({
+        type,
+        classId: amendmentAudit.classId,
+        userId: amendmentAudit.userId,
+        payload,
+      });
+    },
+    [isAmendmentMode, amendmentAudit],
+  );
 
   const clearCellStatusTimer = useCallback((key: string) => {
     const timer = cellStatusTimersRef.current[key];
@@ -199,6 +224,7 @@ useEffect(() => {
         setCellSaveStatus(prev => ({ ...prev, [key]: 'saved' }));
         setSaveSuccessTick((prev) => prev + 1);
         scheduleCellStatusReset(key, 'saved', 1600);
+        logIfAmendment('MARK_UPDATED', { learnerId, assessmentId });
     } catch (e) {
         logAdminLessError('marksheet_mark_persist', e);
         if (markSaveSequenceRef.current[key] === nextSeq) {
@@ -219,7 +245,15 @@ useEffect(() => {
             setIsAutoSaving(false);
         }
     }
-  }, [updateMarks, editedComments, resolvedMarks, clearCellStatusTimer, scheduleCellStatusReset, sheetLocked]);
+  }, [
+    updateMarks,
+    editedComments,
+    resolvedMarks,
+    clearCellStatusTimer,
+    scheduleCellStatusReset,
+    sheetLocked,
+    logIfAmendment,
+  ]);
 
   const validateAndCommitMark = useCallback(async (assessmentId: string, learnerId: string, input: string) => {
     if (sheetLocked) {
@@ -334,6 +368,7 @@ useEffect(() => {
         setCellSaveStatus(prev => ({ ...prev, [key]: 'saved' }));
         setSaveSuccessTick((prev) => prev + 1);
         scheduleCellStatusReset(key, 'saved', 1600);
+        logIfAmendment('COMMENT_UPDATED', { learnerId, assessmentId });
     } catch (error) {
         logAdminLessError('marksheet_comment_persist', error);
         setCellSaveStatus(prev => ({ ...prev, [key]: 'error' }));
@@ -342,7 +377,7 @@ useEffect(() => {
     } finally {
         setIsAutoSaving(false);
     }
-  }, [updateMarks, resolvedMarks, clearCellStatusTimer, scheduleCellStatusReset, sheetLocked]);
+  }, [updateMarks, resolvedMarks, clearCellStatusTimer, scheduleCellStatusReset, sheetLocked, logIfAmendment]);
 
   const handleAddAssessment = useCallback(async () => {
       if (sheetLocked) {
@@ -368,6 +403,7 @@ useEffect(() => {
               rubric_id: newAss.rubricId === 'none' ? null : (newAss.rubricId || null),
               questions: newAss.questions
           });
+          logIfAmendment('ASSESSMENT_CREATED', { title: newAss.title, termId: targetTermId });
           
           setNewAss({ 
               title: "", 
@@ -382,7 +418,7 @@ useEffect(() => {
       } finally {
           setIsAddOpen(false);
       }
-  }, [newAss, activeTerm, classInfo.id, createAssessment, sheetLocked]);
+  }, [newAss, activeTerm, classInfo.id, createAssessment, sheetLocked, logIfAmendment]);
 
   const reorderAssessments = useCallback(async (payload: { id: string; position: number }[], termId: string) => {
     if (sheetLocked) {
@@ -425,13 +461,14 @@ useEffect(() => {
       });
 
       if (error) throw error;
+      logIfAmendment('ASSESSMENTS_REORDERED', { termId, count: sanitizedPayload.length });
     } catch (error) {
       rollbackOptimisticOrder();
       throw error;
     } finally {
       setIsReorderingAssessments(false);
     }
-  }, [resolvedAssessments, classInfo.id, optimisticReorderAssessments, sheetLocked]);
+  }, [resolvedAssessments, classInfo.id, optimisticReorderAssessments, sheetLocked, logIfAmendment]);
 
   const undoLastReorder = useCallback(async (termId: string) => {
     if (sheetLocked) {
@@ -480,6 +517,7 @@ useEffect(() => {
           return;
         }
         await updateAssessment(assessment);
+        logIfAmendment('ASSESSMENT_UPDATED', { assessmentId: assessment.id, title: assessment.title });
         setIsEditOpen(false);
       },
       calculateLearnerTotal,
@@ -498,6 +536,7 @@ useEffect(() => {
           return;
         }
         await deleteAssessment(id);
+        logIfAmendment('ASSESSMENT_DELETED', { assessmentId: id });
       }, 
       refreshAssessments, 
       handleSort: (key: string) => setSortConfig(c => ({ key, direction: c.key === key && c.direction === 'desc' ? 'asc' : 'desc' })),
@@ -601,7 +640,8 @@ useEffect(() => {
     handleTermChange, handleMarkChange, handleCommentChange, handleAddAssessment, 
     updateAssessment, calculateLearnerTotal, resolvedMarks, resolvedAssessments, deleteAssessment, 
     refreshAssessments, activeTool, sortedAndFilteredLearners, validateAndCommitMark, 
-    classInfo.learners, updateMarks, availableRubrics, rubricMarking, reorderAssessments, undoLastReorder, sheetLocked
+    classInfo.learners, updateMarks, availableRubrics, rubricMarking, reorderAssessments, undoLastReorder, sheetLocked,
+    logIfAmendment
   ]);
 
   return {

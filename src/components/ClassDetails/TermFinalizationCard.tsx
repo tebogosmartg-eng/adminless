@@ -18,12 +18,27 @@ import { showSuccess, showError } from "@/utils/toast";
 import { useAsyncState } from "@/hooks/useAsyncState";
 import { AsyncStatus } from "@/components/ui/AsyncStatus";
 import { useModerationSample } from "@/hooks/useModerationSample";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface TermFinalizationCardProps {
   classInfo: ClassInfo;
+  isAmendmentMode?: boolean;
+  onEnterAmendmentMode: () => void;
 }
 
-export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) => {
+export const TermFinalizationCard = ({
+  classInfo,
+  isAmendmentMode = false,
+  onEnterAmendmentMode,
+}: TermFinalizationCardProps) => {
   const { activeTerm, activeYear, assessments, marks } = useAcademic();
   const { finalizeClassTerm } = useClasses();
   const settings = useSettings();
@@ -35,6 +50,7 @@ export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) =
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [amendDialogOpen, setAmendDialogOpen] = useState(false);
   const actionState = useAsyncState();
 
   const readiness = useMemo(() => {
@@ -61,6 +77,11 @@ export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) =
   );
 
   const isFinalised = !!classInfo.is_finalised;
+  const showAmendClass =
+    isFinalised &&
+    !!activeTerm &&
+    activeTerm.closed === false &&
+    !isAmendmentMode;
   const canFinalize =
     readiness.isValid && !isFinalised && sampleFetchDone && !!activeYear && !!activeTerm;
 
@@ -148,6 +169,40 @@ export const TermFinalizationCard = ({ classInfo }: TermFinalizationCardProps) =
               <Lock className="h-4 w-4" />
               Term Status: Locked
             </div>
+            {showAmendClass && (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="font-semibold"
+                  onClick={() => setAmendDialogOpen(true)}
+                >
+                  Amend Class
+                </Button>
+              </div>
+            )}
+            <AlertDialog open={amendDialogOpen} onOpenChange={setAmendDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Amend Finalised Class</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will allow temporary edits. Ensure you re-finalise once changes are complete.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setAmendDialogOpen(false);
+                      onEnterAmendmentMode();
+                    }}
+                  >
+                    Continue
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white dark:bg-card border rounded-xl shadow-sm">
               <div className="space-y-1">
                 <h4 className="font-bold text-sm">Term Export Pack</h4>

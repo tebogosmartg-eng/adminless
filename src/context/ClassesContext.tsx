@@ -175,6 +175,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
     if (!session?.user.id) return;
     try {
         const loadedClass = classes.find((item) => item.id === classId);
+        // Client guard uses raw class finalisation; amendment mode will align here when API/RLS supports it.
         const isLockedFromCache =
           (!!activeTerm?.closed && loadedClass?.term_id === activeTerm.id) || !!loadedClass?.is_finalised;
         if (isLockedFromCache) {
@@ -258,6 +259,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const renameLearner = async (learnerId: string, newName: string) => {
     try {
         const owningClass = classes.find((item) => item.learners.some((learner) => learner.id === learnerId));
+        // Amendment mode unlock is UI-only for now; keep server-aligned checks here until mutations support it.
         const isLocked = !!activeTerm?.closed || !!owningClass?.is_finalised;
         if (isLocked) {
           showError("Learner profile is locked for this finalized term.");
@@ -276,6 +278,7 @@ export const ClassesProvider = ({ children, session }: { children: ReactNode; se
   const updateLearnerComment = async (learnerId: string, comment: string) => {
     try {
         const owningClass = classes.find((item) => item.learners.some((learner) => learner.id === learnerId));
+        // Amendment mode unlock is UI-only for now; keep server-aligned checks here until mutations support it.
         const isLocked = !!activeTerm?.closed || !!owningClass?.is_finalised;
         if (isLocked) {
           showError("Learner profile is locked for this finalized term.");

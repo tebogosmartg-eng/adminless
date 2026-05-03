@@ -3,7 +3,15 @@ import { ScanUploadSection } from '@/components/scan/ScanUploadSection';
 import { ScanReviewSection } from '@/components/scan/ScanReviewSection';
 import { ControlledReplacementDialog } from '@/components/scan/ControlledReplacementDialog';
 
-const Scan = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaultClassId?: string }) => {
+const Scan = ({
+  embedded = false,
+  defaultClassId,
+  isAmendmentMode = false,
+}: {
+  embedded?: boolean;
+  defaultClassId?: string;
+  isAmendmentMode?: boolean;
+}) => {
   const {
     scanType, setScanType,
     imagePreviews,
@@ -29,7 +37,7 @@ const Scan = ({ embedded = false, defaultClassId }: { embedded?: boolean, defaul
     isExtractionReady,
     isConflictOpen, setIsConflictOpen, existingMarks, applyScannedData, targetClass, targetAssessment,
     isCreateClassOpen, setIsCreateClassOpen
-  } = useScanLogic(defaultClassId);
+  } = useScanLogic(defaultClassId, isAmendmentMode);
 
   return (
     <div className={`flex flex-col gap-6 max-w-7xl mx-auto ${embedded ? 'pb-2' : 'pb-10'}`}>

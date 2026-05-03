@@ -13,8 +13,9 @@ import { uploadEvidenceFile } from '@/services/storage';
 import { useScanDataState } from './scan/useScanDataState';
 import { useScanFileHandling } from './scan/useScanFileHandling';
 import { useScanPersistence } from './scan/useScanPersistence';
+import { isClassFinalisationLocking } from '@/utils/classAmendment';
 
-export const useScanLogic = (defaultClassId?: string) => {
+export const useScanLogic = (defaultClassId?: string, isAmendmentMode = false) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { classes } = useClasses();
@@ -159,7 +160,10 @@ export const useScanLogic = (defaultClassId?: string) => {
 
   const commitMarksToDatabase = async (updates: any[]) => {
       if (!activeTerm || !activeYear || !selectedClassId || !targetClass || !targetAssessment) return;
-      if (activeTerm.closed || targetClass.is_finalised) {
+      if (
+        activeTerm.closed ||
+        isClassFinalisationLocking(!!targetClass.is_finalised, isAmendmentMode)
+      ) {
           showError("This term is locked. Scanned marks cannot be saved.");
           return;
       }

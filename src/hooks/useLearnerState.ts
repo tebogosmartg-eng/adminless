@@ -3,11 +3,19 @@ import { Learner, ClassInfo } from '@/lib/types';
 import { showSuccess, showError } from '@/utils/toast';
 import confetti from 'canvas-confetti';
 import { supabase } from '@/lib/supabaseClient';
+import { logAmendmentEvent } from '@/utils/amendmentLog';
+
+export type AmendmentLearnerAudit = {
+  isAmendmentMode: boolean;
+  classId: string;
+  userId?: string;
+};
 
 export const useLearnerState = (
   classInfo: ClassInfo | undefined,
   updateLearnersContext: (classId: string, learners: Learner[]) => Promise<void>,
-  isLocked: boolean = false
+  isLocked: boolean = false,
+  amendmentAudit?: AmendmentLearnerAudit | null,
 ) => {
   const [learners, setLearners] = useState<Learner[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -62,6 +70,19 @@ export const useLearnerState = (
     return false;
   }, [isLocked]);
 
+  const logIfAmendment = useCallback(
+    (type: string, payload?: Record<string, unknown>) => {
+      if (!amendmentAudit?.isAmendmentMode) return;
+      logAmendmentEvent({
+        type,
+        classId: amendmentAudit.classId,
+        userId: amendmentAudit.userId,
+        payload,
+      });
+    },
+    [amendmentAudit],
+  );
+
   const handleMarkChange = useCallback((index: number, mark: string) => {
     if (!ensureUnlocked()) return;
     setLearners(prev => {
@@ -92,11 +113,12 @@ export const useLearnerState = (
         updated[index] = { ...updated[index], name: newName };
         return updated;
       });
+      logIfAmendment('LEARNER_RENAMED', { learnerId: learner.id, newName });
     } catch (err: any) {
       showError("Failed to rename learner: " + err.message);
       throw err;
     }
-  }, [learners, ensureUnlocked]);
+  }, [learners, ensureUnlocked, logIfAmendment]);
 
   const handleRemoveLearner = useCallback(async (index: number) => {
     if (!ensureUnlocked()) return;
@@ -108,12 +130,13 @@ export const useLearnerState = (
         if (error) throw error;
         setLearners(prev => prev.filter((_, i) => i !== index));
         showSuccess("Learner removed.");
+        logIfAmendment('LEARNER_REMOVED', { learnerId: learner.id });
       } catch (err: any) {
         showError("Failed to remove learner: " + err.message);
         throw err;
       }
     }
-  }, [learners, ensureUnlocked]);
+  }, [learners, ensureUnlocked, logIfAmendment]);
 
   const handleBatchDelete = useCallback(async (indices: number[]) => {
     if (!ensureUnlocked()) return;
@@ -124,11 +147,12 @@ export const useLearnerState = (
       if (error) throw error;
       setLearners(prev => prev.filter((_, i) => !indices.includes(i)));
       showSuccess(`Deleted ${toDeleteIds.length} learners.`);
+      logIfAmendment('LEARNERS_BATCH_DELETED', { learnerIds: toDeleteIds });
     } catch (e: any) {
       showError("Failed to delete learners: " + e.message);
       throw e;
     }
-  }, [learners, ensureUnlocked]);
+  }, [learners, ensureUnlocked, logIfAmendment]);
 
   const handleBatchComment = useCallback((indices: number[], comment: string) => {
     if (!ensureUnlocked()) return;
@@ -183,12 +207,13 @@ export const useLearnerState = (
       
       setLearners(prev => [...prev, ...learnersWithIds]);
       showSuccess(`Added ${newLearners.length} learner(s) successfully.`);
+      logIfAmendment('LEARNERS_ADDED', { count: newLearners.length });
     } catch (e: any) {
       console.error("Error adding learners:", e);
       showError("Failed to add learners: " + e.message);
       throw e;
     }
-  }, [classInfo?.id, ensureUnlocked]);
+  }, [classInfo?.id, ensureUnlocked, logIfAmendment]);
 
   const handleClearMarks = useCallback(() => {
     if (!ensureUnlocked()) return;
@@ -205,11 +230,12 @@ export const useLearnerState = (
       await updateLearnersContext(classInfo.id, updatedLearners);
       setLearners(updatedLearners);
       showSuccess("Class roster updated successfully.");
+      logIfAmendment('LEARNER_ROSTER_UPDATED', { learnerCount: updatedLearners.length });
     } catch (err: any) {
       showError("Failed to save changes: " + err.message);
       throw err;
     }
-  }, [classInfo?.id, updateLearnersContext, ensureUnlocked]);
+  }, [classInfo?.id, updateLearnersContext, ensureUnlocked, logIfAmendment]);
 
   const handleSaveChanges = useCallback(async () => {
     if (!ensureUnlocked()) return;
@@ -218,12 +244,13 @@ export const useLearnerState = (
         await updateLearnersContext(classInfo.id, learners);
         showSuccess("Changes have been saved successfully!");
         setHasUnsavedChanges(false);
+        logIfAmendment('LEARNER_ROSTER_SAVED', { learnerCount: learners.length });
       } catch (err: any) {
         showError("Failed to save changes: " + err.message);
         throw err;
       }
     }
-  }, [classInfo?.id, learners, updateLearnersContext, ensureUnlocked]);
+  }, [classInfo?.id, learners, updateLearnersContext, ensureUnlocked, logIfAmendment]);
 
   return {
     learners,

@@ -11,9 +11,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAcademic } from '@/context/AcademicContext';
 import { Badge } from '@/components/ui/badge';
+import { isClassFinalisationLocking } from '@/utils/classAmendment';
 
 interface ClassHeaderProps {
   classInfo: ClassInfo;
+  /** When true, class-level finalisation does not lock the UI (term closed still locks). */
+  isAmendmentMode?: boolean;
   onBack: () => void;
   onEdit: (details: Partial<ClassInfo>) => void;
   onSave: () => void;
@@ -30,6 +33,7 @@ interface ClassHeaderProps {
 
 export const ClassHeader = ({
   classInfo,
+  isAmendmentMode = false,
   onBack,
   onEdit,
   onSave,
@@ -37,7 +41,8 @@ export const ClassHeader = ({
 }: ClassHeaderProps) => {
   const { activeTerm } = useAcademic();
   const isTermClosed = !!activeTerm?.closed;
-  const isLocked = isTermClosed || classInfo.is_finalised;
+  const isLocked =
+    isTermClosed || isClassFinalisationLocking(!!classInfo.is_finalised, isAmendmentMode);
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-card text-card-foreground p-4 md:p-6 rounded-lg border border-border shadow-sm transition-all duration-300 w-full">

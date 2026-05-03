@@ -17,8 +17,21 @@ import { Loader2, User, Hash, ShieldCheck, Printer, BookOpen, Info, AlertTriangl
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { TeacherFileLayout } from '@/components/teacher-file/TeacherFileLayout';
+import { isClassFinalisationLocking } from '@/utils/classAmendment';
 
-export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { year: AcademicYear, term: Term, classId: string, isBulkMode?: boolean }) => {
+export const TeacherFileView = ({
+  year,
+  term,
+  classId,
+  isBulkMode = false,
+  isAmendmentMode = false,
+}: {
+  year: AcademicYear;
+  term: Term;
+  classId: string;
+  isBulkMode?: boolean;
+  isAmendmentMode?: boolean;
+}) => {
   const { data, loading, isRefreshing, error } = useTeacherFileData(year.id, term.id, classId);
   const { teacherName, schoolCode, saceNumber, gradingScheme } = useSettings();
 
@@ -29,7 +42,11 @@ export const TeacherFileView = ({ year, term, classId, isBulkMode = false }: { y
   const prefix = `${classId}_${term.id}_`; // Isolates manual file uploads to this specific class+term
   
   // Dynamic lock based on term or class finalization, or if we are bulk printing
-  const isLocked = !!term.closed || !!term.is_finalised || !!classInfo.is_finalised || isBulkMode;
+  const isLocked =
+    !!term.closed ||
+    !!term.is_finalised ||
+    isClassFinalisationLocking(!!classInfo.is_finalised, isAmendmentMode) ||
+    isBulkMode;
 
   const summaryText = `During the ${term.name} of ${year.name}, ${classInfo.learners.length} learners completed ${assessments.length} formal assessment tasks in ${classInfo.subject}. The class achieved an overall average of ${data.stats.average}% with a pass rate of ${data.stats.passRate}%.` 
   + (diagnostics.length > 0 ? ` ${diagnostics.length} diagnostic analyses were conducted to guide ongoing pedagogical interventions.` : '') 

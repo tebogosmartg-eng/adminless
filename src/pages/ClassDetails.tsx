@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useClasses } from "@/context/ClassesContext";
 import { useSettings } from "@/context/SettingsContext";
@@ -31,6 +31,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchClassInsights, getClassInsightsQueryKey } from "@/hooks/useClassAnalysis";
 import { logAdminLessError } from "@/utils/logAdminLessError";
 import { isOfficialTermOrClassExport } from "@/utils/officialExport";
+import { isClassContentEditable } from "@/utils/classAmendment";
+import { logAmendmentEvent } from "@/utils/amendmentLog";
+import { supabase } from "@/lib/supabaseClient";
 
 import Scan from "@/pages/Scan";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -78,8 +81,27 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
     marksQueryError,
   } = useAcademic();
   const { gradingScheme, schoolName, schoolCode, teacherName, schoolLogo } = useSettings();
-  const isLocked = !!activeTerm?.closed || !!classInfo.is_finalised;
+  const [isAmendmentMode, setIsAmendmentMode] = useState(false);
+  const [amendmentUserId, setAmendmentUserId] = useState<string | undefined>();
+  const isEditable = isClassContentEditable(!!classInfo.is_finalised, isAmendmentMode);
+  const isLocked = !!activeTerm?.closed || !isEditable;
   const academicDataFetchError = assessmentsQueryError ?? marksQueryError;
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => {
+      setAmendmentUserId(data.session?.user?.id);
+    });
+  }, []);
+
+  const learnerAmendmentAudit = useMemo(
+    () => ({ isAmendmentMode, classId, userId: amendmentUserId }),
+    [isAmendmentMode, classId, amendmentUserId],
+  );
+
+  const markSheetAmendmentAudit = useMemo(
+    () => (isAmendmentMode ? { classId, userId: amendmentUserId } : null),
+    [isAmendmentMode, classId, amendmentUserId],
+  );
 
   const handleRetryAcademicQueries = () => {
     void queryClient.invalidateQueries({ queryKey: ["assessments"] });
@@ -89,6 +111,7 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
   const [diagOpen, setDiagOpen] = useState(false);
   const [isMarkSheetUpdating, setIsMarkSheetUpdating] = useState(false);
   const marksheetRequestRef = useRef(0);
+  const previousClassIdRef = useRef(classId);
 
   const {
     learners,
@@ -103,7 +126,7 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
     handleBatchClearMarks,
     handleUpdateLearners,
     handleSaveChanges
-  } = useLearnerState(classInfo, updateClassLearners, isLocked);
+  } = useLearnerState(classInfo, updateClassLearners, isLocked, learnerAmendmentAudit);
 
   const {
     isGeneratingInsights,
@@ -160,6 +183,44 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
     setIsMarkSheetUpdating(false);
     marksheetRequestRef.current += 1;
   }, [classId]);
+
+  useEffect(() => {
+    if (previousClassIdRef.current === classId) return;
+    const endedForClassId = previousClassIdRef.current;
+    setIsAmendmentMode((was) => {
+      if (was) {
+        logAmendmentEvent({
+          type: "AMENDMENT_ENDED",
+          classId: endedForClassId,
+          userId: amendmentUserId,
+        });
+      }
+      return false;
+    });
+    previousClassIdRef.current = classId;
+  }, [classId, amendmentUserId]);
+
+  const enterAmendmentMode = useCallback(() => {
+    logAmendmentEvent({
+      type: "AMENDMENT_STARTED",
+      classId,
+      userId: amendmentUserId,
+    });
+    setIsAmendmentMode(true);
+  }, [classId, amendmentUserId]);
+
+  const exitAmendmentMode = useCallback(() => {
+    setIsAmendmentMode((was) => {
+      if (was) {
+        logAmendmentEvent({
+          type: "AMENDMENT_ENDED",
+          classId,
+          userId: amendmentUserId,
+        });
+      }
+      return false;
+    });
+  }, [classId, amendmentUserId]);
 
   useEffect(() => {
       if (!activeTerm?.id) {
@@ -239,9 +300,28 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
 
   return (
     <div className="container mx-auto p-2 sm:p-4 w-full max-w-7xl space-y-6 pb-20 relative animate-in fade-in duration-200">
+      {isAmendmentMode && (
+        <Alert className="border-amber-200 bg-amber-50/80 text-amber-950 dark:bg-amber-950/30 dark:text-amber-50 dark:border-amber-800">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <AlertTitle>
+            Amendment Mode Active — Changes are temporary until you re-finalise
+          </AlertTitle>
+          <AlertDescription className="flex flex-wrap justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="shrink-0 w-fit"
+              onClick={exitAmendmentMode}
+            >
+              Re-finalise Class
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="flex flex-col gap-4 w-full">
         <ClassHeader 
             classInfo={classInfo}
+            isAmendmentMode={isAmendmentMode}
             onBack={() => navigate('/classes')}
             onEdit={(details) => updateClassDetails(classInfo.id, details)}
             onSave={handleSaveChanges}
@@ -290,6 +370,8 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
             )}
             <MarkSheet 
                 classInfo={classInfo} 
+                isAmendmentMode={isAmendmentMode}
+                amendmentAudit={markSheetAmendmentAudit}
                 isLoading={academicLoading && !hasCachedMarkSheetData}
                 isRefreshing={isMarkSheetUpdating}
                 onViewLearnerProfile={(l) => dialogs.setSelectedProfileLearner(l)}
@@ -297,7 +379,7 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
         </TabsContent>
 
         <TabsContent value="capture" className="mt-4">
-           <Scan embedded defaultClassId={classInfo.id} />
+           <Scan embedded defaultClassId={classInfo.id} isAmendmentMode={isAmendmentMode} />
         </TabsContent>
 
         <TabsContent value="insights" className="mt-4">
@@ -321,6 +403,8 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
         <TabsContent value="reports" className="mt-4 space-y-8">
              <ClassReportsTab 
                classInfo={classInfo}
+               isAmendmentMode={isAmendmentMode}
+               onEnterAmendmentMode={enterAmendmentMode}
                isLocked={isLocked}
                onExportPdf={handleExportPdf}
                onExportCsv={handleExportCsv}
@@ -350,6 +434,7 @@ const ClassDetailsLoaded = ({ classId, classInfo }: { classId: string; classInfo
       <ClassDialogsManager
         dialogs={dialogs}
         classInfo={classInfo}
+        isAmendmentMode={isAmendmentMode}
         learners={learners}
         handlers={{
             handleAddLearners: () => {}, 

@@ -32,6 +32,8 @@ interface ClassDialogsManagerProps {
     setSelectedProfileLearner: (learner: Learner | null) => void;
   };
   classInfo: ClassInfo | undefined;
+  /** Class-level amendment unlock (term closed still locks). */
+  isAmendmentMode?: boolean;
   learners: Learner[];
   handlers: {
     handleAddLearners: (learners: Learner[]) => void;
@@ -49,6 +51,7 @@ interface ClassDialogsManagerProps {
 export const ClassDialogsManager = ({
   dialogs,
   classInfo,
+  isAmendmentMode = false,
   learners,
   handlers,
   aiFeatures
@@ -150,6 +153,7 @@ export const ClassDialogsManager = ({
         open={!!dialogs.selectedProfileLearner}
         onOpenChange={(open) => !open && dialogs.setSelectedProfileLearner(null)}
         classSubject={classInfo?.subject || ''}
+        isAmendmentMode={isAmendmentMode}
         onNext={handleNextLearner}
         onPrev={handlePrevLearner}
         hasNext={hasNext}

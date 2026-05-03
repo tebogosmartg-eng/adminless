@@ -23,12 +23,14 @@ import { useAsyncState } from '@/hooks/useAsyncState';
 import { AsyncStatus } from '@/components/ui/AsyncStatus';
 import { supabase } from '@/lib/supabaseClient';
 import { logAdminLessError } from '@/utils/logAdminLessError';
+import { isClassContentEditable } from '@/utils/classAmendment';
 
 interface LearnerProfileDialogProps {
   learner: Learner | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   classSubject: string;
+  isAmendmentMode?: boolean;
   onNext?: () => void;
   onPrev?: () => void;
   hasNext?: boolean;
@@ -40,6 +42,7 @@ export const LearnerProfileDialog = ({
   open, 
   onOpenChange, 
   classSubject,
+  isAmendmentMode = false,
   onNext,
   onPrev,
   hasNext,
@@ -57,7 +60,8 @@ export const LearnerProfileDialog = ({
     ? classes.find(c => c.learners.some(l => l.id === learnerId))
     : undefined;
   const currentClassId = currentClass?.id;
-  const isLocked = !!activeTerm?.closed || !!currentClass?.is_finalised;
+  const isEditable = isClassContentEditable(!!currentClass?.is_finalised, isAmendmentMode);
+  const isLocked = !!activeTerm?.closed || !isEditable;
   const currentLearner = learnerId
     ? currentClass?.learners.find((item) => item.id === learnerId) ?? learner
     : null;

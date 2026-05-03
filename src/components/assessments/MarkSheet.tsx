@@ -1,7 +1,7 @@
 "use client";
 
 import { ClassInfo, Learner, Assessment } from '@/lib/types';
-import { useMarkSheetLogic } from '@/hooks/useMarkSheetLogic';
+import { useMarkSheetLogic, type AmendmentMarkSheetAudit } from '@/hooks/useMarkSheetLogic';
 import { MarkSheetToolbar } from './MarkSheetToolbar';
 import { MarkSheetTable } from './MarkSheetTable';
 import { MarkSheetDialogs } from './MarkSheetDialogs';
@@ -25,6 +25,8 @@ import { logAdminLessError } from '@/utils/logAdminLessError';
 
 interface MarkSheetProps {
   classInfo: ClassInfo;
+  isAmendmentMode?: boolean;
+  amendmentAudit?: AmendmentMarkSheetAudit | null;
   onViewLearnerProfile?: (learner: Learner) => void;
   isLoading?: boolean;
   isRefreshing?: boolean;
@@ -57,8 +59,15 @@ const MarkSheetSkeleton = () => (
   </div>
 );
 
-export const MarkSheet = ({ classInfo, onViewLearnerProfile, isLoading = false, isRefreshing = false }: MarkSheetProps) => {
-  const { state, actions } = useMarkSheetLogic(classInfo);
+export const MarkSheet = ({
+  classInfo,
+  isAmendmentMode = false,
+  amendmentAudit = null,
+  onViewLearnerProfile,
+  isLoading = false,
+  isRefreshing = false,
+}: MarkSheetProps) => {
+  const { state, actions } = useMarkSheetLogic(classInfo, isAmendmentMode, amendmentAudit);
   const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(!isLoading);
   const marksQueryFingerprint = useMemo(
     () => [...state.assessments.map((a) => a.id).filter(Boolean)].sort().join(','),

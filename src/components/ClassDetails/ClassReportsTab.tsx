@@ -12,6 +12,8 @@ import { showError } from "@/utils/toast";
 
 interface ClassReportsTabProps {
   classInfo: ClassInfo;
+  isAmendmentMode?: boolean;
+  onEnterAmendmentMode: () => void;
   isLocked: boolean;
   onExportPdf: (lang: string) => void;
   onExportCsv: (lang: string) => void;
@@ -24,6 +26,8 @@ interface ClassReportsTabProps {
 
 export const ClassReportsTab = ({
   classInfo,
+  isAmendmentMode = false,
+  onEnterAmendmentMode,
   isLocked,
   onExportPdf,
   onExportCsv,
@@ -106,7 +110,11 @@ export const ClassReportsTab = ({
         </Card>
       </div>
       <div className="w-full">
-        <TermFinalizationCard classInfo={classInfo} />
+        <TermFinalizationCard
+          classInfo={classInfo}
+          isAmendmentMode={isAmendmentMode}
+          onEnterAmendmentMode={onEnterAmendmentMode}
+        />
       </div>
     </div>
   );
